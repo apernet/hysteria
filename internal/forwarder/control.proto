@@ -1,0 +1,19 @@
+syntax = "proto3";
+package forwarder;
+
+message Speed {
+    uint64 send_bps = 1;
+    uint64 receive_bps = 2;
+}
+
+message ClientSpeedRequest {
+    string name = 1;
+    Speed speed = 2;
+}
+
+message ServerSpeedResponse {
+    string banner = 1;
+    bool limited = 2;
+    Speed limit = 3;
+    Speed speed = 4;
+}
