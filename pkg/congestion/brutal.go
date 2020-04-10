@@ -5,11 +5,22 @@ import (
 	"time"
 )
 
+const (
+	ackRateMinSampleInterval = 4 * time.Second
+	ackRateMaxSampleInterval = 20 * time.Second
+	ackRateMinACKSampleCount = 200
+)
+
 // BrutalSender sends packets at a constant rate and does not react to any changes in the network environment,
 // hence the name.
 type BrutalSender struct {
 	rttStats *congestion.RTTStats
 	bps      congestion.ByteCount
+
+	ackCount, lossCount  uint64
+	ackRate              float64
+	ackRateNextUpdateMin time.Time
+	ackRateNextUpdateMax time.Time
 }
 
 func NewBrutalSender(bps congestion.ByteCount) *BrutalSender {
@@ -27,7 +38,13 @@ func (b *BrutalSender) TimeUntilSend(bytesInFlight congestion.ByteCount) time.Du
 }
 
 func (b *BrutalSender) CanSend(bytesInFlight congestion.ByteCount) bool {
-	return bytesInFlight < b.GetCongestionWindow()
+	if b.ackRate == 0 {
+		return bytesInFlight < b.GetCongestionWindow()
+	} else if b.ackRate > 0.5 {
+		return bytesInFlight < congestion.ByteCount(float64(b.GetCongestionWindow())/b.ackRate)
+	} else {
+		return bytesInFlight < b.GetCongestionWindow()*2
+	}
 }
 
 func (b *BrutalSender) GetCongestionWindow() congestion.ByteCount {
@@ -44,10 +61,35 @@ func (b *BrutalSender) OnPacketSent(sentTime time.Time, bytesInFlight congestion
 
 func (b *BrutalSender) OnPacketAcked(number congestion.PacketNumber, ackedBytes congestion.ByteCount,
 	priorInFlight congestion.ByteCount, eventTime time.Time) {
+	b.ackCount += 1
+	b.maybeUpdateACKRate()
 }
 
 func (b *BrutalSender) OnPacketLost(number congestion.PacketNumber, lostBytes congestion.ByteCount,
 	priorInFlight congestion.ByteCount) {
+	b.lossCount += 1
+	b.maybeUpdateACKRate()
+}
+
+func (b *BrutalSender) maybeUpdateACKRate() {
+	now := time.Now()
+	if !now.After(b.ackRateNextUpdateMin) {
+		return
+	}
+	// Min interval reached
+	if b.ackCount >= ackRateMinACKSampleCount {
+		b.ackRate = float64(b.ackCount) / float64(b.ackCount+b.lossCount)
+		b.ackCount, b.lossCount = 0, 0
+		b.ackRateNextUpdateMin = now.Add(ackRateMinSampleInterval)
+		b.ackRateNextUpdateMax = now.Add(ackRateMaxSampleInterval)
+	} else {
+		if now.After(b.ackRateNextUpdateMax) {
+			// Max interval reached, still not enough samples, reset
+			b.ackCount, b.lossCount = 0, 0
+			b.ackRateNextUpdateMin = now.Add(ackRateMinSampleInterval)
+			b.ackRateNextUpdateMax = now.Add(ackRateMaxSampleInterval)
+		}
+	}
 }
 
 func (b *BrutalSender) InSlowStart() bool {
