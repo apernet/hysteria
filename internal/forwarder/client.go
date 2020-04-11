@@ -192,14 +192,10 @@ func (c *QUICClient) handleConn(conn net.Conn) {
 	go func() {
 		// TCP to QUIC
 		errChan <- utils.Pipe(conn, stream, &c.outboundBytes)
-		_ = conn.Close()
-		_ = stream.Close()
 	}()
 	go func() {
 		// QUIC to TCP
 		errChan <- utils.Pipe(stream, conn, &c.inboundBytes)
-		_ = conn.Close()
-		_ = stream.Close()
 	}()
 	// We only need the first error
 	err = <-errChan
