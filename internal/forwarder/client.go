@@ -187,14 +187,21 @@ func (c *QUICClient) handleConn(conn net.Conn) {
 		return
 	}
 	defer stream.Close()
-	// From TCP to QUIC
+	// Pipes
+	errChan := make(chan error, 2)
 	go func() {
-		_ = utils.Pipe(conn, stream, &c.outboundBytes)
+		// TCP to QUIC
+		errChan <- utils.Pipe(conn, stream, &c.outboundBytes)
 		_ = conn.Close()
 		_ = stream.Close()
 	}()
-	// From QUIC to TCP
-	err = utils.Pipe(stream, conn, &c.inboundBytes)
-	// Closed
+	go func() {
+		// QUIC to TCP
+		errChan <- utils.Pipe(stream, conn, &c.inboundBytes)
+		_ = conn.Close()
+		_ = stream.Close()
+	}()
+	// We only need the first error
+	err = <-errChan
 	c.onTCPConnectionClosed(conn.RemoteAddr(), err)
 }

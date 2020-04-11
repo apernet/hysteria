@@ -160,14 +160,21 @@ func (s *QUICServer) handleStream(addr net.Addr, name string, stream quic.Stream
 		return
 	}
 	defer tcpConn.Close()
-	// From TCP to QUIC
+	// Pipes
+	errChan := make(chan error, 2)
 	go func() {
-		_ = utils.Pipe(tcpConn, stream, &s.outboundBytes)
+		// TCP to QUIC
+		errChan <- utils.Pipe(tcpConn, stream, &s.outboundBytes)
 		_ = tcpConn.Close()
 		_ = stream.Close()
 	}()
-	// From QUIC to TCP
-	err = utils.Pipe(stream, tcpConn, &s.inboundBytes)
-	// Closed
+	go func() {
+		// QUIC to TCP
+		errChan <- utils.Pipe(stream, tcpConn, &s.inboundBytes)
+		_ = tcpConn.Close()
+		_ = stream.Close()
+	}()
+	// We only need the first error
+	err = <-errChan
 	s.onClientStreamClosed(addr, name, int(stream.StreamID()), err)
 }
