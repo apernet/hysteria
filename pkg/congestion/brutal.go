@@ -34,17 +34,17 @@ func (b *BrutalSender) SetRTTStats(rttStats *congestion.RTTStats) {
 }
 
 func (b *BrutalSender) TimeUntilSend(bytesInFlight congestion.ByteCount) time.Duration {
-	return time.Duration(congestion.ByteCount(time.Second) * congestion.MaxPacketSizeIPv4 / (2 * b.bps))
+	return time.Duration(congestion.MaxPacketSizeIPv4 * congestion.ByteCount(time.Second) / (2 * b.bps))
 }
 
 func (b *BrutalSender) CanSend(bytesInFlight congestion.ByteCount) bool {
-	if b.ackRate == 0 {
-		return bytesInFlight < b.GetCongestionWindow()
-	} else if b.ackRate > 0.5 {
-		return bytesInFlight < congestion.ByteCount(float64(b.GetCongestionWindow())/b.ackRate)
-	} else {
-		return bytesInFlight < b.GetCongestionWindow()*2
+	rate := b.ackRate
+	if rate <= 0 {
+		rate = 1
+	} else if rate < 0.5 {
+		rate = 0.5
 	}
+	return bytesInFlight < congestion.ByteCount(float64(b.GetCongestionWindow())/rate)
 }
 
 func (b *BrutalSender) GetCongestionWindow() congestion.ByteCount {
