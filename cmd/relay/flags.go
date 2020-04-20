@@ -2,7 +2,6 @@ package main
 
 import (
 	"strconv"
-	"strings"
 )
 
 type optionalBoolFlag struct {
@@ -24,17 +23,6 @@ func (flag *optionalBoolFlag) Set(s string) error {
 	return nil
 }
 
-func (o *optionalBoolFlag) IsBoolFlag() bool {
+func (flag *optionalBoolFlag) IsBoolFlag() bool {
 	return true
-}
-
-type stringSliceFlag []string
-
-func (flag *stringSliceFlag) String() string {
-	return strings.Join(*flag, ";")
-}
-
-func (flag *stringSliceFlag) Set(s string) error {
-	*flag = append(*flag, s)
-	return nil
 }

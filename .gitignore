@@ -179,5 +179,4 @@ $RECYCLE.BIN/
 
 # End of https://www.gitignore.io/api/go,linux,macos,windows,intellij+all
 
-cmd/forwarder/*.json
-cmd/forwarder/forwarder
+cmd/relay/*.json

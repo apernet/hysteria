@@ -1,0 +1,50 @@
+syntax = "proto3";
+package core;
+
+message Speed {
+    uint64 send_bps = 1;
+    uint64 receive_bps = 2;
+}
+
+message Credential {
+    string username = 1;
+    string password = 2;
+}
+
+enum AuthResult {
+    AUTH_SUCCESS = 0;
+    AUTH_INVALID_CRED = 1;
+    AUTH_INTERNAL_ERROR = 2;
+}
+
+message ClientAuthRequest {
+    Credential credential = 1;
+    Speed speed = 2;
+}
+
+message ServerAuthResponse {
+    AuthResult result = 1;
+    string message = 2;
+    Speed speed = 3;
+}
+
+enum ConnectionType {
+    TCP = 0;
+    UDP = 1;
+}
+
+enum ConnectResult {
+    CONN_SUCCESS = 0;
+    CONN_FAILED = 1;
+    CONN_BLOCKED = 2;
+}
+
+message ClientConnectRequest {
+    ConnectionType type = 1;
+    string address = 2;
+}
+
+message ServerConnectResponse {
+    ConnectResult result = 1;
+    string message = 2;
+}

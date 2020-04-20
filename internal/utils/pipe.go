@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 )
 
-const pipeBufferSize = 16384
+const pipeBufferSize = 65536
 
 func Pipe(src, dst io.ReadWriter, atomicCounter *uint64) error {
 	buf := make([]byte, pipeBufferSize)
@@ -13,7 +13,9 @@ func Pipe(src, dst io.ReadWriter, atomicCounter *uint64) error {
 		rn, err := src.Read(buf)
 		if rn > 0 {
 			wn, err := dst.Write(buf[:rn])
-			atomic.AddUint64(atomicCounter, uint64(wn))
+			if atomicCounter != nil {
+				atomic.AddUint64(atomicCounter, uint64(wn))
+			}
 			if err != nil {
 				return err
 			}
