@@ -29,8 +29,8 @@ message ServerAuthResponse {
 }
 
 enum ConnectionType {
-    TCP = 0;
-    UDP = 1;
+    Stream = 0;
+    Packet = 1;
 }
 
 enum ConnectResult {

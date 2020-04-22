@@ -49,17 +49,17 @@ func NewClient(serverAddr string, username string, password string, tlsConfig *t
 	return c, nil
 }
 
-func (c *Client) Dial(udp bool, addr string) (io.ReadWriteCloser, error) {
+func (c *Client) Dial(packet bool, addr string) (io.ReadWriteCloser, error) {
 	stream, err := c.openStreamWithReconnect()
 	if err != nil {
 		return nil, err
 	}
 	// Send request
 	req := &ClientConnectRequest{Address: addr}
-	if udp {
-		req.Type = ConnectionType_UDP
+	if packet {
+		req.Type = ConnectionType_Packet
 	} else {
-		req.Type = ConnectionType_TCP
+		req.Type = ConnectionType_Stream
 	}
 	err = writeClientConnectRequest(stream, req)
 	if err != nil {
@@ -77,7 +77,7 @@ func (c *Client) Dial(udp bool, addr string) (io.ReadWriteCloser, error) {
 		return nil, fmt.Errorf("server rejected the connection %s (msg: %s)",
 			resp.Result.String(), resp.Message)
 	}
-	if udp {
+	if packet {
 		return &utils.PacketReadWriteCloser{Orig: stream}, nil
 	} else {
 		return stream, nil

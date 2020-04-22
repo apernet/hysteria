@@ -175,25 +175,12 @@ func (s *Server) handleStream(addr net.Addr, username string, stream quic.Stream
 		return
 	}
 	switch req.Type {
-	case ConnectionType_TCP:
-		err = s.pipePair(stream, conn)
-	case ConnectionType_UDP:
-		err = s.pipePair(&utils.PacketReadWriteCloser{Orig: stream}, conn)
+	case ConnectionType_Stream:
+		err = utils.PipePair(stream, conn, &s.outboundBytes, &s.inboundBytes)
+	case ConnectionType_Packet:
+		err = utils.PipePair(&utils.PacketReadWriteCloser{Orig: stream}, conn, &s.outboundBytes, &s.inboundBytes)
 	default:
 		err = fmt.Errorf("unsupported connection type %s", req.Type.String())
 	}
 	s.requestClosedFunc(addr, username, int(stream.StreamID()), req.Type, req.Address, err)
-}
-
-func (s *Server) pipePair(rw1, rw2 io.ReadWriter) error {
-	// Pipes
-	errChan := make(chan error, 2)
-	go func() {
-		errChan <- utils.Pipe(rw2, rw1, &s.outboundBytes)
-	}()
-	go func() {
-		errChan <- utils.Pipe(rw1, rw2, &s.inboundBytes)
-	}()
-	// We only need the first error
-	return <-errChan
 }

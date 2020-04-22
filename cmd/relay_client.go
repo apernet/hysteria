@@ -8,15 +8,14 @@ import (
 	"github.com/tobyxdd/hysteria/internal/utils"
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
-	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"os/user"
 )
 
-func client(args []string) {
-	var config cmdClientConfig
+func relayClient(args []string) {
+	var config relayClientConfig
 	err := loadConfig(&config, args)
 	if err != nil {
 		log.Fatalln("Unable to load configuration:", err)
@@ -33,7 +32,7 @@ func client(args []string) {
 	log.Printf("Configuration loaded: %+v\n", config)
 
 	tlsConfig := &tls.Config{
-		NextProtos: []string{TLSAppProtocol},
+		NextProtos: []string{relayTLSProtocol},
 		MinVersion: tls.VersionTLS13,
 	}
 	// Load CA
@@ -70,7 +69,7 @@ func client(args []string) {
 		log.Fatalln("Client initialization failed:", err)
 	}
 	defer client.Close()
-	log.Println("Client initialization complete, connected to", config.ServerAddr)
+	log.Println("Connected to", config.ServerAddr)
 
 	listener, err := net.Listen("tcp", config.ListenAddr)
 	if err != nil {
@@ -84,16 +83,16 @@ func client(args []string) {
 		if err != nil {
 			log.Fatalln("TCP accept failed:", err)
 		}
-		go clientHandleConn(conn, client)
+		go relayClientHandleConn(conn, client)
 	}
 }
 
-func clientHandleConn(conn net.Conn, client core.Client) {
-	log.Println("New TCP connection from", conn.RemoteAddr().String())
+func relayClientHandleConn(conn net.Conn, client core.Client) {
+	log.Println("New connection", conn.RemoteAddr().String())
 	var closeErr error
 	defer func() {
 		_ = conn.Close()
-		log.Println("TCP connection from", conn.RemoteAddr().String(), "closed", closeErr)
+		log.Println("Connection", conn.RemoteAddr().String(), "closed", closeErr)
 	}()
 	rwc, err := client.Dial(false, "")
 	if err != nil {
@@ -101,18 +100,5 @@ func clientHandleConn(conn net.Conn, client core.Client) {
 		return
 	}
 	defer rwc.Close()
-	closeErr = pipePair(conn, rwc)
-}
-
-func pipePair(rw1, rw2 io.ReadWriter) error {
-	// Pipes
-	errChan := make(chan error, 2)
-	go func() {
-		errChan <- utils.Pipe(rw2, rw1, nil)
-	}()
-	go func() {
-		errChan <- utils.Pipe(rw1, rw2, nil)
-	}()
-	// We only need the first error
-	return <-errChan
+	closeErr = utils.PipePair(conn, rwc, nil, nil)
 }

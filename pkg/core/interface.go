@@ -27,8 +27,8 @@ const (
 type CongestionFactory core.CongestionFactory
 type ClientAuthFunc func(addr net.Addr, username string, password string, sSend uint64, sRecv uint64) (AuthResult, string)
 type ClientDisconnectedFunc core.ClientDisconnectedFunc
-type HandleRequestFunc func(addr net.Addr, username string, id int, isUDP bool, reqAddr string) (ConnectResult, string, io.ReadWriteCloser)
-type RequestClosedFunc func(addr net.Addr, username string, id int, isUDP bool, reqAddr string, err error)
+type HandleRequestFunc func(addr net.Addr, username string, id int, packet bool, reqAddr string) (ConnectResult, string, io.ReadWriteCloser)
+type RequestClosedFunc func(addr net.Addr, username string, id int, packet bool, reqAddr string, err error)
 
 type Server interface {
 	Serve() error
@@ -49,16 +49,16 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 		},
 		core.ClientDisconnectedFunc(clientDisconnectedFunc),
 		func(addr net.Addr, username string, id int, reqType core.ConnectionType, reqAddr string) (core.ConnectResult, string, io.ReadWriteCloser) {
-			r, msg, conn := handleRequestFunc(addr, username, id, reqType == core.ConnectionType_UDP, reqAddr)
+			r, msg, conn := handleRequestFunc(addr, username, id, reqType == core.ConnectionType_Packet, reqAddr)
 			return core.ConnectResult(r), msg, conn
 		},
 		func(addr net.Addr, username string, id int, reqType core.ConnectionType, reqAddr string, err error) {
-			requestClosedFunc(addr, username, id, reqType == core.ConnectionType_UDP, reqAddr, err)
+			requestClosedFunc(addr, username, id, reqType == core.ConnectionType_Packet, reqAddr, err)
 		})
 }
 
 type Client interface {
-	Dial(udp bool, addr string) (io.ReadWriteCloser, error)
+	Dial(packet bool, addr string) (io.ReadWriteCloser, error)
 	Stats() (inbound uint64, outbound uint64)
 	Close() error
 }

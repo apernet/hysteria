@@ -1,0 +1,8 @@
+{
+  "listen": "localhost:1080",
+  "server": "toby.moe:36712",
+  "name": "",
+  "insecure": false,
+  "up_mbps": 50,
+  "down_mbps": 80
+}

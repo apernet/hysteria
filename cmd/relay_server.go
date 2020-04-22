@@ -11,8 +11,8 @@ import (
 	"net"
 )
 
-func server(args []string) {
-	var config cmdServerConfig
+func relayServer(args []string) {
+	var config relayServerConfig
 	err := loadConfig(&config, args)
 	if err != nil {
 		log.Fatalln("Unable to load configuration:", err)
@@ -28,13 +28,14 @@ func server(args []string) {
 	}
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		NextProtos:   []string{TLSAppProtocol},
+		NextProtos:   []string{relayTLSProtocol},
 		MinVersion:   tls.VersionTLS13,
 	}
 
 	quicConfig := &quic.Config{
 		MaxReceiveStreamFlowControlWindow:     config.ReceiveWindowConn,
 		MaxReceiveConnectionFlowControlWindow: config.ReceiveWindowClient,
+		MaxIncomingStreams:                    config.MaxConnClient,
 		KeepAlive:                             true,
 	}
 	if quicConfig.MaxReceiveStreamFlowControlWindow == 0 {
@@ -42,6 +43,9 @@ func server(args []string) {
 	}
 	if quicConfig.MaxReceiveConnectionFlowControlWindow == 0 {
 		quicConfig.MaxReceiveConnectionFlowControlWindow = DefaultMaxReceiveConnectionFlowControlWindow
+	}
+	if quicConfig.MaxIncomingStreams == 0 {
+		quicConfig.MaxIncomingStreams = DefaultMaxIncomingStreams
 	}
 
 	server, err := core.NewServer(config.ListenAddr, tlsConfig, quicConfig,
@@ -51,34 +55,34 @@ func server(args []string) {
 		},
 		func(addr net.Addr, username string, password string, sSend uint64, sRecv uint64) (core.AuthResult, string) {
 			// No authentication logic in relay, just log username and speed
-			log.Printf("Client %s connected, negotiated speed in Mbps: Up %d / Down %d\n",
-				addr.String(), sSend/mbpsToBps, sRecv/mbpsToBps)
+			log.Printf("%s (%s) connected, negotiated speed (Mbps): Up %d / Down %d\n",
+				addr.String(), username, sSend/mbpsToBps, sRecv/mbpsToBps)
 			return core.AuthSuccess, ""
 		},
 		func(addr net.Addr, username string, err error) {
-			log.Printf("Client %s (%s) disconnected: %s\n", addr.String(), username, err.Error())
+			log.Printf("%s (%s) disconnected: %s\n", addr.String(), username, err.Error())
 		},
-		func(addr net.Addr, username string, id int, isUDP bool, reqAddr string) (core.ConnectResult, string, io.ReadWriteCloser) {
-			log.Printf("Client %s (%s) opened stream ID %d\n", addr.String(), username, id)
-			if isUDP {
+		func(addr net.Addr, username string, id int, packet bool, reqAddr string) (core.ConnectResult, string, io.ReadWriteCloser) {
+			log.Printf("%s (%s): new stream ID %d\n", addr.String(), username, id)
+			if packet {
 				return core.ConnBlocked, "unsupported", nil
 			}
 			conn, err := net.Dial("tcp", config.RemoteAddr)
 			if err != nil {
-				log.Printf("TCP error when connecting to %s: %s", config.RemoteAddr, err.Error())
+				log.Printf("TCP error %s: %s\n", config.RemoteAddr, err.Error())
 				return core.ConnFailed, err.Error(), nil
 			}
 			return core.ConnSuccess, "", conn
 		},
-		func(addr net.Addr, username string, id int, isUDP bool, reqAddr string, err error) {
-			log.Printf("Client %s (%s) closed stream ID %d: %s", addr.String(), username, id, err.Error())
+		func(addr net.Addr, username string, id int, packet bool, reqAddr string, err error) {
+			log.Printf("%s (%s): closed stream ID %d: %s\n", addr.String(), username, id, err.Error())
 		},
 	)
 	if err != nil {
 		log.Fatalln("Server initialization failed:", err)
 	}
 	defer server.Close()
-	log.Println("The server is now up and running :)")
+	log.Println("Up and running on", config.ListenAddr)
 
-	log.Fatalln("Server error:", server.Serve())
+	log.Fatalln(server.Serve())
 }
