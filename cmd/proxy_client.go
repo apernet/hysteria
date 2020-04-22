@@ -10,7 +10,6 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/socks5"
 	"io/ioutil"
 	"log"
-	"os/user"
 )
 
 func proxyClient(args []string) {
@@ -21,12 +20,6 @@ func proxyClient(args []string) {
 	}
 	if err := config.Check(); err != nil {
 		log.Fatalln("Configuration error:", err)
-	}
-	if len(config.Name) == 0 {
-		usr, err := user.Current()
-		if err == nil {
-			config.Name = usr.Name
-		}
 	}
 	log.Printf("Configuration loaded: %+v\n", config)
 
@@ -59,7 +52,7 @@ func proxyClient(args []string) {
 		quicConfig.MaxReceiveConnectionFlowControlWindow = DefaultMaxReceiveConnectionFlowControlWindow
 	}
 
-	client, err := core.NewClient(config.ServerAddr, config.Name, "", tlsConfig, quicConfig,
+	client, err := core.NewClient(config.ServerAddr, config.Username, config.Password, tlsConfig, quicConfig,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.SendAlgorithmWithDebugInfos {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
@@ -70,7 +63,7 @@ func proxyClient(args []string) {
 	defer client.Close()
 	log.Println("Connected to", config.ServerAddr)
 
-	socks5server, err := socks5.NewServer(config.SOCKS5Addr, "", nil, 0, 0, 0)
+	socks5server, err := socks5.NewServer(config.SOCKS5Addr, "", nil, config.SOCKS5Timeout, 0, 0)
 	if err != nil {
 		log.Fatalln("SOCKS5 server initialization failed:", err)
 	}

@@ -8,7 +8,8 @@ type proxyClientConfig struct {
 	SOCKS5Addr        string `json:"socks5_addr" desc:"SOCKS5 listen address"`
 	SOCKS5Timeout     int    `json:"socks5_timeout" desc:"SOCKS5 connection timeout in seconds"`
 	ServerAddr        string `json:"server" desc:"Server address"`
-	Name              string `json:"name" desc:"Client name presented to the server"`
+	Username          string `json:"username" desc:"Authentication username"`
+	Password          string `json:"password" desc:"Authentication password"`
 	Insecure          bool   `json:"insecure" desc:"Ignore TLS certificate errors"`
 	CustomCAFile      string `json:"ca" desc:"Specify a trusted CA file"`
 	UpMbps            int    `json:"up_mbps" desc:"Upload speed in Mbps"`
@@ -41,6 +42,7 @@ type proxyServerConfig struct {
 	ListenAddr          string `json:"listen" desc:"Server listen address"`
 	CertFile            string `json:"cert" desc:"TLS certificate file"`
 	KeyFile             string `json:"key" desc:"TLS key file"`
+	AuthFile            string `json:"auth" desc:"Authentication file"`
 	UpMbps              int    `json:"up_mbps" desc:"Max upload speed per client in Mbps"`
 	DownMbps            int    `json:"down_mbps" desc:"Max download speed per client in Mbps"`
 	ReceiveWindowConn   uint64 `json:"recv_window_conn" desc:"Max receive window size per connection"`

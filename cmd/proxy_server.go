@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/tls"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
@@ -9,6 +10,8 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
+	"strings"
 )
 
 func proxyServer(args []string) {
@@ -48,16 +51,36 @@ func proxyServer(args []string) {
 		quicConfig.MaxIncomingStreams = DefaultMaxIncomingStreams
 	}
 
+	if len(config.AuthFile) == 0 {
+		log.Println("WARNING: No authentication configured. This server can be used by anyone!")
+	}
+
 	server, err := core.NewServer(config.ListenAddr, tlsConfig, quicConfig,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.SendAlgorithmWithDebugInfos {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		},
 		func(addr net.Addr, username string, password string, sSend uint64, sRecv uint64) (core.AuthResult, string) {
-			// No authentication logic in relay, just log username and speed
-			log.Printf("%s (%s) connected, negotiated speed (Mbps): Up %d / Down %d\n",
-				addr.String(), username, sSend/mbpsToBps, sRecv/mbpsToBps)
-			return core.AuthSuccess, ""
+			if len(config.AuthFile) == 0 {
+				log.Printf("%s (%s) connected, negotiated speed (Mbps): Up %d / Down %d\n",
+					addr.String(), username, sSend/mbpsToBps, sRecv/mbpsToBps)
+				return core.AuthSuccess, ""
+			} else {
+				// Need auth
+				ok, err := checkAuth(config.AuthFile, username, password)
+				if err != nil {
+					log.Printf("%s (%s) auth error: %s\n", addr.String(), username, err.Error())
+					return core.AuthInternalError, "Server auth error"
+				}
+				if ok {
+					log.Printf("%s (%s) authenticated, negotiated speed (Mbps): Up %d / Down %d\n",
+						addr.String(), username, sSend/mbpsToBps, sRecv/mbpsToBps)
+					return core.AuthSuccess, ""
+				} else {
+					log.Printf("%s (%s) auth failed (invalid credential)\n", addr.String(), username)
+					return core.AuthInvalidCred, "Invalid credential"
+				}
+			}
 		},
 		func(addr net.Addr, username string, err error) {
 			log.Printf("%s (%s) disconnected: %s\n", addr.String(), username, err.Error())
@@ -98,4 +121,24 @@ func proxyServer(args []string) {
 	log.Println("Up and running on", config.ListenAddr)
 
 	log.Fatalln(server.Serve())
+}
+
+func checkAuth(authFile, username, password string) (bool, error) {
+	f, err := os.Open(authFile)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		pair := strings.Fields(scanner.Text())
+		if len(pair) != 2 {
+			// Invalid format
+			continue
+		}
+		if username == pair[0] && password == pair[1] {
+			return true, nil
+		}
+	}
+	return false, nil
 }
