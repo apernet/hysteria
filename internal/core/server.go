@@ -32,11 +32,23 @@ type Server struct {
 
 func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
+	obfuscator Obfuscator,
 	clientAuthFunc ClientAuthFunc,
 	clientDisconnectedFunc ClientDisconnectedFunc,
 	handleRequestFunc HandleRequestFunc,
 	requestClosedFunc RequestClosedFunc) (*Server, error) {
-	listener, err := quic.ListenAddr(addr, tlsConfig, quicConfig)
+	packetConn, err := net.ListenPacket("udp", addr)
+	if err != nil {
+		return nil, err
+	}
+	if obfuscator != nil {
+		// Wrap PacketConn with obfuscator
+		packetConn = &obfsPacketConn{
+			Orig:       packetConn,
+			Obfuscator: obfuscator,
+		}
+	}
+	listener, err := quic.Listen(packetConn, tlsConfig, quicConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -16,6 +16,7 @@ type proxyClientConfig struct {
 	DownMbps          int    `json:"down_mbps" desc:"Download speed in Mbps"`
 	ReceiveWindowConn uint64 `json:"recv_window_conn" desc:"Max receive window size per connection"`
 	ReceiveWindow     uint64 `json:"recv_window" desc:"Max receive window size"`
+	Obfs              string `json:"obfs" desc:"Obfuscation key"`
 }
 
 func (c *proxyClientConfig) Check() error {
@@ -48,6 +49,7 @@ type proxyServerConfig struct {
 	ReceiveWindowConn   uint64 `json:"recv_window_conn" desc:"Max receive window size per connection"`
 	ReceiveWindowClient uint64 `json:"recv_window_client" desc:"Max receive window size per client"`
 	MaxConnClient       int    `json:"max_conn_client" desc:"Max simultaneous connections allowed per client"`
+	Obfs                string `json:"obfs" desc:"Obfuscation key"`
 }
 
 func (c *proxyServerConfig) Check() error {

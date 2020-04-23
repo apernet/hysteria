@@ -6,6 +6,7 @@ import (
 	"github.com/lucas-clemente/quic-go/congestion"
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"io"
 	"log"
 	"net"
@@ -48,11 +49,17 @@ func relayServer(args []string) {
 		quicConfig.MaxIncomingStreams = DefaultMaxIncomingStreams
 	}
 
+	var obfuscator core.Obfuscator
+	if len(config.Obfs) > 0 {
+		obfuscator = obfs.XORObfuscator(config.Obfs)
+	}
+
 	server, err := core.NewServer(config.ListenAddr, tlsConfig, quicConfig,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.SendAlgorithmWithDebugInfos {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		},
+		obfuscator,
 		func(addr net.Addr, username string, password string, sSend uint64, sRecv uint64) (core.AuthResult, string) {
 			// No authentication logic in relay, just log username and speed
 			log.Printf("%s (%s) connected, negotiated speed (Mbps): Up %d / Down %d\n",

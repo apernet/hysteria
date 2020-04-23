@@ -29,10 +29,11 @@ type Client struct {
 	quicConfig         *quic.Config
 	sendBPS, recvBPS   uint64
 	congestionFactory  CongestionFactory
+	obfuscator         Obfuscator
 }
 
 func NewClient(serverAddr string, username string, password string, tlsConfig *tls.Config, quicConfig *quic.Config,
-	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory) (*Client, error) {
+	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, obfuscator Obfuscator) (*Client, error) {
 	c := &Client{
 		serverAddr:        serverAddr,
 		username:          username,
@@ -42,6 +43,7 @@ func NewClient(serverAddr string, username string, password string, tlsConfig *t
 		sendBPS:           sendBPS,
 		recvBPS:           recvBPS,
 		congestionFactory: congestionFactory,
+		obfuscator:        obfuscator,
 	}
 	if err := c.connectToServer(); err != nil {
 		return nil, err
@@ -97,7 +99,22 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) connectToServer() error {
-	qs, err := quic.DialAddr(c.serverAddr, c.tlsConfig, c.quicConfig)
+	serverUDPAddr, err := net.ResolveUDPAddr("udp", c.serverAddr)
+	if err != nil {
+		return err
+	}
+	packetConn, err := net.ListenPacket("udp", "")
+	if err != nil {
+		return err
+	}
+	if c.obfuscator != nil {
+		// Wrap PacketConn with obfuscator
+		packetConn = &obfsPacketConn{
+			Orig:       packetConn,
+			Obfuscator: c.obfuscator,
+		}
+	}
+	qs, err := quic.Dial(packetConn, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
 	if err != nil {
 		return err
 	}
