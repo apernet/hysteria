@@ -1,0 +1,58 @@
+name: Build and release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+
+  build:
+    name: Build and release
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Set up Go 1.14
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.14
+        id: go
+
+      - name: Check out
+        uses: actions/checkout@v2
+
+      - name: Get dependencies
+        run: |
+          go get -v -t -d ./...
+          if [ -f Gopkg.toml ]; then
+              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+              dep ensure
+          fi
+
+      - name: Get tag
+        uses: olegtarasov/get-tag@v2
+        id: tagName
+
+      - name: Get time
+        uses: gerred/actions/current-time@master
+        id: current-time
+
+      - name: Crossbuild
+        uses: izumin5210/action-go-crossbuild@v1.0.0
+        env:
+          TIME: "${{ steps.current-time.outputs.time }}"
+        with:
+          name: hysteria-cli
+          arch: amd64,arm
+          dest: ./dist/
+          ldflags: -w -s -X main.appVersion=$GIT_TAG_NAME -X main.appCommit=$GITHUB_SHA -X main.appDate=$TIME
+          os: darwin,linux,windows
+          package: ./cmd
+
+      - name: Upload
+        uses: meeDamian/github-release@2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.tagName.outputs.tag }}
+          name: ${{ steps.tagName.outputs.tag }}
+          files: ./dist/
