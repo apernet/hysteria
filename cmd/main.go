@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+// Injected when compiling
+var (
+	appVersion = "Unknown"
+	appCommit  = "Unknown"
+	appDate    = "Unknown"
+)
+
 var modeMap = map[string]func(args []string){
 	"relay server": relayServer,
 	"relay client": relayClient,
@@ -14,6 +21,13 @@ var modeMap = map[string]func(args []string){
 }
 
 func main() {
+	if len(os.Args) == 2 && strings.ToLower(strings.TrimSpace(os.Args[1])) == "version" {
+		// Print version and quit
+		fmt.Printf("%-10s%s\n", "Version:", appVersion)
+		fmt.Printf("%-10s%s\n", "Commit:", appCommit)
+		fmt.Printf("%-10s%s\n", "Date:", appDate)
+		return
+	}
 	if len(os.Args) < 3 {
 		fmt.Println()
 		fmt.Printf("Usage: %s MODE SUBMODE [OPTIONS]\n\n"+
