@@ -54,6 +54,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: >
-            hysteria_windows_amd64.zip
-            hysteria_linux_amd64.tar.gz
-            hysteria_darwin_amd64.zip
+            ./dist/hysteria_windows_amd64.zip
+            ./dist/hysteria_linux_amd64.tar.gz
+            ./dist/hysteria_darwin_amd64.zip
