@@ -45,7 +45,7 @@ jobs:
           name: hysteria
           arch: amd64
           dest: ./dist/
-          ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ env.GITHUB_SHA }} -X main.appDate=${{ env.TIME }}
+          ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
           os: windows,linux,darwin
           package: ./cmd
 
