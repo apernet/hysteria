@@ -37,13 +37,13 @@ jobs:
         uses: gerred/actions/current-time@master
         id: current-time
 
-      - name: Crossbuild
+      - name: Build
         uses: izumin5210/action-go-crossbuild@v1.0.0
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
         with:
           name: hysteria-cli
-          arch: amd64,arm
+          arch: amd64
           dest: ./dist/
           ldflags: -w -s -X main.appVersion=$GIT_TAG_NAME -X main.appCommit=$GITHUB_SHA -X main.appDate=$TIME
           os: darwin,linux,windows
