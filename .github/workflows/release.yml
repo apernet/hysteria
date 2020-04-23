@@ -53,6 +53,4 @@ jobs:
         uses: meeDamian/github-release@2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.tagName.outputs.tag }}
-          name: ${{ steps.tagName.outputs.tag }}
           files: ./dist/
