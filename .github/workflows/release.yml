@@ -53,6 +53,8 @@ jobs:
         uses: meeDamian/github-release@2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          gzip: false
+          allow_override: true
           files: >
             ./dist/hysteria_windows_amd64.zip
             ./dist/hysteria_linux_amd64.tar.gz
