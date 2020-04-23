@@ -42,15 +42,18 @@ jobs:
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
         with:
-          name: hysteria-cli
+          name: hysteria
           arch: amd64
           dest: ./dist/
-          ldflags: -w -s -X main.appVersion=$GIT_TAG_NAME -X main.appCommit=$GITHUB_SHA -X main.appDate=$TIME
-          os: darwin,linux,windows
+          ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ env.GITHUB_SHA }} -X main.appDate=${{ env.TIME }}
+          os: windows,linux,darwin
           package: ./cmd
 
       - name: Upload
         uses: meeDamian/github-release@2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: ./dist/
+          files: >
+            hysteria_windows_amd64.zip
+            hysteria_linux_amd64.tar.gz
+            hysteria_darwin_amd64.zip
