@@ -25,6 +25,7 @@ const (
 )
 
 type CongestionFactory core.CongestionFactory
+type Obfuscator core.Obfuscator
 type ClientAuthFunc func(addr net.Addr, username string, password string, sSend uint64, sRecv uint64) (AuthResult, string)
 type ClientDisconnectedFunc core.ClientDisconnectedFunc
 type HandleRequestFunc func(addr net.Addr, username string, id int, packet bool, reqAddr string) (ConnectResult, string, io.ReadWriteCloser)
@@ -38,11 +39,13 @@ type Server interface {
 
 func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
+	obfuscator Obfuscator,
 	clientAuthFunc ClientAuthFunc,
 	clientDisconnectedFunc ClientDisconnectedFunc,
 	handleRequestFunc HandleRequestFunc,
 	requestClosedFunc RequestClosedFunc) (Server, error) {
 	return core.NewServer(addr, tlsConfig, quicConfig, sendBPS, recvBPS, core.CongestionFactory(congestionFactory),
+		core.Obfuscator(obfuscator),
 		func(addr net.Addr, username string, password string, sSend uint64, sRecv uint64) (core.AuthResult, string) {
 			r, msg := clientAuthFunc(addr, username, password, sSend, sRecv)
 			return core.AuthResult(r), msg
@@ -65,7 +68,7 @@ type Client interface {
 
 func NewClient(serverAddr string, username string, password string,
 	tlsConfig *tls.Config, quicConfig *quic.Config, sendBPS uint64, recvBPS uint64,
-	congestionFactory CongestionFactory) (Client, error) {
+	congestionFactory CongestionFactory, obfuscator Obfuscator) (Client, error) {
 	return core.NewClient(serverAddr, username, password, tlsConfig, quicConfig, sendBPS, recvBPS,
-		core.CongestionFactory(congestionFactory))
+		core.CongestionFactory(congestionFactory), core.Obfuscator(obfuscator))
 }

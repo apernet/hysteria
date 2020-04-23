@@ -8,6 +8,7 @@ import (
 	"github.com/tobyxdd/hysteria/internal/utils"
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"io/ioutil"
 	"log"
 	"net"
@@ -60,11 +61,16 @@ func relayClient(args []string) {
 		quicConfig.MaxReceiveConnectionFlowControlWindow = DefaultMaxReceiveConnectionFlowControlWindow
 	}
 
+	var obfuscator core.Obfuscator
+	if len(config.Obfs) > 0 {
+		obfuscator = obfs.XORObfuscator(config.Obfs)
+	}
+
 	client, err := core.NewClient(config.ServerAddr, config.Name, "", tlsConfig, quicConfig,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.SendAlgorithmWithDebugInfos {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
-		})
+		}, obfuscator)
 	if err != nil {
 		log.Fatalln("Client initialization failed:", err)
 	}
