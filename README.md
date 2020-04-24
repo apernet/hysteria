@@ -9,6 +9,8 @@
 [5]: https://patrolavia.github.io/telegram-badge/chat.png
 [6]: https://t.me/hysteria_github
 
+[中文 README](README.zh.md)
+
 Hysteria is a set of relay & proxy utilities that are specifically optimized for harsh network environments (commonly seen in connecting to overseas servers from China). It's based on a modified version of the QUIC protocol, and can be considered a sequel to my previous (abandoned) project https://github.com/dragonite-network/dragonite-java
 
 ## Quick Start
@@ -21,7 +23,7 @@ Server:
 ```
 ./cmd_linux_amd64 proxy server -listen :36712 -cert example.crt -key example.key -obfs BlueberryFaygo
 ```
-A TLS certificate (not necessarily issued by a trusted CA) is required on the service side. If you are using a self-issued certificate, use `-ca` to specify your own CA file, or `-insecure` to ignore all certificate errors (not recommended)
+A TLS certificate (not necessarily issued by a trusted CA) is required on the service side. If you are using a self-issued certificate, use `-ca` to specify your own CA file on clients, or `-insecure` to ignore all certificate errors (not recommended)
 
 Client:
 ```
@@ -29,7 +31,7 @@ Client:
 ```
 This will start a SOCKS5 proxy server on the client's localhost TCP 1080 available for use by other programs.
 
-Properly setting the client's upload and download speeds based on your network conditions is essential for it to work at optimal performance.
+`-up-mbps 10 down-mbps 50` tells the server that your bandwidth is 50 Mbps down, 10 Mbps up. Properly setting the client's upload and download speeds based on your network conditions is essential for it to work at optimal performance!
 
 ### Relay
 
