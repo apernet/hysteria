@@ -23,7 +23,7 @@ Server:
 ```
 ./cmd_linux_amd64 proxy server -listen :36712 -cert example.crt -key example.key -obfs BlueberryFaygo
 ```
-A TLS certificate (not necessarily issued by a trusted CA) is required on the service side. If you are using a self-issued certificate, use `-ca` to specify your own CA file on clients, or `-insecure` to ignore all certificate errors (not recommended)
+A TLS certificate (not necessarily issued by a trusted CA) is required on the server side. If you are using a self-issued certificate, use `-ca` to specify your own CA file on clients, or `-insecure` to ignore all certificate errors (not recommended)
 
 Client:
 ```
