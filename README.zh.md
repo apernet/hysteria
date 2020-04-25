@@ -25,26 +25,26 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 
 客户端
 ```
-./cmd_linux_amd64 proxy client -server example.com:36712 -socks5-addr localhost:1080 -up-mbps 10 down-mbps 50 -obfs BlueberryFaygo
+./cmd_linux_amd64 proxy client -server example.com:36712 -socks5-addr localhost:1080 -up-mbps 10 -down-mbps 50 -obfs BlueberryFaygo
 ```
 在客户端的本地 TCP 1080 上启动一个 SOCKS5 代理服务器供其他程序使用。
 
-`-up-mbps 10 down-mbps 50` 是告诉服务端你的下行速度为 50 Mbps, 上行 10 Mbps。根据实际网络条件正确设置客户端的上传和下载速度十分重要！
+`-up-mbps 10 -down-mbps 50` 是告诉服务端你的下行速度为 50 Mbps, 上行 10 Mbps。根据实际网络条件正确设置客户端的上传和下载速度十分重要！
 
 ### 转发
 
-假设你想转发服务端网络上 `192.168.1.101:8080` 的一个 TCP 协议程序。
+假设你想转发服务端上 `localhost:8080` 的一个 TCP 协议程序。
 
 服务端
 ```
-./cmd_linux_amd64 relay server -listen :36712 -remote 192.168.1.101:8080 -cert example.crt -key example.key
+./cmd_linux_amd64 relay server -listen :36712 -remote localhost:8080 -cert example.crt -key example.key
 ```
 
 客户端
 ```
-./cmd_linux_amd64 relay client -server example.com:36712 -listen localhost:8080 -up-mbps 10 down-mbps 50
+./cmd_linux_amd64 relay client -server example.com:36712 -listen localhost:8080 -up-mbps 10 -down-mbps 50
 ```
-所有到客户端本地 TCP 8080 的 TCP 连接都将通过转发，到服务器连接那里的 `192.168.1.101:8080`
+所有到客户端本地 TCP 8080 的 TCP 连接都将通过转发，到服务器连接那里的 `localhost:8080`
 
 有些用户可能会尝试用这个功能转发其他加密代理协议，比如Shadowsocks。虽然这完全可行，但从性能的角度并不是最佳选择 - 我们的协议本身就有 TLS，转发的代理协议也是加密的，再加上用户用来访问 HTTPS 网站，等于做了三重加密。如果需要代理就用我们的代理模式。
 

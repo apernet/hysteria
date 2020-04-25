@@ -27,26 +27,26 @@ A TLS certificate (not necessarily issued by a trusted CA) is required on the se
 
 Client:
 ```
-./cmd_linux_amd64 proxy client -server example.com:36712 -socks5-addr localhost:1080 -up-mbps 10 down-mbps 50 -obfs BlueberryFaygo
+./cmd_linux_amd64 proxy client -server example.com:36712 -socks5-addr localhost:1080 -up-mbps 10 -down-mbps 50 -obfs BlueberryFaygo
 ```
 This will start a SOCKS5 proxy server on the client's localhost TCP 1080 available for use by other programs.
 
-`-up-mbps 10 down-mbps 50` tells the server that your bandwidth is 50 Mbps down, 10 Mbps up. Properly setting the client's upload and download speeds based on your network conditions is essential for it to work at optimal performance!
+`-up-mbps 10 -down-mbps 50` tells the server that your bandwidth is 50 Mbps down, 10 Mbps up. Properly setting the client's upload and download speeds based on your network conditions is essential for it to work at optimal performance!
 
 ### Relay
 
-Suppose you have a TCP program on your server side network at `192.168.1.101:8080` that you want to forward.
+Suppose you have a TCP program on your server at `localhost:8080` that you want to forward.
 
 Server:
 ```
-./cmd_linux_amd64 relay server -listen :36712 -remote 192.168.1.101:8080 -cert example.crt -key example.key
+./cmd_linux_amd64 relay server -listen :36712 -remote localhost:8080 -cert example.crt -key example.key
 ```
 
 Client:
 ```
-./cmd_linux_amd64 relay client -server example.com:36712 -listen localhost:8080 -up-mbps 10 down-mbps 50
+./cmd_linux_amd64 relay client -server example.com:36712 -listen localhost:8080 -up-mbps 10 -down-mbps 50
 ```
-All connections to client's localhost TCP 8080 will pass through the relay and connect to the server's `192.168.1.101:8080`
+All connections to client's localhost TCP 8080 will pass through the relay and connect to the server's `localhost:8080`
 
 Some users may attempt to forward other encrypted proxy protocols such as Shadowsocks with relay. While this totally works, it's not optimal from a performance standpoint - our protocol itself uses TLS, considering that the proxy protocols being forwarded are also encrypted, and the fact that users mainly use them for HTTPS connections nowadays, you are essentially doing triple encryption. If you need a proxy, use our proxy mode.
 
