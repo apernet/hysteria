@@ -96,7 +96,7 @@ func proxyServer(args []string) {
 			if !packet {
 				// TCP
 				log.Printf("%s (%s): [TCP] %s\n", addr.String(), username, reqAddr)
-				conn, err := net.Dial("tcp", reqAddr)
+				conn, err := net.DialTimeout("tcp", reqAddr, dialTimeout)
 				if err != nil {
 					log.Printf("TCP error %s: %s\n", reqAddr, err.Error())
 					return core.ConnFailed, err.Error(), nil
