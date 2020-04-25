@@ -37,7 +37,7 @@ jobs:
         uses: gerred/actions/current-time@master
         id: current-time
 
-      - name: Build
+      - name: Build amd64
         uses: izumin5210/action-go-crossbuild@v1.0.0
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
@@ -49,6 +49,18 @@ jobs:
           os: windows,linux,darwin
           package: ./cmd
 
+      - name: Build embedded
+          uses: izumin5210/action-go-crossbuild@v1.0.0
+          env:
+            TIME: "${{ steps.current-time.outputs.time }}"
+          with:
+            name: hysteria
+            arch: arm,mipsle
+            dest: ./dist/
+            ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
+            os: linux
+            package: ./cmd
+
       - name: Upload
         uses: meeDamian/github-release@2.0
         with:
@@ -59,3 +71,5 @@ jobs:
             ./dist/hysteria_windows_amd64.zip
             ./dist/hysteria_linux_amd64.tar.gz
             ./dist/hysteria_darwin_amd64.zip
+            ./dist/hysteria_linux_arm.tar.gz
+            ./dist/hysteria_linux_mipsle.tar.gz
