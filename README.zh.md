@@ -9,7 +9,7 @@
 [5]: https://patrolavia.github.io/telegram-badge/chat.png
 [6]: https://t.me/hysteria_github
 
-Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服务器）进行优化的连接转发和代理工具（即所谓的双边加速）。其基于修改版的 QUIC 协议，可以理解为是我此前弃坑的项目https://github.com/dragonite-network/dragonite-java 的续作。
+Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服务器）进行优化的连接转发和代理工具（即所谓的双边加速）。其基于修改版的 QUIC 协议，可以理解为是我此前弃坑的项目 https://github.com/dragonite-network/dragonite-java 的续作。
 
 ## 快速入门
 
@@ -83,6 +83,10 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | 单连接最大接收窗口大小 | recv_window_conn | -recv-window-conn |
 | 总最大接收窗口大小 | recv_window | -recv-window |
 | 混淆密钥 | obfs | -obfs |
+
+#### 关于 SOCKS5
+
+支持 TCP (CONNECT) 和 UDP (ASSOCIATE)，不支持 BIND 也无计划支持。
 
 #### 关于用户名密码验证
 

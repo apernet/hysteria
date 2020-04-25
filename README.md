@@ -86,6 +86,10 @@ The command line program supports loading configurations from both JSON files an
 | Max receive window size | recv_window | -recv-window |
 | Obfuscation key | obfs | -obfs |
 
+#### About SOCKS5
+
+Supports TCP (CONNECT) and UDP (ASSOCIATE) commands. BIND is not supported and is not planned to be supported.
+
 #### About proxy authentication
 
 Proxy supports username and password authentication (sent encrypted with TLS). If the server starts with an authentication file, it will check for the existence of the corresponding username and password in this file when each user connects. A valid authentication file is a text file with a pair of username and password per line (separated by a space). Example:
