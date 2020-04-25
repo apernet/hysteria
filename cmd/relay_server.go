@@ -74,7 +74,7 @@ func relayServer(args []string) {
 			if packet {
 				return core.ConnBlocked, "unsupported", nil
 			}
-			conn, err := net.Dial("tcp", config.RemoteAddr)
+			conn, err := net.DialTimeout("tcp", config.RemoteAddr, dialTimeout)
 			if err != nil {
 				log.Printf("TCP error %s: %s\n", config.RemoteAddr, err.Error())
 				return core.ConnFailed, err.Error(), nil

@@ -11,6 +11,7 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/socks5"
 	"io/ioutil"
 	"log"
+	"net"
 )
 
 func proxyClient(args []string) {
@@ -69,19 +70,29 @@ func proxyClient(args []string) {
 	defer client.Close()
 	log.Println("Connected to", config.ServerAddr)
 
-	socks5server, err := socks5.NewServer(config.SOCKS5Addr, "", nil, config.SOCKS5Timeout, 0, 0)
+	socks5server, err := socks5.NewServer(client, config.SOCKS5Addr, nil, config.SOCKS5Timeout,
+		func(addr net.Addr, reqAddr string) {
+			log.Printf("[TCP] %s <-> %s\n", addr.String(), reqAddr)
+		},
+		func(addr net.Addr, reqAddr string, err error) {
+			log.Printf("Closed [TCP] %s <-> %s: %s\n", addr.String(), reqAddr, err.Error())
+		},
+		func(addr net.Addr) {
+			log.Printf("[UDP] Associate %s\n", addr.String())
+		},
+		func(addr net.Addr, err error) {
+			log.Printf("Closed [UDP] Associate %s: %s\n", addr.String(), err.Error())
+		},
+		func(addr net.Addr, reqAddr string) {
+			log.Printf("[UDP] %s <-> %s\n", addr.String(), reqAddr)
+		},
+		func(addr net.Addr, reqAddr string, err error) {
+			log.Printf("Closed [UDP] %s <-> %s: %s\n", addr.String(), reqAddr, err.Error())
+		})
 	if err != nil {
 		log.Fatalln("SOCKS5 server initialization failed:", err)
 	}
 	log.Println("SOCKS5 server up and running on", config.SOCKS5Addr)
 
-	log.Fatalln(socks5server.ListenAndServe(&socks5.HyHandler{
-		Client: client,
-		NewTCPRequestFunc: func(addr, reqAddr string) {
-			log.Printf("[TCP] %s <-> %s\n", addr, reqAddr)
-		},
-		TCPRequestClosedFunc: func(addr, reqAddr string, err error) {
-			log.Printf("Closed [TCP] %s <-> %s: %s\n", addr, reqAddr, err.Error())
-		},
-	}))
+	log.Fatalln(socks5server.ListenAndServe())
 }

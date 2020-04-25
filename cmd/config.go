@@ -7,10 +7,12 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 )
 
 const (
-	mbpsToBps = 125000
+	mbpsToBps   = 125000
+	dialTimeout = 10 * time.Second
 
 	DefaultMaxReceiveStreamFlowControlWindow     = 33554432
 	DefaultMaxReceiveConnectionFlowControlWindow = 67108864
