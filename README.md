@@ -15,7 +15,7 @@ Hysteria is a set of relay & proxy utilities that are specifically optimized for
 
 ## Quick Start
 
-(See the next section for the exact meaning of each argument)
+(See the [advanced usage section](#advanced-usage) for the exact meaning of each argument)
 
 ### Proxy
 
@@ -49,6 +49,14 @@ Client:
 All connections to client's localhost TCP 8080 will pass through the relay and connect to the server's `192.168.1.101:8080`
 
 Some users may attempt to forward other encrypted proxy protocols such as Shadowsocks with relay. While this totally works, it's not optimal from a performance standpoint - our protocol itself uses TLS, considering that the proxy protocols being forwarded are also encrypted, and the fact that users mainly use them for HTTPS connections nowadays, you are essentially doing triple encryption. If you need a proxy, use our proxy mode.
+
+## Comparison
+
+Proxy Client: Guangzhou, China Mobile Broadband 100 Mbps
+ 
+Proxy Server: AWS US West Oregon (us-west-2)
+
+![Bench1](docs/bench/bench1.png)
 
 ## Advanced usage
 
