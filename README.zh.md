@@ -52,7 +52,7 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 
 代理客户端：广州移动宽带 100M
  
-代理服务端: AWS 美西 Oregon (us-west-2) (最差线路之一)
+代理服务端：AWS 美西 Oregon (us-west-2) (最差线路之一)
 
 ![Bench1](docs/bench/bench1.png)
 
