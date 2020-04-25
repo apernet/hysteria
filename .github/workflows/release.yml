@@ -50,16 +50,16 @@ jobs:
           package: ./cmd
 
       - name: Build embedded
-          uses: izumin5210/action-go-crossbuild@v1.0.0
-          env:
-            TIME: "${{ steps.current-time.outputs.time }}"
-          with:
-            name: hysteria
-            arch: arm,mipsle
-            dest: ./dist/
-            ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
-            os: linux
-            package: ./cmd
+        uses: izumin5210/action-go-crossbuild@v1.0.0
+        env:
+          TIME: "${{ steps.current-time.outputs.time }}"
+        with:
+          name: hysteria
+          arch: arm,mipsle
+          dest: ./dist/
+          ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
+          os: linux
+          package: ./cmd
 
       - name: Upload
         uses: meeDamian/github-release@2.0
