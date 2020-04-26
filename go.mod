@@ -5,6 +5,7 @@ go 1.14
 require github.com/golang/protobuf v1.3.1
 
 require (
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/lucas-clemente/quic-go v0.15.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/txthinking/runnergroup v0.0.0-20200327135940-540a793bb997 // indirect

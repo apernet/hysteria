@@ -25,12 +25,9 @@ type Entry struct {
 	ActionArg string
 }
 
-func (e Entry) Match(domain string, ip net.IP) bool {
+func (e Entry) MatchDomain(domain string) bool {
 	if e.All {
 		return true
-	}
-	if e.Net != nil && ip != nil {
-		return e.Net.Contains(ip)
 	}
 	if len(e.Domain) > 0 && len(domain) > 0 {
 		ld := strings.ToLower(domain)
@@ -38,6 +35,30 @@ func (e Entry) Match(domain string, ip net.IP) bool {
 			return e.Domain == ld || strings.HasSuffix(ld, "."+e.Domain)
 		} else {
 			return e.Domain == ld
+		}
+	}
+	return false
+}
+
+func (e Entry) MatchIP(ip net.IP) bool {
+	if e.All {
+		return true
+	}
+	if e.Net != nil && ip != nil {
+		return e.Net.Contains(ip)
+	}
+	return false
+}
+
+func (e Entry) MatchIPs(ips []net.IP) bool {
+	if e.All {
+		return true
+	}
+	if e.Net != nil && len(ips) > 0 {
+		for _, ip := range ips {
+			if e.Net.Contains(ip) {
+				return true
+			}
 		}
 	}
 	return false

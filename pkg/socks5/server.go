@@ -1,10 +1,14 @@
 package socks5
 
 import (
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/tobyxdd/hysteria/internal/utils"
+	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"io"
+	"strconv"
 )
 
 import (
@@ -24,21 +28,26 @@ type Server struct {
 	Method      byte
 	TCPAddr     *net.TCPAddr
 	TCPDeadline int
+	ACLEngine   *acl.Engine
 
-	NewRequestFunc         func(addr net.Addr, reqAddr string)
+	NewRequestFunc         func(addr net.Addr, reqAddr string, action acl.Action, arg string)
 	RequestClosedFunc      func(addr net.Addr, reqAddr string, err error)
 	NewUDPAssociateFunc    func(addr net.Addr)
 	UDPAssociateClosedFunc func(addr net.Addr, err error)
-	NewUDPTunnelFunc       func(addr net.Addr, reqAddr string)
+	NewUDPTunnelFunc       func(addr net.Addr, reqAddr string, action acl.Action, arg string)
 	UDPTunnelClosedFunc    func(addr net.Addr, reqAddr string, err error)
 
 	tcpListener *net.TCPListener
 }
 
 func NewServer(hyClient core.Client, addr string, authFunc func(username, password string) bool, tcpDeadline int,
-	newReqFunc func(addr net.Addr, reqAddr string), reqClosedFunc func(addr net.Addr, reqAddr string, err error),
-	newUDPAssociateFunc func(addr net.Addr), udpAssociateClosedFunc func(addr net.Addr, err error),
-	newUDPTunnelFunc func(addr net.Addr, reqAddr string), udpTunnelClosedFunc func(addr net.Addr, reqAddr string, err error)) (*Server, error) {
+	aclEngine *acl.Engine,
+	newReqFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string),
+	reqClosedFunc func(addr net.Addr, reqAddr string, err error),
+	newUDPAssociateFunc func(addr net.Addr),
+	udpAssociateClosedFunc func(addr net.Addr, err error),
+	newUDPTunnelFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string),
+	udpTunnelClosedFunc func(addr net.Addr, reqAddr string, err error)) (*Server, error) {
 
 	taddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
@@ -54,6 +63,7 @@ func NewServer(hyClient core.Client, addr string, authFunc func(username, passwo
 		Method:                 m,
 		TCPAddr:                taddr,
 		TCPDeadline:            tcpDeadline,
+		ACLEngine:              aclEngine,
 		NewRequestFunc:         newReqFunc,
 		RequestClosedFunc:      reqClosedFunc,
 		NewUDPAssociateFunc:    newUDPAssociateFunc,
@@ -141,69 +151,115 @@ func (s *Server) ListenAndServe() error {
 func (s *Server) handle(c *net.TCPConn, r *socks5.Request) error {
 	if r.Cmd == socks5.CmdConnect {
 		// TCP
-		s.NewRequestFunc(c.RemoteAddr(), r.Address())
-		var closeErr error
-		defer func() {
-			s.RequestClosedFunc(c.RemoteAddr(), r.Address(), closeErr)
-		}()
-		rc, err := s.HyClient.Dial(false, r.Address())
-		if err != nil {
-			_ = sendReply(c, socks5.RepHostUnreachable)
-			closeErr = err
-			return err
-		}
-		defer rc.Close()
-		// All good
-		_ = sendReply(c, socks5.RepSuccess)
-		closeErr = pipePair(c, rc, s.TCPDeadline)
-		return nil
+		return s.handleTCP(c, r)
 	} else if r.Cmd == socks5.CmdUDP {
 		// UDP
-		s.NewUDPAssociateFunc(c.RemoteAddr())
-		var closeErr error
-		defer func() {
-			s.UDPAssociateClosedFunc(c.RemoteAddr(), closeErr)
-		}()
-		udpConn, err := net.ListenUDP("udp", &net.UDPAddr{
-			IP:   s.TCPAddr.IP,
-			Zone: s.TCPAddr.Zone,
-		})
-		if err != nil {
-			_ = sendReply(c, socks5.RepServerFailure)
-			closeErr = err
-			return err
-		}
-		defer udpConn.Close()
-		// Send UDP server addr to the client
-		atyp, addr, port, err := socks5.ParseAddress(udpConn.LocalAddr().String())
-		if err != nil {
-			_ = sendReply(c, socks5.RepServerFailure)
-			closeErr = err
-			return err
-		}
-		_, _ = socks5.NewReply(socks5.RepSuccess, atyp, addr, port).WriteTo(c)
-		// Let UDP server do its job, we hold the TCP connection here
-		go s.handleUDP(udpConn)
-		buf := make([]byte, 1024)
-		for {
-			if s.TCPDeadline != 0 {
-				_ = c.SetDeadline(time.Now().Add(time.Duration(s.TCPDeadline) * time.Second))
-			}
-			_, err := c.Read(buf)
-			if err != nil {
-				closeErr = err
-				break
-			}
-		}
-		// As the TCP connection closes, so does the UDP listener
-		return nil
+		return s.handleUDP(c, r)
 	} else {
 		_ = sendReply(c, socks5.RepCommandNotSupported)
 		return ErrUnsupportedCmd
 	}
 }
 
-func (s *Server) handleUDP(c *net.UDPConn) {
+func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
+	domain, ip, port, addr := parseRequestAddress(r)
+	action, arg := acl.ActionProxy, ""
+	if s.ACLEngine != nil {
+		action, arg = s.ACLEngine.Lookup(domain, ip)
+	}
+	s.NewRequestFunc(c.RemoteAddr(), addr, action, arg)
+	var closeErr error
+	defer func() {
+		s.RequestClosedFunc(c.RemoteAddr(), addr, closeErr)
+	}()
+	// Handle according to the action
+	switch action {
+	case acl.ActionDirect:
+		rc, err := net.Dial("tcp", addr)
+		if err != nil {
+			_ = sendReply(c, socks5.RepHostUnreachable)
+			closeErr = err
+			return err
+		}
+		defer rc.Close()
+		_ = sendReply(c, socks5.RepSuccess)
+		closeErr = pipePair(c, rc, s.TCPDeadline)
+		return nil
+	case acl.ActionProxy:
+		rc, err := s.HyClient.Dial(false, addr)
+		if err != nil {
+			_ = sendReply(c, socks5.RepHostUnreachable)
+			closeErr = err
+			return err
+		}
+		defer rc.Close()
+		_ = sendReply(c, socks5.RepSuccess)
+		closeErr = pipePair(c, rc, s.TCPDeadline)
+		return nil
+	case acl.ActionBlock:
+		_ = sendReply(c, socks5.RepHostUnreachable)
+		closeErr = errors.New("blocked in ACL")
+		return nil
+	case acl.ActionHijack:
+		rc, err := net.Dial("tcp", net.JoinHostPort(arg, port))
+		if err != nil {
+			_ = sendReply(c, socks5.RepHostUnreachable)
+			closeErr = err
+			return err
+		}
+		defer rc.Close()
+		_ = sendReply(c, socks5.RepSuccess)
+		closeErr = pipePair(c, rc, s.TCPDeadline)
+		return nil
+	default:
+		_ = sendReply(c, socks5.RepServerFailure)
+		closeErr = fmt.Errorf("unknown action %d", action)
+		return nil
+	}
+}
+
+func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
+	s.NewUDPAssociateFunc(c.RemoteAddr())
+	var closeErr error
+	defer func() {
+		s.UDPAssociateClosedFunc(c.RemoteAddr(), closeErr)
+	}()
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{
+		IP:   s.TCPAddr.IP,
+		Zone: s.TCPAddr.Zone,
+	})
+	if err != nil {
+		_ = sendReply(c, socks5.RepServerFailure)
+		closeErr = err
+		return err
+	}
+	defer udpConn.Close()
+	// Send UDP server addr to the client
+	atyp, addr, port, err := socks5.ParseAddress(udpConn.LocalAddr().String())
+	if err != nil {
+		_ = sendReply(c, socks5.RepServerFailure)
+		closeErr = err
+		return err
+	}
+	_, _ = socks5.NewReply(socks5.RepSuccess, atyp, addr, port).WriteTo(c)
+	// Let UDP server do its job, we hold the TCP connection here
+	go s.udpServer(udpConn)
+	buf := make([]byte, 1024)
+	for {
+		if s.TCPDeadline != 0 {
+			_ = c.SetDeadline(time.Now().Add(time.Duration(s.TCPDeadline) * time.Second))
+		}
+		_, err := c.Read(buf)
+		if err != nil {
+			closeErr = err
+			break
+		}
+	}
+	// As the TCP connection closes, so does the UDP listener
+	return nil
+}
+
+func (s *Server) udpServer(c *net.UDPConn) {
 	var clientAddr *net.UDPAddr
 	remoteMap := make(map[string]io.ReadWriteCloser) //  Remote addr <-> Remote conn
 	buf := make([]byte, utils.PipeBufferSize)
@@ -238,7 +294,7 @@ func (s *Server) handleUDP(c *net.UDPConn) {
 			// The other direction
 			go udpReversePipe(clientAddr, c, rc)
 			remoteMap[d.Address()] = rc
-			s.NewUDPTunnelFunc(clientAddr, d.Address())
+			s.NewUDPTunnelFunc(clientAddr, d.Address(), acl.ActionProxy, "")
 		}
 		_, err = rc.Write(d.Data)
 		if err != nil {
@@ -259,6 +315,16 @@ func sendReply(conn *net.TCPConn, rep byte) error {
 	p := socks5.NewReply(rep, socks5.ATYPIPv4, []byte{0x00, 0x00, 0x00, 0x00}, []byte{0x00, 0x00})
 	_, err := p.WriteTo(conn)
 	return err
+}
+
+func parseRequestAddress(r *socks5.Request) (domain string, ip net.IP, port string, addr string) {
+	p := strconv.Itoa(int(binary.BigEndian.Uint16(r.DstPort)))
+	if r.Atyp == socks5.ATYPDomain {
+		d := string(r.DstAddr[1:])
+		return d, nil, p, net.JoinHostPort(d, p)
+	} else {
+		return "", r.DstAddr, p, net.JoinHostPort(net.IP(r.DstAddr).String(), p)
+	}
 }
 
 func pipePair(conn *net.TCPConn, stream io.ReadWriteCloser, deadline int) error {

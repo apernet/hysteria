@@ -1,11 +1,13 @@
 package acl
 
 import (
+	lru "github.com/hashicorp/golang-lru"
 	"net"
 	"testing"
 )
 
 func TestEngine_Lookup(t *testing.T) {
+	cache, _ := lru.NewARC(4)
 	e := &Engine{
 		DefaultAction: ActionDirect,
 		Entries: []Entry{
@@ -45,6 +47,7 @@ func TestEngine_Lookup(t *testing.T) {
 				ActionArg: "",
 			},
 		},
+		Cache: cache,
 	}
 	type args struct {
 		domain string
