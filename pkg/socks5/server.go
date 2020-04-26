@@ -283,25 +283,58 @@ func (s *Server) udpServer(c *net.UDPConn) {
 			// We already have a client and you're not it!
 			continue
 		}
-		rc := remoteMap[d.Address()]
+		domain, ip, port, addr := parseDatagramRequestAddress(d)
+		rc := remoteMap[addr]
 		if rc == nil {
 			// Need a new entry
-			rc, err = s.HyClient.Dial(true, d.Address())
-			if err != nil {
-				// Failed to establish a connection, silently ignore
+			action, arg := acl.ActionProxy, ""
+			if s.ACLEngine != nil {
+				action, arg = s.ACLEngine.Lookup(domain, ip)
+			}
+			s.NewUDPTunnelFunc(clientAddr, addr, action, arg)
+			// Handle according to the action
+			switch action {
+			case acl.ActionDirect:
+				rc, err = net.Dial("udp", addr)
+				if err != nil {
+					// Failed to establish a connection, silently ignore
+					continue
+				}
+				// The other direction
+				go udpReversePipe(clientAddr, c, rc)
+				remoteMap[addr] = rc
+			case acl.ActionProxy:
+				rc, err = s.HyClient.Dial(true, addr)
+				if err != nil {
+					// Failed to establish a connection, silently ignore
+					continue
+				}
+				// The other direction
+				go udpReversePipe(clientAddr, c, rc)
+				remoteMap[addr] = rc
+			case acl.ActionBlock:
+				// Silently ignore
+				continue
+			case acl.ActionHijack:
+				rc, err = net.Dial("udp", net.JoinHostPort(arg, port))
+				if err != nil {
+					// Failed to establish a connection, silently ignore
+					continue
+				}
+				// The other direction
+				go udpReversePipe(clientAddr, c, rc)
+				remoteMap[addr] = rc
+			default:
+				// Silently ignore
 				continue
 			}
-			// The other direction
-			go udpReversePipe(clientAddr, c, rc)
-			remoteMap[d.Address()] = rc
-			s.NewUDPTunnelFunc(clientAddr, d.Address(), acl.ActionProxy, "")
 		}
 		_, err = rc.Write(d.Data)
 		if err != nil {
 			// The connection is no longer valid, close & remove from map
 			_ = rc.Close()
-			delete(remoteMap, d.Address())
-			s.UDPTunnelClosedFunc(clientAddr, d.Address(), err)
+			delete(remoteMap, addr)
+			s.UDPTunnelClosedFunc(clientAddr, addr, err)
 		}
 	}
 	// Close all remote connections
@@ -318,6 +351,16 @@ func sendReply(conn *net.TCPConn, rep byte) error {
 }
 
 func parseRequestAddress(r *socks5.Request) (domain string, ip net.IP, port string, addr string) {
+	p := strconv.Itoa(int(binary.BigEndian.Uint16(r.DstPort)))
+	if r.Atyp == socks5.ATYPDomain {
+		d := string(r.DstAddr[1:])
+		return d, nil, p, net.JoinHostPort(d, p)
+	} else {
+		return "", r.DstAddr, p, net.JoinHostPort(net.IP(r.DstAddr).String(), p)
+	}
+}
+
+func parseDatagramRequestAddress(r *socks5.Datagram) (domain string, ip net.IP, port string, addr string) {
 	p := strconv.Itoa(int(binary.BigEndian.Uint16(r.DstPort)))
 	if r.Atyp == socks5.ATYPDomain {
 		d := string(r.DstAddr[1:])
