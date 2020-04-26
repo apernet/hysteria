@@ -25,6 +25,24 @@ type Entry struct {
 	ActionArg string
 }
 
+func (e Entry) Match(domain string, ip net.IP) bool {
+	if e.All {
+		return true
+	}
+	if e.Net != nil && ip != nil {
+		return e.Net.Contains(ip)
+	}
+	if len(e.Domain) > 0 && len(domain) > 0 {
+		ld := strings.ToLower(domain)
+		if e.Suffix {
+			return e.Domain == ld || strings.HasSuffix(ld, "."+e.Domain)
+		} else {
+			return e.Domain == ld
+		}
+	}
+	return false
+}
+
 // Format: action cond_type cond arg
 // Examples:
 // proxy domain-suffix google.com
@@ -75,12 +93,12 @@ func parseCond(typ, cond string) (*net.IPNet, string, bool, bool, error) {
 		if len(cond) == 0 {
 			return nil, "", false, false, errors.New("empty domain")
 		}
-		return nil, cond, false, false, nil
+		return nil, strings.ToLower(cond), false, false, nil
 	case "domain-suffix":
 		if len(cond) == 0 {
 			return nil, "", false, false, errors.New("empty domain suffix")
 		}
-		return nil, cond, true, false, nil
+		return nil, strings.ToLower(cond), true, false, nil
 	case "cidr":
 		_, ipNet, err := net.ParseCIDR(cond)
 		if err != nil {
