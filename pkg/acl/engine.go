@@ -67,6 +67,7 @@ func (e *Engine) Lookup(domain string, ip net.IP) (Action, string) {
 				return entry.Action, entry.ActionArg
 			}
 		}
+		e.Cache.Add(domain, cacheEntry{e.DefaultAction, ""})
 		return e.DefaultAction, ""
 	} else if ip != nil {
 		// IP
@@ -81,6 +82,7 @@ func (e *Engine) Lookup(domain string, ip net.IP) (Action, string) {
 				return entry.Action, entry.ActionArg
 			}
 		}
+		e.Cache.Add(ip.String(), cacheEntry{e.DefaultAction, ""})
 		return e.DefaultAction, ""
 	} else {
 		return e.DefaultAction, ""
