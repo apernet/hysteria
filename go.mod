@@ -6,8 +6,8 @@ require github.com/golang/protobuf v1.3.1
 
 require (
 	github.com/lucas-clemente/quic-go v0.15.2
-	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/txthinking/runnergroup v0.0.0-20200327135940-540a793bb997
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
+	github.com/txthinking/runnergroup v0.0.0-20200327135940-540a793bb997 // indirect
 	github.com/txthinking/socks5 v0.0.0-20200327133705-caf148ab5e9d
 	github.com/txthinking/x v0.0.0-20200330144832-5ad2416896a9 // indirect
 )
