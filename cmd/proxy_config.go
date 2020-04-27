@@ -42,6 +42,7 @@ func (c *proxyClientConfig) Check() error {
 
 type proxyServerConfig struct {
 	ListenAddr          string `json:"listen" desc:"Server listen address"`
+	ACLFile             string `json:"acl" desc:"Access control list"`
 	CertFile            string `json:"cert" desc:"TLS certificate file"`
 	KeyFile             string `json:"key" desc:"TLS key file"`
 	AuthFile            string `json:"auth" desc:"Authentication file"`

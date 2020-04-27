@@ -16,6 +16,8 @@ hijack cidr 192.168.1.1/24 127.0.0.1
 direct all
 ```
 
+A real-life ACL example of directly connecting to all China IPs (and its generator Python script) [can be found here](docs/acl).
+
 Hysteria acts according to the first matching rule in the file for each request. When there is no match, the default behavior is to proxy all connections. You can override this by adding a rule at the end of the file with the condition "all".
 
 4 actions:
