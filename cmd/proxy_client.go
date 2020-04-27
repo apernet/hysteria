@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
+	"github.com/tobyxdd/hysteria/pkg/acl"
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
@@ -59,6 +60,14 @@ func proxyClient(args []string) {
 		obfuscator = obfs.XORObfuscator(config.Obfs)
 	}
 
+	var aclEngine *acl.Engine
+	if len(config.ACLFile) > 0 {
+		aclEngine, err = acl.LoadFromFile(config.ACLFile)
+		if err != nil {
+			log.Fatalln("Unable to parse ACL:", err)
+		}
+	}
+
 	client, err := core.NewClient(config.ServerAddr, config.Username, config.Password, tlsConfig, quicConfig,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.SendAlgorithmWithDebugInfos {
@@ -70,9 +79,9 @@ func proxyClient(args []string) {
 	defer client.Close()
 	log.Println("Connected to", config.ServerAddr)
 
-	socks5server, err := socks5.NewServer(client, config.SOCKS5Addr, nil, config.SOCKS5Timeout,
-		func(addr net.Addr, reqAddr string) {
-			log.Printf("[TCP] %s <-> %s\n", addr.String(), reqAddr)
+	socks5server, err := socks5.NewServer(client, config.SOCKS5Addr, nil, config.SOCKS5Timeout, aclEngine,
+		func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
+			log.Printf("[TCP] [%s] %s <-> %s\n", actionToString(action, arg), addr.String(), reqAddr)
 		},
 		func(addr net.Addr, reqAddr string, err error) {
 			log.Printf("Closed [TCP] %s <-> %s: %s\n", addr.String(), reqAddr, err.Error())
@@ -83,8 +92,8 @@ func proxyClient(args []string) {
 		func(addr net.Addr, err error) {
 			log.Printf("Closed [UDP] Associate %s: %s\n", addr.String(), err.Error())
 		},
-		func(addr net.Addr, reqAddr string) {
-			log.Printf("[UDP] %s <-> %s\n", addr.String(), reqAddr)
+		func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
+			log.Printf("[UDP] [%s] %s <-> %s\n", actionToString(action, arg), addr.String(), reqAddr)
 		},
 		func(addr net.Addr, reqAddr string, err error) {
 			log.Printf("Closed [UDP] %s <-> %s: %s\n", addr.String(), reqAddr, err.Error())
@@ -95,4 +104,19 @@ func proxyClient(args []string) {
 	log.Println("SOCKS5 server up and running on", config.SOCKS5Addr)
 
 	log.Fatalln(socks5server.ListenAndServe())
+}
+
+func actionToString(action acl.Action, arg string) string {
+	switch action {
+	case acl.ActionDirect:
+		return "Direct"
+	case acl.ActionProxy:
+		return "Proxy"
+	case acl.ActionBlock:
+		return "Block"
+	case acl.ActionHijack:
+		return "Hijack to " + arg
+	default:
+		return "Unknown"
+	}
 }

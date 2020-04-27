@@ -67,6 +67,7 @@ The command line program supports loading configurations from both JSON files an
 | Description | JSON config field | CLI argument |
 | --- | --- | --- |
 | Server listen address | listen | -listen |
+| Access control list | acl | -acl |
 | TLS certificate file | cert | -cert |
 | TLS key file | key | -key |
 | Authentication file | auth | -auth |
@@ -83,6 +84,7 @@ The command line program supports loading configurations from both JSON files an
 | --- | --- | --- |
 | SOCKS5 listen address | socks5_addr | -socks5-addr |
 | SOCKS5 connection timeout in seconds | socks5_timeout | -socks5-timeout |
+| Access control list | acl | -acl |
 | Server address | server | -server |
 | Authentication username | username | -username |
 | Authentication password | password | -password |
@@ -97,6 +99,10 @@ The command line program supports loading configurations from both JSON files an
 #### About SOCKS5
 
 Supports TCP (CONNECT) and UDP (ASSOCIATE) commands. BIND is not supported and is not planned to be supported.
+
+#### About ACL
+
+[ACL File Format](ACL.md)
 
 #### About proxy authentication
 

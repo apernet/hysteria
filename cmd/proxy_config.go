@@ -7,6 +7,7 @@ const proxyTLSProtocol = "hysteria-proxy"
 type proxyClientConfig struct {
 	SOCKS5Addr        string `json:"socks5_addr" desc:"SOCKS5 listen address"`
 	SOCKS5Timeout     int    `json:"socks5_timeout" desc:"SOCKS5 connection timeout in seconds"`
+	ACLFile           string `json:"acl" desc:"Access control list"`
 	ServerAddr        string `json:"server" desc:"Server address"`
 	Username          string `json:"username" desc:"Authentication username"`
 	Password          string `json:"password" desc:"Authentication password"`
@@ -41,6 +42,7 @@ func (c *proxyClientConfig) Check() error {
 
 type proxyServerConfig struct {
 	ListenAddr          string `json:"listen" desc:"Server listen address"`
+	ACLFile             string `json:"acl" desc:"Access control list"`
 	CertFile            string `json:"cert" desc:"TLS certificate file"`
 	KeyFile             string `json:"key" desc:"TLS key file"`
 	AuthFile            string `json:"auth" desc:"Authentication file"`

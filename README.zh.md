@@ -65,6 +65,7 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | 描述 | JSON 字段 | 命令行参数 |
 | --- | --- | --- |
 | 服务端监听地址 | listen | -listen |
+| ACL 规则文件 | acl | -acl |
 | TLS 证书文件 | cert | -cert |
 | TLS 密钥文件 | key | -key |
 | 用户名密码验证文件 | auth | -auth |
@@ -81,6 +82,7 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | --- | --- | --- |
 | SOCKS5 监听地址 | socks5_addr | -socks5-addr |
 | SOCKS5 超时时间（秒） | socks5_timeout | -socks5-timeout |
+| ACL 规则文件 | acl | -acl |
 | 服务端地址 | server | -server |
 | 验证用户名 | username | -username |
 | 验证密码 | password | -password |
@@ -95,6 +97,10 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 #### 关于 SOCKS5
 
 支持 TCP (CONNECT) 和 UDP (ASSOCIATE)，不支持 BIND 也无计划支持。
+
+#### 关于 ACL
+
+[ACL 文件格式](ACL.zh.md)
 
 #### 关于用户名密码验证
 
