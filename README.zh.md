@@ -6,7 +6,7 @@
 [2]: LICENSE.md
 [3]: https://img.shields.io/github/v/release/tobyxdd/hysteria?style=flat-square
 [4]: https://github.com/tobyxdd/hysteria/releases
-[5]: https://patrolavia.github.io/telegram-badge/chat.png
+[5]: https://img.shields.io/badge/chat-Telegram-blue?style=flat-square
 [6]: https://t.me/hysteria_github
 
 Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服务器）进行优化的连接转发和代理工具（即所谓的双边加速）。其基于修改版的 QUIC 协议，可以理解为是我此前弃坑的项目 https://github.com/dragonite-network/dragonite-java 的续作。
