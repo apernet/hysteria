@@ -21,13 +21,13 @@ jobs:
       - name: Check out
         uses: actions/checkout@v2
 
-      - name: Get dependencies
-        run: |
-          go get -v -t -d ./...
-          if [ -f Gopkg.toml ]; then
-              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-              dep ensure
-          fi
+      - name: Cache go mod
+        uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Get tag
         uses: olegtarasov/get-tag@v2
@@ -41,6 +41,7 @@ jobs:
         uses: izumin5210/action-go-crossbuild@v1.0.0
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
+          CGO_ENABLE: 0
         with:
           name: hysteria
           arch: amd64
