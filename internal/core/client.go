@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/tobyxdd/hysteria/internal/utils"
-	"io"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -51,8 +50,8 @@ func NewClient(serverAddr string, username string, password string, tlsConfig *t
 	return c, nil
 }
 
-func (c *Client) Dial(packet bool, addr string) (io.ReadWriteCloser, error) {
-	stream, err := c.openStreamWithReconnect()
+func (c *Client) Dial(packet bool, addr string) (net.Conn, error) {
+	stream, localAddr, remoteAddr, err := c.openStreamWithReconnect()
 	if err != nil {
 		return nil, err
 	}
@@ -79,10 +78,15 @@ func (c *Client) Dial(packet bool, addr string) (io.ReadWriteCloser, error) {
 		return nil, fmt.Errorf("server rejected the connection %s (msg: %s)",
 			resp.Result.String(), resp.Message)
 	}
+	connWrap := &utils.QUICStreamWrapperConn{
+		Orig:             stream,
+		PseudoLocalAddr:  localAddr,
+		PseudoRemoteAddr: remoteAddr,
+	}
 	if packet {
-		return &utils.PacketReadWriteCloser{Orig: stream}, nil
+		return &utils.PacketWrapperConn{Orig: connWrap}, nil
 	} else {
-		return stream, nil
+		return connWrap, nil
 	}
 }
 
@@ -166,27 +170,28 @@ func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (AuthR
 	return resp.Result, resp.Message, nil
 }
 
-func (c *Client) openStreamWithReconnect() (quic.Stream, error) {
+func (c *Client) openStreamWithReconnect() (quic.Stream, net.Addr, net.Addr, error) {
 	c.reconnectMutex.Lock()
 	defer c.reconnectMutex.Unlock()
 	if c.closed {
-		return nil, ErrClosed
+		return nil, nil, nil, ErrClosed
 	}
 	stream, err := c.quicSession.OpenStream()
 	if err == nil {
 		// All good
-		return stream, nil
+		return stream, c.quicSession.LocalAddr(), c.quicSession.RemoteAddr(), nil
 	}
 	// Something is wrong
 	if nErr, ok := err.(net.Error); ok && nErr.Temporary() {
 		// Temporary error, just return
-		return nil, err
+		return nil, nil, nil, err
 	}
 	// Permanent error, need to reconnect
 	if err := c.connectToServer(); err != nil {
 		// Still error, oops
-		return nil, err
+		return nil, nil, nil, err
 	}
 	// We are not going to try again even if it still fails the second time
-	return c.quicSession.OpenStream()
+	stream, err = c.quicSession.OpenStream()
+	return stream, c.quicSession.LocalAddr(), c.quicSession.RemoteAddr(), err
 }

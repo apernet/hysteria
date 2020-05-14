@@ -8,11 +8,14 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	hyHTTP "github.com/tobyxdd/hysteria/pkg/http"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"github.com/tobyxdd/hysteria/pkg/socks5"
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
+	"time"
 )
 
 func proxyClient(args []string) {
@@ -79,31 +82,53 @@ func proxyClient(args []string) {
 	defer client.Close()
 	log.Println("Connected to", config.ServerAddr)
 
-	socks5server, err := socks5.NewServer(client, config.SOCKS5Addr, nil, config.SOCKS5Timeout, aclEngine,
-		func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
-			log.Printf("[TCP] [%s] %s <-> %s\n", actionToString(action, arg), addr.String(), reqAddr)
-		},
-		func(addr net.Addr, reqAddr string, err error) {
-			log.Printf("Closed [TCP] %s <-> %s: %s\n", addr.String(), reqAddr, err.Error())
-		},
-		func(addr net.Addr) {
-			log.Printf("[UDP] Associate %s\n", addr.String())
-		},
-		func(addr net.Addr, err error) {
-			log.Printf("Closed [UDP] Associate %s: %s\n", addr.String(), err.Error())
-		},
-		func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
-			log.Printf("[UDP] [%s] %s <-> %s\n", actionToString(action, arg), addr.String(), reqAddr)
-		},
-		func(addr net.Addr, reqAddr string, err error) {
-			log.Printf("Closed [UDP] %s <-> %s: %s\n", addr.String(), reqAddr, err.Error())
-		})
-	if err != nil {
-		log.Fatalln("SOCKS5 server initialization failed:", err)
-	}
-	log.Println("SOCKS5 server up and running on", config.SOCKS5Addr)
+	errChan := make(chan error)
 
-	log.Fatalln(socks5server.ListenAndServe())
+	if len(config.SOCKS5Addr) > 0 {
+		go func() {
+			socks5server, err := socks5.NewServer(client, config.SOCKS5Addr, nil, config.SOCKS5Timeout, aclEngine,
+				func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
+					log.Printf("[TCP] [%s] %s <-> %s\n", actionToString(action, arg), addr.String(), reqAddr)
+				},
+				func(addr net.Addr, reqAddr string, err error) {
+					log.Printf("Closed [TCP] %s <-> %s: %s\n", addr.String(), reqAddr, err.Error())
+				},
+				func(addr net.Addr) {
+					log.Printf("[UDP] Associate %s\n", addr.String())
+				},
+				func(addr net.Addr, err error) {
+					log.Printf("Closed [UDP] Associate %s: %s\n", addr.String(), err.Error())
+				},
+				func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
+					log.Printf("[UDP] [%s] %s <-> %s\n", actionToString(action, arg), addr.String(), reqAddr)
+				},
+				func(addr net.Addr, reqAddr string, err error) {
+					log.Printf("Closed [UDP] %s <-> %s: %s\n", addr.String(), reqAddr, err.Error())
+				})
+			if err != nil {
+				log.Fatalln("SOCKS5 server initialization failed:", err)
+			}
+			log.Println("SOCKS5 server up and running on", config.SOCKS5Addr)
+			errChan <- socks5server.ListenAndServe()
+		}()
+	}
+
+	if len(config.HTTPAddr) > 0 {
+		go func() {
+			proxy, err := hyHTTP.NewProxyHTTPServer(client, time.Duration(config.HTTPTimeout)*time.Second, aclEngine,
+				func(reqAddr string, action acl.Action, arg string) {
+					log.Printf("[HTTP] [%s] %s\n", actionToString(action, arg), reqAddr)
+				})
+			if err != nil {
+				log.Fatalln("HTTP server initialization failed:", err)
+			}
+			log.Println("HTTP server up and running on", config.HTTPAddr)
+			errChan <- http.ListenAndServe(config.HTTPAddr, proxy)
+		}()
+	}
+
+	log.Fatalln(<-errChan)
+
 }
 
 func actionToString(action acl.Action, arg string) string {

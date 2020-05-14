@@ -61,7 +61,7 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 }
 
 type Client interface {
-	Dial(packet bool, addr string) (io.ReadWriteCloser, error)
+	Dial(packet bool, addr string) (net.Conn, error)
 	Stats() (inbound uint64, outbound uint64)
 	Close() error
 }
