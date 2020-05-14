@@ -7,6 +7,8 @@ const proxyTLSProtocol = "hysteria-proxy"
 type proxyClientConfig struct {
 	SOCKS5Addr        string `json:"socks5_addr" desc:"SOCKS5 listen address"`
 	SOCKS5Timeout     int    `json:"socks5_timeout" desc:"SOCKS5 connection timeout in seconds"`
+	HTTPAddr          string `json:"http_addr" desc:"HTTP listen address"`
+	HTTPTimeout       int    `json:"http_timeout" desc:"HTTP connection timeout in seconds"`
 	ACLFile           string `json:"acl" desc:"Access control list"`
 	ServerAddr        string `json:"server" desc:"Server address"`
 	Username          string `json:"username" desc:"Authentication username"`
@@ -21,11 +23,14 @@ type proxyClientConfig struct {
 }
 
 func (c *proxyClientConfig) Check() error {
-	if len(c.SOCKS5Addr) == 0 {
-		return errors.New("no SOCKS5 listen address")
+	if len(c.SOCKS5Addr) == 0 && len(c.HTTPAddr) == 0 {
+		return errors.New("no SOCKS5 or HTTP listen address")
 	}
 	if c.SOCKS5Timeout != 0 && c.SOCKS5Timeout <= 4 {
 		return errors.New("invalid SOCKS5 timeout")
+	}
+	if c.HTTPTimeout != 0 && c.HTTPTimeout <= 4 {
+		return errors.New("invalid HTTP timeout")
 	}
 	if len(c.ServerAddr) == 0 {
 		return errors.New("no server address")

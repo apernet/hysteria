@@ -29,6 +29,8 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 ```
 在客户端的本地 TCP 1080 上启动一个 SOCKS5 代理服务器供其他程序使用。
 
+除了 SOCKS5 还支持 HTTP 代理 (`-http-addr` & `-http-timeout`)。两个模式可以同时开在不同端口。
+
 `-up-mbps 10 -down-mbps 50` 是告诉服务端你的下行速度为 50 Mbps, 上行 10 Mbps。根据实际网络条件正确设置客户端的上传和下载速度十分重要！
 
 ### 转发
@@ -82,6 +84,8 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | --- | --- | --- |
 | SOCKS5 监听地址 | socks5_addr | -socks5-addr |
 | SOCKS5 超时时间（秒） | socks5_timeout | -socks5-timeout |
+| HTTP 监听地址 | http_addr | -http-addr |
+| HTTP 超时时间（秒） | http_timeout | -http-timeout |
 | ACL 规则文件 | acl | -acl |
 | 服务端地址 | server | -server |
 | 验证用户名 | username | -username |

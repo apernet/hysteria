@@ -31,6 +31,8 @@ Client:
 ```
 This will start a SOCKS5 proxy server on the client's localhost TCP 1080 available for use by other programs.
 
+In addition to SOCKS5, it also supports HTTP proxy (`-http-addr` & `-http-timeout`). Both modes can be turned on simultaneously on different ports.
+
 `-up-mbps 10 -down-mbps 50` tells the server that your bandwidth is 50 Mbps down, 10 Mbps up. Properly setting the client's upload and download speeds based on your network conditions is essential for it to work at optimal performance!
 
 ### Relay
@@ -84,6 +86,8 @@ The command line program supports loading configurations from both JSON files an
 | --- | --- | --- |
 | SOCKS5 listen address | socks5_addr | -socks5-addr |
 | SOCKS5 connection timeout in seconds | socks5_timeout | -socks5-timeout |
+| HTTP listen address | http_addr | -http-addr |
+| HTTP connection timeout in seconds | http_timeout | -http-timeout |
 | Access control list | acl | -acl |
 | Server address | server | -server |
 | Authentication username | username | -username |

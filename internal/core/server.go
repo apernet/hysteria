@@ -110,7 +110,7 @@ func (s *Server) handleClient(cs quic.Session) {
 			closeErr = err
 			break
 		}
-		go s.handleStream(cs.RemoteAddr(), username, stream)
+		go s.handleStream(cs.LocalAddr(), cs.RemoteAddr(), username, stream)
 	}
 	s.clientDisconnectedFunc(cs.RemoteAddr(), username, closeErr)
 	_ = cs.CloseWithError(closeErrorCodeGeneric, "generic")
@@ -158,7 +158,7 @@ func (s *Server) handleControlStream(cs quic.Session, stream quic.Stream) (strin
 	return req.Credential.Username, authResult == AuthResult_AUTH_SUCCESS, nil
 }
 
-func (s *Server) handleStream(addr net.Addr, username string, stream quic.Stream) {
+func (s *Server) handleStream(localAddr net.Addr, remoteAddr net.Addr, username string, stream quic.Stream) {
 	defer stream.Close()
 	// Read request
 	req, err := readClientConnectRequest(stream)
@@ -166,7 +166,7 @@ func (s *Server) handleStream(addr net.Addr, username string, stream quic.Stream
 		return
 	}
 	// Create connection with the handler
-	result, msg, conn := s.handleRequestFunc(addr, username, int(stream.StreamID()), req.Type, req.Address)
+	result, msg, conn := s.handleRequestFunc(remoteAddr, username, int(stream.StreamID()), req.Type, req.Address)
 	defer func() {
 		if conn != nil {
 			_ = conn.Close()
@@ -178,11 +178,11 @@ func (s *Server) handleStream(addr net.Addr, username string, stream quic.Stream
 		Message: msg,
 	})
 	if err != nil {
-		s.requestClosedFunc(addr, username, int(stream.StreamID()), req.Type, req.Address, err)
+		s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), req.Type, req.Address, err)
 		return
 	}
 	if result != ConnectResult_CONN_SUCCESS {
-		s.requestClosedFunc(addr, username, int(stream.StreamID()), req.Type, req.Address,
+		s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), req.Type, req.Address,
 			fmt.Errorf("handler returned an unsuccessful state %s (msg: %s)", result.String(), msg))
 		return
 	}
@@ -190,9 +190,13 @@ func (s *Server) handleStream(addr net.Addr, username string, stream quic.Stream
 	case ConnectionType_Stream:
 		err = utils.PipePair(stream, conn, &s.outboundBytes, &s.inboundBytes)
 	case ConnectionType_Packet:
-		err = utils.PipePair(&utils.PacketReadWriteCloser{Orig: stream}, conn, &s.outboundBytes, &s.inboundBytes)
+		err = utils.PipePair(&utils.PacketWrapperConn{Orig: &utils.QUICStreamWrapperConn{
+			Orig:             stream,
+			PseudoLocalAddr:  localAddr,
+			PseudoRemoteAddr: remoteAddr,
+		}}, conn, &s.outboundBytes, &s.inboundBytes)
 	default:
 		err = fmt.Errorf("unsupported connection type %s", req.Type.String())
 	}
-	s.requestClosedFunc(addr, username, int(stream.StreamID()), req.Type, req.Address, err)
+	s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), req.Type, req.Address, err)
 }
