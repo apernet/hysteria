@@ -67,6 +67,7 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | 描述 | JSON 字段 | 命令行参数 |
 | --- | --- | --- |
 | 服务端监听地址 | listen | -listen |
+| 禁用 UDP 支持 | disable_udp | -disable-udp |
 | ACL 规则文件 | acl | -acl |
 | TLS 证书文件 | cert | -cert |
 | TLS 密钥文件 | key | -key |
@@ -84,6 +85,7 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | --- | --- | --- |
 | SOCKS5 监听地址 | socks5_addr | -socks5-addr |
 | SOCKS5 超时时间（秒） | socks5_timeout | -socks5-timeout |
+| 禁用 SOCKS5 UDP 支持 | socks5_disable_udp | -socks5-disable-udp |
 | HTTP 监听地址 | http_addr | -http-addr |
 | HTTP 超时时间（秒） | http_timeout | -http-timeout |
 | ACL 规则文件 | acl | -acl |

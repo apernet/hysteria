@@ -103,6 +103,9 @@ func proxyServer(args []string) {
 			log.Printf("%s (%s) disconnected: %s\n", addr.String(), username, err.Error())
 		},
 		func(addr net.Addr, username string, id int, packet bool, reqAddr string) (core.ConnectResult, string, io.ReadWriteCloser) {
+			if packet && config.DisableUDP {
+				return core.ConnBlocked, "UDP disabled", nil
+			}
 			host, port, err := net.SplitHostPort(reqAddr)
 			if err != nil {
 				return core.ConnFailed, err.Error(), nil

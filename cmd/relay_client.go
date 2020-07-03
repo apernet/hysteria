@@ -33,8 +33,9 @@ func relayClient(args []string) {
 	log.Printf("Configuration loaded: %+v\n", config)
 
 	tlsConfig := &tls.Config{
-		NextProtos: []string{relayTLSProtocol},
-		MinVersion: tls.VersionTLS13,
+		InsecureSkipVerify: config.Insecure,
+		NextProtos:         []string{relayTLSProtocol},
+		MinVersion:         tls.VersionTLS13,
 	}
 	// Load CA
 	if len(config.CustomCAFile) > 0 {

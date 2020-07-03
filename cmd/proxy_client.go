@@ -30,8 +30,9 @@ func proxyClient(args []string) {
 	log.Printf("Configuration loaded: %+v\n", config)
 
 	tlsConfig := &tls.Config{
-		NextProtos: []string{proxyTLSProtocol},
-		MinVersion: tls.VersionTLS13,
+		InsecureSkipVerify: config.Insecure,
+		NextProtos:         []string{proxyTLSProtocol},
+		MinVersion:         tls.VersionTLS13,
 	}
 	// Load CA
 	if len(config.CustomCAFile) > 0 {
@@ -87,6 +88,7 @@ func proxyClient(args []string) {
 	if len(config.SOCKS5Addr) > 0 {
 		go func() {
 			socks5server, err := socks5.NewServer(client, config.SOCKS5Addr, nil, config.SOCKS5Timeout, aclEngine,
+				config.SOCKS5DisableUDP,
 				func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
 					log.Printf("[TCP] [%s] %s <-> %s\n", actionToString(action, arg), addr.String(), reqAddr)
 				},
