@@ -69,6 +69,7 @@ The command line program supports loading configurations from both JSON files an
 | Description | JSON config field | CLI argument |
 | --- | --- | --- |
 | Server listen address | listen | -listen |
+| Disable UDP support | disable_udp | -disable-udp |
 | Access control list | acl | -acl |
 | TLS certificate file | cert | -cert |
 | TLS key file | key | -key |
@@ -86,6 +87,7 @@ The command line program supports loading configurations from both JSON files an
 | --- | --- | --- |
 | SOCKS5 listen address | socks5_addr | -socks5-addr |
 | SOCKS5 connection timeout in seconds | socks5_timeout | -socks5-timeout |
+| Disable SOCKS5 UDP support | socks5_disable_udp | -socks5-disable-udp |
 | HTTP listen address | http_addr | -http-addr |
 | HTTP connection timeout in seconds | http_timeout | -http-timeout |
 | Access control list | acl | -acl |

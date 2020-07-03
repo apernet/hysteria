@@ -29,6 +29,7 @@ type Server struct {
 	TCPAddr     *net.TCPAddr
 	TCPDeadline int
 	ACLEngine   *acl.Engine
+	DisableUDP  bool
 
 	NewRequestFunc         func(addr net.Addr, reqAddr string, action acl.Action, arg string)
 	RequestClosedFunc      func(addr net.Addr, reqAddr string, err error)
@@ -41,7 +42,7 @@ type Server struct {
 }
 
 func NewServer(hyClient core.Client, addr string, authFunc func(username, password string) bool, tcpDeadline int,
-	aclEngine *acl.Engine,
+	aclEngine *acl.Engine, disableUDP bool,
 	newReqFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string),
 	reqClosedFunc func(addr net.Addr, reqAddr string, err error),
 	newUDPAssociateFunc func(addr net.Addr),
@@ -64,6 +65,7 @@ func NewServer(hyClient core.Client, addr string, authFunc func(username, passwo
 		TCPAddr:                taddr,
 		TCPDeadline:            tcpDeadline,
 		ACLEngine:              aclEngine,
+		DisableUDP:             disableUDP,
 		NewRequestFunc:         newReqFunc,
 		RequestClosedFunc:      reqClosedFunc,
 		NewUDPAssociateFunc:    newUDPAssociateFunc,
@@ -154,7 +156,12 @@ func (s *Server) handle(c *net.TCPConn, r *socks5.Request) error {
 		return s.handleTCP(c, r)
 	} else if r.Cmd == socks5.CmdUDP {
 		// UDP
-		return s.handleUDP(c, r)
+		if !s.DisableUDP {
+			return s.handleUDP(c, r)
+		} else {
+			_ = sendReply(c, socks5.RepCommandNotSupported)
+			return ErrUnsupportedCmd
+		}
 	} else {
 		_ = sendReply(c, socks5.RepCommandNotSupported)
 		return ErrUnsupportedCmd
@@ -297,7 +304,7 @@ func (s *Server) udpServer(c *net.UDPConn) {
 			case acl.ActionDirect:
 				rc, err = net.Dial("udp", addr)
 				if err != nil {
-					// Failed to establish a connection, silently ignore
+					s.UDPTunnelClosedFunc(clientAddr, addr, err)
 					continue
 				}
 				// The other direction
@@ -306,26 +313,26 @@ func (s *Server) udpServer(c *net.UDPConn) {
 			case acl.ActionProxy:
 				rc, err = s.HyClient.Dial(true, addr)
 				if err != nil {
-					// Failed to establish a connection, silently ignore
+					s.UDPTunnelClosedFunc(clientAddr, addr, err)
 					continue
 				}
 				// The other direction
 				go udpReversePipe(clientAddr, c, rc)
 				remoteMap[addr] = rc
 			case acl.ActionBlock:
-				// Silently ignore
+				s.UDPTunnelClosedFunc(clientAddr, addr, errors.New("blocked in ACL"))
 				continue
 			case acl.ActionHijack:
 				rc, err = net.Dial("udp", net.JoinHostPort(arg, port))
 				if err != nil {
-					// Failed to establish a connection, silently ignore
+					s.UDPTunnelClosedFunc(clientAddr, addr, err)
 					continue
 				}
 				// The other direction
 				go udpReversePipe(clientAddr, c, rc)
 				remoteMap[addr] = rc
 			default:
-				// Silently ignore
+				s.UDPTunnelClosedFunc(clientAddr, addr, fmt.Errorf("unknown action %d", action))
 				continue
 			}
 		}
