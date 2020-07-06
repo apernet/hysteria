@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"os"
 	"strings"
 )
@@ -18,6 +19,14 @@ var modeMap = map[string]func(args []string){
 	"relay client": relayClient,
 	"proxy server": proxyServer,
 	"proxy client": proxyClient,
+}
+
+func init() {
+	logrus.SetOutput(os.Stdout)
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{
+		ForceColors: true,
+	})
 }
 
 func main() {

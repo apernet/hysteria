@@ -5,12 +5,12 @@ import (
 	"crypto/tls"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
+	"github.com/sirupsen/logrus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"io"
-	"log"
 	"net"
 	"os"
 	"strings"
@@ -20,16 +20,20 @@ func proxyServer(args []string) {
 	var config proxyServerConfig
 	err := loadConfig(&config, args)
 	if err != nil {
-		log.Fatalln("Unable to load configuration:", err)
+		logrus.WithField("error", err).Fatal("Unable to load configuration")
 	}
 	if err := config.Check(); err != nil {
-		log.Fatalln("Configuration error:", err.Error())
+		logrus.WithField("error", err).Fatal("Configuration error")
 	}
-	log.Printf("Configuration loaded: %+v\n", config)
+	logrus.WithField("config", config.String()).Info("Configuration loaded")
 	// Load cert
 	cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
 	if err != nil {
-		log.Fatalln("Unable to load the certificate:", err)
+		logrus.WithFields(logrus.Fields{
+			"error": err,
+			"cert":  config.CertFile,
+			"key":   config.KeyFile,
+		}).Fatal("Unable to load the certificate")
 	}
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
@@ -54,7 +58,7 @@ func proxyServer(args []string) {
 	}
 
 	if len(config.AuthFile) == 0 {
-		log.Println("WARNING: No authentication configured. This server can be used by anyone!")
+		logrus.Warn("No authentication configured, this server can be used by anyone")
 	}
 
 	var obfuscator core.Obfuscator
@@ -66,7 +70,10 @@ func proxyServer(args []string) {
 	if len(config.ACLFile) > 0 {
 		aclEngine, err = acl.LoadFromFile(config.ACLFile)
 		if err != nil {
-			log.Fatalln("Unable to parse ACL:", err)
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+				"file":  config.ACLFile,
+			}).Fatal("Unable to parse ACL")
 		}
 		aclEngine.DefaultAction = acl.ActionDirect
 	}
@@ -79,28 +86,49 @@ func proxyServer(args []string) {
 		obfuscator,
 		func(addr net.Addr, username string, password string, sSend uint64, sRecv uint64) (core.AuthResult, string) {
 			if len(config.AuthFile) == 0 {
-				log.Printf("%s (%s) connected, negotiated speed (Mbps): Up %d / Down %d\n",
-					addr.String(), username, sSend/mbpsToBps, sRecv/mbpsToBps)
+				logrus.WithFields(logrus.Fields{
+					"addr":     addr.String(),
+					"username": username,
+					"up":       sSend / mbpsToBps,
+					"down":     sRecv / mbpsToBps,
+				}).Info("Client connected")
 				return core.AuthSuccess, ""
 			} else {
 				// Need auth
 				ok, err := checkAuth(config.AuthFile, username, password)
 				if err != nil {
-					log.Printf("%s (%s) auth error: %s\n", addr.String(), username, err.Error())
+					logrus.WithFields(logrus.Fields{
+						"error":    err.Error(),
+						"addr":     addr.String(),
+						"username": username,
+					}).Error("Client authentication error")
 					return core.AuthInternalError, "Server auth error"
 				}
 				if ok {
-					log.Printf("%s (%s) authenticated, negotiated speed (Mbps): Up %d / Down %d\n",
-						addr.String(), username, sSend/mbpsToBps, sRecv/mbpsToBps)
+					logrus.WithFields(logrus.Fields{
+						"addr":     addr.String(),
+						"username": username,
+						"up":       sSend / mbpsToBps,
+						"down":     sRecv / mbpsToBps,
+					}).Info("Client authenticated")
 					return core.AuthSuccess, ""
 				} else {
-					log.Printf("%s (%s) auth failed (invalid credential)\n", addr.String(), username)
+					logrus.WithFields(logrus.Fields{
+						"addr":     addr.String(),
+						"username": username,
+						"up":       sSend / mbpsToBps,
+						"down":     sRecv / mbpsToBps,
+					}).Info("Client rejected due to invalid credential")
 					return core.AuthInvalidCred, "Invalid credential"
 				}
 			}
 		},
 		func(addr net.Addr, username string, err error) {
-			log.Printf("%s (%s) disconnected: %s\n", addr.String(), username, err.Error())
+			logrus.WithFields(logrus.Fields{
+				"error":    err.Error(),
+				"addr":     addr.String(),
+				"username": username,
+			}).Info("Client disconnected")
 		},
 		func(addr net.Addr, username string, id int, packet bool, reqAddr string) (core.ConnectResult, string, io.ReadWriteCloser) {
 			if packet && config.DisableUDP {
@@ -123,19 +151,35 @@ func proxyServer(args []string) {
 			case acl.ActionDirect, acl.ActionProxy: // Treat proxy as direct on server side
 				if !packet {
 					// TCP
-					log.Printf("%s (%s): [TCP] [Direct] %s\n", addr.String(), username, reqAddr)
+					logrus.WithFields(logrus.Fields{
+						"action":   "direct",
+						"username": username,
+						"src":      addr.String(),
+						"dst":      reqAddr,
+					}).Debug("New TCP request")
 					conn, err := net.DialTimeout("tcp", reqAddr, dialTimeout)
 					if err != nil {
-						log.Printf("TCP error %s: %s\n", reqAddr, err.Error())
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"dst":   reqAddr,
+						}).Error("TCP error")
 						return core.ConnFailed, err.Error(), nil
 					}
 					return core.ConnSuccess, "", conn
 				} else {
 					// UDP
-					log.Printf("%s (%s): [UDP] [Direct] %s\n", addr.String(), username, reqAddr)
+					logrus.WithFields(logrus.Fields{
+						"action":   "direct",
+						"username": username,
+						"src":      addr.String(),
+						"dst":      reqAddr,
+					}).Debug("New UDP request")
 					conn, err := net.Dial("udp", reqAddr)
 					if err != nil {
-						log.Printf("UDP error %s: %s\n", reqAddr, err.Error())
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"dst":   reqAddr,
+						}).Error("UDP error")
 						return core.ConnFailed, err.Error(), nil
 					}
 					return core.ConnSuccess, "", conn
@@ -143,30 +187,58 @@ func proxyServer(args []string) {
 			case acl.ActionBlock:
 				if !packet {
 					// TCP
-					log.Printf("%s (%s): [TCP] [Block] %s\n", addr.String(), username, reqAddr)
+					logrus.WithFields(logrus.Fields{
+						"action":   "block",
+						"username": username,
+						"src":      addr.String(),
+						"dst":      reqAddr,
+					}).Debug("New TCP request")
 					return core.ConnBlocked, "blocked by ACL", nil
 				} else {
 					// UDP
-					log.Printf("%s (%s): [UDP] [Block] %s\n", addr.String(), username, reqAddr)
+					logrus.WithFields(logrus.Fields{
+						"action":   "block",
+						"username": username,
+						"src":      addr.String(),
+						"dst":      reqAddr,
+					}).Debug("New UDP request")
 					return core.ConnBlocked, "blocked by ACL", nil
 				}
 			case acl.ActionHijack:
 				hijackAddr := net.JoinHostPort(arg, port)
 				if !packet {
 					// TCP
-					log.Printf("%s (%s): [TCP] [Hijack to %s] %s\n", addr.String(), username, arg, reqAddr)
+					logrus.WithFields(logrus.Fields{
+						"action":   "hijack",
+						"username": username,
+						"src":      addr.String(),
+						"dst":      reqAddr,
+						"rdst":     arg,
+					}).Debug("New TCP request")
 					conn, err := net.DialTimeout("tcp", hijackAddr, dialTimeout)
 					if err != nil {
-						log.Printf("TCP error %s: %s\n", hijackAddr, err.Error())
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"dst":   hijackAddr,
+						}).Error("TCP error")
 						return core.ConnFailed, err.Error(), nil
 					}
 					return core.ConnSuccess, "", conn
 				} else {
 					// UDP
-					log.Printf("%s (%s): [UDP] [Hijack to %s] %s\n", addr.String(), username, arg, reqAddr)
+					logrus.WithFields(logrus.Fields{
+						"action":   "hijack",
+						"username": username,
+						"src":      addr.String(),
+						"dst":      reqAddr,
+						"rdst":     arg,
+					}).Debug("New UDP request")
 					conn, err := net.Dial("udp", hijackAddr)
 					if err != nil {
-						log.Printf("UDP error %s: %s\n", hijackAddr, err.Error())
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"dst":   hijackAddr,
+						}).Error("UDP error")
 						return core.ConnFailed, err.Error(), nil
 					}
 					return core.ConnSuccess, "", conn
@@ -177,19 +249,30 @@ func proxyServer(args []string) {
 		},
 		func(addr net.Addr, username string, id int, packet bool, reqAddr string, err error) {
 			if !packet {
-				log.Printf("%s (%s): closed [TCP] %s: %s\n", addr.String(), username, reqAddr, err.Error())
+				logrus.WithFields(logrus.Fields{
+					"error":    err,
+					"username": username,
+					"src":      addr.String(),
+					"dst":      reqAddr,
+				}).Debug("TCP request closed")
 			} else {
-				log.Printf("%s (%s): closed [UDP] %s: %s\n", addr.String(), username, reqAddr, err.Error())
+				logrus.WithFields(logrus.Fields{
+					"error":    err,
+					"username": username,
+					"src":      addr.String(),
+					"dst":      reqAddr,
+				}).Debug("UDP request closed")
 			}
 		},
 	)
 	if err != nil {
-		log.Fatalln("Server initialization failed:", err)
+		logrus.WithField("error", err).Fatal("Server initialization failed")
 	}
 	defer server.Close()
-	log.Println("Up and running on", config.ListenAddr)
+	logrus.WithField("addr", config.ListenAddr).Info("Server up and running")
 
-	log.Fatalln(server.Serve())
+	err = server.Serve()
+	logrus.WithField("error", err).Fatal("Server shutdown")
 }
 
 func checkAuth(authFile, username, password string) (bool, error) {

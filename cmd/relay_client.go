@@ -5,12 +5,12 @@ import (
 	"crypto/x509"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
+	"github.com/sirupsen/logrus"
 	"github.com/tobyxdd/hysteria/internal/utils"
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"io/ioutil"
-	"log"
 	"net"
 	"os/user"
 )
@@ -19,10 +19,10 @@ func relayClient(args []string) {
 	var config relayClientConfig
 	err := loadConfig(&config, args)
 	if err != nil {
-		log.Fatalln("Unable to load configuration:", err)
+		logrus.WithField("error", err).Fatal("Unable to load configuration")
 	}
 	if err := config.Check(); err != nil {
-		log.Fatalln("Configuration error:", err)
+		logrus.WithField("error", err).Fatal("Configuration error")
 	}
 	if len(config.Name) == 0 {
 		usr, err := user.Current()
@@ -30,7 +30,7 @@ func relayClient(args []string) {
 			config.Name = usr.Name
 		}
 	}
-	log.Printf("Configuration loaded: %+v\n", config)
+	logrus.WithField("config", config.String()).Info("Configuration loaded")
 
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: config.Insecure,
@@ -41,11 +41,16 @@ func relayClient(args []string) {
 	if len(config.CustomCAFile) > 0 {
 		bs, err := ioutil.ReadFile(config.CustomCAFile)
 		if err != nil {
-			log.Fatalln("Unable to load CA file:", err)
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+				"file":  config.CustomCAFile,
+			}).Fatal("Unable to load CA file")
 		}
 		cp := x509.NewCertPool()
 		if !cp.AppendCertsFromPEM(bs) {
-			log.Fatalln("Unable to parse CA file", config.CustomCAFile)
+			logrus.WithFields(logrus.Fields{
+				"file": config.CustomCAFile,
+			}).Fatal("Unable to parse CA file")
 		}
 		tlsConfig.RootCAs = cp
 	}
@@ -73,33 +78,36 @@ func relayClient(args []string) {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		}, obfuscator)
 	if err != nil {
-		log.Fatalln("Client initialization failed:", err)
+		logrus.WithField("error", err).Fatal("Client initialization failed")
 	}
 	defer client.Close()
-	log.Println("Connected to", config.ServerAddr)
+	logrus.WithField("addr", config.ServerAddr).Info("Connected")
 
 	listener, err := net.Listen("tcp", config.ListenAddr)
 	if err != nil {
-		log.Fatalln("TCP listen failed:", err)
+		logrus.WithField("error", err).Fatal("TCP listen failed")
 	}
 	defer listener.Close()
-	log.Println("TCP listening on", listener.Addr().String())
+	logrus.WithField("addr", listener.Addr().String()).Info("TCP server listening")
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Fatalln("TCP accept failed:", err)
+			logrus.WithField("error", err).Fatal("TCP accept failed")
 		}
 		go relayClientHandleConn(conn, client)
 	}
 }
 
 func relayClientHandleConn(conn net.Conn, client core.Client) {
-	log.Println("New connection", conn.RemoteAddr().String())
+	logrus.WithField("src", conn.RemoteAddr().String()).Debug("New connection")
 	var closeErr error
 	defer func() {
 		_ = conn.Close()
-		log.Println("Connection", conn.RemoteAddr().String(), "closed", closeErr)
+		logrus.WithFields(logrus.Fields{
+			"error": closeErr,
+			"src":   conn.RemoteAddr().String(),
+		}).Debug("Connection closed")
 	}()
 	rwc, err := client.Dial(false, "")
 	if err != nil {
