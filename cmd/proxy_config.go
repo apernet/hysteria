@@ -1,6 +1,9 @@
 package main
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 const proxyTLSProtocol = "hysteria-proxy"
 
@@ -46,6 +49,10 @@ func (c *proxyClientConfig) Check() error {
 	return nil
 }
 
+func (c *proxyClientConfig) String() string {
+	return fmt.Sprintf("%+v", *c)
+}
+
 type proxyServerConfig struct {
 	ListenAddr          string `json:"listen" desc:"Server listen address"`
 	DisableUDP          bool   `json:"disable_udp" desc:"Disable UDP support"`
@@ -79,4 +86,8 @@ func (c *proxyServerConfig) Check() error {
 		return errors.New("invalid max connections per client")
 	}
 	return nil
+}
+
+func (c *proxyServerConfig) String() string {
+	return fmt.Sprintf("%+v", *c)
 }

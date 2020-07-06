@@ -1,6 +1,9 @@
 package main
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 const relayTLSProtocol = "hysteria-relay"
 
@@ -32,6 +35,10 @@ func (c *relayClientConfig) Check() error {
 		return errors.New("invalid receive window size")
 	}
 	return nil
+}
+
+func (c *relayClientConfig) String() string {
+	return fmt.Sprintf("%+v", *c)
 }
 
 type relayServerConfig struct {
@@ -68,4 +75,8 @@ func (c *relayServerConfig) Check() error {
 		return errors.New("invalid max connections per client")
 	}
 	return nil
+}
+
+func (c *relayServerConfig) String() string {
+	return fmt.Sprintf("%+v", *c)
 }
