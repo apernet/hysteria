@@ -152,3 +152,11 @@ shady_hacker smokeweed420
 | 单连接最大接收窗口大小 | recv_window_conn | -recv-window-conn |
 | 总最大接收窗口大小 | recv_window | -recv-window |
 | 混淆密钥 | obfs | -obfs |
+
+## 日志
+
+程序默认在 stdout 输出 DEBUG 级别，文字格式的日志。
+
+如果需要修改日志级别可以使用 `LOGGING_LEVEL` 环境变量，支持 `panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace`
+
+如果需要输出 JSON 可以把 `LOGGING_FORMATTER` 设置为 `json`

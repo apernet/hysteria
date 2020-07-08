@@ -154,3 +154,11 @@ To prevent firewalls from potentially detecting & blocking the protocol, a simpl
 | Max receive window size per connection | recv_window_conn | -recv-window-conn |
 | Max receive window size | recv_window | -recv-window |
 | Obfuscation key | obfs | -obfs |
+
+## Logs
+
+By default, the program outputs DEBUG level, text format logs via stdout.
+
+To change the logging level, set `LOGGING_LEVEL` environment variable, which supports `panic`, `fatal`, `error`, `warn`, `info`, ` debug`, `trace`
+
+To print JSON instead, set `LOGGING_FORMATTER` to `json`
