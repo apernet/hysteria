@@ -23,10 +23,22 @@ var modeMap = map[string]func(args []string){
 
 func init() {
 	logrus.SetOutput(os.Stdout)
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{
-		ForceColors: true,
-	})
+
+	lvl, err := logrus.ParseLevel(os.Getenv("LOGGING_LEVEL"))
+	if err == nil {
+		logrus.SetLevel(lvl)
+	} else {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
+	fmtter := os.Getenv("LOGGING_FORMATTER")
+	if strings.ToLower(fmtter) == "json" {
+		logrus.SetFormatter(&logrus.JSONFormatter{})
+	} else {
+		logrus.SetFormatter(&logrus.TextFormatter{
+			ForceColors: true,
+		})
+	}
 }
 
 func main() {
