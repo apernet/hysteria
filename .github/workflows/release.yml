@@ -38,7 +38,7 @@ jobs:
         id: current-time
 
       - name: Build
-        uses: thatisuday/go-cross-build@v1
+        uses: tobyxdd/go-cross-build@1f6e51b2f7a0e267cded96104497ce0a17260ad3
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
         with:
