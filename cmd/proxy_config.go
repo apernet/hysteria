@@ -15,6 +15,8 @@ type proxyClientConfig struct {
 	HTTPTimeout       int    `json:"http_timeout" desc:"HTTP connection timeout in seconds"`
 	HTTPUser          string `json:"http_user" desc:"HTTP basic auth username"`
 	HTTPPassword      string `json:"http_password" desc:"HTTP basic auth password"`
+	HTTPSCert         string `json:"https_cert" desc:"HTTPS cert file"`
+	HTTPSKey          string `json:"https_key" desc:"HTTPS cert key"`
 	ACLFile           string `json:"acl" desc:"Access control list"`
 	ServerAddr        string `json:"server" desc:"Server address"`
 	Username          string `json:"username" desc:"Authentication username"`

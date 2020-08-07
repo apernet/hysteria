@@ -3,14 +3,11 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/elazarl/goproxy"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/sirupsen/logrus"
@@ -157,44 +154,22 @@ func proxyClient(args []string) {
 						"dst":    reqAddr,
 					}).Debug("New HTTP request")
 				},
-				func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+				func(user, password string) bool {
 					if config.HTTPUser == "" || config.HTTPPassword == "" {
-						return req, nil
+						return true
 					}
-
-					resp := goproxy.NewResponse(req, goproxy.ContentTypeText, http.StatusUnauthorized, "401 - Forbidden: Unauthorized")
-					// RFC7617 section 2.1
-					pa := req.Header.Get("Proxy-Authorization")
-					if pa == "" {
-						return req, resp
-					}
-					authStr := strings.Fields(pa)
-					if len(authStr) != 2 || authStr[0] != "Basic" {
-						return req, resp
-					}
-					decodeBytes, err := base64.StdEncoding.DecodeString(authStr[1])
-					if err != nil {
-						logrus.WithFields(logrus.Fields{
-							"error": err,
-							"cred":  authStr[1],
-						}).Debug("Failed to decode base64 auth string")
-						return req, resp
-					}
-					userAndPassword := strings.Split(string(decodeBytes), ":")
-					if len(userAndPassword) != 2 {
-						return req, resp
-					}
-					if userAndPassword[0] != config.HTTPUser || userAndPassword[1] != config.HTTPPassword {
-						return req, resp
-					}
-
-					return req, nil
+					return config.HTTPUser == user && config.HTTPPassword == password
 				})
 			if err != nil {
 				logrus.WithField("error", err).Fatal("HTTP server initialization failed")
 			}
-			logrus.WithField("addr", config.HTTPAddr).Info("HTTP server up and running")
-			errChan <- http.ListenAndServe(config.HTTPAddr, proxy)
+			if config.HTTPSCert != "" && config.HTTPSKey != "" {
+				logrus.WithField("addr", config.HTTPAddr).Info("HTTPS server up and running")
+				errChan <- http.ListenAndServeTLS(config.HTTPAddr, config.HTTPSCert, config.HTTPSKey, proxy)
+			} else {
+				logrus.WithField("addr", config.HTTPAddr).Info("HTTP server up and running")
+				errChan <- http.ListenAndServe(config.HTTPAddr, proxy)
+			}
 		}()
 	}
 
