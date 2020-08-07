@@ -29,9 +29,9 @@ WORKDIR /go/src/github.com/tobyxdd/hysteria/cmd
 # TODO: Is it necessary to remove "-w -s" to add debugging information?
 RUN set -ex \
     && go build -o /go/bin/hysteria -ldflags \
-        "-w -s -X main.appVersion=${VERSION} \
-        -X main.appCommit=${COMMIT} \
-        -X main.appDate=${TIMESTAMP}"
+        "-w -s -X 'main.appVersion=${VERSION}' \
+        -X 'main.appCommit=${COMMIT}' \
+        -X 'main.appDate=${TIMESTAMP}'"
 
 # multi-stage builds to create the final image
 FROM alpine:3.12 AS dist
