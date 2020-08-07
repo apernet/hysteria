@@ -3,19 +3,22 @@ package http
 import (
 	"errors"
 	"fmt"
-	"github.com/elazarl/goproxy"
-	"github.com/tobyxdd/hysteria/pkg/acl"
-	"github.com/tobyxdd/hysteria/pkg/core"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/elazarl/goproxy"
+	"github.com/tobyxdd/hysteria/pkg/acl"
+	"github.com/tobyxdd/hysteria/pkg/core"
 )
 
 func NewProxyHTTPServer(hyClient core.Client, idleTimeout time.Duration, aclEngine *acl.Engine,
-	newDialFunc func(reqAddr string, action acl.Action, arg string)) (*goproxy.ProxyHttpServer, error) {
+	newDialFunc func(reqAddr string, action acl.Action, arg string),
+	basicAuthFunc func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response)) (*goproxy.ProxyHttpServer, error) {
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Logger = &nopLogger{}
 	proxy.NonproxyHandler = http.NotFoundHandler()
+	proxy.OnRequest().DoFunc(basicAuthFunc)
 	proxy.Tr = &http.Transport{
 		Dial: func(network, addr string) (net.Conn, error) {
 			// Parse addr string
