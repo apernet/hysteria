@@ -90,6 +90,8 @@ The command line program supports loading configurations from both JSON files an
 | Disable SOCKS5 UDP support | socks5_disable_udp | -socks5-disable-udp |
 | HTTP listen address | http_addr | -http-addr |
 | HTTP connection timeout in seconds | http_timeout | -http-timeout |
+| HTTP basic auth username | http_user | -http-user |
+| HTTP basic auth password | http_password | -http-password |
 | Access control list | acl | -acl |
 | Server address | server | -server |
 | Authentication username | username | -username |
@@ -162,3 +164,5 @@ By default, the program outputs DEBUG level, text format logs via stdout.
 To change the logging level, set `LOGGING_LEVEL` environment variable, which supports `panic`, `fatal`, `error`, `warn`, `info`, ` debug`, `trace`
 
 To print JSON instead, set `LOGGING_FORMATTER` to `json`
+
+To change the logging timestamp format, set `LOGGING_TIMESTAMP_FORMAT`

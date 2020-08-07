@@ -88,6 +88,8 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | 禁用 SOCKS5 UDP 支持 | socks5_disable_udp | -socks5-disable-udp |
 | HTTP 监听地址 | http_addr | -http-addr |
 | HTTP 超时时间（秒） | http_timeout | -http-timeout |
+| HTTP 验证用户名 | http_user | -http-user |
+| HTTP 验证密码 | http_password | -http-password |
 | ACL 规则文件 | acl | -acl |
 | 服务端地址 | server | -server |
 | 验证用户名 | username | -username |
@@ -160,3 +162,5 @@ shady_hacker smokeweed420
 如果需要修改日志级别可以使用 `LOGGING_LEVEL` 环境变量，支持 `panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace`
 
 如果需要输出 JSON 可以把 `LOGGING_FORMATTER` 设置为 `json`
+
+如果需要修改日志时间戳格式可以使用 `LOGGING_TIMESTAMP_FORMAT`

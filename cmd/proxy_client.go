@@ -174,7 +174,10 @@ func proxyClient(args []string) {
 					}
 					decodeBytes, err := base64.StdEncoding.DecodeString(authStr[1])
 					if err != nil {
-						logrus.WithField("error", err).Fatal("Failed to decode base64 auth string")
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"cred":  authStr[1],
+						}).Debug("Failed to decode base64 auth string")
 						return req, resp
 					}
 					userAndPassword := strings.Split(string(decodeBytes), ":")
