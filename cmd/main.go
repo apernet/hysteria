@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"os"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Injected when compiling
@@ -31,12 +32,22 @@ func init() {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
+	// tsFormat is used to format the log timestamp, by default(empty)
+	// the RFC3339("2006-01-02T15:04:05Z07:00") format is used.
+	// The user can use environment variable to override the default
+	// timestamp format(e.g. "2006-01-02 15:04:05").
+	tsFormat := os.Getenv("LOGGING_TIMESTAMP_FORMAT")
+
 	fmtter := os.Getenv("LOGGING_FORMATTER")
 	if strings.ToLower(fmtter) == "json" {
-		logrus.SetFormatter(&logrus.JSONFormatter{})
+		logrus.SetFormatter(&logrus.JSONFormatter{
+			TimestampFormat: tsFormat,
+		})
 	} else {
 		logrus.SetFormatter(&logrus.TextFormatter{
-			ForceColors: true,
+			ForceColors:     true,
+			FullTimestamp:   true,
+			TimestampFormat: tsFormat,
 		})
 	}
 }
