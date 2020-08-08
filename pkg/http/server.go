@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -22,7 +21,7 @@ func NewProxyHTTPServer(hyClient core.Client, idleTimeout time.Duration, aclEngi
 	proxy.Logger = &nopLogger{}
 	proxy.NonproxyHandler = http.NotFoundHandler()
 	proxy.Tr = &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+		Dial: func(network, addr string) (net.Conn, error) {
 			// Parse addr string
 			host, port, err := net.SplitHostPort(addr)
 			if err != nil {
