@@ -147,6 +147,12 @@ func proxyClient(args []string) {
 
 	if len(config.HTTPAddr) > 0 {
 		go func() {
+			var authFunc func(user, password string) bool
+			if config.HTTPUser != "" && config.HTTPPassword != "" {
+				authFunc = func(user, password string) bool {
+					return config.HTTPUser == user && config.HTTPPassword == password
+				}
+			}
 			proxy, err := hyHTTP.NewProxyHTTPServer(client, time.Duration(config.HTTPTimeout)*time.Second, aclEngine,
 				func(reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
@@ -154,12 +160,7 @@ func proxyClient(args []string) {
 						"dst":    reqAddr,
 					}).Debug("New HTTP request")
 				},
-				func(user, password string) bool {
-					if config.HTTPUser == "" || config.HTTPPassword == "" {
-						return true
-					}
-					return config.HTTPUser == user && config.HTTPPassword == password
-				})
+				authFunc)
 			if err != nil {
 				logrus.WithField("error", err).Fatal("HTTP server initialization failed")
 			}

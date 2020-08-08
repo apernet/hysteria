@@ -57,7 +57,9 @@ func NewProxyHTTPServer(hyClient core.Client, idleTimeout time.Duration, aclEngi
 		//TLSNextProto: make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
 	}
 	proxy.ConnectDial = nil
-	auth.ProxyBasic(proxy, "hysteria client", basicAuthFunc)
+	if basicAuthFunc != nil {
+		auth.ProxyBasic(proxy, "hysteria client", basicAuthFunc)
+	}
 	return proxy, nil
 }
 
