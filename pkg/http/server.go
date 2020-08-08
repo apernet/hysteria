@@ -1,11 +1,14 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/elazarl/goproxy/ext/auth"
 
 	"github.com/elazarl/goproxy"
 	"github.com/tobyxdd/hysteria/pkg/acl"
@@ -14,13 +17,12 @@ import (
 
 func NewProxyHTTPServer(hyClient core.Client, idleTimeout time.Duration, aclEngine *acl.Engine,
 	newDialFunc func(reqAddr string, action acl.Action, arg string),
-	basicAuthFunc func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response)) (*goproxy.ProxyHttpServer, error) {
+	basicAuthFunc func(user, password string) bool) (*goproxy.ProxyHttpServer, error) {
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Logger = &nopLogger{}
 	proxy.NonproxyHandler = http.NotFoundHandler()
-	proxy.OnRequest().DoFunc(basicAuthFunc)
 	proxy.Tr = &http.Transport{
-		Dial: func(network, addr string) (net.Conn, error) {
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			// Parse addr string
 			host, port, err := net.SplitHostPort(addr)
 			if err != nil {
@@ -51,8 +53,11 @@ func NewProxyHTTPServer(hyClient core.Client, idleTimeout time.Duration, aclEngi
 			}
 		},
 		IdleConnTimeout: idleTimeout,
+		// TODO: Disable HTTP2 support? ref: https://github.com/elazarl/goproxy/issues/361
+		//TLSNextProto: make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
 	}
 	proxy.ConnectDial = nil
+	auth.ProxyBasic(proxy, "hysteria client", basicAuthFunc)
 	return proxy, nil
 }
 
