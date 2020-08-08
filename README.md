@@ -92,8 +92,8 @@ The command line program supports loading configurations from both JSON files an
 | HTTP connection timeout in seconds | http_timeout | -http-timeout |
 | HTTP basic auth username | http_user | -http-user |
 | HTTP basic auth password | http_password | -http-password |
-| HTTPS cert file | https_cert | -http-cert |
-| HTTPS cert key | https_key | -http-key |
+| HTTPS certificate file | https_cert | -http-cert |
+| HTTPS key file | https_key | -http-key |
 | Access control list | acl | -acl |
 | Server address | server | -server |
 | Authentication username | username | -username |
