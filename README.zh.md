@@ -90,6 +90,8 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | HTTP 超时时间（秒） | http_timeout | -http-timeout |
 | HTTP 验证用户名 | http_user | -http-user |
 | HTTP 验证密码 | http_password | -http-password |
+| HTTPS 证书文件 | https_cert | -http-cert |
+| HTTPS 密钥文件 | https_key | -http-key |
 | ACL 规则文件 | acl | -acl |
 | 服务端地址 | server | -server |
 | 验证用户名 | username | -username |
