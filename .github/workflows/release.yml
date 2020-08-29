@@ -24,7 +24,7 @@ jobs:
         id: current-time
 
       - name: Build
-        uses: tobyxdd/go-cross-build@1f6e51b2f7a0e267cded96104497ce0a17260ad3
+        uses: tobyxdd/go-cross-build@e269fe09a60b9a6a7325cb06075e32ab1b7c2d12
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
         with:
