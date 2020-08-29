@@ -44,7 +44,7 @@ func proxyServer(args []string) {
 	quicConfig := &quic.Config{
 		MaxReceiveStreamFlowControlWindow:     config.ReceiveWindowConn,
 		MaxReceiveConnectionFlowControlWindow: config.ReceiveWindowClient,
-		MaxIncomingStreams:                    config.MaxConnClient,
+		MaxIncomingStreams:                    int64(config.MaxConnClient),
 		KeepAlive:                             true,
 	}
 	if quicConfig.MaxReceiveStreamFlowControlWindow == 0 {
@@ -80,7 +80,7 @@ func proxyServer(args []string) {
 
 	server, err := core.NewServer(config.ListenAddr, tlsConfig, quicConfig,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
-		func(refBPS uint64) congestion.SendAlgorithmWithDebugInfos {
+		func(refBPS uint64) congestion.ExternalSendAlgorithm {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		},
 		obfuscator,

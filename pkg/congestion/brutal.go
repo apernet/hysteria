@@ -6,16 +6,17 @@ import (
 )
 
 const (
+	maxDatagramSize = 1252
+
 	ackRateMinSampleInterval = 4 * time.Second
 	ackRateMaxSampleInterval = 20 * time.Second
-	ackRateMinACKSampleCount = 200
+	ackRateMinACKSampleCount = 100
 )
 
-// BrutalSender sends packets at a constant rate and does not react to any changes in the network environment,
-// hence the name.
 type BrutalSender struct {
-	rttStats *congestion.RTTStats
+	rttStats congestion.RTTStats
 	bps      congestion.ByteCount
+	pacer    *pacer
 
 	ackCount, lossCount  uint64
 	ackRate              float64
@@ -24,27 +25,29 @@ type BrutalSender struct {
 }
 
 func NewBrutalSender(bps congestion.ByteCount) *BrutalSender {
-	return &BrutalSender{
+	bs := &BrutalSender{
 		bps: bps,
 	}
+	bs.pacer = newPacer(func() uint64 {
+		return uint64(float64(bs.bps)/bs.getAckRate()) * 5 / 4
+	})
+	return bs
 }
 
-func (b *BrutalSender) SetRTTStats(rttStats *congestion.RTTStats) {
+func (b *BrutalSender) SetRTTStats(rttStats congestion.RTTStats) {
 	b.rttStats = rttStats
 }
 
-func (b *BrutalSender) TimeUntilSend(bytesInFlight congestion.ByteCount) time.Duration {
-	return time.Duration(congestion.MaxPacketSizeIPv4 * congestion.ByteCount(time.Second) / (2 * b.bps))
+func (b *BrutalSender) TimeUntilSend(bytesInFlight congestion.ByteCount) time.Time {
+	return b.pacer.TimeUntilSend()
+}
+
+func (b *BrutalSender) HasPacingBudget() bool {
+	return b.pacer.Budget(time.Now()) >= maxDatagramSize
 }
 
 func (b *BrutalSender) CanSend(bytesInFlight congestion.ByteCount) bool {
-	rate := b.ackRate
-	if rate <= 0 {
-		rate = 1
-	} else if rate < 0.5 {
-		rate = 0.5
-	}
-	return bytesInFlight < congestion.ByteCount(float64(b.GetCongestionWindow())/rate)
+	return bytesInFlight < b.GetCongestionWindow()
 }
 
 func (b *BrutalSender) GetCongestionWindow() congestion.ByteCount {
@@ -52,11 +55,12 @@ func (b *BrutalSender) GetCongestionWindow() congestion.ByteCount {
 	if rtt <= 0 {
 		return 10240
 	}
-	return b.bps * congestion.ByteCount(rtt) / congestion.ByteCount(time.Second)
+	return congestion.ByteCount(float64(b.bps) * rtt.Seconds() / b.getAckRate())
 }
 
 func (b *BrutalSender) OnPacketSent(sentTime time.Time, bytesInFlight congestion.ByteCount,
 	packetNumber congestion.PacketNumber, bytes congestion.ByteCount, isRetransmittable bool) {
+	b.pacer.SentPacket(sentTime, uint64(bytes))
 }
 
 func (b *BrutalSender) OnPacketAcked(number congestion.PacketNumber, ackedBytes congestion.ByteCount,
@@ -90,6 +94,16 @@ func (b *BrutalSender) maybeUpdateACKRate() {
 			b.ackRateNextUpdateMax = now.Add(ackRateMaxSampleInterval)
 		}
 	}
+}
+
+func (b *BrutalSender) getAckRate() (rate float64) {
+	rate = b.ackRate
+	if rate <= 0 {
+		rate = 1
+	} else if rate < 0.5 {
+		rate = 0.5
+	}
+	return
 }
 
 func (b *BrutalSender) InSlowStart() bool {
