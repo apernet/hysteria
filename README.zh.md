@@ -86,6 +86,8 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | SOCKS5 监听地址 | socks5_addr | -socks5-addr |
 | SOCKS5 超时时间（秒） | socks5_timeout | -socks5-timeout |
 | 禁用 SOCKS5 UDP 支持 | socks5_disable_udp | -socks5-disable-udp |
+| SOCKS5 验证用户名 | socks5_user | -socks5-user |
+| SOCKS5 验证密码 | socks5_password | -socks5-password |
 | HTTP 监听地址 | http_addr | -http-addr |
 | HTTP 超时时间（秒） | http_timeout | -http-timeout |
 | HTTP 验证用户名 | http_user | -http-user |

@@ -88,6 +88,8 @@ The command line program supports loading configurations from both JSON files an
 | SOCKS5 listen address | socks5_addr | -socks5-addr |
 | SOCKS5 connection timeout in seconds | socks5_timeout | -socks5-timeout |
 | Disable SOCKS5 UDP support | socks5_disable_udp | -socks5-disable-udp |
+| SOCKS5 auth username | socks5_user | -socks5-user |
+| SOCKS5 auth password | socks5_password | -socks5-password |
 | HTTP listen address | http_addr | -http-addr |
 | HTTP connection timeout in seconds | http_timeout | -http-timeout |
 | HTTP basic auth username | http_user | -http-user |
