@@ -11,6 +11,8 @@ type proxyClientConfig struct {
 	SOCKS5Addr        string `json:"socks5_addr" desc:"SOCKS5 listen address"`
 	SOCKS5Timeout     int    `json:"socks5_timeout" desc:"SOCKS5 connection timeout in seconds"`
 	SOCKS5DisableUDP  bool   `json:"socks5_disable_udp" desc:"Disable SOCKS5 UDP support"`
+	SOCKS5User        string `json:"socks5_user" desc:"SOCKS5 auth username"`
+	SOCKS5Password    string `json:"socks5_password" desc:"SOCKS5 auth password"`
 	HTTPAddr          string `json:"http_addr" desc:"HTTP listen address"`
 	HTTPTimeout       int    `json:"http_timeout" desc:"HTTP connection timeout in seconds"`
 	HTTPUser          string `json:"http_user" desc:"HTTP basic auth username"`

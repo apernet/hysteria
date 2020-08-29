@@ -96,7 +96,13 @@ func proxyClient(args []string) {
 
 	if len(config.SOCKS5Addr) > 0 {
 		go func() {
-			socks5server, err := socks5.NewServer(client, config.SOCKS5Addr, nil, config.SOCKS5Timeout, aclEngine,
+			var authFunc func(user, password string) bool
+			if config.SOCKS5User != "" && config.SOCKS5Password != "" {
+				authFunc = func(user, password string) bool {
+					return config.SOCKS5User == user && config.SOCKS5Password == password
+				}
+			}
+			socks5server, err := socks5.NewServer(client, config.SOCKS5Addr, authFunc, config.SOCKS5Timeout, aclEngine,
 				config.SOCKS5DisableUDP,
 				func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
