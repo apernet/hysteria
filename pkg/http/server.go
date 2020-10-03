@@ -14,7 +14,7 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/core"
 )
 
-func NewProxyHTTPServer(hyClient core.Client, idleTimeout time.Duration, aclEngine *acl.Engine,
+func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEngine *acl.Engine,
 	newDialFunc func(reqAddr string, action acl.Action, arg string),
 	basicAuthFunc func(user, password string) bool) (*goproxy.ProxyHttpServer, error) {
 	proxy := goproxy.NewProxyHttpServer()

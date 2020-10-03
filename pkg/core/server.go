@@ -6,10 +6,32 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/tobyxdd/hysteria/internal/utils"
+	"github.com/tobyxdd/hysteria/pkg/core/pb"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 	"io"
 	"net"
 	"sync/atomic"
+)
+
+type AuthResult int32
+type ConnectionType int32
+type ConnectResult int32
+
+const (
+	AuthResultSuccess AuthResult = iota
+	AuthResultInvalidCred
+	AuthResultInternalError
+)
+
+const (
+	ConnectionTypeStream ConnectionType = iota
+	ConnectionTypePacket
+)
+
+const (
+	ConnectResultSuccess ConnectResult = iota
+	ConnectResultFailed
+	ConnectResultBlocked
 )
 
 type ClientAuthFunc func(addr net.Addr, username string, password string, sSend uint64, sRecv uint64) (AuthResult, string)
@@ -140,10 +162,10 @@ func (s *Server) handleControlStream(cs quic.Session, stream quic.Stream) (strin
 	authResult, msg := s.clientAuthFunc(cs.RemoteAddr(), req.Credential.Username, req.Credential.Password,
 		serverSendBPS, serverReceiveBPS)
 	// Response
-	err = writeServerAuthResponse(stream, &ServerAuthResponse{
-		Result:  authResult,
+	err = writeServerAuthResponse(stream, &pb.ServerAuthResponse{
+		Result:  pb.AuthResult(authResult),
 		Message: msg,
-		Speed: &Speed{
+		Speed: &pb.Speed{
 			SendBps:    serverSendBPS,
 			ReceiveBps: serverReceiveBPS,
 		},
@@ -152,10 +174,10 @@ func (s *Server) handleControlStream(cs quic.Session, stream quic.Stream) (strin
 		return "", false, err
 	}
 	// Set the congestion accordingly
-	if authResult == AuthResult_AUTH_SUCCESS && s.congestionFactory != nil {
+	if authResult == AuthResultSuccess && s.congestionFactory != nil {
 		cs.SetCongestion(s.congestionFactory(serverSendBPS))
 	}
-	return req.Credential.Username, authResult == AuthResult_AUTH_SUCCESS, nil
+	return req.Credential.Username, authResult == AuthResultSuccess, nil
 }
 
 func (s *Server) handleStream(localAddr net.Addr, remoteAddr net.Addr, username string, stream quic.Stream) {
@@ -166,30 +188,30 @@ func (s *Server) handleStream(localAddr net.Addr, remoteAddr net.Addr, username 
 		return
 	}
 	// Create connection with the handler
-	result, msg, conn := s.handleRequestFunc(remoteAddr, username, int(stream.StreamID()), req.Type, req.Address)
+	result, msg, conn := s.handleRequestFunc(remoteAddr, username, int(stream.StreamID()), ConnectionType(req.Type), req.Address)
 	defer func() {
 		if conn != nil {
 			_ = conn.Close()
 		}
 	}()
 	// Send response
-	err = writeServerConnectResponse(stream, &ServerConnectResponse{
-		Result:  result,
+	err = writeServerConnectResponse(stream, &pb.ServerConnectResponse{
+		Result:  pb.ConnectResult(result),
 		Message: msg,
 	})
 	if err != nil {
-		s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), req.Type, req.Address, err)
+		s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), ConnectionType(req.Type), req.Address, err)
 		return
 	}
-	if result != ConnectResult_CONN_SUCCESS {
-		s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), req.Type, req.Address,
-			fmt.Errorf("handler returned an unsuccessful state %s (msg: %s)", result.String(), msg))
+	if result != ConnectResultSuccess {
+		s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), ConnectionType(req.Type), req.Address,
+			fmt.Errorf("handler returned an unsuccessful state %d (msg: %s)", result, msg))
 		return
 	}
 	switch req.Type {
-	case ConnectionType_Stream:
+	case pb.ConnectionType_Stream:
 		err = utils.PipePair(stream, conn, &s.outboundBytes, &s.inboundBytes)
-	case ConnectionType_Packet:
+	case pb.ConnectionType_Packet:
 		err = utils.PipePair(&utils.PacketWrapperConn{Orig: &utils.QUICStreamWrapperConn{
 			Orig:             stream,
 			PseudoLocalAddr:  localAddr,
@@ -198,5 +220,5 @@ func (s *Server) handleStream(localAddr net.Addr, remoteAddr net.Addr, username 
 	default:
 		err = fmt.Errorf("unsupported connection type %s", req.Type.String())
 	}
-	s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), req.Type, req.Address, err)
+	s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), ConnectionType(req.Type), req.Address, err)
 }

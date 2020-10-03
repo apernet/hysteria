@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
+	"github.com/tobyxdd/hysteria/pkg/core/pb"
 	"io"
 )
 
@@ -30,17 +31,17 @@ func writeDataBlock(w io.Writer, data []byte) error {
 	return err
 }
 
-func readClientAuthRequest(r io.Reader) (*ClientAuthRequest, error) {
+func readClientAuthRequest(r io.Reader) (*pb.ClientAuthRequest, error) {
 	bs, err := readDataBlock(r)
 	if err != nil {
 		return nil, err
 	}
-	var req ClientAuthRequest
+	var req pb.ClientAuthRequest
 	err = proto.Unmarshal(bs, &req)
 	return &req, err
 }
 
-func writeClientAuthRequest(w io.Writer, req *ClientAuthRequest) error {
+func writeClientAuthRequest(w io.Writer, req *pb.ClientAuthRequest) error {
 	bs, err := proto.Marshal(req)
 	if err != nil {
 		return err
@@ -48,17 +49,17 @@ func writeClientAuthRequest(w io.Writer, req *ClientAuthRequest) error {
 	return writeDataBlock(w, bs)
 }
 
-func readServerAuthResponse(r io.Reader) (*ServerAuthResponse, error) {
+func readServerAuthResponse(r io.Reader) (*pb.ServerAuthResponse, error) {
 	bs, err := readDataBlock(r)
 	if err != nil {
 		return nil, err
 	}
-	var resp ServerAuthResponse
+	var resp pb.ServerAuthResponse
 	err = proto.Unmarshal(bs, &resp)
 	return &resp, err
 }
 
-func writeServerAuthResponse(w io.Writer, resp *ServerAuthResponse) error {
+func writeServerAuthResponse(w io.Writer, resp *pb.ServerAuthResponse) error {
 	bs, err := proto.Marshal(resp)
 	if err != nil {
 		return err
@@ -66,17 +67,17 @@ func writeServerAuthResponse(w io.Writer, resp *ServerAuthResponse) error {
 	return writeDataBlock(w, bs)
 }
 
-func readClientConnectRequest(r io.Reader) (*ClientConnectRequest, error) {
+func readClientConnectRequest(r io.Reader) (*pb.ClientConnectRequest, error) {
 	bs, err := readDataBlock(r)
 	if err != nil {
 		return nil, err
 	}
-	var req ClientConnectRequest
+	var req pb.ClientConnectRequest
 	err = proto.Unmarshal(bs, &req)
 	return &req, err
 }
 
-func writeClientConnectRequest(w io.Writer, req *ClientConnectRequest) error {
+func writeClientConnectRequest(w io.Writer, req *pb.ClientConnectRequest) error {
 	bs, err := proto.Marshal(req)
 	if err != nil {
 		return err
@@ -84,17 +85,17 @@ func writeClientConnectRequest(w io.Writer, req *ClientConnectRequest) error {
 	return writeDataBlock(w, bs)
 }
 
-func readServerConnectResponse(r io.Reader) (*ServerConnectResponse, error) {
+func readServerConnectResponse(r io.Reader) (*pb.ServerConnectResponse, error) {
 	bs, err := readDataBlock(r)
 	if err != nil {
 		return nil, err
 	}
-	var resp ServerConnectResponse
+	var resp pb.ServerConnectResponse
 	err = proto.Unmarshal(bs, &resp)
 	return &resp, err
 }
 
-func writeServerConnectResponse(w io.Writer, resp *ServerConnectResponse) error {
+func writeServerConnectResponse(w io.Writer, resp *pb.ServerConnectResponse) error {
 	bs, err := proto.Marshal(resp)
 	if err != nil {
 		return err

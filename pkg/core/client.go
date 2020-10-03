@@ -6,7 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/tobyxdd/hysteria/internal/utils"
+	"github.com/tobyxdd/hysteria/pkg/core/pb"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -56,11 +57,11 @@ func (c *Client) Dial(packet bool, addr string) (net.Conn, error) {
 		return nil, err
 	}
 	// Send request
-	req := &ClientConnectRequest{Address: addr}
+	req := &pb.ClientConnectRequest{Address: addr}
 	if packet {
-		req.Type = ConnectionType_Packet
+		req.Type = pb.ConnectionType_Packet
 	} else {
-		req.Type = ConnectionType_Stream
+		req.Type = pb.ConnectionType_Stream
 	}
 	err = writeClientConnectRequest(stream, req)
 	if err != nil {
@@ -73,7 +74,7 @@ func (c *Client) Dial(packet bool, addr string) (net.Conn, error) {
 		_ = stream.Close()
 		return nil, err
 	}
-	if resp.Result != ConnectResult_CONN_SUCCESS {
+	if resp.Result != pb.ConnectResult_CONN_SUCCESS {
 		_ = stream.Close()
 		return nil, fmt.Errorf("server rejected the connection %s (msg: %s)",
 			resp.Result.String(), resp.Message)
@@ -135,7 +136,7 @@ func (c *Client) connectToServer() error {
 		_ = qs.CloseWithError(closeErrorCodeProtocolFailure, "control stream handling error")
 		return err
 	}
-	if result != AuthResult_AUTH_SUCCESS {
+	if result != pb.AuthResult_AUTH_SUCCESS {
 		_ = qs.CloseWithError(closeErrorCodeProtocolFailure, "authentication failure")
 		return fmt.Errorf("authentication failure %s (msg: %s)", result.String(), msg)
 	}
@@ -144,13 +145,13 @@ func (c *Client) connectToServer() error {
 	return nil
 }
 
-func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (AuthResult, string, error) {
-	err := writeClientAuthRequest(stream, &ClientAuthRequest{
-		Credential: &Credential{
+func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (pb.AuthResult, string, error) {
+	err := writeClientAuthRequest(stream, &pb.ClientAuthRequest{
+		Credential: &pb.Credential{
 			Username: c.username,
 			Password: c.password,
 		},
-		Speed: &Speed{
+		Speed: &pb.Speed{
 			SendBps:    c.sendBPS,
 			ReceiveBps: c.recvBPS,
 		},
@@ -164,7 +165,7 @@ func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (AuthR
 		return 0, "", err
 	}
 	// Set the congestion accordingly
-	if resp.Result == AuthResult_AUTH_SUCCESS && c.congestionFactory != nil {
+	if resp.Result == pb.AuthResult_AUTH_SUCCESS && c.congestionFactory != nil {
 		qs.SetCongestion(c.congestionFactory(resp.Speed.ReceiveBps))
 	}
 	return resp.Result, resp.Message, nil

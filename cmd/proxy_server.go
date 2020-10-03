@@ -92,7 +92,7 @@ func proxyServer(args []string) {
 					"up":       sSend / mbpsToBps,
 					"down":     sRecv / mbpsToBps,
 				}).Info("Client connected")
-				return core.AuthSuccess, ""
+				return core.AuthResultSuccess, ""
 			} else {
 				// Need auth
 				ok, err := checkAuth(config.AuthFile, username, password)
@@ -102,7 +102,7 @@ func proxyServer(args []string) {
 						"addr":     addr.String(),
 						"username": username,
 					}).Error("Client authentication error")
-					return core.AuthInternalError, "Server auth error"
+					return core.AuthResultInternalError, "Server auth error"
 				}
 				if ok {
 					logrus.WithFields(logrus.Fields{
@@ -111,7 +111,7 @@ func proxyServer(args []string) {
 						"up":       sSend / mbpsToBps,
 						"down":     sRecv / mbpsToBps,
 					}).Info("Client authenticated")
-					return core.AuthSuccess, ""
+					return core.AuthResultSuccess, ""
 				} else {
 					logrus.WithFields(logrus.Fields{
 						"addr":     addr.String(),
@@ -119,7 +119,7 @@ func proxyServer(args []string) {
 						"up":       sSend / mbpsToBps,
 						"down":     sRecv / mbpsToBps,
 					}).Info("Client rejected due to invalid credential")
-					return core.AuthInvalidCred, "Invalid credential"
+					return core.AuthResultInvalidCred, "Invalid credential"
 				}
 			}
 		},
@@ -130,13 +130,14 @@ func proxyServer(args []string) {
 				"username": username,
 			}).Info("Client disconnected")
 		},
-		func(addr net.Addr, username string, id int, packet bool, reqAddr string) (core.ConnectResult, string, io.ReadWriteCloser) {
+		func(addr net.Addr, username string, id int, reqType core.ConnectionType, reqAddr string) (core.ConnectResult, string, io.ReadWriteCloser) {
+			packet := reqType == core.ConnectionTypePacket
 			if packet && config.DisableUDP {
-				return core.ConnBlocked, "UDP disabled", nil
+				return core.ConnectResultBlocked, "UDP disabled", nil
 			}
 			host, port, err := net.SplitHostPort(reqAddr)
 			if err != nil {
-				return core.ConnFailed, err.Error(), nil
+				return core.ConnectResultFailed, err.Error(), nil
 			}
 			ip := net.ParseIP(host)
 			if ip != nil {
@@ -163,9 +164,9 @@ func proxyServer(args []string) {
 							"error": err,
 							"dst":   reqAddr,
 						}).Error("TCP error")
-						return core.ConnFailed, err.Error(), nil
+						return core.ConnectResultFailed, err.Error(), nil
 					}
-					return core.ConnSuccess, "", conn
+					return core.ConnectResultSuccess, "", conn
 				} else {
 					// UDP
 					logrus.WithFields(logrus.Fields{
@@ -180,9 +181,9 @@ func proxyServer(args []string) {
 							"error": err,
 							"dst":   reqAddr,
 						}).Error("UDP error")
-						return core.ConnFailed, err.Error(), nil
+						return core.ConnectResultFailed, err.Error(), nil
 					}
-					return core.ConnSuccess, "", conn
+					return core.ConnectResultSuccess, "", conn
 				}
 			case acl.ActionBlock:
 				if !packet {
@@ -193,7 +194,7 @@ func proxyServer(args []string) {
 						"src":      addr.String(),
 						"dst":      reqAddr,
 					}).Debug("New TCP request")
-					return core.ConnBlocked, "blocked by ACL", nil
+					return core.ConnectResultBlocked, "blocked by ACL", nil
 				} else {
 					// UDP
 					logrus.WithFields(logrus.Fields{
@@ -202,7 +203,7 @@ func proxyServer(args []string) {
 						"src":      addr.String(),
 						"dst":      reqAddr,
 					}).Debug("New UDP request")
-					return core.ConnBlocked, "blocked by ACL", nil
+					return core.ConnectResultBlocked, "blocked by ACL", nil
 				}
 			case acl.ActionHijack:
 				hijackAddr := net.JoinHostPort(arg, port)
@@ -221,9 +222,9 @@ func proxyServer(args []string) {
 							"error": err,
 							"dst":   hijackAddr,
 						}).Error("TCP error")
-						return core.ConnFailed, err.Error(), nil
+						return core.ConnectResultFailed, err.Error(), nil
 					}
-					return core.ConnSuccess, "", conn
+					return core.ConnectResultSuccess, "", conn
 				} else {
 					// UDP
 					logrus.WithFields(logrus.Fields{
@@ -239,15 +240,16 @@ func proxyServer(args []string) {
 							"error": err,
 							"dst":   hijackAddr,
 						}).Error("UDP error")
-						return core.ConnFailed, err.Error(), nil
+						return core.ConnectResultFailed, err.Error(), nil
 					}
-					return core.ConnSuccess, "", conn
+					return core.ConnectResultSuccess, "", conn
 				}
 			default:
-				return core.ConnFailed, "server ACL error", nil
+				return core.ConnectResultFailed, "server ACL error", nil
 			}
 		},
-		func(addr net.Addr, username string, id int, packet bool, reqAddr string, err error) {
+		func(addr net.Addr, username string, id int, reqType core.ConnectionType, reqAddr string, err error) {
+			packet := reqType == core.ConnectionTypePacket
 			if !packet {
 				logrus.WithFields(logrus.Fields{
 					"error":    err,
