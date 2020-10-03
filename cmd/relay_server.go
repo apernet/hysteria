@@ -72,7 +72,7 @@ func relayServer(args []string) {
 				"up":       sSend / mbpsToBps,
 				"down":     sRecv / mbpsToBps,
 			}).Info("Client connected")
-			return core.AuthSuccess, ""
+			return core.AuthResultSuccess, ""
 		},
 		func(addr net.Addr, username string, err error) {
 			logrus.WithFields(logrus.Fields{
@@ -81,14 +81,15 @@ func relayServer(args []string) {
 				"username": username,
 			}).Info("Client disconnected")
 		},
-		func(addr net.Addr, username string, id int, packet bool, reqAddr string) (core.ConnectResult, string, io.ReadWriteCloser) {
+		func(addr net.Addr, username string, id int, reqType core.ConnectionType, reqAddr string) (core.ConnectResult, string, io.ReadWriteCloser) {
+			packet := reqType == core.ConnectionTypePacket
 			logrus.WithFields(logrus.Fields{
 				"username": username,
 				"src":      addr.String(),
 				"id":       id,
 			}).Debug("New stream")
 			if packet {
-				return core.ConnBlocked, "unsupported", nil
+				return core.ConnectResultBlocked, "unsupported", nil
 			}
 			conn, err := net.DialTimeout("tcp", config.RemoteAddr, dialTimeout)
 			if err != nil {
@@ -96,11 +97,11 @@ func relayServer(args []string) {
 					"error": err,
 					"dst":   config.RemoteAddr,
 				}).Error("TCP error")
-				return core.ConnFailed, err.Error(), nil
+				return core.ConnectResultFailed, err.Error(), nil
 			}
-			return core.ConnSuccess, "", conn
+			return core.ConnectResultSuccess, "", conn
 		},
-		func(addr net.Addr, username string, id int, packet bool, reqAddr string, err error) {
+		func(addr net.Addr, username string, id int, reqType core.ConnectionType, reqAddr string, err error) {
 			logrus.WithFields(logrus.Fields{
 				"error":    err,
 				"username": username,

@@ -6,10 +6,10 @@ import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/sirupsen/logrus"
-	"github.com/tobyxdd/hysteria/internal/utils"
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 	"io/ioutil"
 	"net"
 	"os/user"
@@ -99,7 +99,7 @@ func relayClient(args []string) {
 	}
 }
 
-func relayClientHandleConn(conn net.Conn, client core.Client) {
+func relayClientHandleConn(conn net.Conn, client *core.Client) {
 	logrus.WithField("src", conn.RemoteAddr().String()).Debug("New connection")
 	var closeErr error
 	defer func() {

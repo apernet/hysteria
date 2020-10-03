@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/tobyxdd/hysteria/internal/utils"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 	"io"
 	"strconv"
 )
@@ -23,7 +23,7 @@ var (
 )
 
 type Server struct {
-	HyClient    core.Client
+	HyClient    *core.Client
 	AuthFunc    func(username, password string) bool
 	Method      byte
 	TCPAddr     *net.TCPAddr
@@ -41,7 +41,7 @@ type Server struct {
 	tcpListener *net.TCPListener
 }
 
-func NewServer(hyClient core.Client, addr string, authFunc func(username, password string) bool, tcpDeadline int,
+func NewServer(hyClient *core.Client, addr string, authFunc func(username, password string) bool, tcpDeadline int,
 	aclEngine *acl.Engine, disableUDP bool,
 	newReqFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string),
 	reqClosedFunc func(addr net.Addr, reqAddr string, err error),
