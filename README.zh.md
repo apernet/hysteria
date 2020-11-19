@@ -6,7 +6,7 @@
 [2]: LICENSE.md
 [3]: https://img.shields.io/github/v/release/tobyxdd/hysteria?style=flat-square
 [4]: https://github.com/tobyxdd/hysteria/releases
-[5]: https://patrolavia.github.io/telegram-badge/chat.png
+[5]: https://img.shields.io/badge/chat-Telegram-blue?style=flat-square
 [6]: https://t.me/hysteria_github
 
 Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服务器）进行优化的连接转发和代理工具（即所谓的双边加速）。其基于修改版的 QUIC 协议，可以理解为是我此前弃坑的项目 https://github.com/dragonite-network/dragonite-java 的续作。
@@ -28,6 +28,8 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 ./cmd_linux_amd64 proxy client -server example.com:36712 -socks5-addr localhost:1080 -up-mbps 10 -down-mbps 50 -obfs BlueberryFaygo
 ```
 在客户端的本地 TCP 1080 上启动一个 SOCKS5 代理服务器供其他程序使用。
+
+除了 SOCKS5 还支持 HTTP 代理 (`-http-addr` & `-http-timeout`)。两个模式可以同时开在不同端口。
 
 `-up-mbps 10 -down-mbps 50` 是告诉服务端你的下行速度为 50 Mbps, 上行 10 Mbps。根据实际网络条件正确设置客户端的上传和下载速度十分重要！
 
@@ -65,6 +67,8 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | 描述 | JSON 字段 | 命令行参数 |
 | --- | --- | --- |
 | 服务端监听地址 | listen | -listen |
+| 禁用 UDP 支持 | disable_udp | -disable-udp |
+| ACL 规则文件 | acl | -acl |
 | TLS 证书文件 | cert | -cert |
 | TLS 密钥文件 | key | -key |
 | 用户名密码验证文件 | auth | -auth |
@@ -81,6 +85,16 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 | --- | --- | --- |
 | SOCKS5 监听地址 | socks5_addr | -socks5-addr |
 | SOCKS5 超时时间（秒） | socks5_timeout | -socks5-timeout |
+| 禁用 SOCKS5 UDP 支持 | socks5_disable_udp | -socks5-disable-udp |
+| SOCKS5 验证用户名 | socks5_user | -socks5-user |
+| SOCKS5 验证密码 | socks5_password | -socks5-password |
+| HTTP 监听地址 | http_addr | -http-addr |
+| HTTP 超时时间（秒） | http_timeout | -http-timeout |
+| HTTP 验证用户名 | http_user | -http-user |
+| HTTP 验证密码 | http_password | -http-password |
+| HTTPS 证书文件 | https_cert | -http-cert |
+| HTTPS 密钥文件 | https_key | -http-key |
+| ACL 规则文件 | acl | -acl |
 | 服务端地址 | server | -server |
 | 验证用户名 | username | -username |
 | 验证密码 | password | -password |
@@ -95,6 +109,10 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 #### 关于 SOCKS5
 
 支持 TCP (CONNECT) 和 UDP (ASSOCIATE)，不支持 BIND 也无计划支持。
+
+#### 关于 ACL
+
+[ACL 文件格式](ACL.zh.md)
 
 #### 关于用户名密码验证
 
@@ -140,3 +158,13 @@ shady_hacker smokeweed420
 | 单连接最大接收窗口大小 | recv_window_conn | -recv-window-conn |
 | 总最大接收窗口大小 | recv_window | -recv-window |
 | 混淆密钥 | obfs | -obfs |
+
+## 日志
+
+程序默认在 stdout 输出 DEBUG 级别，文字格式的日志。
+
+如果需要修改日志级别可以使用 `LOGGING_LEVEL` 环境变量，支持 `panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace`
+
+如果需要输出 JSON 可以把 `LOGGING_FORMATTER` 设置为 `json`
+
+如果需要修改日志时间戳格式可以使用 `LOGGING_TIMESTAMP_FORMAT`

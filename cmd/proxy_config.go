@@ -1,12 +1,25 @@
 package main
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 const proxyTLSProtocol = "hysteria-proxy"
 
 type proxyClientConfig struct {
 	SOCKS5Addr        string `json:"socks5_addr" desc:"SOCKS5 listen address"`
 	SOCKS5Timeout     int    `json:"socks5_timeout" desc:"SOCKS5 connection timeout in seconds"`
+	SOCKS5DisableUDP  bool   `json:"socks5_disable_udp" desc:"Disable SOCKS5 UDP support"`
+	SOCKS5User        string `json:"socks5_user" desc:"SOCKS5 auth username"`
+	SOCKS5Password    string `json:"socks5_password" desc:"SOCKS5 auth password"`
+	HTTPAddr          string `json:"http_addr" desc:"HTTP listen address"`
+	HTTPTimeout       int    `json:"http_timeout" desc:"HTTP connection timeout in seconds"`
+	HTTPUser          string `json:"http_user" desc:"HTTP basic auth username"`
+	HTTPPassword      string `json:"http_password" desc:"HTTP basic auth password"`
+	HTTPSCert         string `json:"https_cert" desc:"HTTPS certificate file"`
+	HTTPSKey          string `json:"https_key" desc:"HTTPS key file"`
+	ACLFile           string `json:"acl" desc:"Access control list"`
 	ServerAddr        string `json:"server" desc:"Server address"`
 	Username          string `json:"username" desc:"Authentication username"`
 	Password          string `json:"password" desc:"Authentication password"`
@@ -20,11 +33,14 @@ type proxyClientConfig struct {
 }
 
 func (c *proxyClientConfig) Check() error {
-	if len(c.SOCKS5Addr) == 0 {
-		return errors.New("no SOCKS5 listen address")
+	if len(c.SOCKS5Addr) == 0 && len(c.HTTPAddr) == 0 {
+		return errors.New("no SOCKS5 or HTTP listen address")
 	}
 	if c.SOCKS5Timeout != 0 && c.SOCKS5Timeout <= 4 {
 		return errors.New("invalid SOCKS5 timeout")
+	}
+	if c.HTTPTimeout != 0 && c.HTTPTimeout <= 4 {
+		return errors.New("invalid HTTP timeout")
 	}
 	if len(c.ServerAddr) == 0 {
 		return errors.New("no server address")
@@ -39,8 +55,14 @@ func (c *proxyClientConfig) Check() error {
 	return nil
 }
 
+func (c *proxyClientConfig) String() string {
+	return fmt.Sprintf("%+v", *c)
+}
+
 type proxyServerConfig struct {
 	ListenAddr          string `json:"listen" desc:"Server listen address"`
+	DisableUDP          bool   `json:"disable_udp" desc:"Disable UDP support"`
+	ACLFile             string `json:"acl" desc:"Access control list"`
 	CertFile            string `json:"cert" desc:"TLS certificate file"`
 	KeyFile             string `json:"key" desc:"TLS key file"`
 	AuthFile            string `json:"auth" desc:"Authentication file"`
@@ -70,4 +92,8 @@ func (c *proxyServerConfig) Check() error {
 		return errors.New("invalid max connections per client")
 	}
 	return nil
+}
+
+func (c *proxyServerConfig) String() string {
+	return fmt.Sprintf("%+v", *c)
 }

@@ -1,9 +1,0 @@
-{
-  "listen": ":36712",
-  "remote": "localhost:1080",
-  "cert": "/home/ubuntu/.caddy/acme/acme-v02.api.letsencrypt.org/sites/toby.moe/toby.moe.crt",
-  "key": "/home/ubuntu/.caddy/acme/acme-v02.api.letsencrypt.org/sites/toby.moe/toby.moe.key",
-  "up_mbps": 100,
-  "down_mbps": 100,
-  "max_conn_client": 200
-}

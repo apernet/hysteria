@@ -12,22 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Set up Go 1.14
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.14
-        id: go
-
       - name: Check out
         uses: actions/checkout@v2
-
-      - name: Get dependencies
-        run: |
-          go get -v -t -d ./...
-          if [ -f Gopkg.toml ]; then
-              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-              dep ensure
-          fi
 
       - name: Get tag
         uses: olegtarasov/get-tag@v2
@@ -37,29 +23,17 @@ jobs:
         uses: gerred/actions/current-time@master
         id: current-time
 
-      - name: Build amd64
-        uses: izumin5210/action-go-crossbuild@v1.0.0
+      - name: Build
+        uses: tobyxdd/go-cross-build@e269fe09a60b9a6a7325cb06075e32ab1b7c2d12
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
         with:
           name: hysteria
-          arch: amd64
           dest: ./dist/
           ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
-          os: windows,linux,darwin
+          platforms: 'linux/amd64, linux/386, linux/arm, linux/arm64, linux/mipsle, darwin/amd64, windows/amd64, windows/386'
           package: ./cmd
-
-      - name: Build embedded
-        uses: izumin5210/action-go-crossbuild@v1.0.0
-        env:
-          TIME: "${{ steps.current-time.outputs.time }}"
-        with:
-          name: hysteria
-          arch: arm,mipsle
-          dest: ./dist/
-          ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
-          os: linux
-          package: ./cmd
+          compress: false
 
       - name: Upload
         uses: meeDamian/github-release@2.0
@@ -68,8 +42,11 @@ jobs:
           gzip: false
           allow_override: true
           files: >
-            ./dist/hysteria_windows_amd64.zip
-            ./dist/hysteria_linux_amd64.tar.gz
-            ./dist/hysteria_darwin_amd64.zip
-            ./dist/hysteria_linux_arm.tar.gz
-            ./dist/hysteria_linux_mipsle.tar.gz
+            ./dist/hysteria-linux-amd64
+            ./dist/hysteria-linux-386
+            ./dist/hysteria-linux-arm
+            ./dist/hysteria-linux-arm64
+            ./dist/hysteria-linux-mipsle
+            ./dist/hysteria-darwin-amd64
+            ./dist/hysteria-windows-amd64.exe
+            ./dist/hysteria-windows-386.exe

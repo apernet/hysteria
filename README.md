@@ -6,7 +6,7 @@
 [2]: LICENSE.md
 [3]: https://img.shields.io/github/v/release/tobyxdd/hysteria?style=flat-square
 [4]: https://github.com/tobyxdd/hysteria/releases
-[5]: https://patrolavia.github.io/telegram-badge/chat.png
+[5]: https://img.shields.io/badge/chat-Telegram-blue?style=flat-square
 [6]: https://t.me/hysteria_github
 
 [中文 README](README.zh.md)
@@ -30,6 +30,8 @@ Client:
 ./cmd_linux_amd64 proxy client -server example.com:36712 -socks5-addr localhost:1080 -up-mbps 10 -down-mbps 50 -obfs BlueberryFaygo
 ```
 This will start a SOCKS5 proxy server on the client's localhost TCP 1080 available for use by other programs.
+
+In addition to SOCKS5, it also supports HTTP proxy (`-http-addr` & `-http-timeout`). Both modes can be turned on simultaneously on different ports.
 
 `-up-mbps 10 -down-mbps 50` tells the server that your bandwidth is 50 Mbps down, 10 Mbps up. Properly setting the client's upload and download speeds based on your network conditions is essential for it to work at optimal performance!
 
@@ -67,6 +69,8 @@ The command line program supports loading configurations from both JSON files an
 | Description | JSON config field | CLI argument |
 | --- | --- | --- |
 | Server listen address | listen | -listen |
+| Disable UDP support | disable_udp | -disable-udp |
+| Access control list | acl | -acl |
 | TLS certificate file | cert | -cert |
 | TLS key file | key | -key |
 | Authentication file | auth | -auth |
@@ -83,6 +87,16 @@ The command line program supports loading configurations from both JSON files an
 | --- | --- | --- |
 | SOCKS5 listen address | socks5_addr | -socks5-addr |
 | SOCKS5 connection timeout in seconds | socks5_timeout | -socks5-timeout |
+| Disable SOCKS5 UDP support | socks5_disable_udp | -socks5-disable-udp |
+| SOCKS5 auth username | socks5_user | -socks5-user |
+| SOCKS5 auth password | socks5_password | -socks5-password |
+| HTTP listen address | http_addr | -http-addr |
+| HTTP connection timeout in seconds | http_timeout | -http-timeout |
+| HTTP basic auth username | http_user | -http-user |
+| HTTP basic auth password | http_password | -http-password |
+| HTTPS certificate file | https_cert | -http-cert |
+| HTTPS key file | https_key | -http-key |
+| Access control list | acl | -acl |
 | Server address | server | -server |
 | Authentication username | username | -username |
 | Authentication password | password | -password |
@@ -97,6 +111,10 @@ The command line program supports loading configurations from both JSON files an
 #### About SOCKS5
 
 Supports TCP (CONNECT) and UDP (ASSOCIATE) commands. BIND is not supported and is not planned to be supported.
+
+#### About ACL
+
+[ACL File Format](ACL.md)
 
 #### About proxy authentication
 
@@ -142,3 +160,13 @@ To prevent firewalls from potentially detecting & blocking the protocol, a simpl
 | Max receive window size per connection | recv_window_conn | -recv-window-conn |
 | Max receive window size | recv_window | -recv-window |
 | Obfuscation key | obfs | -obfs |
+
+## Logs
+
+By default, the program outputs DEBUG level, text format logs via stdout.
+
+To change the logging level, set `LOGGING_LEVEL` environment variable, which supports `panic`, `fatal`, `error`, `warn`, `info`, ` debug`, `trace`
+
+To print JSON instead, set `LOGGING_FORMATTER` to `json`
+
+To change the logging timestamp format, set `LOGGING_TIMESTAMP_FORMAT`
