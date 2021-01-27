@@ -83,7 +83,7 @@ func proxyClient(args []string) {
 
 	client, err := core.NewClient(config.ServerAddr, config.Username, config.Password, tlsConfig, quicConfig,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
-		func(refBPS uint64) congestion.ExternalSendAlgorithm {
+		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		}, obfuscator)
 	if err != nil {

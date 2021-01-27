@@ -175,7 +175,7 @@ func (s *Server) handleControlStream(cs quic.Session, stream quic.Stream) (strin
 	}
 	// Set the congestion accordingly
 	if authResult == AuthResultSuccess && s.congestionFactory != nil {
-		cs.SetCongestion(s.congestionFactory(serverSendBPS))
+		cs.SetCongestionControl(s.congestionFactory(serverSendBPS))
 	}
 	return req.Credential.Username, authResult == AuthResultSuccess, nil
 }

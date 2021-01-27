@@ -10,4 +10,4 @@ const controlStreamTimeout = 10 * time.Second
 
 var controlProtocolEndian = binary.BigEndian
 
-type CongestionFactory func(refBPS uint64) congestion.ExternalSendAlgorithm
+type CongestionFactory func(refBPS uint64) congestion.CongestionControl

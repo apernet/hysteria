@@ -14,7 +14,7 @@ const (
 )
 
 type BrutalSender struct {
-	rttStats congestion.RTTStats
+	rttStats congestion.RTTStatsProvider
 	bps      congestion.ByteCount
 	pacer    *pacer
 
@@ -34,7 +34,7 @@ func NewBrutalSender(bps congestion.ByteCount) *BrutalSender {
 	return bs
 }
 
-func (b *BrutalSender) SetRTTStats(rttStats congestion.RTTStats) {
+func (b *BrutalSender) SetRTTStatsProvider(rttStats congestion.RTTStatsProvider) {
 	b.rttStats = rttStats
 }
 

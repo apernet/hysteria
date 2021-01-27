@@ -60,7 +60,7 @@ func relayServer(args []string) {
 
 	server, err := core.NewServer(config.ListenAddr, tlsConfig, quicConfig,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
-		func(refBPS uint64) congestion.ExternalSendAlgorithm {
+		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		},
 		obfuscator,

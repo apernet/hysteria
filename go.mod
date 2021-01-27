@@ -7,7 +7,7 @@ require (
 	github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2
 	github.com/golang/protobuf v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/lucas-clemente/quic-go v0.16.1
+	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/txthinking/runnergroup v0.0.0-20200327135940-540a793bb997 // indirect
@@ -15,4 +15,4 @@ require (
 	github.com/txthinking/x v0.0.0-20200330144832-5ad2416896a9 // indirect
 )
 
-replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.3.0-tquic-3
+replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.19.4-0.20210127052624-0ecb862c82b5

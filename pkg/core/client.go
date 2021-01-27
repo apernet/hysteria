@@ -166,7 +166,7 @@ func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (pb.Au
 	}
 	// Set the congestion accordingly
 	if resp.Result == pb.AuthResult_AUTH_SUCCESS && c.congestionFactory != nil {
-		qs.SetCongestion(c.congestionFactory(resp.Speed.ReceiveBps))
+		qs.SetCongestionControl(c.congestionFactory(resp.Speed.ReceiveBps))
 	}
 	return resp.Result, resp.Message, nil
 }
