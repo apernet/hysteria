@@ -156,12 +156,8 @@ func (s *Server) handle(c *net.TCPConn, r *socks5.Request) error {
 		return s.handleTCP(c, r)
 	} else if r.Cmd == socks5.CmdUDP {
 		// UDP
-		if !s.DisableUDP {
-			return s.handleUDP(c, r)
-		} else {
-			_ = sendReply(c, socks5.RepCommandNotSupported)
-			return ErrUnsupportedCmd
-		}
+		_ = sendReply(c, socks5.RepCommandNotSupported)
+		return ErrUnsupportedCmd
 	} else {
 		_ = sendReply(c, socks5.RepCommandNotSupported)
 		return ErrUnsupportedCmd
@@ -193,7 +189,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 		closeErr = pipePair(c, rc, s.TCPDeadline)
 		return nil
 	case acl.ActionProxy:
-		rc, err := s.HyClient.Dial(false, addr)
+		rc, err := s.HyClient.DialTCP(addr)
 		if err != nil {
 			_ = sendReply(c, socks5.RepHostUnreachable)
 			closeErr = err
@@ -225,132 +221,6 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 	}
 }
 
-func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
-	s.NewUDPAssociateFunc(c.RemoteAddr())
-	var closeErr error
-	defer func() {
-		s.UDPAssociateClosedFunc(c.RemoteAddr(), closeErr)
-	}()
-	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{
-		IP:   s.TCPAddr.IP,
-		Zone: s.TCPAddr.Zone,
-	})
-	if err != nil {
-		_ = sendReply(c, socks5.RepServerFailure)
-		closeErr = err
-		return err
-	}
-	defer udpConn.Close()
-	// Send UDP server addr to the client
-	atyp, addr, port, err := socks5.ParseAddress(udpConn.LocalAddr().String())
-	if err != nil {
-		_ = sendReply(c, socks5.RepServerFailure)
-		closeErr = err
-		return err
-	}
-	_, _ = socks5.NewReply(socks5.RepSuccess, atyp, addr, port).WriteTo(c)
-	// Let UDP server do its job, we hold the TCP connection here
-	go s.udpServer(udpConn)
-	buf := make([]byte, 1024)
-	for {
-		if s.TCPDeadline != 0 {
-			_ = c.SetDeadline(time.Now().Add(time.Duration(s.TCPDeadline) * time.Second))
-		}
-		_, err := c.Read(buf)
-		if err != nil {
-			closeErr = err
-			break
-		}
-	}
-	// As the TCP connection closes, so does the UDP listener
-	return nil
-}
-
-func (s *Server) udpServer(c *net.UDPConn) {
-	var clientAddr *net.UDPAddr
-	remoteMap := make(map[string]io.ReadWriteCloser) //  Remote addr <-> Remote conn
-	buf := make([]byte, utils.PipeBufferSize)
-	var closeErr error
-
-	for {
-		n, caddr, err := c.ReadFromUDP(buf)
-		if err != nil {
-			closeErr = err
-			break
-		}
-		d, err := socks5.NewDatagramFromBytes(buf[:n])
-		if err != nil || d.Frag != 0 {
-			// Ignore bad packets
-			continue
-		}
-		if clientAddr == nil {
-			// Whoever sends the first valid packet is our client :P
-			clientAddr = caddr
-		} else if caddr.String() != clientAddr.String() {
-			// We already have a client and you're not it!
-			continue
-		}
-		domain, ip, port, addr := parseDatagramRequestAddress(d)
-		rc := remoteMap[addr]
-		if rc == nil {
-			// Need a new entry
-			action, arg := acl.ActionProxy, ""
-			if s.ACLEngine != nil {
-				action, arg = s.ACLEngine.Lookup(domain, ip)
-			}
-			s.NewUDPTunnelFunc(clientAddr, addr, action, arg)
-			// Handle according to the action
-			switch action {
-			case acl.ActionDirect:
-				rc, err = net.Dial("udp", addr)
-				if err != nil {
-					s.UDPTunnelClosedFunc(clientAddr, addr, err)
-					continue
-				}
-				// The other direction
-				go udpReversePipe(clientAddr, c, rc)
-				remoteMap[addr] = rc
-			case acl.ActionProxy:
-				rc, err = s.HyClient.Dial(true, addr)
-				if err != nil {
-					s.UDPTunnelClosedFunc(clientAddr, addr, err)
-					continue
-				}
-				// The other direction
-				go udpReversePipe(clientAddr, c, rc)
-				remoteMap[addr] = rc
-			case acl.ActionBlock:
-				s.UDPTunnelClosedFunc(clientAddr, addr, errors.New("blocked in ACL"))
-				continue
-			case acl.ActionHijack:
-				rc, err = net.Dial("udp", net.JoinHostPort(arg, port))
-				if err != nil {
-					s.UDPTunnelClosedFunc(clientAddr, addr, err)
-					continue
-				}
-				// The other direction
-				go udpReversePipe(clientAddr, c, rc)
-				remoteMap[addr] = rc
-			default:
-				s.UDPTunnelClosedFunc(clientAddr, addr, fmt.Errorf("unknown action %d", action))
-				continue
-			}
-		}
-		_, err = rc.Write(d.Data)
-		if err != nil {
-			// The connection is no longer valid, close & remove from map
-			_ = rc.Close()
-			delete(remoteMap, addr)
-			s.UDPTunnelClosedFunc(clientAddr, addr, err)
-		}
-	}
-	// Close all remote connections
-	for raddr, rc := range remoteMap {
-		_ = rc.Close()
-		s.UDPTunnelClosedFunc(clientAddr, raddr, closeErr)
-	}
-}
-
 func sendReply(conn *net.TCPConn, rep byte) error {
 	p := socks5.NewReply(rep, socks5.ATYPIPv4, []byte{0x00, 0x00, 0x00, 0x00}, []byte{0x00, 0x00})
 	_, err := p.WriteTo(conn)
@@ -367,24 +237,15 @@ func parseRequestAddress(r *socks5.Request) (domain string, ip net.IP, port stri
 	}
 }
 
-func parseDatagramRequestAddress(r *socks5.Datagram) (domain string, ip net.IP, port string, addr string) {
-	p := strconv.Itoa(int(binary.BigEndian.Uint16(r.DstPort)))
-	if r.Atyp == socks5.ATYPDomain {
-		d := string(r.DstAddr[1:])
-		return d, nil, p, net.JoinHostPort(d, p)
-	} else {
-		return "", r.DstAddr, p, net.JoinHostPort(net.IP(r.DstAddr).String(), p)
-	}
-}
-
 func pipePair(conn *net.TCPConn, stream io.ReadWriteCloser, deadline int) error {
+	deadlineDuration := time.Duration(deadline) * time.Second
 	errChan := make(chan error, 2)
 	// TCP to stream
 	go func() {
 		buf := make([]byte, utils.PipeBufferSize)
 		for {
 			if deadline != 0 {
-				_ = conn.SetDeadline(time.Now().Add(time.Duration(deadline) * time.Second))
+				_ = conn.SetDeadline(time.Now().Add(deadlineDuration))
 			}
 			rn, err := conn.Read(buf)
 			if rn > 0 {
@@ -402,22 +263,7 @@ func pipePair(conn *net.TCPConn, stream io.ReadWriteCloser, deadline int) error 
 	}()
 	// Stream to TCP
 	go func() {
-		errChan <- utils.Pipe(stream, conn, nil)
+		errChan <- utils.Pipe(stream, conn)
 	}()
 	return <-errChan
-}
-
-func udpReversePipe(clientAddr *net.UDPAddr, c *net.UDPConn, rc io.ReadWriteCloser) {
-	buf := make([]byte, utils.PipeBufferSize)
-	for {
-		n, err := rc.Read(buf)
-		if err != nil {
-			break
-		}
-		d := socks5.NewDatagram(socks5.ATYPIPv4, []byte{0x00, 0x00, 0x00, 0x00}, []byte{0x00, 0x00}, buf[:n])
-		_, err = c.WriteTo(d.Bytes(), clientAddr)
-		if err != nil {
-			break
-		}
-	}
 }

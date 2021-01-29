@@ -1,86 +1,127 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
-	"io/ioutil"
-	"os"
-	"reflect"
-	"strings"
-	"time"
+	"errors"
+	"fmt"
 )
 
 const (
-	mbpsToBps   = 125000
-	dialTimeout = 10 * time.Second
+	mbpsToBps = 125000
 
 	DefaultMaxReceiveStreamFlowControlWindow     = 33554432
 	DefaultMaxReceiveConnectionFlowControlWindow = 67108864
-	DefaultMaxIncomingStreams                    = 200
+	DefaultMaxIncomingStreams                    = 1024
+
+	tlsProtocolName = "hysteria"
 )
 
-func loadConfig(cfg interface{}, args []string) error {
-	cfgVal := reflect.ValueOf(cfg).Elem()
-	fs := flag.NewFlagSet("", flag.ContinueOnError)
-	fsValMap := make(map[reflect.Value]interface{}, cfgVal.NumField())
-	for i := 0; i < cfgVal.NumField(); i++ {
-		structField := cfgVal.Type().Field(i)
-		tag := structField.Tag
-		switch structField.Type.Kind() {
-		case reflect.String:
-			fsValMap[cfgVal.Field(i)] =
-				fs.String(jsonTagToFlagName(tag.Get("json")), "", tag.Get("desc"))
-		case reflect.Int:
-			fsValMap[cfgVal.Field(i)] =
-				fs.Int(jsonTagToFlagName(tag.Get("json")), 0, tag.Get("desc"))
-		case reflect.Uint64:
-			fsValMap[cfgVal.Field(i)] =
-				fs.Uint64(jsonTagToFlagName(tag.Get("json")), 0, tag.Get("desc"))
-		case reflect.Bool:
-			var bf optionalBoolFlag
-			fs.Var(&bf, jsonTagToFlagName(tag.Get("json")), tag.Get("desc"))
-			fsValMap[cfgVal.Field(i)] = &bf
-		}
+type serverConfig struct {
+	Listen   string `json:"listen"`
+	CertFile string `json:"cert"`
+	KeyFile  string `json:"key"`
+	// Optional below
+	UpMbps     int    `json:"up_mbps"`
+	DownMbps   int    `json:"down_mbps"`
+	DisableUDP bool   `json:"disable_udp"`
+	ACL        string `json:"acl"`
+	Obfs       string `json:"obfs"`
+	Auth       struct {
+		Mode   string      `json:"mode"`
+		Config interface{} `json:"config"`
+	} `json:"auth"`
+	ReceiveWindowConn   uint64 `json:"recv_window_conn"`
+	ReceiveWindowClient uint64 `json:"recv_window_client"`
+	MaxConnClient       int    `json:"max_conn_client"`
+}
+
+func (c *serverConfig) Check() error {
+	if len(c.Listen) == 0 {
+		return errors.New("no listen address")
 	}
-	configFile := fs.String("config", "", "Configuration file")
-	// Parse
-	if err := fs.Parse(args); err != nil {
-		os.Exit(1)
+	if len(c.CertFile) == 0 || len(c.KeyFile) == 0 {
+		return errors.New("TLS cert or key not provided")
 	}
-	// Put together the config
-	if len(*configFile) > 0 {
-		cb, err := ioutil.ReadFile(*configFile)
-		if err != nil {
-			return err
-		}
-		if err := json.Unmarshal(cb, cfg); err != nil {
-			return err
-		}
+	if c.UpMbps < 0 || c.DownMbps < 0 {
+		return errors.New("invalid speed")
 	}
-	// Flags override config from file
-	for field, val := range fsValMap {
-		switch v := val.(type) {
-		case *string:
-			if len(*v) > 0 {
-				field.SetString(*v)
-			}
-		case *int:
-			if *v != 0 {
-				field.SetInt(int64(*v))
-			}
-		case *uint64:
-			if *v != 0 {
-				field.SetUint(*v)
-			}
-		case *optionalBoolFlag:
-			if v.Exists {
-				field.SetBool(v.Value)
-			}
-		}
+	if (c.ReceiveWindowConn != 0 && c.ReceiveWindowConn < 65536) ||
+		(c.ReceiveWindowClient != 0 && c.ReceiveWindowClient < 65536) {
+		return errors.New("invalid receive window size")
+	}
+	if c.MaxConnClient < 0 {
+		return errors.New("invalid max connections per client")
 	}
 	return nil
 }
 
-func jsonTagToFlagName(tag string) string {
-	return strings.ReplaceAll(tag, "_", "-")
+func (c *serverConfig) String() string {
+	return fmt.Sprintf("%+v", *c)
+}
+
+type clientConfig struct {
+	Server   string `json:"server"`
+	UpMbps   int    `json:"up_mbps"`
+	DownMbps int    `json:"down_mbps"`
+	// Optional below
+	SOCKS5 struct {
+		Listen     string `json:"listen"`
+		Timeout    int    `json:"timeout"`
+		DisableUDP bool   `json:"disable_udp"`
+		User       string `json:"user"`
+		Password   string `json:"password"`
+	} `json:"socks5"`
+	HTTP struct {
+		Listen   string `json:"listen"`
+		Timeout  int    `json:"timeout"`
+		User     string `json:"user"`
+		Password string `json:"password"`
+		Cert     string `json:"cert"`
+		Key      string `json:"key"`
+	} `json:"http"`
+	Relay struct {
+		Listen  string `json:"listen"`
+		Remote  string `json:"remote"`
+		Timeout int    `json:"timeout"`
+	} `json:"relay"`
+	ACL               string `json:"acl"`
+	Obfs              string `json:"obfs"`
+	Auth              []byte `json:"auth"`
+	AuthString        string `json:"auth_str"`
+	Insecure          bool   `json:"insecure"`
+	CustomCA          string `json:"ca"`
+	ReceiveWindowConn uint64 `json:"recv_window_conn"`
+	ReceiveWindow     uint64 `json:"recv_window"`
+}
+
+func (c *clientConfig) Check() error {
+	if len(c.SOCKS5.Listen) == 0 && len(c.HTTP.Listen) == 0 && len(c.Relay.Listen) == 0 {
+		return errors.New("no SOCKS5, HTTP or relay listen address")
+	}
+	if len(c.Relay.Listen) > 0 && len(c.Relay.Remote) == 0 {
+		return errors.New("no relay remote address")
+	}
+	if c.SOCKS5.Timeout != 0 && c.SOCKS5.Timeout <= 4 {
+		return errors.New("invalid SOCKS5 timeout")
+	}
+	if c.HTTP.Timeout != 0 && c.HTTP.Timeout <= 4 {
+		return errors.New("invalid HTTP timeout")
+	}
+	if c.Relay.Timeout != 0 && c.Relay.Timeout <= 4 {
+		return errors.New("invalid relay timeout")
+	}
+	if len(c.Server) == 0 {
+		return errors.New("no server address")
+	}
+	if c.UpMbps <= 0 || c.DownMbps <= 0 {
+		return errors.New("invalid speed")
+	}
+	if (c.ReceiveWindowConn != 0 && c.ReceiveWindowConn < 65536) ||
+		(c.ReceiveWindow != 0 && c.ReceiveWindow < 65536) {
+		return errors.New("invalid receive window size")
+	}
+	return nil
+}
+
+func (c *clientConfig) String() string {
+	return fmt.Sprintf("%+v", *c)
 }

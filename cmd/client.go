@@ -3,11 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"time"
-
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/sirupsen/logrus"
@@ -17,42 +12,38 @@ import (
 	hyHTTP "github.com/tobyxdd/hysteria/pkg/http"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"github.com/tobyxdd/hysteria/pkg/socks5"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"time"
 )
 
-func proxyClient(args []string) {
-	var config proxyClientConfig
-	err := loadConfig(&config, args)
-	if err != nil {
-		logrus.WithField("error", err).Fatal("Unable to load configuration")
-	}
-	if err := config.Check(); err != nil {
-		logrus.WithField("error", err).Fatal("Configuration error")
-	}
-	logrus.WithField("config", config.String()).Info("Configuration loaded")
-
+func client(config *clientConfig) {
+	logrus.WithField("config", config.String()).Info("Client configuration loaded")
+	// TLS
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: config.Insecure,
-		NextProtos:         []string{proxyTLSProtocol},
+		NextProtos:         []string{tlsProtocolName},
 		MinVersion:         tls.VersionTLS13,
 	}
 	// Load CA
-	if len(config.CustomCAFile) > 0 {
-		bs, err := ioutil.ReadFile(config.CustomCAFile)
+	if len(config.CustomCA) > 0 {
+		bs, err := ioutil.ReadFile(config.CustomCA)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
-				"file":  config.CustomCAFile,
-			}).Fatal("Unable to load CA file")
+				"file":  config.CustomCA,
+			}).Fatal("Failed to load CA")
 		}
 		cp := x509.NewCertPool()
 		if !cp.AppendCertsFromPEM(bs) {
 			logrus.WithFields(logrus.Fields{
-				"file": config.CustomCAFile,
-			}).Fatal("Unable to parse CA file")
+				"file": config.CustomCA,
+			}).Fatal("Failed to parse CA")
 		}
 		tlsConfig.RootCAs = cp
 	}
-
+	// QUIC config
 	quicConfig := &quic.Config{
 		MaxReceiveStreamFlowControlWindow:     config.ReceiveWindowConn,
 		MaxReceiveConnectionFlowControlWindow: config.ReceiveWindow,
@@ -64,46 +55,54 @@ func proxyClient(args []string) {
 	if quicConfig.MaxReceiveConnectionFlowControlWindow == 0 {
 		quicConfig.MaxReceiveConnectionFlowControlWindow = DefaultMaxReceiveConnectionFlowControlWindow
 	}
-
+	// Auth
+	var auth []byte
+	if len(config.Auth) > 0 {
+		auth = config.Auth
+	} else {
+		auth = []byte(config.AuthString)
+	}
+	// Obfuscator
 	var obfuscator core.Obfuscator
 	if len(config.Obfs) > 0 {
 		obfuscator = obfs.XORObfuscator(config.Obfs)
 	}
-
+	// ACL
 	var aclEngine *acl.Engine
-	if len(config.ACLFile) > 0 {
-		aclEngine, err = acl.LoadFromFile(config.ACLFile)
+	if len(config.ACL) > 0 {
+		var err error
+		aclEngine, err = acl.LoadFromFile(config.ACL)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
-				"file":  config.ACLFile,
-			}).Fatal("Unable to parse ACL")
+				"file":  config.ACL,
+			}).Fatal("Failed to parse ACL")
 		}
 	}
-
-	client, err := core.NewClient(config.ServerAddr, config.Username, config.Password, tlsConfig, quicConfig,
+	// Client
+	client, err := core.NewClient(config.Server, auth, tlsConfig, quicConfig,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		}, obfuscator)
 	if err != nil {
-		logrus.WithField("error", err).Fatal("Client initialization failed")
+		logrus.WithField("error", err).Fatal("Failed to initialize client")
 	}
 	defer client.Close()
-	logrus.WithField("addr", config.ServerAddr).Info("Connected")
+	logrus.WithField("addr", config.Server).Info("Connected")
 
+	// Local
 	errChan := make(chan error)
-
-	if len(config.SOCKS5Addr) > 0 {
+	if len(config.SOCKS5.Listen) > 0 {
 		go func() {
 			var authFunc func(user, password string) bool
-			if config.SOCKS5User != "" && config.SOCKS5Password != "" {
+			if config.SOCKS5.User != "" && config.SOCKS5.Password != "" {
 				authFunc = func(user, password string) bool {
-					return config.SOCKS5User == user && config.SOCKS5Password == password
+					return config.SOCKS5.User == user && config.SOCKS5.Password == password
 				}
 			}
-			socks5server, err := socks5.NewServer(client, config.SOCKS5Addr, authFunc, config.SOCKS5Timeout, aclEngine,
-				config.SOCKS5DisableUDP,
+			socks5server, err := socks5.NewServer(client, config.SOCKS5.Listen, authFunc, config.SOCKS5.Timeout, aclEngine,
+				config.SOCKS5.DisableUDP,
 				func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
 						"action": actionToString(action, arg),
@@ -144,22 +143,22 @@ func proxyClient(args []string) {
 					}).Debug("SOCKS5 UDP tunnel closed")
 				})
 			if err != nil {
-				logrus.WithField("error", err).Fatal("SOCKS5 server initialization failed")
+				logrus.WithField("error", err).Fatal("Failed to initialize SOCKS5 server")
 			}
-			logrus.WithField("addr", config.SOCKS5Addr).Info("SOCKS5 server up and running")
+			logrus.WithField("addr", config.SOCKS5.Listen).Info("SOCKS5 server up and running")
 			errChan <- socks5server.ListenAndServe()
 		}()
 	}
 
-	if len(config.HTTPAddr) > 0 {
+	if len(config.HTTP.Listen) > 0 {
 		go func() {
 			var authFunc func(user, password string) bool
-			if config.HTTPUser != "" && config.HTTPPassword != "" {
+			if config.HTTP.User != "" && config.HTTP.Password != "" {
 				authFunc = func(user, password string) bool {
-					return config.HTTPUser == user && config.HTTPPassword == password
+					return config.HTTP.User == user && config.HTTP.Password == password
 				}
 			}
-			proxy, err := hyHTTP.NewProxyHTTPServer(client, time.Duration(config.HTTPTimeout)*time.Second, aclEngine,
+			proxy, err := hyHTTP.NewProxyHTTPServer(client, time.Duration(config.HTTP.Timeout)*time.Second, aclEngine,
 				func(reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
 						"action": actionToString(action, arg),
@@ -168,14 +167,14 @@ func proxyClient(args []string) {
 				},
 				authFunc)
 			if err != nil {
-				logrus.WithField("error", err).Fatal("HTTP server initialization failed")
+				logrus.WithField("error", err).Fatal("Failed to initialize HTTP server")
 			}
-			if config.HTTPSCert != "" && config.HTTPSKey != "" {
-				logrus.WithField("addr", config.HTTPAddr).Info("HTTPS server up and running")
-				errChan <- http.ListenAndServeTLS(config.HTTPAddr, config.HTTPSCert, config.HTTPSKey, proxy)
+			if config.HTTP.Cert != "" && config.HTTP.Key != "" {
+				logrus.WithField("addr", config.HTTP.Listen).Info("HTTPS server up and running")
+				errChan <- http.ListenAndServeTLS(config.HTTP.Listen, config.HTTP.Cert, config.HTTP.Key, proxy)
 			} else {
-				logrus.WithField("addr", config.HTTPAddr).Info("HTTP server up and running")
-				errChan <- http.ListenAndServe(config.HTTPAddr, proxy)
+				logrus.WithField("addr", config.HTTP.Listen).Info("HTTP server up and running")
+				errChan <- http.ListenAndServe(config.HTTP.Listen, proxy)
 			}
 		}()
 	}

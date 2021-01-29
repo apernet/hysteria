@@ -1,11 +1,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"github.com/yosuke-furukawa/json5/encoding/json5"
+	"io/ioutil"
 	"os"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Injected when compiling
@@ -15,12 +17,10 @@ var (
 	appDate    = "Unknown"
 )
 
-var modeMap = map[string]func(args []string){
-	"relay server": relayServer,
-	"relay client": relayClient,
-	"proxy server": proxyServer,
-	"proxy client": proxyClient,
-}
+var (
+	configPath  = flag.String("config", "config.json", "Config file")
+	showVersion = flag.Bool("version", false, "Show version")
+)
 
 func init() {
 	logrus.SetOutput(os.Stdout)
@@ -50,37 +50,68 @@ func init() {
 			TimestampFormat: tsFormat,
 		})
 	}
+
+	flag.Parse()
 }
 
 func main() {
-	if len(os.Args) == 2 && strings.ToLower(strings.TrimSpace(os.Args[1])) == "version" {
+	if *showVersion {
 		// Print version and quit
 		fmt.Printf("%-10s%s\n", "Version:", appVersion)
 		fmt.Printf("%-10s%s\n", "Commit:", appCommit)
 		fmt.Printf("%-10s%s\n", "Date:", appDate)
 		return
 	}
-	if len(os.Args) < 3 {
-		fmt.Println()
-		fmt.Printf("Usage: %s MODE SUBMODE [OPTIONS]\n\n"+
-			"Available mode/submode combinations: "+getModes()+"\n"+
-			"Use -h to see the available options for a mode.\n\n", os.Args[0])
-		return
+	cb, err := ioutil.ReadFile(*configPath)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"file":  *configPath,
+			"error": err,
+		}).Fatal("Failed to read configuration")
 	}
-	modeStr := fmt.Sprintf("%s %s", strings.ToLower(strings.TrimSpace(os.Args[1])),
-		strings.ToLower(strings.TrimSpace(os.Args[2])))
-	f := modeMap[modeStr]
-	if f != nil {
-		f(os.Args[3:])
+	mode := flag.Arg(0)
+	if strings.EqualFold(mode, "server") {
+		// server mode
+		c, err := parseServerConfig(cb)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"file":  *configPath,
+				"error": err,
+			}).Fatal("Failed to parse server configuration")
+		}
+		server(c)
+	} else if len(mode) == 0 || strings.EqualFold(mode, "client") {
+		// client mode
+		c, err := parseClientConfig(cb)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"file":  *configPath,
+				"error": err,
+			}).Fatal("Failed to parse client configuration")
+		}
+		client(c)
 	} else {
-		fmt.Println("Invalid mode:", modeStr)
+		// invalid
+		fmt.Println()
+		fmt.Printf("Usage: %s MODE [OPTIONS]\n\n"+
+			"Available modes: server, client\n\n", os.Args[0])
 	}
 }
 
-func getModes() string {
-	modes := make([]string, 0, len(modeMap))
-	for mode := range modeMap {
-		modes = append(modes, mode)
+func parseServerConfig(cb []byte) (*serverConfig, error) {
+	var c serverConfig
+	err := json5.Unmarshal(cb, &c)
+	if err != nil {
+		return nil, err
 	}
-	return strings.Join(modes, ", ")
+	return &c, c.Check()
+}
+
+func parseClientConfig(cb []byte) (*clientConfig, error) {
+	var c clientConfig
+	err := json5.Unmarshal(cb, &c)
+	if err != nil {
+		return nil, err
+	}
+	return &c, c.Check()
 }

@@ -4,61 +4,32 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/tobyxdd/hysteria/pkg/core/pb"
+	"github.com/lunixbochs/struc"
+	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/utils"
-	"io"
 	"net"
-	"sync/atomic"
+	"time"
 )
 
-type AuthResult int32
-type ConnectionType int32
-type ConnectResult int32
+const dialTimeout = 10 * time.Second
 
-const (
-	AuthResultSuccess AuthResult = iota
-	AuthResultInvalidCred
-	AuthResultInternalError
-)
-
-const (
-	ConnectionTypeStream ConnectionType = iota
-	ConnectionTypePacket
-)
-
-const (
-	ConnectResultSuccess ConnectResult = iota
-	ConnectResultFailed
-	ConnectResultBlocked
-)
-
-type ClientAuthFunc func(addr net.Addr, username string, password string, sSend uint64, sRecv uint64) (AuthResult, string)
-type ClientDisconnectedFunc func(addr net.Addr, username string, err error)
-type HandleRequestFunc func(addr net.Addr, username string, id int, reqType ConnectionType, reqAddr string) (ConnectResult, string, io.ReadWriteCloser)
-type RequestClosedFunc func(addr net.Addr, username string, id int, reqType ConnectionType, reqAddr string, err error)
+type AuthFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
+type RequestFunc func(addr net.Addr, auth []byte, udp bool, reqAddr string)
 
 type Server struct {
-	inboundBytes, outboundBytes uint64 // atomic
+	sendBPS, recvBPS  uint64
+	congestionFactory CongestionFactory
+	authFunc          AuthFunc
+	requestFunc       RequestFunc
+	aclEngine         *acl.Engine
 
-	listener         quic.Listener
-	sendBPS, recvBPS uint64
-
-	congestionFactory      CongestionFactory
-	clientAuthFunc         ClientAuthFunc
-	clientDisconnectedFunc ClientDisconnectedFunc
-	handleRequestFunc      HandleRequestFunc
-	requestClosedFunc      RequestClosedFunc
+	listener quic.Listener
 }
 
 func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
-	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
-	obfuscator Obfuscator,
-	clientAuthFunc ClientAuthFunc,
-	clientDisconnectedFunc ClientDisconnectedFunc,
-	handleRequestFunc HandleRequestFunc,
-	requestClosedFunc RequestClosedFunc) (*Server, error) {
+	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, aclEngine *acl.Engine,
+	obfuscator Obfuscator, authFunc AuthFunc, requestFunc RequestFunc) (*Server, error) {
 	packetConn, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		return nil, err
@@ -75,14 +46,13 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 		return nil, err
 	}
 	s := &Server{
-		listener:               listener,
-		sendBPS:                sendBPS,
-		recvBPS:                recvBPS,
-		congestionFactory:      congestionFactory,
-		clientAuthFunc:         clientAuthFunc,
-		clientDisconnectedFunc: clientDisconnectedFunc,
-		handleRequestFunc:      handleRequestFunc,
-		requestClosedFunc:      requestClosedFunc,
+		listener:          listener,
+		sendBPS:           sendBPS,
+		recvBPS:           recvBPS,
+		congestionFactory: congestionFactory,
+		authFunc:          authFunc,
+		requestFunc:       requestFunc,
+		aclEngine:         aclEngine,
 	}
 	return s, nil
 }
@@ -97,128 +67,156 @@ func (s *Server) Serve() error {
 	}
 }
 
-func (s *Server) Stats() (uint64, uint64) {
-	return atomic.LoadUint64(&s.inboundBytes), atomic.LoadUint64(&s.outboundBytes)
-}
-
 func (s *Server) Close() error {
 	return s.listener.Close()
 }
 
 func (s *Server) handleClient(cs quic.Session) {
 	// Expect the client to create a control stream to send its own information
-	ctx, ctxCancel := context.WithTimeout(context.Background(), controlStreamTimeout)
-	ctlStream, err := cs.AcceptStream(ctx)
+	ctx, ctxCancel := context.WithTimeout(context.Background(), protocolTimeout)
+	stream, err := cs.AcceptStream(ctx)
 	ctxCancel()
 	if err != nil {
-		_ = cs.CloseWithError(closeErrorCodeProtocolFailure, "control stream error")
+		_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
 		return
 	}
 	// Handle the control stream
-	username, ok, err := s.handleControlStream(cs, ctlStream)
+	auth, ok, err := s.handleControlStream(cs, stream)
 	if err != nil {
-		_ = cs.CloseWithError(closeErrorCodeProtocolFailure, "control stream handling error")
+		_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
 		return
 	}
 	if !ok {
-		_ = cs.CloseWithError(closeErrorCodeGeneric, "authentication failure")
+		_ = cs.CloseWithError(closeErrorCodeAuth, "auth error")
 		return
 	}
 	// Start accepting streams
-	var closeErr error
 	for {
 		stream, err := cs.AcceptStream(context.Background())
 		if err != nil {
-			closeErr = err
 			break
 		}
-		go s.handleStream(cs.LocalAddr(), cs.RemoteAddr(), username, stream)
+		go s.handleStream(cs.RemoteAddr(), auth, stream)
 	}
-	s.clientDisconnectedFunc(cs.RemoteAddr(), username, closeErr)
-	_ = cs.CloseWithError(closeErrorCodeGeneric, "generic")
+	_ = cs.CloseWithError(closeErrorCodeGeneric, "")
 }
 
 // Auth & negotiate speed
-func (s *Server) handleControlStream(cs quic.Session, stream quic.Stream) (string, bool, error) {
-	req, err := readClientAuthRequest(stream)
+func (s *Server) handleControlStream(cs quic.Session, stream quic.Stream) ([]byte, bool, error) {
+	var ch clientHello
+	err := struc.Unpack(stream, &ch)
 	if err != nil {
-		return "", false, err
+		return nil, false, err
 	}
 	// Speed
-	if req.Speed == nil || req.Speed.SendBps == 0 || req.Speed.ReceiveBps == 0 {
-		return "", false, errors.New("incorrect speed provided by the client")
+	if ch.Rate.SendBPS == 0 || ch.Rate.RecvBPS == 0 {
+		return nil, false, errors.New("invalid rate from client")
 	}
-	serverSendBPS, serverReceiveBPS := req.Speed.ReceiveBps, req.Speed.SendBps
+	serverSendBPS, serverRecvBPS := ch.Rate.RecvBPS, ch.Rate.SendBPS
 	if s.sendBPS > 0 && serverSendBPS > s.sendBPS {
 		serverSendBPS = s.sendBPS
 	}
-	if s.recvBPS > 0 && serverReceiveBPS > s.recvBPS {
-		serverReceiveBPS = s.recvBPS
+	if s.recvBPS > 0 && serverRecvBPS > s.recvBPS {
+		serverRecvBPS = s.recvBPS
 	}
 	// Auth
-	if req.Credential == nil {
-		return "", false, errors.New("incorrect credential provided by the client")
-	}
-	authResult, msg := s.clientAuthFunc(cs.RemoteAddr(), req.Credential.Username, req.Credential.Password,
-		serverSendBPS, serverReceiveBPS)
+	ok, msg := s.authFunc(cs.RemoteAddr(), ch.Auth, serverSendBPS, serverRecvBPS)
 	// Response
-	err = writeServerAuthResponse(stream, &pb.ServerAuthResponse{
-		Result:  pb.AuthResult(authResult),
-		Message: msg,
-		Speed: &pb.Speed{
-			SendBps:    serverSendBPS,
-			ReceiveBps: serverReceiveBPS,
+	err = struc.Pack(stream, &serverHello{
+		OK: ok,
+		Rate: transmissionRate{
+			SendBPS: serverSendBPS,
+			RecvBPS: serverRecvBPS,
 		},
+		Message: msg,
 	})
 	if err != nil {
-		return "", false, err
+		return nil, false, err
 	}
 	// Set the congestion accordingly
-	if authResult == AuthResultSuccess && s.congestionFactory != nil {
+	if ok && s.congestionFactory != nil {
 		cs.SetCongestionControl(s.congestionFactory(serverSendBPS))
 	}
-	return req.Credential.Username, authResult == AuthResultSuccess, nil
+	return ch.Auth, ok, nil
 }
 
-func (s *Server) handleStream(localAddr net.Addr, remoteAddr net.Addr, username string, stream quic.Stream) {
+func (s *Server) handleStream(remoteAddr net.Addr, auth []byte, stream quic.Stream) {
 	defer stream.Close()
 	// Read request
-	req, err := readClientConnectRequest(stream)
+	var req clientRequest
+	err := struc.Unpack(stream, &req)
 	if err != nil {
 		return
 	}
-	// Create connection with the handler
-	result, msg, conn := s.handleRequestFunc(remoteAddr, username, int(stream.StreamID()), ConnectionType(req.Type), req.Address)
-	defer func() {
-		if conn != nil {
-			_ = conn.Close()
+	s.requestFunc(remoteAddr, auth, req.UDP, req.Address)
+	if !req.UDP {
+		// TCP connection
+		s.handleTCP(stream, req.Address)
+	} else {
+		// UDP connection
+		// TODO
+	}
+}
+
+func (s *Server) handleTCP(stream quic.Stream, reqAddr string) {
+	host, port, err := net.SplitHostPort(reqAddr)
+	if err != nil {
+		_ = struc.Pack(stream, &serverResponse{
+			OK:      false,
+			Message: "invalid address",
+		})
+		return
+	}
+	ip := net.ParseIP(host)
+	if ip != nil {
+		// IP request, clear host for ACL engine
+		host = ""
+	}
+	action, arg := acl.ActionDirect, ""
+	if s.aclEngine != nil {
+		action, arg = s.aclEngine.Lookup(host, ip)
+	}
+
+	var conn net.Conn // Connection to be piped
+	switch action {
+	case acl.ActionDirect, acl.ActionProxy: // Treat proxy as direct on server side
+		conn, err = net.DialTimeout("tcp", reqAddr, dialTimeout)
+		if err != nil {
+			_ = struc.Pack(stream, &serverResponse{
+				OK:      false,
+				Message: err.Error(),
+			})
+			return
 		}
-	}()
-	// Send response
-	err = writeServerConnectResponse(stream, &pb.ServerConnectResponse{
-		Result:  pb.ConnectResult(result),
-		Message: msg,
+	case acl.ActionBlock:
+		_ = struc.Pack(stream, &serverResponse{
+			OK:      false,
+			Message: "blocked by ACL",
+		})
+		return
+	case acl.ActionHijack:
+		hijackAddr := net.JoinHostPort(arg, port)
+		conn, err = net.DialTimeout("tcp", hijackAddr, dialTimeout)
+		if err != nil {
+			_ = struc.Pack(stream, &serverResponse{
+				OK:      false,
+				Message: err.Error(),
+			})
+			return
+		}
+	default:
+		_ = struc.Pack(stream, &serverResponse{
+			OK:      false,
+			Message: "ACL error",
+		})
+		return
+	}
+	// So far so good if we reach here
+	err = struc.Pack(stream, &serverResponse{
+		OK: true,
 	})
 	if err != nil {
-		s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), ConnectionType(req.Type), req.Address, err)
 		return
 	}
-	if result != ConnectResultSuccess {
-		s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), ConnectionType(req.Type), req.Address,
-			fmt.Errorf("handler returned an unsuccessful state %d (msg: %s)", result, msg))
-		return
-	}
-	switch req.Type {
-	case pb.ConnectionType_Stream:
-		err = utils.PipePair(stream, conn, &s.outboundBytes, &s.inboundBytes)
-	case pb.ConnectionType_Packet:
-		err = utils.PipePair(&utils.PacketWrapperConn{Orig: &utils.QUICStreamWrapperConn{
-			Orig:             stream,
-			PseudoLocalAddr:  localAddr,
-			PseudoRemoteAddr: remoteAddr,
-		}}, conn, &s.outboundBytes, &s.inboundBytes)
-	default:
-		err = fmt.Errorf("unsupported connection type %s", req.Type.String())
-	}
-	s.requestClosedFunc(remoteAddr, username, int(stream.StreamID()), ConnectionType(req.Type), req.Address, err)
+	_ = utils.Pipe2Way(stream, conn)
 }

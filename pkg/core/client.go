@@ -6,101 +6,50 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/tobyxdd/hysteria/pkg/core/pb"
-	"github.com/tobyxdd/hysteria/pkg/utils"
+	"github.com/lucas-clemente/quic-go/congestion"
+	"github.com/lunixbochs/struc"
 	"net"
 	"sync"
-	"sync/atomic"
+	"time"
 )
 
 var (
 	ErrClosed = errors.New("client closed")
 )
 
-type Client struct {
-	inboundBytes, outboundBytes uint64 // atomic
+type CongestionFactory func(refBPS uint64) congestion.CongestionControl
 
-	reconnectMutex     sync.Mutex
-	closed             bool
-	quicSession        quic.Session
-	serverAddr         string
-	username, password string
-	tlsConfig          *tls.Config
-	quicConfig         *quic.Config
-	sendBPS, recvBPS   uint64
-	congestionFactory  CongestionFactory
-	obfuscator         Obfuscator
+type Client struct {
+	serverAddr        string
+	sendBPS, recvBPS  uint64
+	auth              []byte
+	congestionFactory CongestionFactory
+	obfuscator        Obfuscator
+
+	tlsConfig  *tls.Config
+	quicConfig *quic.Config
+
+	quicSession    quic.Session
+	reconnectMutex sync.Mutex
+	closed         bool
 }
 
-func NewClient(serverAddr string, username string, password string, tlsConfig *tls.Config, quicConfig *quic.Config,
+func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, obfuscator Obfuscator) (*Client, error) {
 	c := &Client{
 		serverAddr:        serverAddr,
-		username:          username,
-		password:          password,
-		tlsConfig:         tlsConfig,
-		quicConfig:        quicConfig,
 		sendBPS:           sendBPS,
 		recvBPS:           recvBPS,
+		auth:              auth,
 		congestionFactory: congestionFactory,
 		obfuscator:        obfuscator,
+		tlsConfig:         tlsConfig,
+		quicConfig:        quicConfig,
 	}
 	if err := c.connectToServer(); err != nil {
 		return nil, err
 	}
 	return c, nil
-}
-
-func (c *Client) Dial(packet bool, addr string) (net.Conn, error) {
-	stream, localAddr, remoteAddr, err := c.openStreamWithReconnect()
-	if err != nil {
-		return nil, err
-	}
-	// Send request
-	req := &pb.ClientConnectRequest{Address: addr}
-	if packet {
-		req.Type = pb.ConnectionType_Packet
-	} else {
-		req.Type = pb.ConnectionType_Stream
-	}
-	err = writeClientConnectRequest(stream, req)
-	if err != nil {
-		_ = stream.Close()
-		return nil, err
-	}
-	// Read response
-	resp, err := readServerConnectResponse(stream)
-	if err != nil {
-		_ = stream.Close()
-		return nil, err
-	}
-	if resp.Result != pb.ConnectResult_CONN_SUCCESS {
-		_ = stream.Close()
-		return nil, fmt.Errorf("server rejected the connection %s (msg: %s)",
-			resp.Result.String(), resp.Message)
-	}
-	connWrap := &utils.QUICStreamWrapperConn{
-		Orig:             stream,
-		PseudoLocalAddr:  localAddr,
-		PseudoRemoteAddr: remoteAddr,
-	}
-	if packet {
-		return &utils.PacketWrapperConn{Orig: connWrap}, nil
-	} else {
-		return connWrap, nil
-	}
-}
-
-func (c *Client) Stats() (uint64, uint64) {
-	return atomic.LoadUint64(&c.inboundBytes), atomic.LoadUint64(&c.outboundBytes)
-}
-
-func (c *Client) Close() error {
-	c.reconnectMutex.Lock()
-	defer c.reconnectMutex.Unlock()
-	err := c.quicSession.CloseWithError(closeErrorCodeGeneric, "generic")
-	c.closed = true
-	return err
 }
 
 func (c *Client) connectToServer() error {
@@ -124,51 +73,50 @@ func (c *Client) connectToServer() error {
 		return err
 	}
 	// Control stream
-	ctx, ctxCancel := context.WithTimeout(context.Background(), controlStreamTimeout)
-	ctlStream, err := qs.OpenStreamSync(ctx)
+	ctx, ctxCancel := context.WithTimeout(context.Background(), protocolTimeout)
+	stream, err := qs.OpenStreamSync(ctx)
 	ctxCancel()
 	if err != nil {
-		_ = qs.CloseWithError(closeErrorCodeProtocolFailure, "control stream error")
+		_ = qs.CloseWithError(closeErrorCodeProtocol, "protocol error")
 		return err
 	}
-	result, msg, err := c.handleControlStream(qs, ctlStream)
+	ok, msg, err := c.handleControlStream(qs, stream)
 	if err != nil {
-		_ = qs.CloseWithError(closeErrorCodeProtocolFailure, "control stream handling error")
+		_ = qs.CloseWithError(closeErrorCodeProtocol, "protocol error")
 		return err
 	}
-	if result != pb.AuthResult_AUTH_SUCCESS {
-		_ = qs.CloseWithError(closeErrorCodeProtocolFailure, "authentication failure")
-		return fmt.Errorf("authentication failure %s (msg: %s)", result.String(), msg)
+	if !ok {
+		_ = qs.CloseWithError(closeErrorCodeAuth, "auth error")
+		return fmt.Errorf("auth error: %s", msg)
 	}
 	// All good
 	c.quicSession = qs
 	return nil
 }
 
-func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (pb.AuthResult, string, error) {
-	err := writeClientAuthRequest(stream, &pb.ClientAuthRequest{
-		Credential: &pb.Credential{
-			Username: c.username,
-			Password: c.password,
+func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (bool, string, error) {
+	// Send client hello
+	err := struc.Pack(stream, &clientHello{
+		Rate: transmissionRate{
+			SendBPS: c.sendBPS,
+			RecvBPS: c.recvBPS,
 		},
-		Speed: &pb.Speed{
-			SendBps:    c.sendBPS,
-			ReceiveBps: c.recvBPS,
-		},
+		Auth: c.auth,
 	})
 	if err != nil {
-		return 0, "", err
+		return false, "", err
 	}
-	// Response
-	resp, err := readServerAuthResponse(stream)
+	// Receive server hello
+	var sh serverHello
+	err = struc.Unpack(stream, &sh)
 	if err != nil {
-		return 0, "", err
+		return false, "", err
 	}
 	// Set the congestion accordingly
-	if resp.Result == pb.AuthResult_AUTH_SUCCESS && c.congestionFactory != nil {
-		qs.SetCongestionControl(c.congestionFactory(resp.Speed.ReceiveBps))
+	if sh.OK && c.congestionFactory != nil {
+		qs.SetCongestionControl(c.congestionFactory(sh.Rate.RecvBPS))
 	}
-	return resp.Result, resp.Message, nil
+	return true, sh.Message, nil
 }
 
 func (c *Client) openStreamWithReconnect() (quic.Stream, net.Addr, net.Addr, error) {
@@ -195,4 +143,82 @@ func (c *Client) openStreamWithReconnect() (quic.Stream, net.Addr, net.Addr, err
 	// We are not going to try again even if it still fails the second time
 	stream, err = c.quicSession.OpenStream()
 	return stream, c.quicSession.LocalAddr(), c.quicSession.RemoteAddr(), err
+}
+
+func (c *Client) DialTCP(addr string) (net.Conn, error) {
+	stream, localAddr, remoteAddr, err := c.openStreamWithReconnect()
+	if err != nil {
+		return nil, err
+	}
+	// Send request
+	err = struc.Pack(stream, &clientRequest{
+		UDP:     false,
+		Address: addr,
+	})
+	if err != nil {
+		_ = stream.Close()
+		return nil, err
+	}
+	// Read response
+	var sr serverResponse
+	err = struc.Unpack(stream, &sr)
+	if err != nil {
+		_ = stream.Close()
+		return nil, err
+	}
+	if !sr.OK {
+		_ = stream.Close()
+		return nil, fmt.Errorf("connection rejected: %s", sr.Message)
+	}
+	return &quicConn{
+		Orig:             stream,
+		PseudoLocalAddr:  localAddr,
+		PseudoRemoteAddr: remoteAddr,
+	}, nil
+}
+
+func (c *Client) Close() error {
+	c.reconnectMutex.Lock()
+	defer c.reconnectMutex.Unlock()
+	err := c.quicSession.CloseWithError(closeErrorCodeGeneric, "")
+	c.closed = true
+	return err
+}
+
+type quicConn struct {
+	Orig             quic.Stream
+	PseudoLocalAddr  net.Addr
+	PseudoRemoteAddr net.Addr
+}
+
+func (w *quicConn) Read(b []byte) (n int, err error) {
+	return w.Orig.Read(b)
+}
+
+func (w *quicConn) Write(b []byte) (n int, err error) {
+	return w.Orig.Write(b)
+}
+
+func (w *quicConn) Close() error {
+	return w.Orig.Close()
+}
+
+func (w *quicConn) LocalAddr() net.Addr {
+	return w.PseudoLocalAddr
+}
+
+func (w *quicConn) RemoteAddr() net.Addr {
+	return w.PseudoRemoteAddr
+}
+
+func (w *quicConn) SetDeadline(t time.Time) error {
+	return w.Orig.SetDeadline(t)
+}
+
+func (w *quicConn) SetReadDeadline(t time.Time) error {
+	return w.Orig.SetReadDeadline(t)
+}
+
+func (w *quicConn) SetWriteDeadline(t time.Time) error {
+	return w.Orig.SetWriteDeadline(t)
 }
