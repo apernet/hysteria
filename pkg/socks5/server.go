@@ -23,34 +23,25 @@ var (
 )
 
 type Server struct {
-	HyClient    *core.Client
-	AuthFunc    func(username, password string) bool
-	Method      byte
-	TCPAddr     *net.TCPAddr
-	TCPDeadline int
-	ACLEngine   *acl.Engine
-	DisableUDP  bool
+	HyClient   *core.Client
+	AuthFunc   func(username, password string) bool
+	Method     byte
+	TCPAddr    *net.TCPAddr
+	TCPTimeout time.Duration
+	ACLEngine  *acl.Engine
+	DisableUDP bool
 
-	NewRequestFunc         func(addr net.Addr, reqAddr string, action acl.Action, arg string)
-	RequestClosedFunc      func(addr net.Addr, reqAddr string, err error)
-	NewUDPAssociateFunc    func(addr net.Addr)
-	UDPAssociateClosedFunc func(addr net.Addr, err error)
-	NewUDPTunnelFunc       func(addr net.Addr, reqAddr string, action acl.Action, arg string)
-	UDPTunnelClosedFunc    func(addr net.Addr, reqAddr string, err error)
+	TCPRequestFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string)
+	TCPErrorFunc   func(addr net.Addr, reqAddr string, err error)
 
 	tcpListener *net.TCPListener
 }
 
-func NewServer(hyClient *core.Client, addr string, authFunc func(username, password string) bool, tcpDeadline int,
+func NewServer(hyClient *core.Client, addr string, authFunc func(username, password string) bool, tcpTimeout time.Duration,
 	aclEngine *acl.Engine, disableUDP bool,
-	newReqFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string),
-	reqClosedFunc func(addr net.Addr, reqAddr string, err error),
-	newUDPAssociateFunc func(addr net.Addr),
-	udpAssociateClosedFunc func(addr net.Addr, err error),
-	newUDPTunnelFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string),
-	udpTunnelClosedFunc func(addr net.Addr, reqAddr string, err error)) (*Server, error) {
-
-	taddr, err := net.ResolveTCPAddr("tcp", addr)
+	tcpReqFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string),
+	tcpErrorFunc func(addr net.Addr, reqAddr string, err error)) (*Server, error) {
+	tAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -59,19 +50,15 @@ func NewServer(hyClient *core.Client, addr string, authFunc func(username, passw
 		m = socks5.MethodUsernamePassword
 	}
 	s := &Server{
-		HyClient:               hyClient,
-		AuthFunc:               authFunc,
-		Method:                 m,
-		TCPAddr:                taddr,
-		TCPDeadline:            tcpDeadline,
-		ACLEngine:              aclEngine,
-		DisableUDP:             disableUDP,
-		NewRequestFunc:         newReqFunc,
-		RequestClosedFunc:      reqClosedFunc,
-		NewUDPAssociateFunc:    newUDPAssociateFunc,
-		UDPAssociateClosedFunc: udpAssociateClosedFunc,
-		NewUDPTunnelFunc:       newUDPTunnelFunc,
-		UDPTunnelClosedFunc:    udpTunnelClosedFunc,
+		HyClient:       hyClient,
+		AuthFunc:       authFunc,
+		Method:         m,
+		TCPAddr:        tAddr,
+		TCPTimeout:     tcpTimeout,
+		ACLEngine:      aclEngine,
+		DisableUDP:     disableUDP,
+		TCPRequestFunc: tcpReqFunc,
+		TCPErrorFunc:   tcpErrorFunc,
 	}
 	return s, nil
 }
@@ -133,8 +120,8 @@ func (s *Server) ListenAndServe() error {
 		}
 		go func(c *net.TCPConn) {
 			defer c.Close()
-			if s.TCPDeadline != 0 {
-				if err := c.SetDeadline(time.Now().Add(time.Duration(s.TCPDeadline) * time.Second)); err != nil {
+			if s.TCPTimeout != 0 {
+				if err := c.SetDeadline(time.Now().Add(s.TCPTimeout)); err != nil {
 					return
 				}
 			}
@@ -170,10 +157,10 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 	if s.ACLEngine != nil {
 		action, arg = s.ACLEngine.Lookup(domain, ip)
 	}
-	s.NewRequestFunc(c.RemoteAddr(), addr, action, arg)
+	s.TCPRequestFunc(c.RemoteAddr(), addr, action, arg)
 	var closeErr error
 	defer func() {
-		s.RequestClosedFunc(c.RemoteAddr(), addr, closeErr)
+		s.TCPErrorFunc(c.RemoteAddr(), addr, closeErr)
 	}()
 	// Handle according to the action
 	switch action {
@@ -186,7 +173,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 		}
 		defer rc.Close()
 		_ = sendReply(c, socks5.RepSuccess)
-		closeErr = pipePair(c, rc, s.TCPDeadline)
+		closeErr = pipePair(c, rc, s.TCPTimeout)
 		return nil
 	case acl.ActionProxy:
 		rc, err := s.HyClient.DialTCP(addr)
@@ -197,7 +184,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 		}
 		defer rc.Close()
 		_ = sendReply(c, socks5.RepSuccess)
-		closeErr = pipePair(c, rc, s.TCPDeadline)
+		closeErr = pipePair(c, rc, s.TCPTimeout)
 		return nil
 	case acl.ActionBlock:
 		_ = sendReply(c, socks5.RepHostUnreachable)
@@ -212,7 +199,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 		}
 		defer rc.Close()
 		_ = sendReply(c, socks5.RepSuccess)
-		closeErr = pipePair(c, rc, s.TCPDeadline)
+		closeErr = pipePair(c, rc, s.TCPTimeout)
 		return nil
 	default:
 		_ = sendReply(c, socks5.RepServerFailure)
@@ -237,15 +224,14 @@ func parseRequestAddress(r *socks5.Request) (domain string, ip net.IP, port stri
 	}
 }
 
-func pipePair(conn *net.TCPConn, stream io.ReadWriteCloser, deadline int) error {
-	deadlineDuration := time.Duration(deadline) * time.Second
+func pipePair(conn *net.TCPConn, stream io.ReadWriteCloser, timeout time.Duration) error {
 	errChan := make(chan error, 2)
 	// TCP to stream
 	go func() {
 		buf := make([]byte, utils.PipeBufferSize)
 		for {
-			if deadline != 0 {
-				_ = conn.SetDeadline(time.Now().Add(deadlineDuration))
+			if timeout != 0 {
+				_ = conn.SetDeadline(time.Now().Add(timeout))
 			}
 			rn, err := conn.Read(buf)
 			if rn > 0 {
@@ -263,7 +249,24 @@ func pipePair(conn *net.TCPConn, stream io.ReadWriteCloser, deadline int) error 
 	}()
 	// Stream to TCP
 	go func() {
-		errChan <- utils.Pipe(stream, conn)
+		buf := make([]byte, utils.PipeBufferSize)
+		for {
+			rn, err := stream.Read(buf)
+			if rn > 0 {
+				_, err := conn.Write(buf[:rn])
+				if err != nil {
+					errChan <- err
+					return
+				}
+				if timeout != 0 {
+					_ = conn.SetDeadline(time.Now().Add(timeout))
+				}
+			}
+			if err != nil {
+				errChan <- err
+				return
+			}
+		}
 	}()
 	return <-errChan
 }

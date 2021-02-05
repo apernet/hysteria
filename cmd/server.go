@@ -9,6 +9,7 @@ import (
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
+	"io"
 	"net"
 	"strings"
 )
@@ -78,16 +79,7 @@ func server(config *serverConfig) {
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
-		}, aclEngine, obfuscator, authFunc, func(addr net.Addr, auth []byte, udp bool, reqAddr string) {
-			if !udp {
-				logrus.WithFields(logrus.Fields{
-					"src": addr.String(),
-					"dst": reqAddr,
-				}).Debug("New TCP request")
-			} else {
-				// TODO
-			}
-		})
+		}, aclEngine, obfuscator, authFunc, tcpRequestFunc, tcpErrorFunc)
 	if err != nil {
 		logrus.WithField("error", err).Fatal("Failed to initialize server")
 	}
@@ -96,4 +88,42 @@ func server(config *serverConfig) {
 
 	err = server.Serve()
 	logrus.WithField("error", err).Fatal("Server shutdown")
+}
+
+func tcpRequestFunc(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string) {
+	logrus.WithFields(logrus.Fields{
+		"src":    addr.String(),
+		"dst":    reqAddr,
+		"action": actionToString(action, arg),
+	}).Debug("TCP request")
+}
+
+func tcpErrorFunc(addr net.Addr, auth []byte, reqAddr string, err error) {
+	if err != io.EOF {
+		logrus.WithFields(logrus.Fields{
+			"src":   addr.String(),
+			"dst":   reqAddr,
+			"error": err,
+		}).Info("TCP error")
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"src": addr.String(),
+			"dst": reqAddr,
+		}).Debug("TCP EOF")
+	}
+}
+
+func actionToString(action acl.Action, arg string) string {
+	switch action {
+	case acl.ActionDirect:
+		return "Direct"
+	case acl.ActionProxy:
+		return "Proxy"
+	case acl.ActionBlock:
+		return "Block"
+	case acl.ActionHijack:
+		return "Hijack to " + arg
+	default:
+		return "Unknown"
+	}
 }

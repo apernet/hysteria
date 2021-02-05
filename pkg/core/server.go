@@ -15,21 +15,24 @@ import (
 const dialTimeout = 10 * time.Second
 
 type AuthFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
-type RequestFunc func(addr net.Addr, auth []byte, udp bool, reqAddr string)
+type TCPRequestFunc func(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string)
+type TCPErrorFunc func(addr net.Addr, auth []byte, reqAddr string, err error)
 
 type Server struct {
 	sendBPS, recvBPS  uint64
 	congestionFactory CongestionFactory
-	authFunc          AuthFunc
-	requestFunc       RequestFunc
 	aclEngine         *acl.Engine
+
+	authFunc       AuthFunc
+	tcpRequestFunc TCPRequestFunc
+	tcpErrorFunc   TCPErrorFunc
 
 	listener quic.Listener
 }
 
 func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, aclEngine *acl.Engine,
-	obfuscator Obfuscator, authFunc AuthFunc, requestFunc RequestFunc) (*Server, error) {
+	obfuscator Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc) (*Server, error) {
 	packetConn, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		return nil, err
@@ -50,9 +53,10 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 		sendBPS:           sendBPS,
 		recvBPS:           recvBPS,
 		congestionFactory: congestionFactory,
-		authFunc:          authFunc,
-		requestFunc:       requestFunc,
 		aclEngine:         aclEngine,
+		authFunc:          authFunc,
+		tcpRequestFunc:    tcpRequestFunc,
+		tcpErrorFunc:      tcpErrorFunc,
 	}
 	return s, nil
 }
@@ -148,23 +152,23 @@ func (s *Server) handleStream(remoteAddr net.Addr, auth []byte, stream quic.Stre
 	if err != nil {
 		return
 	}
-	s.requestFunc(remoteAddr, auth, req.UDP, req.Address)
 	if !req.UDP {
 		// TCP connection
-		s.handleTCP(stream, req.Address)
+		s.handleTCP(remoteAddr, auth, stream, req.Address)
 	} else {
 		// UDP connection
 		// TODO
 	}
 }
 
-func (s *Server) handleTCP(stream quic.Stream, reqAddr string) {
+func (s *Server) handleTCP(remoteAddr net.Addr, auth []byte, stream quic.Stream, reqAddr string) {
 	host, port, err := net.SplitHostPort(reqAddr)
 	if err != nil {
 		_ = struc.Pack(stream, &serverResponse{
 			OK:      false,
 			Message: "invalid address",
 		})
+		s.tcpErrorFunc(remoteAddr, auth, reqAddr, err)
 		return
 	}
 	ip := net.ParseIP(host)
@@ -176,6 +180,7 @@ func (s *Server) handleTCP(stream quic.Stream, reqAddr string) {
 	if s.aclEngine != nil {
 		action, arg = s.aclEngine.Lookup(host, ip)
 	}
+	s.tcpRequestFunc(remoteAddr, auth, reqAddr, action, arg)
 
 	var conn net.Conn // Connection to be piped
 	switch action {
@@ -186,6 +191,7 @@ func (s *Server) handleTCP(stream quic.Stream, reqAddr string) {
 				OK:      false,
 				Message: err.Error(),
 			})
+			s.tcpErrorFunc(remoteAddr, auth, reqAddr, err)
 			return
 		}
 	case acl.ActionBlock:
@@ -202,6 +208,7 @@ func (s *Server) handleTCP(stream quic.Stream, reqAddr string) {
 				OK:      false,
 				Message: err.Error(),
 			})
+			s.tcpErrorFunc(remoteAddr, auth, reqAddr, err)
 			return
 		}
 	default:
@@ -212,11 +219,13 @@ func (s *Server) handleTCP(stream quic.Stream, reqAddr string) {
 		return
 	}
 	// So far so good if we reach here
+	defer conn.Close()
 	err = struc.Pack(stream, &serverResponse{
 		OK: true,
 	})
 	if err != nil {
 		return
 	}
-	_ = utils.Pipe2Way(stream, conn)
+	err = utils.Pipe2Way(stream, conn)
+	s.tcpErrorFunc(remoteAddr, auth, reqAddr, err)
 }

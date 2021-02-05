@@ -52,7 +52,7 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 			}
 		},
 		IdleConnTimeout: idleTimeout,
-		// TODO: Disable HTTP2 support? ref: https://github.com/elazarl/goproxy/issues/361
+		// Disable HTTP2 support? ref: https://github.com/elazarl/goproxy/issues/361
 	}
 	proxy.ConnectDial = nil
 	if basicAuthFunc != nil {

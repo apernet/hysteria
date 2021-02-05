@@ -11,7 +11,9 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/core"
 	hyHTTP "github.com/tobyxdd/hysteria/pkg/http"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
+	"github.com/tobyxdd/hysteria/pkg/relay"
 	"github.com/tobyxdd/hysteria/pkg/socks5"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -101,46 +103,28 @@ func client(config *clientConfig) {
 					return config.SOCKS5.User == user && config.SOCKS5.Password == password
 				}
 			}
-			socks5server, err := socks5.NewServer(client, config.SOCKS5.Listen, authFunc, config.SOCKS5.Timeout, aclEngine,
-				config.SOCKS5.DisableUDP,
+			socks5server, err := socks5.NewServer(client, config.SOCKS5.Listen, authFunc,
+				time.Duration(config.SOCKS5.Timeout)*time.Second, aclEngine, config.SOCKS5.DisableUDP,
 				func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
 						"action": actionToString(action, arg),
 						"src":    addr.String(),
 						"dst":    reqAddr,
-					}).Debug("New SOCKS5 TCP request")
+					}).Debug("SOCKS5 TCP request")
 				},
 				func(addr net.Addr, reqAddr string, err error) {
-					logrus.WithFields(logrus.Fields{
-						"error": err,
-						"src":   addr.String(),
-						"dst":   reqAddr,
-					}).Debug("SOCKS5 TCP request closed")
-				},
-				func(addr net.Addr) {
-					logrus.WithFields(logrus.Fields{
-						"src": addr.String(),
-					}).Debug("New SOCKS5 UDP associate request")
-				},
-				func(addr net.Addr, err error) {
-					logrus.WithFields(logrus.Fields{
-						"error": err,
-						"src":   addr.String(),
-					}).Debug("SOCKS5 UDP associate request closed")
-				},
-				func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
-					logrus.WithFields(logrus.Fields{
-						"action": actionToString(action, arg),
-						"src":    addr.String(),
-						"dst":    reqAddr,
-					}).Debug("New SOCKS5 UDP tunnel")
-				},
-				func(addr net.Addr, reqAddr string, err error) {
-					logrus.WithFields(logrus.Fields{
-						"error": err,
-						"src":   addr.String(),
-						"dst":   reqAddr,
-					}).Debug("SOCKS5 UDP tunnel closed")
+					if err != io.EOF {
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"src":   addr.String(),
+							"dst":   reqAddr,
+						}).Info("SOCKS5 TCP error")
+					} else {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+							"dst": reqAddr,
+						}).Debug("SOCKS5 TCP EOF")
+					}
 				})
 			if err != nil {
 				logrus.WithField("error", err).Fatal("Failed to initialize SOCKS5 server")
@@ -163,7 +147,7 @@ func client(config *clientConfig) {
 					logrus.WithFields(logrus.Fields{
 						"action": actionToString(action, arg),
 						"dst":    reqAddr,
-					}).Debug("New HTTP request")
+					}).Debug("HTTP request")
 				},
 				authFunc)
 			if err != nil {
@@ -179,21 +163,36 @@ func client(config *clientConfig) {
 		}()
 	}
 
+	if len(config.Relay.Listen) > 0 {
+		go func() {
+			rl, err := relay.NewRelay(client, config.Relay.Listen, config.Relay.Remote,
+				time.Duration(config.Relay.Timeout)*time.Second,
+				func(addr net.Addr) {
+					logrus.WithFields(logrus.Fields{
+						"src": addr.String(),
+					}).Debug("TCP relay request")
+				},
+				func(addr net.Addr, err error) {
+					if err != io.EOF {
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"src":   addr.String(),
+						}).Info("TCP relay error")
+					} else {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+						}).Debug("TCP relay EOF")
+					}
+
+				})
+			if err != nil {
+				logrus.WithField("error", err).Fatal("Failed to initialize TCP relay")
+			}
+			logrus.WithField("addr", config.Relay.Listen).Info("TCP relay up and running")
+			errChan <- rl.ListenAndServe()
+		}()
+	}
+
 	err = <-errChan
 	logrus.WithField("error", err).Fatal("Client shutdown")
-}
-
-func actionToString(action acl.Action, arg string) string {
-	switch action {
-	case acl.ActionDirect:
-		return "Direct"
-	case acl.ActionProxy:
-		return "Proxy"
-	case acl.ActionBlock:
-		return "Block"
-	case acl.ActionHijack:
-		return "Hijack to " + arg
-	default:
-		return "Unknown"
-	}
 }
