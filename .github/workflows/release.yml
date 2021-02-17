@@ -10,6 +10,9 @@ jobs:
   build:
     name: Build and release
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
     steps:
 
       - name: Check out
@@ -27,6 +30,7 @@ jobs:
         uses: tobyxdd/go-cross-build@e269fe09a60b9a6a7325cb06075e32ab1b7c2d12
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
+          CGO_ENABLED: "0"
         with:
           name: hysteria
           dest: ./dist/
