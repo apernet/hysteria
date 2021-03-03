@@ -9,9 +9,9 @@ import (
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
+	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
 	"net"
-	"strings"
 )
 
 func server(config *serverConfig) {
@@ -48,13 +48,30 @@ func server(config *serverConfig) {
 	}
 	// Auth
 	var authFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
-	if len(config.Auth.Mode) == 0 || strings.EqualFold(config.Auth.Mode, "none") {
+	switch authMode := config.Auth.Mode; authMode {
+	case "", "none":
 		logrus.Warn("No authentication configured")
 		authFunc = func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
 			return true, "Welcome"
 		}
-	} else {
-		// TODO
+	case "password":
+		logrus.Info("Password authentication enabled")
+		var pwdConfig map[string]string
+		err = json5.Unmarshal(config.Auth.Config, &pwdConfig)
+		if err != nil || len(pwdConfig["password"]) == 0 {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Invalid password authentication config")
+		}
+		pwd := pwdConfig["password"]
+		authFunc = func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
+			if string(auth) == pwd {
+				return true, "Welcome"
+			} else {
+				return false, "Wrong password"
+			}
+		}
+	default:
 		logrus.WithField("mode", config.Auth.Mode).Fatal("Unsupported authentication mode")
 	}
 	// Obfuscator

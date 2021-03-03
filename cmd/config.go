@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/yosuke-furukawa/json5/encoding/json5"
 )
 
 const (
@@ -26,8 +27,8 @@ type serverConfig struct {
 	ACL        string `json:"acl"`
 	Obfs       string `json:"obfs"`
 	Auth       struct {
-		Mode   string      `json:"mode"`
-		Config interface{} `json:"config"`
+		Mode   string           `json:"mode"`
+		Config json5.RawMessage `json:"config"`
 	} `json:"auth"`
 	ReceiveWindowConn   uint64 `json:"recv_window_conn"`
 	ReceiveWindowClient uint64 `json:"recv_window_client"`
