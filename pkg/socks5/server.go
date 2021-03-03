@@ -7,7 +7,6 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/utils"
-	"io"
 	"strconv"
 )
 
@@ -173,7 +172,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 		}
 		defer rc.Close()
 		_ = sendReply(c, socks5.RepSuccess)
-		closeErr = pipePair(c, rc, s.TCPTimeout)
+		closeErr = utils.PipePairWithTimeout(c, rc, s.TCPTimeout)
 		return nil
 	case acl.ActionProxy:
 		rc, err := s.HyClient.DialTCP(addr)
@@ -184,7 +183,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 		}
 		defer rc.Close()
 		_ = sendReply(c, socks5.RepSuccess)
-		closeErr = pipePair(c, rc, s.TCPTimeout)
+		closeErr = utils.PipePairWithTimeout(c, rc, s.TCPTimeout)
 		return nil
 	case acl.ActionBlock:
 		_ = sendReply(c, socks5.RepHostUnreachable)
@@ -199,7 +198,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 		}
 		defer rc.Close()
 		_ = sendReply(c, socks5.RepSuccess)
-		closeErr = pipePair(c, rc, s.TCPTimeout)
+		closeErr = utils.PipePairWithTimeout(c, rc, s.TCPTimeout)
 		return nil
 	default:
 		_ = sendReply(c, socks5.RepServerFailure)
@@ -222,51 +221,4 @@ func parseRequestAddress(r *socks5.Request) (domain string, ip net.IP, port stri
 	} else {
 		return "", r.DstAddr, p, net.JoinHostPort(net.IP(r.DstAddr).String(), p)
 	}
-}
-
-func pipePair(conn *net.TCPConn, stream io.ReadWriteCloser, timeout time.Duration) error {
-	errChan := make(chan error, 2)
-	// TCP to stream
-	go func() {
-		buf := make([]byte, utils.PipeBufferSize)
-		for {
-			if timeout != 0 {
-				_ = conn.SetDeadline(time.Now().Add(timeout))
-			}
-			rn, err := conn.Read(buf)
-			if rn > 0 {
-				_, err := stream.Write(buf[:rn])
-				if err != nil {
-					errChan <- err
-					return
-				}
-			}
-			if err != nil {
-				errChan <- err
-				return
-			}
-		}
-	}()
-	// Stream to TCP
-	go func() {
-		buf := make([]byte, utils.PipeBufferSize)
-		for {
-			rn, err := stream.Read(buf)
-			if rn > 0 {
-				_, err := conn.Write(buf[:rn])
-				if err != nil {
-					errChan <- err
-					return
-				}
-				if timeout != 0 {
-					_ = conn.SetDeadline(time.Now().Add(timeout))
-				}
-			}
-			if err != nil {
-				errChan <- err
-				return
-			}
-		}
-	}()
-	return <-errChan
 }

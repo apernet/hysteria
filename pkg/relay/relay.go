@@ -3,7 +3,6 @@ package relay
 import (
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/utils"
-	"io"
 	"net"
 	"time"
 )
@@ -58,55 +57,8 @@ func (r *Relay) ListenAndServe() error {
 				return
 			}
 			defer rc.Close()
-			err = pipePair(c, rc, r.Timeout)
+			err = utils.PipePairWithTimeout(c, rc, r.Timeout)
 			r.ErrorFunc(c.RemoteAddr(), err)
 		}(c)
 	}
-}
-
-func pipePair(conn *net.TCPConn, stream io.ReadWriteCloser, timeout time.Duration) error {
-	errChan := make(chan error, 2)
-	// TCP to stream
-	go func() {
-		buf := make([]byte, utils.PipeBufferSize)
-		for {
-			if timeout != 0 {
-				_ = conn.SetDeadline(time.Now().Add(timeout))
-			}
-			rn, err := conn.Read(buf)
-			if rn > 0 {
-				_, err := stream.Write(buf[:rn])
-				if err != nil {
-					errChan <- err
-					return
-				}
-			}
-			if err != nil {
-				errChan <- err
-				return
-			}
-		}
-	}()
-	// Stream to TCP
-	go func() {
-		buf := make([]byte, utils.PipeBufferSize)
-		for {
-			rn, err := stream.Read(buf)
-			if rn > 0 {
-				_, err := conn.Write(buf[:rn])
-				if err != nil {
-					errChan <- err
-					return
-				}
-				if timeout != 0 {
-					_ = conn.SetDeadline(time.Now().Add(timeout))
-				}
-			}
-			if err != nil {
-				errChan <- err
-				return
-			}
-		}
-	}()
-	return <-errChan
 }
