@@ -5,9 +5,8 @@ go 1.14
 require (
 	github.com/elazarl/goproxy v0.0.0-20200426045556-49ad98f6dac1
 	github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2
-	github.com/golang/protobuf v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/lucas-clemente/quic-go v0.19.3
+	github.com/lucas-clemente/quic-go v0.20.0
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/sirupsen/logrus v1.6.0
@@ -17,4 +16,4 @@ require (
 	github.com/yosuke-furukawa/json5 v0.1.1
 )
 
-replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.19.4-0.20210127052624-0ecb862c82b5
+replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.20.1-0.20210320001547-eb20d732ffed

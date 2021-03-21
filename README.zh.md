@@ -3,13 +3,19 @@
 [![License][1]][2] [![Release][3]][4] [![Telegram][5]][6]
 
 [1]: https://img.shields.io/github/license/tobyxdd/hysteria?style=flat-square
+
 [2]: LICENSE.md
+
 [3]: https://img.shields.io/github/v/release/tobyxdd/hysteria?style=flat-square
+
 [4]: https://github.com/tobyxdd/hysteria/releases
+
 [5]: https://img.shields.io/badge/chat-Telegram-blue?style=flat-square
+
 [6]: https://t.me/hysteria_github
 
-Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服务器）进行优化的连接转发和代理工具（即所谓的双边加速）。其基于修改版的 QUIC 协议，可以理解为是我此前弃坑的项目 https://github.com/dragonite-network/dragonite-java 的续作。
+Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服务器）进行优化的连接转发和代理工具（即所谓的双边加速）。其基于修改版的 QUIC
+协议，可以理解为是我此前弃坑的项目 https://github.com/dragonite-network/dragonite-java 的续作。
 
 ## 快速入门
 
@@ -18,15 +24,19 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 ### 代理
 
 服务端
+
 ```
 ./cmd_linux_amd64 proxy server -listen :36712 -cert example.crt -key example.key -obfs BlueberryFaygo
 ```
+
 服务端需要一个 TLS 证书（不一定是由可信 CA 签发的有效证书）。如果你使用自签证书，请在客户端使用 `-ca` 指定你自己的 CA 文件，或者用 `-insecure` 忽略所有证书错误（不推荐）
 
 客户端
+
 ```
 ./cmd_linux_amd64 proxy client -server example.com:36712 -socks5-addr localhost:1080 -up-mbps 10 -down-mbps 50 -obfs BlueberryFaygo
 ```
+
 在客户端的本地 TCP 1080 上启动一个 SOCKS5 代理服务器供其他程序使用。
 
 除了 SOCKS5 还支持 HTTP 代理 (`-http-addr` & `-http-timeout`)。两个模式可以同时开在不同端口。
@@ -38,22 +48,26 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 假设你想转发服务端上 `localhost:8080` 的一个 TCP 协议程序。
 
 服务端
+
 ```
 ./cmd_linux_amd64 relay server -listen :36712 -remote localhost:8080 -cert example.crt -key example.key
 ```
 
 客户端
+
 ```
 ./cmd_linux_amd64 relay client -server example.com:36712 -listen localhost:8080 -up-mbps 10 -down-mbps 50
 ```
+
 所有到客户端本地 TCP 8080 的 TCP 连接都将通过转发，到服务器连接那里的 `localhost:8080`
 
-有些用户可能会尝试用这个功能转发其他加密代理协议，比如Shadowsocks。虽然这完全可行，但从性能的角度并不是最佳选择 - 我们的协议本身就有 TLS，转发的代理协议也是加密的，再加上用户用来访问 HTTPS 网站，等于做了三重加密。如果需要代理就用我们的代理模式。
+有些用户可能会尝试用这个功能转发其他加密代理协议，比如Shadowsocks。虽然这完全可行，但从性能的角度并不是最佳选择 - 我们的协议本身就有 TLS，转发的代理协议也是加密的，再加上用户用来访问 HTTPS
+网站，等于做了三重加密。如果需要代理就用我们的代理模式。
 
 ## 对比
 
 代理客户端：广州移动宽带 100M
- 
+
 代理服务端：AWS 美西 Oregon (us-west-2) (最差线路之一)
 
 ![Bench1](docs/bench/bench1.png)
@@ -117,12 +131,14 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 #### 关于用户名密码验证
 
 代理支持用户名和密码认证（经过 TLS 加密发送）。如果服务器启动时指定了一个验证文件，当每个用户连接时，服务器会检查该文件中是否存在相应的用户名和密码。验证文件是一个文本文件，每行有一对用户名和密码（用空格分割）。比如：
+
 ```
 admin K2MfcwyZNJy3
 shady_hacker smokeweed420
 
 这行无效会被忽略
 ```
+
 对文件的更改立即生效，即使服务端正在运行。
 
 #### 关于混淆
