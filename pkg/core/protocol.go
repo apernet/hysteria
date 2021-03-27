@@ -43,3 +43,11 @@ type serverResponse struct {
 	MessageLen   uint16 `struc:"sizeof=Message"`
 	Message      string
 }
+
+type udpMessage struct {
+	SessionID  uint32
+	AddressLen uint16 `struc:"sizeof=Address"`
+	Address    string
+	DataLen    uint16 `struc:"sizeof=Data"`
+	Data       []byte
+}

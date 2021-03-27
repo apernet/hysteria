@@ -7,7 +7,6 @@ import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
 	"github.com/tobyxdd/hysteria/pkg/acl"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"time"
 )
@@ -17,22 +16,28 @@ const dialTimeout = 10 * time.Second
 type AuthFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
 type TCPRequestFunc func(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string)
 type TCPErrorFunc func(addr net.Addr, auth []byte, reqAddr string, err error)
+type UDPRequestFunc func(addr net.Addr, auth []byte, sessionID uint32)
+type UDPErrorFunc func(addr net.Addr, auth []byte, sessionID uint32, err error)
 
 type Server struct {
 	sendBPS, recvBPS  uint64
 	congestionFactory CongestionFactory
+	disableUDP        bool
 	aclEngine         *acl.Engine
 
 	authFunc       AuthFunc
 	tcpRequestFunc TCPRequestFunc
 	tcpErrorFunc   TCPErrorFunc
+	udpRequestFunc UDPRequestFunc
+	udpErrorFunc   UDPErrorFunc
 
 	listener quic.Listener
 }
 
 func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
-	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, aclEngine *acl.Engine,
-	obfuscator Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc) (*Server, error) {
+	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
+	obfuscator Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
+	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc) (*Server, error) {
 	packetConn, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		return nil, err
@@ -53,10 +58,13 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 		sendBPS:           sendBPS,
 		recvBPS:           recvBPS,
 		congestionFactory: congestionFactory,
+		disableUDP:        disableUDP,
 		aclEngine:         aclEngine,
 		authFunc:          authFunc,
 		tcpRequestFunc:    tcpRequestFunc,
 		tcpErrorFunc:      tcpErrorFunc,
+		udpRequestFunc:    udpRequestFunc,
+		udpErrorFunc:      udpErrorFunc,
 	}
 	return s, nil
 }
@@ -94,14 +102,10 @@ func (s *Server) handleClient(cs quic.Session) {
 		_ = cs.CloseWithError(closeErrorCodeAuth, "auth error")
 		return
 	}
-	// Start accepting streams
-	for {
-		stream, err := cs.AcceptStream(context.Background())
-		if err != nil {
-			break
-		}
-		go s.handleStream(cs.RemoteAddr(), auth, stream)
-	}
+	// Start accepting streams and messages
+	sc := newServerClient(cs, auth, s.disableUDP, s.aclEngine,
+		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc)
+	sc.Run()
 	_ = cs.CloseWithError(closeErrorCodeGeneric, "")
 }
 
@@ -142,90 +146,4 @@ func (s *Server) handleControlStream(cs quic.Session, stream quic.Stream) ([]byt
 		cs.SetCongestionControl(s.congestionFactory(serverSendBPS))
 	}
 	return ch.Auth, ok, nil
-}
-
-func (s *Server) handleStream(remoteAddr net.Addr, auth []byte, stream quic.Stream) {
-	defer stream.Close()
-	// Read request
-	var req clientRequest
-	err := struc.Unpack(stream, &req)
-	if err != nil {
-		return
-	}
-	if !req.UDP {
-		// TCP connection
-		s.handleTCP(remoteAddr, auth, stream, req.Address)
-	} else {
-		// UDP connection
-		// TODO
-	}
-}
-
-func (s *Server) handleTCP(remoteAddr net.Addr, auth []byte, stream quic.Stream, reqAddr string) {
-	host, port, err := net.SplitHostPort(reqAddr)
-	if err != nil {
-		_ = struc.Pack(stream, &serverResponse{
-			OK:      false,
-			Message: "invalid address",
-		})
-		s.tcpErrorFunc(remoteAddr, auth, reqAddr, err)
-		return
-	}
-	ip := net.ParseIP(host)
-	if ip != nil {
-		// IP request, clear host for ACL engine
-		host = ""
-	}
-	action, arg := acl.ActionDirect, ""
-	if s.aclEngine != nil {
-		action, arg = s.aclEngine.Lookup(host, ip)
-	}
-	s.tcpRequestFunc(remoteAddr, auth, reqAddr, action, arg)
-
-	var conn net.Conn // Connection to be piped
-	switch action {
-	case acl.ActionDirect, acl.ActionProxy: // Treat proxy as direct on server side
-		conn, err = net.DialTimeout("tcp", reqAddr, dialTimeout)
-		if err != nil {
-			_ = struc.Pack(stream, &serverResponse{
-				OK:      false,
-				Message: err.Error(),
-			})
-			s.tcpErrorFunc(remoteAddr, auth, reqAddr, err)
-			return
-		}
-	case acl.ActionBlock:
-		_ = struc.Pack(stream, &serverResponse{
-			OK:      false,
-			Message: "blocked by ACL",
-		})
-		return
-	case acl.ActionHijack:
-		hijackAddr := net.JoinHostPort(arg, port)
-		conn, err = net.DialTimeout("tcp", hijackAddr, dialTimeout)
-		if err != nil {
-			_ = struc.Pack(stream, &serverResponse{
-				OK:      false,
-				Message: err.Error(),
-			})
-			s.tcpErrorFunc(remoteAddr, auth, reqAddr, err)
-			return
-		}
-	default:
-		_ = struc.Pack(stream, &serverResponse{
-			OK:      false,
-			Message: "ACL error",
-		})
-		return
-	}
-	// So far so good if we reach here
-	defer conn.Close()
-	err = struc.Pack(stream, &serverResponse{
-		OK: true,
-	})
-	if err != nil {
-		return
-	}
-	err = utils.Pipe2Way(stream, conn)
-	s.tcpErrorFunc(remoteAddr, auth, reqAddr, err)
 }

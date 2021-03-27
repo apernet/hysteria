@@ -27,13 +27,13 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 			if err != nil {
 				return nil, err
 			}
-			ip := net.ParseIP(host)
-			if ip != nil {
-				host = ""
-			}
 			// ACL
 			action, arg := acl.ActionProxy, ""
 			if aclEngine != nil {
+				ip := net.ParseIP(host)
+				if ip != nil {
+					host = ""
+				}
 				action, arg = aclEngine.Lookup(host, ip)
 			}
 			newDialFunc(addr, action, arg)

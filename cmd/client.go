@@ -50,6 +50,7 @@ func client(config *clientConfig) {
 		MaxStreamReceiveWindow:     config.ReceiveWindowConn,
 		MaxConnectionReceiveWindow: config.ReceiveWindow,
 		KeepAlive:                  true,
+		EnableDatagrams:            true,
 	}
 	if quicConfig.MaxStreamReceiveWindow == 0 {
 		quicConfig.MaxStreamReceiveWindow = DefaultMaxReceiveStreamFlowControlWindow
