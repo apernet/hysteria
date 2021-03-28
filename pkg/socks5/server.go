@@ -235,6 +235,17 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 		return err
 	}
 	defer udpConn.Close()
+	// Local UDP relay conn for ACL Direct
+	var localRelayConn *net.UDPConn
+	if s.ACLEngine != nil {
+		localRelayConn, err = net.ListenUDP("udp", nil)
+		if err != nil {
+			_ = sendReply(c, socks5.RepServerFailure)
+			closeErr = err
+			return err
+		}
+		defer localRelayConn.Close()
+	}
 	// HyClient UDP session
 	hyUDP, err := s.HyClient.DialUDP()
 	if err != nil {
@@ -252,7 +263,7 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 	}
 	_, _ = socks5.NewReply(socks5.RepSuccess, atyp, addr, port).WriteTo(c)
 	// Let UDP server do its job, we hold the TCP connection here
-	go s.udpServer(udpConn, hyUDP)
+	go s.udpServer(udpConn, localRelayConn, hyUDP)
 	buf := make([]byte, 1024)
 	for {
 		if s.TCPTimeout != 0 {
@@ -268,12 +279,12 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 	return nil
 }
 
-func (s *Server) udpServer(c *net.UDPConn, hyUDP core.UDPConn) {
+func (s *Server) udpServer(clientConn *net.UDPConn, localRelayConn *net.UDPConn, hyUDP core.UDPConn) {
 	var clientAddr *net.UDPAddr
 	buf := make([]byte, udpBufferSize)
 	// Local to remote
 	for {
-		n, cAddr, err := c.ReadFromUDP(buf)
+		n, cAddr, err := clientConn.ReadFromUDP(buf)
 		if err != nil {
 			break
 		}
@@ -285,8 +296,8 @@ func (s *Server) udpServer(c *net.UDPConn, hyUDP core.UDPConn) {
 		if clientAddr == nil {
 			// Whoever sends the first valid packet is our client
 			clientAddr = cAddr
+			// Start remote to local
 			go func() {
-				// Start remote to local
 				for {
 					bs, _, err := hyUDP.ReadFrom()
 					if err != nil {
@@ -295,26 +306,53 @@ func (s *Server) udpServer(c *net.UDPConn, hyUDP core.UDPConn) {
 					// RFC 1928 is very ambiguous on how to properly use DST.ADDR and DST.PORT in reply packets
 					// So we just fill in zeros for now. Works fine for all the SOCKS5 clients I tested
 					d := socks5.NewDatagram(socks5.ATYPIPv4, []byte{0x00, 0x00, 0x00, 0x00}, []byte{0x00, 0x00}, bs)
-					_, err = c.WriteTo(d.Bytes(), clientAddr)
-					if err != nil {
-						break
-					}
+					_, _ = clientConn.WriteToUDP(d.Bytes(), clientAddr)
 				}
 			}()
+			if localRelayConn != nil {
+				go func() {
+					buf := make([]byte, udpBufferSize)
+					for {
+						n, _, err := localRelayConn.ReadFrom(buf)
+						if n > 0 {
+							d := socks5.NewDatagram(socks5.ATYPIPv4,
+								[]byte{0x00, 0x00, 0x00, 0x00}, []byte{0x00, 0x00}, buf[:n])
+							_, _ = clientConn.WriteToUDP(d.Bytes(), clientAddr)
+						}
+						if err != nil {
+							break
+						}
+					}
+				}()
+			}
 		} else if cAddr.String() != clientAddr.String() {
 			// Not our client, bye
 			continue
 		}
-		_, _, _, addr := parseDatagramRequestAddress(d)
-		/*
-			action, arg := acl.ActionProxy, ""
-			if s.ACLEngine != nil {
-				action, arg = s.ACLEngine.Lookup(domain, ip)
+		domain, ip, port, addr := parseDatagramRequestAddress(d)
+		action, arg := acl.ActionProxy, ""
+		if s.ACLEngine != nil && localRelayConn != nil {
+			action, arg = s.ACLEngine.Lookup(domain, ip)
+		}
+		// Handle according to the action
+		switch action {
+		case acl.ActionDirect:
+			rAddr, err := net.ResolveUDPAddr("udp", addr)
+			if err == nil {
+				_, _ = localRelayConn.WriteToUDP(d.Data, rAddr)
 			}
-		*/
-		err = hyUDP.WriteTo(d.Data, addr)
-		if err != nil {
-			break
+		case acl.ActionProxy:
+			_ = hyUDP.WriteTo(d.Data, addr)
+		case acl.ActionBlock:
+			// Do nothing
+		case acl.ActionHijack:
+			hijackAddr := net.JoinHostPort(arg, port)
+			rAddr, err := net.ResolveUDPAddr("udp", hijackAddr)
+			if err == nil {
+				_, _ = localRelayConn.WriteToUDP(d.Data, rAddr)
+			}
+		default:
+			// Do nothing
 		}
 	}
 }
