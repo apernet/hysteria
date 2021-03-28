@@ -14,55 +14,81 @@
 
 [6]: https://t.me/hysteria_github
 
-Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服务器）进行优化的连接转发和代理工具（即所谓的双边加速）。其基于修改版的 QUIC
-协议，可以理解为是我此前弃坑的项目 https://github.com/dragonite-network/dragonite-java 的续作。
+Hysteria 是专门针对恶劣网络环境（常见于卫星网络、在中国连接国外服务器等）进行优化的 TCP 连接转发和代理工具（即所谓的双边加速），
+基于修改版的 QUIC 协议。
+
+可以理解为是我此前弃坑的项目 https://github.com/dragonite-network/dragonite-java 的续作。
 
 ## 快速入门
 
-关于每个参数具体的含义请见 [高级用法](#高级用法)
+注意：本节提供的配置只是为了快速上手，可能无法满足你的需求。请到 [高级用法](#高级用法) 中查看所有可用选项及其含义。
 
-### 代理
+### 服务器
 
-服务端
+在目录下建立一个 `config.json`
 
-```
-./cmd_linux_amd64 proxy server -listen :36712 -cert example.crt -key example.key -obfs BlueberryFaygo
-```
-
-服务端需要一个 TLS 证书（不一定是由可信 CA 签发的有效证书）。如果你使用自签证书，请在客户端使用 `-ca` 指定你自己的 CA 文件，或者用 `-insecure` 忽略所有证书错误（不推荐）
-
-客户端
-
-```
-./cmd_linux_amd64 proxy client -server example.com:36712 -socks5-addr localhost:1080 -up-mbps 10 -down-mbps 50 -obfs BlueberryFaygo
-```
-
-在客户端的本地 TCP 1080 上启动一个 SOCKS5 代理服务器供其他程序使用。
-
-除了 SOCKS5 还支持 HTTP 代理 (`-http-addr` & `-http-timeout`)。两个模式可以同时开在不同端口。
-
-`-up-mbps 10 -down-mbps 50` 是告诉服务端你的下行速度为 50 Mbps, 上行 10 Mbps。根据实际网络条件正确设置客户端的上传和下载速度十分重要！
-
-### 转发
-
-假设你想转发服务端上 `localhost:8080` 的一个 TCP 协议程序。
-
-服务端
-
-```
-./cmd_linux_amd64 relay server -listen :36712 -remote localhost:8080 -cert example.crt -key example.key
+```json
+{
+  "listen": ":36712",
+  "cert": "/home/ubuntu/my_cert.crt",
+  "key": "/home/ubuntu/my_key.crt",
+  "obfs": "AMOGUS",
+  "up_mbps": 100,
+  "down_mbps": 100
+}
 ```
 
-客户端
+服务端必须要一个 TLS 证书（但并非一定要受信 CA 签发的）。
+
+`obfs` 选项使用提供的密码对协议进行混淆，这样协议就不容易被检测出是 Hysteria/QUIC，可以用来绕过针对性的 DPI 屏蔽或者 QoS。
+如果服务端和客户端的密码不匹配就不能建立连接，因此这也可以作为一个简单的密码验证。对于更高级的验证方案请见下文 `auth`。
+
+`up_mbps` 和 `down_mbps` 限制服务器对每个客户端的最大上传和下载速度。这些也是可选的，如果不需要可以移除。
+
+要启动服务端，只需运行
 
 ```
-./cmd_linux_amd64 relay client -server example.com:36712 -listen localhost:8080 -up-mbps 10 -down-mbps 50
+./cmd_linux_amd64 server
 ```
 
-所有到客户端本地 TCP 8080 的 TCP 连接都将通过转发，到服务器连接那里的 `localhost:8080`
+如果你的配置文件没有命名为 `config.json` 或在别的路径，请用 `-config` 指定路径：
 
-有些用户可能会尝试用这个功能转发其他加密代理协议，比如Shadowsocks。虽然这完全可行，但从性能的角度并不是最佳选择 - 我们的协议本身就有 TLS，转发的代理协议也是加密的，再加上用户用来访问 HTTPS
-网站，等于做了三重加密。如果需要代理就用我们的代理模式。
+```
+./cmd_linux_amd64 server -config blah.json
+```
+
+### 客户端
+
+和服务器端一样，在程序根目录下建立一个`config.json`。
+
+```json
+{
+  "server": "example.com:36712",
+  "obfs": "AMOGUS",
+  "up_mbps": 10,
+  "down_mbps": 50,
+  "socks5": {
+    "listen": "127.0.0.1:1080"
+  },
+  "http": {
+    "listen": "127.0.0.1:8080"
+  },
+  "relay": {
+    "listen": "127.0.0.1:2222",
+    "remote": "123.123.123.123:22"
+  }
+}
+```
+
+这个配置同时开了 SOCK5 (支持 TCP & UDP) 代理，HTTP 代理和到 `123.123.123.123:22` 的 TCP 转发。请根据自己实际需要修改和删减。
+
+如果你的服务端证书不是由受信任的 CA 签发的，需要用 `"ca": "/path/to/file.ca"` 指定使用的 CA 或者用 `"insecure": true` 忽略所有
+证书错误（不推荐）。
+
+`up_mbps` 和 `down_mbps` 在客户端是必填选项，请根据实际网络情况尽量准确地填写，否则将影响 Hysteria 的使用体验。
+
+有些用户可能会尝试用这个功能转发其他加密代理协议，比如 Shadowsocks。这样虽然可行，但从性能的角度不推荐 - Hysteria 本身就用 TLS，
+转发的代理协议也是加密的，再加上如今几乎所有网站都是 HTTPS 了，等于做了三重加密。如果需要代理就用我们的代理模式。
 
 ## 对比
 
@@ -74,106 +100,71 @@ Hysteria 是专门针对恶劣网络环境（常见于在中国访问海外服�
 
 ## 高级用法
 
-命令行程序支持从 JSON 文件和参数加载配置。使用 `-config` 指定一个JSON文件。从文件加载的配置也可以被命令行参数覆盖或进一步扩展。
+### Server
 
-### 代理 服务端
+```json5
+{
+  "listen": ":36712", // 监听地址
+  "cert": "/home/ubuntu/my_cert.crt", // 证书
+  "key": "/home/ubuntu/my_key.crt", // 证书密钥
+  "up_mbps": 100, // 单客户端最大上传速度
+  "down_mbps": 100, // 单客户端最大下载速度
+  "disable_udp": false, // 禁用 UDP 支持
+  "acl": "my_list.acl", // 见下文 ACL
+  "obfs": "AMOGUS", // 混淆密码
+  "auth": { // 验证
+    "mode": "password", // 验证模式，暂时只支持 "password" 与 "none"
+    "config": {
+      "password": "yubiyubi"
+    }
+  },
+  "recv_window_conn": 33554432, // QUIC stream receive window
+  "recv_window_client": 67108864, // QUIC connection receive window
+  "max_conn_client": 4096 // 单客户端最大活跃连接数
+}
+```
 
-| 描述 | JSON 字段 | 命令行参数 |
-| --- | --- | --- |
-| 服务端监听地址 | listen | -listen |
-| 禁用 UDP 支持 | disable_udp | -disable-udp |
-| ACL 规则文件 | acl | -acl |
-| TLS 证书文件 | cert | -cert |
-| TLS 密钥文件 | key | -key |
-| 用户名密码验证文件 | auth | -auth |
-| 单客户端最大上传速度 Mbps | up_mbps | -up-mbps |
-| 单客户端最大下载速度 Mbps | down_mbps | -down-mbps |
-| 单连接最大接收窗口大小 | recv_window_conn | -recv-window-conn |
-| 单客户端最大接收窗口大小 | recv_window_client | -recv-window-client |
-| 单客户端最大连接数 | max_conn_client | -max-conn-client |
-| 混淆密钥 | obfs | -obfs |
+### Client
 
-### 代理 客户端
+```json5
+{
+  "server": "example.com:36712", // 服务器地址
+  "up_mbps": 10, // 最大上传速度
+  "down_mbps": 50, // 最大下载速度
+  "socks5": {
+    "listen": "127.0.0.1:1080", // SOCKS5 监听地址
+    "timeout": 300, // TCP 超时秒数
+    "disable_udp": false, // 禁用 UDP 支持
+    "user": "me", // SOCKS5 验证用户名
+    "password": "lmaolmao" // SOCKS5 验证密码
+  },
+  "http": {
+    "listen": "127.0.0.1:8080", // HTTP 监听地址
+    "timeout": 300, // TCP 超时秒数
+    "user": "me", // HTTP 验证用户名
+    "password": "lmaolmao", // HTTP 验证密码
+    "cert": "/home/ubuntu/my_cert.crt", // 证书 (变为 HTTPS 代理)
+    "key": "/home/ubuntu/my_key.crt" // 证书密钥 (变为 HTTPS 代理)
+  },
+  "relay": {
+    "listen": "127.0.0.1:2222", // 转发监听地址
+    "remote": "123.123.123.123:22", // 转发目标地址
+    "timeout": 300 // TCP 超时秒数
+  },
+  "acl": "my_list.acl", // 见下文 ACL
+  "obfs": "AMOGUS", // 混淆密码
+  "auth": "[BASE64]", // Base64 验证密钥
+  "auth_str": "yubiyubi", // 字符串验证密钥，和上面的选项二选一
+  "insecure": false, // 忽略一切证书错误 
+  "ca": "my.ca", // 自定义 CA
+  "recv_window_conn": 33554432, // QUIC stream receive window
+  "recv_window": 67108864 // QUIC connection receive window
+}
+```
 
-| 描述 | JSON 字段 | 命令行参数 |
-| --- | --- | --- |
-| SOCKS5 监听地址 | socks5_addr | -socks5-addr |
-| SOCKS5 超时时间（秒） | socks5_timeout | -socks5-timeout |
-| 禁用 SOCKS5 UDP 支持 | socks5_disable_udp | -socks5-disable-udp |
-| SOCKS5 验证用户名 | socks5_user | -socks5-user |
-| SOCKS5 验证密码 | socks5_password | -socks5-password |
-| HTTP 监听地址 | http_addr | -http-addr |
-| HTTP 超时时间（秒） | http_timeout | -http-timeout |
-| HTTP 验证用户名 | http_user | -http-user |
-| HTTP 验证密码 | http_password | -http-password |
-| HTTPS 证书文件 | https_cert | -http-cert |
-| HTTPS 密钥文件 | https_key | -http-key |
-| ACL 规则文件 | acl | -acl |
-| 服务端地址 | server | -server |
-| 验证用户名 | username | -username |
-| 验证密码 | password | -password |
-| 忽略证书错误 | insecure | -insecure |
-| 指定可信 CA 文件 | ca | -ca |
-| 上传速度 Mbps | up_mbps | -up-mbps |
-| 下载速度 Mbps | down_mbps | -down-mbps |
-| 单连接最大接收窗口大小 | recv_window_conn | -recv-window-conn |
-| 总最大接收窗口大小 | recv_window | -recv-window |
-| 混淆密钥 | obfs | -obfs |
-
-#### 关于 SOCKS5
-
-支持 TCP (CONNECT) 和 UDP (ASSOCIATE)，不支持 BIND 也无计划支持。
-
-#### 关于 ACL
+## 关于 ACL
 
 [ACL 文件格式](ACL.zh.md)
-
-#### 关于用户名密码验证
-
-代理支持用户名和密码认证（经过 TLS 加密发送）。如果服务器启动时指定了一个验证文件，当每个用户连接时，服务器会检查该文件中是否存在相应的用户名和密码。验证文件是一个文本文件，每行有一对用户名和密码（用空格分割）。比如：
-
-```
-admin K2MfcwyZNJy3
-shady_hacker smokeweed420
-
-这行无效会被忽略
-```
-
-对文件的更改立即生效，即使服务端正在运行。
-
-#### 关于混淆
-
-为了防止各类防火墙今后可能检测并阻止协议，程序内置了简单的基于 XOR 的数据包混淆机制。注意客户端和服务器的混淆设置如果不同则完全无法通信。
-
-### 转发 服务端
-
-| 描述 | JSON 字段 | 命令行参数 |
-| --- | --- | --- |
-| 服务端监听地址 | listen | -listen |
-| 转发目标地址 | remote | -remote |
-| TLS 证书文件 | cert | -cert |
-| TLS 密钥文件 | key | -key |
-| 单客户端最大上传速度 Mbps | up_mbps | -up-mbps |
-| 单客户端最大下载速度 Mbps | down_mbps | -down-mbps |
-| 单连接最大接收窗口大小 | recv_window_conn | -recv-window-conn |
-| 单客户端最大接收窗口大小 | recv_window_client | -recv-window-client |
-| 单客户端最大连接数 | max_conn_client | -max-conn-client |
-| 混淆密钥 | obfs | -obfs |
-
-### 转发 客户端
-
-| 描述 | JSON 字段 | 命令行参数 |
-| --- | --- | --- |
-| TCP 监听地址 | listen | -listen |
-| 服务端地址 | server | -server |
-| 客户端名称 | name | -name |
-| 忽略证书错误 | insecure | -insecure |
-| 指定可信 CA 文件 | ca | -ca |
-| 上传速度 Mbps | up_mbps | -up-mbps |
-| 下载速度 Mbps | down_mbps | -down-mbps |
-| 单连接最大接收窗口大小 | recv_window_conn | -recv-window-conn |
-| 总最大接收窗口大小 | recv_window | -recv-window |
-| 混淆密钥 | obfs | -obfs |
 
 ## 日志
 
