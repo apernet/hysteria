@@ -1,27 +1,35 @@
 package congestion
 
 import (
+	"github.com/lucas-clemente/quic-go/congestion"
 	"math"
 	"time"
 )
 
-const maxBurstSize = 10 * maxDatagramSize
+const (
+	initMaxDatagramSize = 1252
+	maxBurstPackets     = 10
+	minPacingDelay      = time.Millisecond
+)
 
+// The pacer implements a token bucket pacing algorithm.
 type pacer struct {
-	bandwidthFunc    func() uint64
-	budgetAtLastSent uint64
+	budgetAtLastSent congestion.ByteCount
+	maxDatagramSize  congestion.ByteCount
 	lastSentTime     time.Time
+	getBandwidth     func() congestion.ByteCount // in bytes/s
 }
 
-func newPacer(bandwidthFunc func() uint64) *pacer {
+func newPacer(getBandwidth func() congestion.ByteCount) *pacer {
 	p := &pacer{
-		bandwidthFunc: bandwidthFunc,
+		budgetAtLastSent: maxBurstPackets * initMaxDatagramSize,
+		maxDatagramSize:  initMaxDatagramSize,
+		getBandwidth:     getBandwidth,
 	}
-	p.budgetAtLastSent = maxBurstSize
 	return p
 }
 
-func (p *pacer) SentPacket(sendTime time.Time, size uint64) {
+func (p *pacer) SentPacket(sendTime time.Time, size congestion.ByteCount) {
 	budget := p.Budget(sendTime)
 	if size > budget {
 		p.budgetAtLastSent = 0
@@ -31,26 +39,47 @@ func (p *pacer) SentPacket(sendTime time.Time, size uint64) {
 	p.lastSentTime = sendTime
 }
 
-func (p *pacer) Budget(now time.Time) uint64 {
+func (p *pacer) Budget(now time.Time) congestion.ByteCount {
 	if p.lastSentTime.IsZero() {
-		return maxBurstSize
+		return p.maxBurstSize()
 	}
-	budget := p.budgetAtLastSent + p.bandwidthFunc()*uint64(now.Sub(p.lastSentTime).Nanoseconds())/1e9
-	if budget > maxBurstSize {
-		return maxBurstSize
-	} else {
-		return budget
-	}
+	budget := p.budgetAtLastSent + (p.getBandwidth()*congestion.ByteCount(now.Sub(p.lastSentTime).Nanoseconds()))/1e9
+	return minByteCount(p.maxBurstSize(), budget)
 }
 
+func (p *pacer) maxBurstSize() congestion.ByteCount {
+	return maxByteCount(
+		congestion.ByteCount((minPacingDelay+time.Millisecond).Nanoseconds())*p.getBandwidth()/1e9,
+		maxBurstPackets*p.maxDatagramSize,
+	)
+}
+
+// TimeUntilSend returns when the next packet should be sent.
+// It returns the zero value of time.Time if a packet can be sent immediately.
 func (p *pacer) TimeUntilSend() time.Time {
-	if p.budgetAtLastSent >= maxDatagramSize {
+	if p.budgetAtLastSent >= p.maxDatagramSize {
 		return time.Time{}
 	}
-	d := time.Duration(math.Ceil(float64(maxDatagramSize-p.budgetAtLastSent)*1e9/float64(p.bandwidthFunc()))) * time.Nanosecond
-	if d < time.Millisecond {
-		return p.lastSentTime.Add(time.Millisecond)
-	} else {
-		return p.lastSentTime.Add(d)
+	return p.lastSentTime.Add(maxDuration(
+		minPacingDelay,
+		time.Duration(math.Ceil(float64(p.maxDatagramSize-p.budgetAtLastSent)*1e9/float64(p.getBandwidth())))*time.Nanosecond,
+	))
+}
+
+func (p *pacer) SetMaxDatagramSize(s congestion.ByteCount) {
+	p.maxDatagramSize = s
+}
+
+func maxByteCount(a, b congestion.ByteCount) congestion.ByteCount {
+	if a < b {
+		return b
 	}
+	return a
+}
+
+func minByteCount(a, b congestion.ByteCount) congestion.ByteCount {
+	if a < b {
+		return a
+	}
+	return b
 }

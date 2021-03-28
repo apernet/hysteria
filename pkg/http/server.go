@@ -27,13 +27,13 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 			if err != nil {
 				return nil, err
 			}
-			ip := net.ParseIP(host)
-			if ip != nil {
-				host = ""
-			}
 			// ACL
 			action, arg := acl.ActionProxy, ""
 			if aclEngine != nil {
+				ip := net.ParseIP(host)
+				if ip != nil {
+					host = ""
+				}
 				action, arg = aclEngine.Lookup(host, ip)
 			}
 			newDialFunc(addr, action, arg)
@@ -42,9 +42,9 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 			case acl.ActionDirect:
 				return net.Dial(network, addr)
 			case acl.ActionProxy:
-				return hyClient.Dial(false, addr)
+				return hyClient.DialTCP(addr)
 			case acl.ActionBlock:
-				return nil, errors.New("blocked in ACL")
+				return nil, errors.New("blocked by ACL")
 			case acl.ActionHijack:
 				return net.Dial(network, net.JoinHostPort(arg, port))
 			default:
@@ -52,8 +52,7 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 			}
 		},
 		IdleConnTimeout: idleTimeout,
-		// TODO: Disable HTTP2 support? ref: https://github.com/elazarl/goproxy/issues/361
-		//TLSNextProto: make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
+		// Disable HTTP2 support? ref: https://github.com/elazarl/goproxy/issues/361
 	}
 	proxy.ConnectDial = nil
 	if basicAuthFunc != nil {

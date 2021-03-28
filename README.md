@@ -3,169 +3,187 @@
 [![License][1]][2] [![Release][3]][4] [![Telegram][5]][6]
 
 [1]: https://img.shields.io/github/license/tobyxdd/hysteria?style=flat-square
+
 [2]: LICENSE.md
+
 [3]: https://img.shields.io/github/v/release/tobyxdd/hysteria?style=flat-square
+
 [4]: https://github.com/tobyxdd/hysteria/releases
+
 [5]: https://img.shields.io/badge/chat-Telegram-blue?style=flat-square
+
 [6]: https://t.me/hysteria_github
 
 [中文 README](README.zh.md)
 
-Hysteria is a set of relay & proxy utilities that are specifically optimized for harsh network environments (commonly seen in connecting to overseas servers from China). It's based on a modified version of the QUIC protocol, and can be considered a sequel to my previous (abandoned) project https://github.com/dragonite-network/dragonite-java
+Hysteria is a TCP relay & SOCKS5/HTTP proxy tool optimized for poor network environments (satellite networks,
+connections from China to foreign servers, etc.) powered by a custom version of QUIC protocol.
+
+It is essentially a spiritual successor of my previous (now abandoned)
+project https://github.com/dragonite-network/dragonite-java
 
 ## Quick Start
 
-(See the [advanced usage section](#advanced-usage) for the exact meaning of each argument)
+Note: The configs provided in this section are only for people to get started quickly and may not meet your needs.
+Please go to [Advanced usage](#advanced-usage) to see all the available options and their meanings.
 
-### Proxy
+### Server
 
-Server:
-```
-./cmd_linux_amd64 proxy server -listen :36712 -cert example.crt -key example.key -obfs BlueberryFaygo
-```
-A TLS certificate (not necessarily issued by a trusted CA) is required on the server side. If you are using a self-issued certificate, use `-ca` to specify your own CA file on clients, or `-insecure` to ignore all certificate errors (not recommended)
+Create a `config.json` under the root directory of the program:
 
-Client:
-```
-./cmd_linux_amd64 proxy client -server example.com:36712 -socks5-addr localhost:1080 -up-mbps 10 -down-mbps 50 -obfs BlueberryFaygo
-```
-This will start a SOCKS5 proxy server on the client's localhost TCP 1080 available for use by other programs.
-
-In addition to SOCKS5, it also supports HTTP proxy (`-http-addr` & `-http-timeout`). Both modes can be turned on simultaneously on different ports.
-
-`-up-mbps 10 -down-mbps 50` tells the server that your bandwidth is 50 Mbps down, 10 Mbps up. Properly setting the client's upload and download speeds based on your network conditions is essential for it to work at optimal performance!
-
-### Relay
-
-Suppose you have a TCP program on your server at `localhost:8080` that you want to forward.
-
-Server:
-```
-./cmd_linux_amd64 relay server -listen :36712 -remote localhost:8080 -cert example.crt -key example.key
+```json
+{
+  "listen": ":36712",
+  "cert": "/home/ubuntu/my_cert.crt",
+  "key": "/home/ubuntu/my_key.crt",
+  "obfs": "AMOGUS",
+  "up_mbps": 100,
+  "down_mbps": 100
+}
 ```
 
-Client:
-```
-./cmd_linux_amd64 relay client -server example.com:36712 -listen localhost:8080 -up-mbps 10 -down-mbps 50
-```
-All connections to client's localhost TCP 8080 will pass through the relay and connect to the server's `localhost:8080`
+A TLS certificate (not necessarily issued by a trusted CA) is required on the server side.
 
-Some users may attempt to forward other encrypted proxy protocols such as Shadowsocks with relay. While this totally works, it's not optimal from a performance standpoint - our protocol itself uses TLS, considering that the proxy protocols being forwarded are also encrypted, and the fact that users mainly use them for HTTPS connections nowadays, you are essentially doing triple encryption. If you need a proxy, use our proxy mode.
+The (optional) `obfs` option obfuscates the protocol using the provided password, so that it is not apparent that this
+is Hysteria/QUIC, which could be useful for bypassing DPI blocking or QoS. If the passwords of the server and client do
+not match, no connection can be established. Therefore, this can also serve as a simple password authentication. For
+more advanced authentication schemes, see `auth` below.
+
+`up_mbps` and `down_mbps` limit the maximum upload and download speed of the server for each client. These are also
+optional and can be removed if not needed.
+
+To launch the server, simply run
+
+```
+./cmd_linux_amd64 server
+```
+
+If your config file is not named `config.json` or is in a different path, specify it with `-config`:
+
+```
+./cmd_linux_amd64 server -config blah.json
+```
+
+### Client
+
+Same as the server side, create a `config.json` under the root directory of the program:
+
+```json
+{
+  "server": "example.com:36712",
+  "obfs": "AMOGUS",
+  "up_mbps": 10,
+  "down_mbps": 50,
+  "socks5": {
+    "listen": "127.0.0.1:1080"
+  },
+  "http": {
+    "listen": "127.0.0.1:8080"
+  },
+  "relay": {
+    "listen": "127.0.0.1:2222",
+    "remote": "123.123.123.123:22"
+  }
+}
+```
+
+This config enables a SOCKS5 proxy (with both TCP & UDP support), an HTTP proxy, and a TCP relay to `123.123.123.123:22`
+at the same time. Please modify or remove these entries depending on your actual needs.
+
+If your server certificate is not issued by a trusted CA, you need to specify the CA used
+with `"ca": "/path/to/file.ca"` on the client or use `"insecure": true` to ignore all certificate errors (not
+recommended).
+
+`up_mbps` and `down_mbps` are mandatory on the client side. Please try to fill in these values as accurately as possible
+according to your network conditions. They are crucial for Hysteria to work in an optimal state.
+
+Some users may attempt to forward other encrypted proxy protocols such as Shadowsocks with relay. While this technically
+works, it's not optimal from a performance standpoint - Hysteria itself uses TLS, considering that the proxy protocol
+being forwarded is also encrypted, and the fact that almost all sites are now using HTTPS, it essentially becomes triple
+encryption. If you need a proxy, just use our proxy modes.
 
 ## Comparison
 
 Proxy Client: Guangzhou, China Mobile Broadband 100 Mbps
- 
+
 Proxy Server: AWS US West Oregon (us-west-2)
 
 ![Bench1](docs/bench/bench1.png)
 
 ## Advanced usage
 
-The command line program supports loading configurations from both JSON files and arguments. Use `-config` to specify a JSON file. Config loaded from it can also be overwritten or extended with command line arguments.
+### Server
 
-### Proxy server
+```json5
+{
+  "listen": ":36712", // Listen address
+  "cert": "/home/ubuntu/my_cert.crt", // Cert file
+  "key": "/home/ubuntu/my_key.crt", // Key file
+  "up_mbps": 100, // Max upload Mbps per client
+  "down_mbps": 100, // Max download Mbps per client
+  "disable_udp": false, // Disable UDP support
+  "acl": "my_list.acl", // See ACL below
+  "obfs": "AMOGUS", // Obfuscation password
+  "auth": { // Authentication
+    "mode": "password", // Mode, only supports "password" and "none" for now
+    "config": {
+      "password": "yubiyubi"
+    }
+  },
+  "recv_window_conn": 33554432, // QUIC stream receive window
+  "recv_window_client": 67108864, // QUIC connection receive window
+  "max_conn_client": 4096 // Max concurrent connections per client
+}
+```
 
-| Description | JSON config field | CLI argument |
-| --- | --- | --- |
-| Server listen address | listen | -listen |
-| Disable UDP support | disable_udp | -disable-udp |
-| Access control list | acl | -acl |
-| TLS certificate file | cert | -cert |
-| TLS key file | key | -key |
-| Authentication file | auth | -auth |
-| Max upload speed per client in Mbps | up_mbps | -up-mbps |
-| Max download speed per client in Mbps | down_mbps | -down-mbps |
-| Max receive window size per connection | recv_window_conn | -recv-window-conn |
-| Max receive window size per client | recv_window_client | -recv-window-client |
-| Max simultaneous connections allowed per client | max_conn_client | -max-conn-client |
-| Obfuscation key | obfs | -obfs |
+### Client
 
-### Proxy client
+```json5
+{
+  "server": "example.com:36712", // Server address
+  "up_mbps": 10, // Max upload Mbps
+  "down_mbps": 50, // Max download Mbps
+  "socks5": {
+    "listen": "127.0.0.1:1080", // SOCKS5 listen address
+    "timeout": 300, // TCP timeout in seconds
+    "disable_udp": false, // Disable UDP support
+    "user": "me", // SOCKS5 authentication username
+    "password": "lmaolmao" // SOCKS5 authentication password
+  },
+  "http": {
+    "listen": "127.0.0.1:8080", // HTTP listen address
+    "timeout": 300, // TCP timeout in seconds
+    "user": "me", // HTTP authentication username
+    "password": "lmaolmao", // HTTP authentication password
+    "cert": "/home/ubuntu/my_cert.crt", // Cert file (HTTPS proxy)
+    "key": "/home/ubuntu/my_key.crt" // Key file (HTTPS proxy)
+  },
+  "relay": {
+    "listen": "127.0.0.1:2222", // Relay listen address
+    "remote": "123.123.123.123:22", // Relay remote address
+    "timeout": 300 // TCP timeout in seconds
+  },
+  "acl": "my_list.acl", // See ACL below
+  "obfs": "AMOGUS", // Obfuscation password
+  "auth": "[BASE64]", // Authentication payload in Base64
+  "auth_str": "yubiyubi", // Authentication payload in string, mutually exclusive with the option above
+  "insecure": false, // Ignore all certificate errors 
+  "ca": "my.ca", // Custom CA file
+  "recv_window_conn": 33554432, // QUIC stream receive window
+  "recv_window": 67108864 // QUIC connection receive window
+}
+```
 
-| Description | JSON config field | CLI argument |
-| --- | --- | --- |
-| SOCKS5 listen address | socks5_addr | -socks5-addr |
-| SOCKS5 connection timeout in seconds | socks5_timeout | -socks5-timeout |
-| Disable SOCKS5 UDP support | socks5_disable_udp | -socks5-disable-udp |
-| SOCKS5 auth username | socks5_user | -socks5-user |
-| SOCKS5 auth password | socks5_password | -socks5-password |
-| HTTP listen address | http_addr | -http-addr |
-| HTTP connection timeout in seconds | http_timeout | -http-timeout |
-| HTTP basic auth username | http_user | -http-user |
-| HTTP basic auth password | http_password | -http-password |
-| HTTPS certificate file | https_cert | -http-cert |
-| HTTPS key file | https_key | -http-key |
-| Access control list | acl | -acl |
-| Server address | server | -server |
-| Authentication username | username | -username |
-| Authentication password | password | -password |
-| Ignore TLS certificate errors | insecure | -insecure |
-| Specify a trusted CA file | ca | -ca |
-| Upload speed in Mbps | up_mbps | -up-mbps |
-| Download speed in Mbps | down_mbps | -down-mbps |
-| Max receive window size per connection | recv_window_conn | -recv-window-conn |
-| Max receive window size | recv_window | -recv-window |
-| Obfuscation key | obfs | -obfs |
-
-#### About SOCKS5
-
-Supports TCP (CONNECT) and UDP (ASSOCIATE) commands. BIND is not supported and is not planned to be supported.
-
-#### About ACL
+## ACL
 
 [ACL File Format](ACL.md)
 
-#### About proxy authentication
+## Logging
 
-Proxy supports username and password authentication (sent encrypted with TLS). If the server starts with an authentication file, it will check for the existence of the corresponding username and password in this file when each user connects. A valid authentication file is a text file with a pair of username and password per line (separated by a space). Example:
-```
-admin K2MfcwyZNJy3
-shady_hacker smokeweed420
+The program outputs `DEBUG` level, text format logs via stdout by default.
 
-This line is invalid and will be ignored
-```
-Changes to the file take effect immediately while the server is running.
-
-#### About obfuscation
-
-To prevent firewalls from potentially detecting & blocking the protocol, a simple XOR-based packet obfuscation mechanism has been built in. Note that clients and servers with different obfuscation settings are not be able to communicate at all.
-
-### Relay server
-
-| Description | JSON config field | CLI argument |
-| --- | --- | --- |
-| Server listen address | listen | -listen |
-| Remote relay address | remote | -remote |
-| TLS certificate file | cert | -cert |
-| TLS key file | key | -key |
-| Max upload speed per client in Mbps | up_mbps | -up-mbps |
-| Max download speed per client in Mbps | down_mbps | -down-mbps |
-| Max receive window size per connection | recv_window_conn | -recv-window-conn |
-| Max receive window size per client | recv_window_client | -recv-window-client |
-| Max simultaneous connections allowed per client | max_conn_client | -max-conn-client |
-| Obfuscation key | obfs | -obfs |
-
-### Relay client
-
-| Description | JSON config field | CLI argument |
-| --- | --- | --- |
-| TCP listen address | listen | -listen |
-| Server address | server | -server |
-| Client name presented to the server | name | -name |
-| Ignore TLS certificate errors | insecure | -insecure |
-| Specify a trusted CA file | ca | -ca |
-| Upload speed in Mbps | up_mbps | -up-mbps |
-| Download speed in Mbps | down_mbps | -down-mbps |
-| Max receive window size per connection | recv_window_conn | -recv-window-conn |
-| Max receive window size | recv_window | -recv-window |
-| Obfuscation key | obfs | -obfs |
-
-## Logs
-
-By default, the program outputs DEBUG level, text format logs via stdout.
-
-To change the logging level, set `LOGGING_LEVEL` environment variable, which supports `panic`, `fatal`, `error`, `warn`, `info`, ` debug`, `trace`
+To change the logging level, use `LOGGING_LEVEL` environment variable. The available levels are `panic`, `fatal`
+, `error`, `warn`, `info`, ` debug`, `trace`
 
 To print JSON instead, set `LOGGING_FORMATTER` to `json`
 

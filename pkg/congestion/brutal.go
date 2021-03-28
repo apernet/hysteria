@@ -6,17 +6,16 @@ import (
 )
 
 const (
-	maxDatagramSize = 1252
-
 	ackRateMinSampleInterval = 4 * time.Second
 	ackRateMaxSampleInterval = 20 * time.Second
 	ackRateMinACKSampleCount = 100
 )
 
 type BrutalSender struct {
-	rttStats congestion.RTTStats
-	bps      congestion.ByteCount
-	pacer    *pacer
+	rttStats        congestion.RTTStatsProvider
+	bps             congestion.ByteCount
+	maxDatagramSize congestion.ByteCount
+	pacer           *pacer
 
 	ackCount, lossCount  uint64
 	ackRate              float64
@@ -28,13 +27,13 @@ func NewBrutalSender(bps congestion.ByteCount) *BrutalSender {
 	bs := &BrutalSender{
 		bps: bps,
 	}
-	bs.pacer = newPacer(func() uint64 {
-		return uint64(float64(bs.bps)/bs.getAckRate()) * 5 / 4
+	bs.pacer = newPacer(func() congestion.ByteCount {
+		return congestion.ByteCount(float64(bs.bps)/bs.getAckRate()) * 5 / 4
 	})
 	return bs
 }
 
-func (b *BrutalSender) SetRTTStats(rttStats congestion.RTTStats) {
+func (b *BrutalSender) SetRTTStatsProvider(rttStats congestion.RTTStatsProvider) {
 	b.rttStats = rttStats
 }
 
@@ -43,7 +42,7 @@ func (b *BrutalSender) TimeUntilSend(bytesInFlight congestion.ByteCount) time.Ti
 }
 
 func (b *BrutalSender) HasPacingBudget() bool {
-	return b.pacer.Budget(time.Now()) >= maxDatagramSize
+	return b.pacer.Budget(time.Now()) >= b.maxDatagramSize
 }
 
 func (b *BrutalSender) CanSend(bytesInFlight congestion.ByteCount) bool {
@@ -60,7 +59,7 @@ func (b *BrutalSender) GetCongestionWindow() congestion.ByteCount {
 
 func (b *BrutalSender) OnPacketSent(sentTime time.Time, bytesInFlight congestion.ByteCount,
 	packetNumber congestion.PacketNumber, bytes congestion.ByteCount, isRetransmittable bool) {
-	b.pacer.SentPacket(sentTime, uint64(bytes))
+	b.pacer.SentPacket(sentTime, bytes)
 }
 
 func (b *BrutalSender) OnPacketAcked(number congestion.PacketNumber, ackedBytes congestion.ByteCount,
@@ -75,6 +74,11 @@ func (b *BrutalSender) OnPacketLost(number congestion.PacketNumber, lostBytes co
 	b.maybeUpdateACKRate()
 }
 
+func (b *BrutalSender) SetMaxDatagramSize(size congestion.ByteCount) {
+	b.maxDatagramSize = size
+	b.pacer.SetMaxDatagramSize(size)
+}
+
 func (b *BrutalSender) maybeUpdateACKRate() {
 	now := time.Now()
 	if !now.After(b.ackRateNextUpdateMin) {
@@ -82,6 +86,7 @@ func (b *BrutalSender) maybeUpdateACKRate() {
 	}
 	// Min interval reached
 	if b.ackCount >= ackRateMinACKSampleCount {
+		// And enough samples, update ackRate now
 		b.ackRate = float64(b.ackCount) / float64(b.ackCount+b.lossCount)
 		b.ackCount, b.lossCount = 0, 0
 		b.ackRateNextUpdateMin = now.Add(ackRateMinSampleInterval)
