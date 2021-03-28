@@ -27,7 +27,7 @@ jobs:
         id: current-time
 
       - name: Build
-        uses: thatisuday/go-cross-build@v1.1.0
+        uses: tobyxdd/go-cross-build@e269fe09a60b9a6a7325cb06075e32ab1b7c2d12
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
           CGO_ENABLED: "0"
