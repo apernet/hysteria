@@ -54,7 +54,7 @@ Hysteria 是专门针对恶劣网络环境（常见于卫星网络、在中国�
 如果你的配置文件没有命名为 `config.json` 或在别的路径，请用 `-config` 指定路径：
 
 ```
-./cmd_linux_amd64 server -config blah.json
+./cmd_linux_amd64 -config blah.json server
 ```
 
 ### 客户端

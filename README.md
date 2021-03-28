@@ -61,7 +61,7 @@ To launch the server, simply run
 If your config file is not named `config.json` or is in a different path, specify it with `-config`:
 
 ```
-./cmd_linux_amd64 server -config blah.json
+./cmd_linux_amd64 -config blah.json server
 ```
 
 ### Client
