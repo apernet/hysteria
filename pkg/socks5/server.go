@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+const udpBufferSize = 65535
+
 var (
 	ErrUnsupportedCmd = errors.New("unsupported command")
 	ErrUserPassAuth   = errors.New("invalid username or password")
@@ -30,8 +32,10 @@ type Server struct {
 	ACLEngine  *acl.Engine
 	DisableUDP bool
 
-	TCPRequestFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string)
-	TCPErrorFunc   func(addr net.Addr, reqAddr string, err error)
+	TCPRequestFunc   func(addr net.Addr, reqAddr string, action acl.Action, arg string)
+	TCPErrorFunc     func(addr net.Addr, reqAddr string, err error)
+	UDPAssociateFunc func(addr net.Addr)
+	UDPErrorFunc     func(addr net.Addr, err error)
 
 	tcpListener *net.TCPListener
 }
@@ -39,7 +43,8 @@ type Server struct {
 func NewServer(hyClient *core.Client, addr string, authFunc func(username, password string) bool, tcpTimeout time.Duration,
 	aclEngine *acl.Engine, disableUDP bool,
 	tcpReqFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string),
-	tcpErrorFunc func(addr net.Addr, reqAddr string, err error)) (*Server, error) {
+	tcpErrorFunc func(addr net.Addr, reqAddr string, err error),
+	udpAssocFunc func(addr net.Addr), udpErrorFunc func(addr net.Addr, err error)) (*Server, error) {
 	tAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -49,15 +54,17 @@ func NewServer(hyClient *core.Client, addr string, authFunc func(username, passw
 		m = socks5.MethodUsernamePassword
 	}
 	s := &Server{
-		HyClient:       hyClient,
-		AuthFunc:       authFunc,
-		Method:         m,
-		TCPAddr:        tAddr,
-		TCPTimeout:     tcpTimeout,
-		ACLEngine:      aclEngine,
-		DisableUDP:     disableUDP,
-		TCPRequestFunc: tcpReqFunc,
-		TCPErrorFunc:   tcpErrorFunc,
+		HyClient:         hyClient,
+		AuthFunc:         authFunc,
+		Method:           m,
+		TCPAddr:          tAddr,
+		TCPTimeout:       tcpTimeout,
+		ACLEngine:        aclEngine,
+		DisableUDP:       disableUDP,
+		TCPRequestFunc:   tcpReqFunc,
+		TCPErrorFunc:     tcpErrorFunc,
+		UDPAssociateFunc: udpAssocFunc,
+		UDPErrorFunc:     udpErrorFunc,
 	}
 	return s, nil
 }
@@ -142,8 +149,12 @@ func (s *Server) handle(c *net.TCPConn, r *socks5.Request) error {
 		return s.handleTCP(c, r)
 	} else if r.Cmd == socks5.CmdUDP {
 		// UDP
-		_ = sendReply(c, socks5.RepCommandNotSupported)
-		return ErrUnsupportedCmd
+		if !s.DisableUDP {
+			return s.handleUDP(c, r)
+		} else {
+			_ = sendReply(c, socks5.RepCommandNotSupported)
+			return ErrUnsupportedCmd
+		}
 	} else {
 		_ = sendReply(c, socks5.RepCommandNotSupported)
 		return ErrUnsupportedCmd
@@ -207,6 +218,107 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 	}
 }
 
+func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
+	s.UDPAssociateFunc(c.RemoteAddr())
+	var closeErr error
+	defer func() {
+		s.UDPErrorFunc(c.RemoteAddr(), closeErr)
+	}()
+	// Start local UDP server
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{
+		IP:   s.TCPAddr.IP,
+		Zone: s.TCPAddr.Zone,
+	})
+	if err != nil {
+		_ = sendReply(c, socks5.RepServerFailure)
+		closeErr = err
+		return err
+	}
+	defer udpConn.Close()
+	// HyClient UDP session
+	hyUDP, err := s.HyClient.DialUDP()
+	if err != nil {
+		_ = sendReply(c, socks5.RepServerFailure)
+		closeErr = err
+		return err
+	}
+	defer hyUDP.Close()
+	// Send UDP server addr to the client
+	atyp, addr, port, err := socks5.ParseAddress(udpConn.LocalAddr().String())
+	if err != nil {
+		_ = sendReply(c, socks5.RepServerFailure)
+		closeErr = err
+		return err
+	}
+	_, _ = socks5.NewReply(socks5.RepSuccess, atyp, addr, port).WriteTo(c)
+	// Let UDP server do its job, we hold the TCP connection here
+	go s.udpServer(udpConn, hyUDP)
+	buf := make([]byte, 1024)
+	for {
+		if s.TCPTimeout != 0 {
+			_ = c.SetDeadline(time.Now().Add(s.TCPTimeout))
+		}
+		_, err := c.Read(buf)
+		if err != nil {
+			closeErr = err
+			break
+		}
+	}
+	// As the TCP connection closes, so does the UDP server & HyClient session
+	return nil
+}
+
+func (s *Server) udpServer(c *net.UDPConn, hyUDP core.UDPConn) {
+	var clientAddr *net.UDPAddr
+	buf := make([]byte, udpBufferSize)
+	// Local to remote
+	for {
+		n, cAddr, err := c.ReadFromUDP(buf)
+		if err != nil {
+			break
+		}
+		d, err := socks5.NewDatagramFromBytes(buf[:n])
+		if err != nil || d.Frag != 0 {
+			// Ignore bad packets
+			continue
+		}
+		if clientAddr == nil {
+			// Whoever sends the first valid packet is our client
+			clientAddr = cAddr
+			go func() {
+				// Start remote to local
+				for {
+					bs, _, err := hyUDP.ReadFrom()
+					if err != nil {
+						break
+					}
+					// RFC 1928 is very ambiguous on how to properly use DST.ADDR and DST.PORT in reply packets
+					// So we just fill in zeros for now. Works fine for all the SOCKS5 clients I tested
+					d := socks5.NewDatagram(socks5.ATYPIPv4, []byte{0x00, 0x00, 0x00, 0x00}, []byte{0x00, 0x00}, bs)
+					_, err = c.WriteTo(d.Bytes(), clientAddr)
+					if err != nil {
+						break
+					}
+				}
+			}()
+		} else if cAddr.String() != clientAddr.String() {
+			// Not our client, bye
+			continue
+		}
+		_, _, _, addr := parseDatagramRequestAddress(d)
+		/*
+			action, arg := acl.ActionProxy, ""
+			if s.ACLEngine != nil {
+				action, arg = s.ACLEngine.Lookup(domain, ip)
+			}
+		*/
+		err = hyUDP.WriteTo(d.Data, addr)
+		if err != nil {
+			break
+		}
+	}
+}
+
 func sendReply(conn *net.TCPConn, rep byte) error {
 	p := socks5.NewReply(rep, socks5.ATYPIPv4, []byte{0x00, 0x00, 0x00, 0x00}, []byte{0x00, 0x00})
 	_, err := p.WriteTo(conn)
@@ -214,6 +326,16 @@ func sendReply(conn *net.TCPConn, rep byte) error {
 }
 
 func parseRequestAddress(r *socks5.Request) (domain string, ip net.IP, port string, addr string) {
+	p := strconv.Itoa(int(binary.BigEndian.Uint16(r.DstPort)))
+	if r.Atyp == socks5.ATYPDomain {
+		d := string(r.DstAddr[1:])
+		return d, nil, p, net.JoinHostPort(d, p)
+	} else {
+		return "", r.DstAddr, p, net.JoinHostPort(net.IP(r.DstAddr).String(), p)
+	}
+}
+
+func parseDatagramRequestAddress(r *socks5.Datagram) (domain string, ip net.IP, port string, addr string) {
 	p := strconv.Itoa(int(binary.BigEndian.Uint16(r.DstPort)))
 	if r.Atyp == socks5.ATYPDomain {
 		d := string(r.DstAddr[1:])

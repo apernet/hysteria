@@ -126,6 +126,23 @@ func client(config *clientConfig) {
 							"dst": reqAddr,
 						}).Debug("SOCKS5 TCP EOF")
 					}
+				},
+				func(addr net.Addr) {
+					logrus.WithFields(logrus.Fields{
+						"src": addr.String(),
+					}).Debug("SOCKS5 UDP associate")
+				},
+				func(addr net.Addr, err error) {
+					if err != io.EOF {
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"src":   addr.String(),
+						}).Info("SOCKS5 UDP error")
+					} else {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+						}).Debug("SOCKS5 UDP EOF")
+					}
 				})
 			if err != nil {
 				logrus.WithField("error", err).Fatal("Failed to initialize SOCKS5 server")
