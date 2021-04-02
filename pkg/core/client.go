@@ -61,20 +61,25 @@ func (c *Client) connectToServer() error {
 	if err != nil {
 		return err
 	}
-	packetConn, err := net.ListenPacket("udp", "")
+	udpConn, err := net.ListenUDP("udp", nil)
 	if err != nil {
 		return err
 	}
+	var qs quic.Session
 	if c.obfuscator != nil {
 		// Wrap PacketConn with obfuscator
-		packetConn = &obfsPacketConn{
-			Orig:       packetConn,
+		qs, err = quic.Dial(&obfsUDPConn{
+			Orig:       udpConn,
 			Obfuscator: c.obfuscator,
+		}, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
+		if err != nil {
+			return err
 		}
-	}
-	qs, err := quic.Dial(packetConn, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
-	if err != nil {
-		return err
+	} else {
+		qs, err = quic.Dial(udpConn, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
+		if err != nil {
+			return err
+		}
 	}
 	// Control stream
 	ctx, ctxCancel := context.WithTimeout(context.Background(), protocolTimeout)

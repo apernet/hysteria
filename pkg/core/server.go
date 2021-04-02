@@ -38,20 +38,29 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
 	obfuscator Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc) (*Server, error) {
-	packetConn, err := net.ListenPacket("udp", addr)
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return nil, err
 	}
+	udpConn, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		return nil, err
+	}
+	var listener quic.Listener
 	if obfuscator != nil {
 		// Wrap PacketConn with obfuscator
-		packetConn = &obfsPacketConn{
-			Orig:       packetConn,
+		listener, err = quic.Listen(&obfsUDPConn{
+			Orig:       udpConn,
 			Obfuscator: obfuscator,
+		}, tlsConfig, quicConfig)
+		if err != nil {
+			return nil, err
 		}
-	}
-	listener, err := quic.Listen(packetConn, tlsConfig, quicConfig)
-	if err != nil {
-		return nil, err
+	} else {
+		listener, err = quic.Listen(udpConn, tlsConfig, quicConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 	s := &Server{
 		listener:          listener,
