@@ -2,6 +2,8 @@ package core
 
 import (
 	"net"
+	"os"
+	"syscall"
 	"time"
 )
 
@@ -10,12 +12,16 @@ type Obfuscator interface {
 	Obfuscate(p []byte) []byte
 }
 
-type obfsPacketConn struct {
-	Orig       net.PacketConn
+type obfsUDPConn struct {
+	Orig       *net.UDPConn
 	Obfuscator Obfuscator
 }
 
-func (c *obfsPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+func (c *obfsUDPConn) SyscallConn() (syscall.RawConn, error) {
+	return c.Orig.SyscallConn()
+}
+
+func (c *obfsUDPConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 	oldN, addr, err := c.Orig.ReadFrom(p)
 	if oldN > 0 {
 		newN := c.Obfuscator.Deobfuscate(p, oldN)
@@ -25,7 +31,7 @@ func (c *obfsPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 	}
 }
 
-func (c *obfsPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+func (c *obfsUDPConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	np := c.Obfuscator.Obfuscate(p)
 	_, err = c.Orig.WriteTo(np, addr)
 	if err != nil {
@@ -35,22 +41,34 @@ func (c *obfsPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	}
 }
 
-func (c *obfsPacketConn) Close() error {
+func (c *obfsUDPConn) Close() error {
 	return c.Orig.Close()
 }
 
-func (c *obfsPacketConn) LocalAddr() net.Addr {
+func (c *obfsUDPConn) LocalAddr() net.Addr {
 	return c.Orig.LocalAddr()
 }
 
-func (c *obfsPacketConn) SetDeadline(t time.Time) error {
+func (c *obfsUDPConn) SetDeadline(t time.Time) error {
 	return c.Orig.SetDeadline(t)
 }
 
-func (c *obfsPacketConn) SetReadDeadline(t time.Time) error {
+func (c *obfsUDPConn) SetReadDeadline(t time.Time) error {
 	return c.Orig.SetReadDeadline(t)
 }
 
-func (c *obfsPacketConn) SetWriteDeadline(t time.Time) error {
+func (c *obfsUDPConn) SetWriteDeadline(t time.Time) error {
 	return c.Orig.SetWriteDeadline(t)
+}
+
+func (c *obfsUDPConn) SetReadBuffer(bytes int) error {
+	return c.Orig.SetReadBuffer(bytes)
+}
+
+func (c *obfsUDPConn) SetWriteBuffer(bytes int) error {
+	return c.Orig.SetWriteBuffer(bytes)
+}
+
+func (c *obfsUDPConn) File() (f *os.File, err error) {
+	return c.Orig.File()
 }
