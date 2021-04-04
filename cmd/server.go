@@ -6,12 +6,15 @@ import (
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/sirupsen/logrus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
+	"github.com/tobyxdd/hysteria/pkg/auth"
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
 	"net"
+	"net/http"
+	"time"
 )
 
 func server(config *serverConfig) {
@@ -72,6 +75,22 @@ func server(config *serverConfig) {
 				return false, "Wrong password"
 			}
 		}
+	case "external":
+		logrus.Info("External authentication enabled")
+		var extConfig map[string]string
+		err = json5.Unmarshal(config.Auth.Config, &extConfig)
+		if err != nil || len(extConfig["http"]) == 0 {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Invalid external authentication config")
+		}
+		provider := &auth.HTTPAuthProvider{
+			Client: &http.Client{
+				Timeout: 10 * time.Second,
+			},
+			URL: extConfig["http"],
+		}
+		authFunc = provider.Auth
 	default:
 		logrus.WithField("mode", config.Auth.Mode).Fatal("Unsupported authentication mode")
 	}
