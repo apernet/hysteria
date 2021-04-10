@@ -125,7 +125,7 @@ Proxy Server: AWS US West Oregon (us-west-2)
   "acl": "my_list.acl", // See ACL below
   "obfs": "AMOGUS", // Obfuscation password
   "auth": { // Authentication
-    "mode": "password", // Mode, only supports "password" and "none" for now
+    "mode": "password", // Mode, supports "password" "none" and "external" for now
     "config": {
       "password": "yubiyubi"
     }
@@ -133,6 +133,42 @@ Proxy Server: AWS US West Oregon (us-west-2)
   "recv_window_conn": 33554432, // QUIC stream receive window
   "recv_window_client": 67108864, // QUIC connection receive window
   "max_conn_client": 4096 // Max concurrent connections per client
+}
+```
+
+#### External authentication integration
+
+If you are a commercial proxy provider, you may want to connect Hysteria to your own authentication backend.
+
+```json5
+{
+  // ...
+  "auth": {
+    "mode": "external",
+    "config": {
+      "http": "https://api.example.com/auth" // Both HTTP and HTTPS are supported
+    }
+  }
+}
+```
+
+For the above config, Hysteria sends a POST request to `https://api.example.com/auth` upon each client's connection:
+
+```json5
+{
+  "addr": "111.222.111.222:52731",
+  "payload": "[BASE64]", // auth or auth_str of the client
+  "send": 12500000, // Negotiated server send speed for this client (Bps)
+  "recv": 12500000 // Negotiated server recv speed for this client (Bps)
+}
+```
+
+The endpoint must return results with HTTP status code 200 (even if the authentication failed):
+
+```json5
+{
+  "ok": false,
+  "msg": "No idea who you are"
 }
 ```
 
