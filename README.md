@@ -22,6 +22,12 @@ connections from China to foreign servers, etc.) powered by a custom version of 
 It is essentially a spiritual successor of my previous (now abandoned)
 project https://github.com/dragonite-network/dragonite-java
 
+## Installation
+
+- Download pre-built binaries from https://github.com/tobyxdd/hysteria/releases
+- Use our Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
+- Build from source with `go build ./cmd`
+
 ## Quick Start
 
 Note: The configs provided in this section are only for people to get started quickly and may not meet your needs.
