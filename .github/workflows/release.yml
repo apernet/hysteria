@@ -27,7 +27,7 @@ jobs:
         id: current-time
 
       - name: Build
-        uses: tobyxdd/go-cross-build@e269fe09a60b9a6a7325cb06075e32ab1b7c2d12
+        uses: tobyxdd/go-cross-build@25e1ba1da2fb42ed9787b615f0e89235569c58fa
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
           CGO_ENABLED: "0"
@@ -35,7 +35,7 @@ jobs:
           name: hysteria
           dest: ./dist/
           ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
-          platforms: 'linux/amd64, linux/386, linux/arm, linux/arm64, linux/mipsle, darwin/amd64, windows/amd64, windows/386'
+          platforms: 'linux/amd64, linux/386, linux/arm, linux/arm64, linux/mipsle, darwin/amd64, darwin/arm64, windows/amd64, windows/386'
           package: ./cmd
           compress: false
 
@@ -52,5 +52,6 @@ jobs:
             ./dist/hysteria-linux-arm64
             ./dist/hysteria-linux-mipsle
             ./dist/hysteria-darwin-amd64
+            ./dist/hysteria-darwin-arm64
             ./dist/hysteria-windows-amd64.exe
             ./dist/hysteria-windows-386.exe
