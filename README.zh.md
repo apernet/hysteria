@@ -118,6 +118,7 @@ Hysteria 是专门针对恶劣网络环境（常见于卫星网络、在中国�
       "password": "yubiyubi"
     }
   },
+  "prometheus_listen": ":8080", // Prometheus 统计接口监听地址 (在 /metrics)
   "recv_window_conn": 33554432, // QUIC stream receive window
   "recv_window_client": 67108864, // QUIC connection receive window
   "max_conn_client": 4096 // 单客户端最大活跃连接数
