@@ -9,6 +9,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.20.0
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
+	github.com/prometheus/client_golang v1.10.0
 	github.com/sirupsen/logrus v1.6.0
 	github.com/txthinking/runnergroup v0.0.0-20200327135940-540a793bb997 // indirect
 	github.com/txthinking/socks5 v0.0.0-20200327133705-caf148ab5e9d

@@ -3,8 +3,10 @@ package core
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
@@ -24,6 +26,8 @@ type serverClient struct {
 	CUDPRequestFunc UDPRequestFunc
 	CUDPErrorFunc   UDPErrorFunc
 
+	UpCounter, DownCounter prometheus.Counter
+
 	udpSessionMutex  sync.RWMutex
 	udpSessionMap    map[uint32]*net.UDPConn
 	nextUDPSessionID uint32
@@ -31,8 +35,9 @@ type serverClient struct {
 
 func newServerClient(cs quic.Session, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
 	CTCPRequestFunc TCPRequestFunc, CTCPErrorFunc TCPErrorFunc,
-	CUDPRequestFunc UDPRequestFunc, CUDPErrorFunc UDPErrorFunc) *serverClient {
-	return &serverClient{
+	CUDPRequestFunc UDPRequestFunc, CUDPErrorFunc UDPErrorFunc,
+	UpCounterVec, DownCounterVec *prometheus.CounterVec) *serverClient {
+	sc := &serverClient{
 		CS:              cs,
 		Auth:            auth,
 		ClientAddr:      cs.RemoteAddr(),
@@ -44,6 +49,12 @@ func newServerClient(cs quic.Session, auth []byte, disableUDP bool, ACLEngine *a
 		CUDPErrorFunc:   CUDPErrorFunc,
 		udpSessionMap:   make(map[uint32]*net.UDPConn),
 	}
+	if UpCounterVec != nil && DownCounterVec != nil {
+		authB64 := base64.StdEncoding.EncodeToString(auth)
+		sc.UpCounter = UpCounterVec.WithLabelValues(authB64)
+		sc.DownCounter = DownCounterVec.WithLabelValues(authB64)
+	}
+	return sc
 }
 
 func (c *serverClient) Run() {
@@ -119,6 +130,9 @@ func (c *serverClient) handleMessage(msg []byte) {
 			addr, err := net.ResolveUDPAddr("udp", udpMsg.Address)
 			if err == nil {
 				_, _ = conn.WriteToUDP(udpMsg.Data, addr)
+				if c.UpCounter != nil {
+					c.UpCounter.Add(float64(len(udpMsg.Data)))
+				}
 			}
 		case acl.ActionBlock:
 			// Do nothing
@@ -127,6 +141,9 @@ func (c *serverClient) handleMessage(msg []byte) {
 			addr, err := net.ResolveUDPAddr("udp", hijackAddr)
 			if err == nil {
 				_, _ = conn.WriteToUDP(udpMsg.Data, addr)
+				if c.UpCounter != nil {
+					c.UpCounter.Add(float64(len(udpMsg.Data)))
+				}
 			}
 		default:
 			// Do nothing
@@ -199,7 +216,17 @@ func (c *serverClient) handleTCP(stream quic.Stream, reqAddr string) {
 	if err != nil {
 		return
 	}
-	err = utils.Pipe2Way(stream, conn)
+	if c.UpCounter != nil && c.DownCounter != nil {
+		err = utils.Pipe2Way(stream, conn, func(i int) {
+			if i > 0 {
+				c.UpCounter.Add(float64(i))
+			} else {
+				c.DownCounter.Add(float64(-i))
+			}
+		})
+	} else {
+		err = utils.Pipe2Way(stream, conn, nil)
+	}
 	c.CTCPErrorFunc(c.ClientAddr, c.Auth, reqAddr, err)
 }
 
@@ -245,6 +272,9 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 					Data:      buf[:n],
 				})
 				_ = c.CS.SendMessage(msgBuf.Bytes())
+				if c.DownCounter != nil {
+					c.DownCounter.Add(float64(n))
+				}
 			}
 			if err != nil {
 				break
