@@ -130,6 +130,7 @@ Proxy Server: AWS US West Oregon (us-west-2)
       "password": "yubiyubi"
     }
   },
+  "prometheus_listen": ":8080", // Prometheus HTTP metrics server listen address (at /metrics)
   "recv_window_conn": 33554432, // QUIC stream receive window
   "recv_window_client": 67108864, // QUIC connection receive window
   "max_conn_client": 4096 // Max concurrent connections per client
@@ -171,6 +172,21 @@ The endpoint must return results with HTTP status code 200 (even if the authenti
   "msg": "No idea who you are"
 }
 ```
+
+#### Prometheus Metrics
+
+You can make Hysteria expose a Prometheus HTTP client endpoint for monitoring traffic usage with `prometheus_listen`.
+If configured on port 8080, the endpoint would be at `http://example.com:8080/metrics`.
+
+```text
+hysteria_traffic_downlink_bytes_total{auth="55m95auW5oCq"} 122639
+hysteria_traffic_downlink_bytes_total{auth="aGFja2VyISE="} 3.225058e+06
+
+hysteria_traffic_uplink_bytes_total{auth="55m95auW5oCq"} 40710
+hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
+```
+
+`auth` is the auth payload sent by the clients, encoded in Base64.
 
 ### Client
 

@@ -160,6 +160,21 @@ Hysteria 是专门针对恶劣网络环境（常见于卫星网络、在中国�
 }
 ```
 
+#### Prometheus 流量统计
+
+通过 `prometheus_listen` 选项可以让 Hysteria 暴露一个 Prometheus HTTP 客户端 endpoint 用来统计流量使用情况。
+例如如果配置在 8080 端口，则 API 地址是 `http://example.com:8080/metrics`
+
+```text
+hysteria_traffic_downlink_bytes_total{auth="55m95auW5oCq"} 122639
+hysteria_traffic_downlink_bytes_total{auth="aGFja2VyISE="} 3.225058e+06
+
+hysteria_traffic_uplink_bytes_total{auth="55m95auW5oCq"} 40710
+hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
+```
+
+`auth` 是客户端发来的验证密钥，经过 Base64 编码。
+
 ### 客户端
 
 ```json5
