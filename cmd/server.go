@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/auth"
@@ -112,12 +114,21 @@ func server(config *serverConfig) {
 		aclEngine.DefaultAction = acl.ActionDirect
 	}
 	// Server
+	var promReg *prometheus.Registry
+	if len(config.PrometheusListen) > 0 {
+		promReg = prometheus.NewRegistry()
+		go func() {
+			http.Handle("/metrics", promhttp.HandlerFor(promReg, promhttp.HandlerOpts{}))
+			err := http.ListenAndServe(config.PrometheusListen, nil)
+			logrus.WithField("error", err).Fatal("Prometheus HTTP server error")
+		}()
+	}
 	server, err := core.NewServer(config.Listen, tlsConfig, quicConfig,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		}, config.DisableUDP, aclEngine, obfuscator, authFunc,
-		tcpRequestFunc, tcpErrorFunc, udpRequestFunc, udpErrorFunc)
+		tcpRequestFunc, tcpErrorFunc, udpRequestFunc, udpErrorFunc, promReg)
 	if err != nil {
 		logrus.WithField("error", err).Fatal("Failed to initialize server")
 	}

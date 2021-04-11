@@ -30,6 +30,7 @@ type serverConfig struct {
 		Mode   string           `json:"mode"`
 		Config json5.RawMessage `json:"config"`
 	} `json:"auth"`
+	PrometheusListen    string `json:"prometheus_listen"`
 	ReceiveWindowConn   uint64 `json:"recv_window_conn"`
 	ReceiveWindowClient uint64 `json:"recv_window_client"`
 	MaxConnClient       int    `json:"max_conn_client"`

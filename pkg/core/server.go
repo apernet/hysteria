@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"net"
 	"time"
@@ -31,13 +32,15 @@ type Server struct {
 	udpRequestFunc UDPRequestFunc
 	udpErrorFunc   UDPErrorFunc
 
+	upCounterVec, downCounterVec *prometheus.CounterVec
+
 	listener quic.Listener
 }
 
 func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
 	obfuscator Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
-	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc) (*Server, error) {
+	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry) (*Server, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return nil, err
@@ -74,6 +77,15 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 		tcpErrorFunc:      tcpErrorFunc,
 		udpRequestFunc:    udpRequestFunc,
 		udpErrorFunc:      udpErrorFunc,
+	}
+	if promRegistry != nil {
+		s.upCounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "hysteria_traffic_uplink_bytes_total",
+		}, []string{"auth"})
+		s.downCounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "hysteria_traffic_downlink_bytes_total",
+		}, []string{"auth"})
+		promRegistry.MustRegister(s.upCounterVec, s.downCounterVec)
 	}
 	return s, nil
 }
@@ -113,7 +125,7 @@ func (s *Server) handleClient(cs quic.Session) {
 	}
 	// Start accepting streams and messages
 	sc := newServerClient(cs, auth, s.disableUDP, s.aclEngine,
-		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc)
+		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc, s.upCounterVec, s.downCounterVec)
 	sc.Run()
 	_ = cs.CloseWithError(closeErrorCodeGeneric, "")
 }
