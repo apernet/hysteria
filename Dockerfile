@@ -1,4 +1,4 @@
-FROM golang:1.14.7-alpine3.12 AS builder
+FROM golang:alpine AS builder
 
 LABEL maintainer="mritd <mritd@linux.com>"
 
@@ -19,14 +19,10 @@ ENV COMMIT ${COMMIT}
 ENV TIMESTAMP ${TIMESTAMP}
 ENV GOPROXY ${GOPROXY}
 
-# go mod is always enabled
-ENV GO111MODULE on
-
 COPY . /go/src/github.com/tobyxdd/hysteria
 
 WORKDIR /go/src/github.com/tobyxdd/hysteria/cmd
 
-# TODO: Is it necessary to remove "-w -s" to add debugging information?
 RUN set -ex \
     && go build -o /go/bin/hysteria -ldflags \
         "-w -s -X 'main.appVersion=${VERSION}' \
@@ -34,7 +30,7 @@ RUN set -ex \
         -X 'main.appDate=${TIMESTAMP}'"
 
 # multi-stage builds to create the final image
-FROM alpine:3.12 AS dist
+FROM alpine AS dist
 
 LABEL maintainer="mritd <mritd@linux.com>"
 
