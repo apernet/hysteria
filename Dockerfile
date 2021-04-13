@@ -14,6 +14,7 @@ COPY . /go/src/github.com/tobyxdd/hysteria
 WORKDIR /go/src/github.com/tobyxdd/hysteria/cmd
 
 RUN set -ex \
+    && apk add git \
     && export VERSION=$(git describe --tags) \
     && export COMMIT=$(git rev-parse HEAD) \
     && export TIMESTAMP=$(date "+%F %T") \
