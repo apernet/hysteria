@@ -2,7 +2,7 @@ name: Build Docker Image
 
 on:
   push:
-    branches:
+    tags:
       - 'v*'
 
 jobs:
@@ -15,10 +15,6 @@ jobs:
       - name: Get tag
         uses: olegtarasov/get-tag@v2
         id: tagName
-
-      - name: Get time
-        uses: gerred/actions/current-time@master
-        id: current-time
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
