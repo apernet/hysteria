@@ -2,21 +2,11 @@ FROM golang:alpine AS builder
 
 LABEL maintainer="mritd <mritd@linux.com>"
 
-# The following parameters are used to set compilation information(such as compilation time,
-# commit id, etc.). Use "docker build --build-arg VERSION=1.1.1 ..." to set these parameters.
-# These parameters can be set automatically through CI Server.
-ARG VERSION="Unknown"
-ARG COMMIT="Unknown"
-ARG TIMESTAMP="Unknown"
-
 # GOPROXY is disabled by default, use:
 # docker build --build-arg GOPROXY="https://goproxy.io" ...
 # to enable GOPROXY.
 ARG GOPROXY=""
 
-ENV VERSION ${VERSION}
-ENV COMMIT ${COMMIT}
-ENV TIMESTAMP ${TIMESTAMP}
 ENV GOPROXY ${GOPROXY}
 
 COPY . /go/src/github.com/tobyxdd/hysteria
@@ -24,6 +14,9 @@ COPY . /go/src/github.com/tobyxdd/hysteria
 WORKDIR /go/src/github.com/tobyxdd/hysteria/cmd
 
 RUN set -ex \
+    && export VERSION=$(git describe --tags) \
+    && export COMMIT=$(git rev-parse HEAD) \
+    && export TIMESTAMP=$(date "+%F %T") \
     && go build -o /go/bin/hysteria -ldflags \
         "-w -s -X 'main.appVersion=${VERSION}' \
         -X 'main.appCommit=${COMMIT}' \
