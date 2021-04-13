@@ -25,6 +25,7 @@ project https://github.com/dragonite-network/dragonite-java
 ## Installation
 
 - Download pre-built binaries from https://github.com/tobyxdd/hysteria/releases
+- Pull the image from Docker Hub: https://hub.docker.com/r/tobyxdd/hysteria
 - Use our Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
 - Build from source with `go build ./cmd`
 

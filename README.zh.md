@@ -22,6 +22,7 @@ Hysteria 是专门针对恶劣网络环境（常见于卫星网络、在中国�
 ## 下载安装
 
 - 从 https://github.com/tobyxdd/hysteria/releases 下载编译好的版本
+- Docker 镜像: https://hub.docker.com/r/tobyxdd/hysteria
 - 使用 Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
 - 自己用 `go build ./cmd` 从源码编译
 
