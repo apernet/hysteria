@@ -16,11 +16,10 @@
 
 [中文 README](README.zh.md)
 
-Hysteria is a TCP relay & SOCKS5/HTTP proxy tool optimized for poor network environments (satellite networks,
-connections from China to foreign servers, etc.) powered by a custom version of QUIC protocol.
+Hysteria is a TCP relay & SOCKS5/HTTP proxy tool optimized for networks of poor quality (e.g. satellite connections,
+congested public Wi-Fi, connecting from China to servers abroad) powered by a custom version of QUIC protocol.
 
-It is essentially a spiritual successor of my previous (now abandoned)
-project https://github.com/dragonite-network/dragonite-java
+It is essentially a spiritual successor of my abandoned project https://github.com/dragonite-network/dragonite-java
 
 ## Installation
 
@@ -31,8 +30,8 @@ project https://github.com/dragonite-network/dragonite-java
 
 ## Quick Start
 
-Note: The configs provided in this section are only for people to get started quickly and may not meet your needs.
-Please go to [Advanced usage](#advanced-usage) to see all the available options and their meanings.
+Note: This is only a bare-bones example to get the server and client running. Go to [Advanced usage](#advanced-usage)
+for all the available options.
 
 ### Server
 
@@ -49,15 +48,16 @@ Create a `config.json` under the root directory of the program:
 }
 ```
 
-A TLS certificate (not necessarily issued by a trusted CA) is required on the server side.
+A TLS certificate is required on the server side. It does not have to be valid and trusted, but in that case the clients
+need additional configuration.
 
 The (optional) `obfs` option obfuscates the protocol using the provided password, so that it is not apparent that this
 is Hysteria/QUIC, which could be useful for bypassing DPI blocking or QoS. If the passwords of the server and client do
 not match, no connection can be established. Therefore, this can also serve as a simple password authentication. For
 more advanced authentication schemes, see `auth` below.
 
-`up_mbps` and `down_mbps` limit the maximum upload and download speed of the server for each client. These are also
-optional and can be removed if not needed.
+`up_mbps` and `down_mbps` limit the maximum upload and download speed of the server for each client. Feel free to remove
+them if you don't need.
 
 To launch the server, simply run
 
@@ -95,19 +95,19 @@ Same as the server side, create a `config.json` under the root directory of the 
 ```
 
 This config enables a SOCKS5 proxy (with both TCP & UDP support), an HTTP proxy, and a TCP relay to `123.123.123.123:22`
-at the same time. Please modify or remove these entries depending on your actual needs.
+at the same time. Please modify or remove these entries according to your actual needs.
 
 If your server certificate is not issued by a trusted CA, you need to specify the CA used
 with `"ca": "/path/to/file.ca"` on the client or use `"insecure": true` to ignore all certificate errors (not
 recommended).
 
-`up_mbps` and `down_mbps` are mandatory on the client side. Please try to fill in these values as accurately as possible
-according to your network conditions. They are crucial for Hysteria to work in an optimal state.
+`up_mbps` and `down_mbps` are mandatory on the client side. Try to fill in these values as accurately as possible
+according to your network conditions, as they are crucial for Hysteria to work optimally.
 
 Some users may attempt to forward other encrypted proxy protocols such as Shadowsocks with relay. While this technically
 works, it's not optimal from a performance standpoint - Hysteria itself uses TLS, considering that the proxy protocol
 being forwarded is also encrypted, and the fact that almost all sites are now using HTTPS, it essentially becomes triple
-encryption. If you need a proxy, just use our proxy modes.
+encryption. If you need a proxy, just use our proxy mode.
 
 ## Comparison
 
