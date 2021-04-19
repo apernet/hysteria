@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestEngine_Lookup(t *testing.T) {
+func TestEngine_ResolveAndMatch(t *testing.T) {
 	cache, _ := lru.NewARC(4)
 	e := &Engine{
 		DefaultAction: ActionDirect,
@@ -49,61 +49,65 @@ func TestEngine_Lookup(t *testing.T) {
 		},
 		Cache: cache,
 	}
-	type args struct {
-		domain string
-		ip     net.IP
-	}
 	tests := []struct {
-		name  string
-		args  args
-		want  Action
-		want1 string
+		name    string
+		addr    string
+		want    Action
+		want1   string
+		wantErr bool
 	}{
 		{
 			name:  "domain direct",
-			args:  args{"google.com", nil},
+			addr:  "google.com",
 			want:  ActionProxy,
 			want1: "",
 		},
 		{
-			name:  "domain suffix 1",
-			args:  args{"evil.corp", nil},
-			want:  ActionHijack,
-			want1: "good.org",
+			name:    "domain suffix 1",
+			addr:    "evil.corp",
+			want:    ActionHijack,
+			want1:   "good.org",
+			wantErr: true,
 		},
 		{
-			name:  "domain suffix 2",
-			args:  args{"notevil.corp", nil},
-			want:  ActionBlock,
-			want1: "",
+			name:    "domain suffix 2",
+			addr:    "notevil.corp",
+			want:    ActionBlock,
+			want1:   "",
+			wantErr: true,
 		},
 		{
-			name:  "domain suffix 3",
-			args:  args{"im.real.evil.corp", nil},
-			want:  ActionHijack,
-			want1: "good.org",
+			name:    "domain suffix 3",
+			addr:    "im.real.evil.corp",
+			want:    ActionHijack,
+			want1:   "good.org",
+			wantErr: true,
 		},
 		{
 			name:  "ip match",
-			args:  args{"", net.ParseIP("10.2.3.4")},
+			addr:  "10.2.3.4",
 			want:  ActionProxy,
 			want1: "",
 		},
 		{
 			name:  "ip mismatch",
-			args:  args{"", net.ParseIP("100.5.6.0")},
+			addr:  "100.5.6.0",
 			want:  ActionBlock,
 			want1: "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := e.Lookup(tt.args.domain, tt.args.ip)
+			got, got1, _, err := e.ResolveAndMatch(tt.addr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ResolveAndMatch() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
 			if got != tt.want {
-				t.Errorf("Lookup() got = %v, want %v", got, tt.want)
+				t.Errorf("ResolveAndMatch() got = %v, want %v", got, tt.want)
 			}
 			if got1 != tt.want1 {
-				t.Errorf("Lookup() got1 = %v, want %v", got1, tt.want1)
+				t.Errorf("ResolveAndMatch() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}

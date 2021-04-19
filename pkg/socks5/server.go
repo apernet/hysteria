@@ -162,10 +162,13 @@ func (s *Server) handle(c *net.TCPConn, r *socks5.Request) error {
 }
 
 func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
-	domain, ip, port, addr := parseRequestAddress(r)
+	host, port, addr := parseRequestAddress(r)
 	action, arg := acl.ActionProxy, ""
+	var ipAddr *net.IPAddr
+	var resErr error
 	if s.ACLEngine != nil {
-		action, arg = s.ACLEngine.Lookup(domain, ip)
+		action, arg, ipAddr, resErr = s.ACLEngine.ResolveAndMatch(host)
+		// Doesn't always matter if the resolution fails, as we may send it through HyClient
 	}
 	s.TCPRequestFunc(c.RemoteAddr(), addr, action, arg)
 	var closeErr error
@@ -175,7 +178,16 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 	// Handle according to the action
 	switch action {
 	case acl.ActionDirect:
-		rc, err := net.Dial("tcp", addr)
+		if resErr != nil {
+			_ = sendReply(c, socks5.RepHostUnreachable)
+			closeErr = resErr
+			return resErr
+		}
+		rc, err := net.DialTCP("tcp", nil, &net.TCPAddr{
+			IP:   ipAddr.IP,
+			Port: int(port),
+			Zone: ipAddr.Zone,
+		})
 		if err != nil {
 			_ = sendReply(c, socks5.RepHostUnreachable)
 			closeErr = err
@@ -201,7 +213,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 		closeErr = errors.New("blocked in ACL")
 		return nil
 	case acl.ActionHijack:
-		rc, err := net.Dial("tcp", net.JoinHostPort(arg, port))
+		rc, err := net.Dial("tcp", net.JoinHostPort(arg, strconv.Itoa(int(port))))
 		if err != nil {
 			_ = sendReply(c, socks5.RepHostUnreachable)
 			closeErr = err
@@ -299,13 +311,15 @@ func (s *Server) udpServer(clientConn *net.UDPConn, localRelayConn *net.UDPConn,
 			// Start remote to local
 			go func() {
 				for {
-					bs, _, err := hyUDP.ReadFrom()
+					bs, from, err := hyUDP.ReadFrom()
 					if err != nil {
 						break
 					}
-					// RFC 1928 is very ambiguous on how to properly use DST.ADDR and DST.PORT in reply packets
-					// So we just fill in zeros for now. Works fine for all the SOCKS5 clients I tested
-					d := socks5.NewDatagram(socks5.ATYPIPv4, []byte{0x00, 0x00, 0x00, 0x00}, []byte{0x00, 0x00}, bs)
+					atyp, addr, port, err := socks5.ParseAddress(from)
+					if err != nil {
+						continue
+					}
+					d := socks5.NewDatagram(atyp, addr, port, bs)
 					_, _ = clientConn.WriteToUDP(d.Bytes(), clientAddr)
 				}
 			}()
@@ -329,24 +343,31 @@ func (s *Server) udpServer(clientConn *net.UDPConn, localRelayConn *net.UDPConn,
 			// Not our client, bye
 			continue
 		}
-		domain, ip, port, addr := parseDatagramRequestAddress(d)
+		host, port, addr := parseDatagramRequestAddress(d)
 		action, arg := acl.ActionProxy, ""
+		var ipAddr *net.IPAddr
+		var resErr error
 		if s.ACLEngine != nil && localRelayConn != nil {
-			action, arg = s.ACLEngine.Lookup(domain, ip)
+			action, arg, ipAddr, resErr = s.ACLEngine.ResolveAndMatch(host)
+			// Doesn't always matter if the resolution fails, as we may send it through HyClient
 		}
 		// Handle according to the action
 		switch action {
 		case acl.ActionDirect:
-			rAddr, err := net.ResolveUDPAddr("udp", addr)
-			if err == nil {
-				_, _ = localRelayConn.WriteToUDP(d.Data, rAddr)
+			if resErr != nil {
+				return
 			}
+			_, _ = localRelayConn.WriteToUDP(d.Data, &net.UDPAddr{
+				IP:   ipAddr.IP,
+				Port: int(port),
+				Zone: ipAddr.Zone,
+			})
 		case acl.ActionProxy:
 			_ = hyUDP.WriteTo(d.Data, addr)
 		case acl.ActionBlock:
 			// Do nothing
 		case acl.ActionHijack:
-			hijackAddr := net.JoinHostPort(arg, port)
+			hijackAddr := net.JoinHostPort(arg, net.JoinHostPort(arg, strconv.Itoa(int(port))))
 			rAddr, err := net.ResolveUDPAddr("udp", hijackAddr)
 			if err == nil {
 				_, _ = localRelayConn.WriteToUDP(d.Data, rAddr)
@@ -363,22 +384,24 @@ func sendReply(conn *net.TCPConn, rep byte) error {
 	return err
 }
 
-func parseRequestAddress(r *socks5.Request) (domain string, ip net.IP, port string, addr string) {
-	p := strconv.Itoa(int(binary.BigEndian.Uint16(r.DstPort)))
+func parseRequestAddress(r *socks5.Request) (host string, port uint16, addr string) {
+	p := binary.BigEndian.Uint16(r.DstPort)
 	if r.Atyp == socks5.ATYPDomain {
 		d := string(r.DstAddr[1:])
-		return d, nil, p, net.JoinHostPort(d, p)
+		return d, p, net.JoinHostPort(d, strconv.Itoa(int(p)))
 	} else {
-		return "", r.DstAddr, p, net.JoinHostPort(net.IP(r.DstAddr).String(), p)
+		ipStr := net.IP(r.DstAddr).String()
+		return ipStr, p, net.JoinHostPort(ipStr, strconv.Itoa(int(p)))
 	}
 }
 
-func parseDatagramRequestAddress(r *socks5.Datagram) (domain string, ip net.IP, port string, addr string) {
-	p := strconv.Itoa(int(binary.BigEndian.Uint16(r.DstPort)))
+func parseDatagramRequestAddress(r *socks5.Datagram) (host string, port uint16, addr string) {
+	p := binary.BigEndian.Uint16(r.DstPort)
 	if r.Atyp == socks5.ATYPDomain {
 		d := string(r.DstAddr[1:])
-		return d, nil, p, net.JoinHostPort(d, p)
+		return d, p, net.JoinHostPort(d, strconv.Itoa(int(p)))
 	} else {
-		return "", r.DstAddr, p, net.JoinHostPort(net.IP(r.DstAddr).String(), p)
+		ipStr := net.IP(r.DstAddr).String()
+		return ipStr, p, net.JoinHostPort(ipStr, strconv.Itoa(int(p)))
 	}
 }

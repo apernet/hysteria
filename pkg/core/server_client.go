@@ -10,6 +10,7 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
+	"strconv"
 	"sync"
 )
 
@@ -88,7 +89,7 @@ func (c *serverClient) handleStream(stream quic.Stream) {
 	}
 	if !req.UDP {
 		// TCP connection
-		c.handleTCP(stream, req.Address)
+		c.handleTCP(stream, req.Host, req.Port)
 	} else if !c.DisableUDP {
 		// UDP connection
 		c.handleUDP(stream)
@@ -112,32 +113,30 @@ func (c *serverClient) handleMessage(msg []byte) {
 	c.udpSessionMutex.RUnlock()
 	if ok {
 		// Session found, send the message
-		host, port, err := net.SplitHostPort(udpMsg.Address)
+		action, arg := acl.ActionDirect, ""
+		var ipAddr *net.IPAddr
+		if c.ACLEngine != nil {
+			action, arg, ipAddr, err = c.ACLEngine.ResolveAndMatch(udpMsg.Host)
+		} else {
+			ipAddr, err = net.ResolveIPAddr("ip", udpMsg.Host)
+		}
 		if err != nil {
 			return
 		}
-		action, arg := acl.ActionDirect, ""
-		if c.ACLEngine != nil {
-			ip := net.ParseIP(host)
-			if ip != nil {
-				// IP request, clear host for ACL engine
-				host = ""
-			}
-			action, arg = c.ACLEngine.Lookup(host, ip)
-		}
 		switch action {
 		case acl.ActionDirect, acl.ActionProxy: // Treat proxy as direct on server side
-			addr, err := net.ResolveUDPAddr("udp", udpMsg.Address)
-			if err == nil {
-				_, _ = conn.WriteToUDP(udpMsg.Data, addr)
-				if c.UpCounter != nil {
-					c.UpCounter.Add(float64(len(udpMsg.Data)))
-				}
+			_, _ = conn.WriteToUDP(udpMsg.Data, &net.UDPAddr{
+				IP:   ipAddr.IP,
+				Port: int(udpMsg.Port),
+				Zone: ipAddr.Zone,
+			})
+			if c.UpCounter != nil {
+				c.UpCounter.Add(float64(len(udpMsg.Data)))
 			}
 		case acl.ActionBlock:
 			// Do nothing
 		case acl.ActionHijack:
-			hijackAddr := net.JoinHostPort(arg, port)
+			hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(udpMsg.Port)))
 			addr, err := net.ResolveUDPAddr("udp", hijackAddr)
 			if err == nil {
 				_, _ = conn.WriteToUDP(udpMsg.Data, addr)
@@ -151,37 +150,40 @@ func (c *serverClient) handleMessage(msg []byte) {
 	}
 }
 
-func (c *serverClient) handleTCP(stream quic.Stream, reqAddr string) {
-	host, port, err := net.SplitHostPort(reqAddr)
+func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
+	addrStr := net.JoinHostPort(host, strconv.Itoa(int(port)))
+	action, arg := acl.ActionDirect, ""
+	var ipAddr *net.IPAddr
+	var err error
+	if c.ACLEngine != nil {
+		action, arg, ipAddr, err = c.ACLEngine.ResolveAndMatch(host)
+	} else {
+		ipAddr, err = net.ResolveIPAddr("ip", host)
+	}
 	if err != nil {
 		_ = struc.Pack(stream, &serverResponse{
 			OK:      false,
-			Message: "invalid address",
+			Message: "host resolution failure",
 		})
-		c.CTCPErrorFunc(c.ClientAddr, c.Auth, reqAddr, err)
+		c.CTCPErrorFunc(c.ClientAddr, c.Auth, addrStr, err)
 		return
 	}
-	action, arg := acl.ActionDirect, ""
-	if c.ACLEngine != nil {
-		ip := net.ParseIP(host)
-		if ip != nil {
-			// IP request, clear host for ACL engine
-			host = ""
-		}
-		action, arg = c.ACLEngine.Lookup(host, ip)
-	}
-	c.CTCPRequestFunc(c.ClientAddr, c.Auth, reqAddr, action, arg)
+	c.CTCPRequestFunc(c.ClientAddr, c.Auth, addrStr, action, arg)
 
 	var conn net.Conn // Connection to be piped
 	switch action {
 	case acl.ActionDirect, acl.ActionProxy: // Treat proxy as direct on server side
-		conn, err = net.DialTimeout("tcp", reqAddr, dialTimeout)
+		conn, err = net.DialTCP("tcp", nil, &net.TCPAddr{
+			IP:   ipAddr.IP,
+			Port: int(port),
+			Zone: ipAddr.Zone,
+		})
 		if err != nil {
 			_ = struc.Pack(stream, &serverResponse{
 				OK:      false,
 				Message: err.Error(),
 			})
-			c.CTCPErrorFunc(c.ClientAddr, c.Auth, reqAddr, err)
+			c.CTCPErrorFunc(c.ClientAddr, c.Auth, addrStr, err)
 			return
 		}
 	case acl.ActionBlock:
@@ -191,14 +193,14 @@ func (c *serverClient) handleTCP(stream quic.Stream, reqAddr string) {
 		})
 		return
 	case acl.ActionHijack:
-		hijackAddr := net.JoinHostPort(arg, port)
-		conn, err = net.DialTimeout("tcp", hijackAddr, dialTimeout)
+		hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(port)))
+		conn, err = net.Dial("tcp", hijackAddr)
 		if err != nil {
 			_ = struc.Pack(stream, &serverResponse{
 				OK:      false,
 				Message: err.Error(),
 			})
-			c.CTCPErrorFunc(c.ClientAddr, c.Auth, reqAddr, err)
+			c.CTCPErrorFunc(c.ClientAddr, c.Auth, addrStr, err)
 			return
 		}
 	default:
@@ -227,7 +229,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, reqAddr string) {
 	} else {
 		err = utils.Pipe2Way(stream, conn, nil)
 	}
-	c.CTCPErrorFunc(c.ClientAddr, c.Auth, reqAddr, err)
+	c.CTCPErrorFunc(c.ClientAddr, c.Auth, addrStr, err)
 }
 
 func (c *serverClient) handleUDP(stream quic.Stream) {
@@ -268,7 +270,8 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 				var msgBuf bytes.Buffer
 				_ = struc.Pack(&msgBuf, &udpMessage{
 					SessionID: id,
-					Address:   rAddr.String(),
+					Host:      rAddr.IP.String(),
+					Port:      uint16(rAddr.Port),
 					Data:      buf[:n],
 				})
 				_ = c.CS.SendMessage(msgBuf.Bytes())

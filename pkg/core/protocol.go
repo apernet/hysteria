@@ -32,9 +32,10 @@ type serverHello struct {
 }
 
 type clientRequest struct {
-	UDP        bool
-	AddressLen uint16 `struc:"sizeof=Address"`
-	Address    string
+	UDP     bool
+	HostLen uint16 `struc:"sizeof=Host"`
+	Host    string
+	Port    uint16
 }
 
 type serverResponse struct {
@@ -45,9 +46,10 @@ type serverResponse struct {
 }
 
 type udpMessage struct {
-	SessionID  uint32
-	AddressLen uint16 `struc:"sizeof=Address"`
-	Address    string
-	DataLen    uint16 `struc:"sizeof=Data"`
-	Data       []byte
+	SessionID uint32
+	HostLen   uint16 `struc:"sizeof=Host"`
+	Host      string
+	Port      uint16
+	DataLen   uint16 `struc:"sizeof=Data"`
+	Data      []byte
 }

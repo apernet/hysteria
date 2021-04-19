@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/elazarl/goproxy/ext/auth"
@@ -27,20 +28,30 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 			if err != nil {
 				return nil, err
 			}
+			portUint, err := strconv.ParseUint(port, 10, 16)
+			if err != nil {
+				return nil, err
+			}
 			// ACL
 			action, arg := acl.ActionProxy, ""
+			var ipAddr *net.IPAddr
+			var resErr error
 			if aclEngine != nil {
-				ip := net.ParseIP(host)
-				if ip != nil {
-					host = ""
-				}
-				action, arg = aclEngine.Lookup(host, ip)
+				action, arg, ipAddr, resErr = aclEngine.ResolveAndMatch(host)
+				// Doesn't always matter if the resolution fails, as we may send it through HyClient
 			}
 			newDialFunc(addr, action, arg)
 			// Handle according to the action
 			switch action {
 			case acl.ActionDirect:
-				return net.Dial(network, addr)
+				if resErr != nil {
+					return nil, resErr
+				}
+				return net.DialTCP(network, nil, &net.TCPAddr{
+					IP:   ipAddr.IP,
+					Port: int(portUint),
+					Zone: ipAddr.Zone,
+				})
 			case acl.ActionProxy:
 				return hyClient.DialTCP(addr)
 			case acl.ActionBlock:

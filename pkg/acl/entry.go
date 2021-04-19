@@ -50,20 +50,6 @@ func (e Entry) MatchIP(ip net.IP) bool {
 	return false
 }
 
-func (e Entry) MatchIPs(ips []net.IP) bool {
-	if e.All {
-		return true
-	}
-	if e.Net != nil && len(ips) > 0 {
-		for _, ip := range ips {
-			if e.Net.Contains(ip) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // Format: action cond_type cond arg
 // Examples:
 // proxy domain-suffix google.com
