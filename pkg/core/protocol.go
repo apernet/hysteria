@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	protocolVersion = uint8(1)
+	protocolVersion = uint8(2)
 	protocolTimeout = 10 * time.Second
 
 	closeErrorCodeGeneric  = 0

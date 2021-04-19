@@ -106,8 +106,13 @@ func (c *Client) connectToServer() error {
 }
 
 func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (bool, string, error) {
+	// Send protocol version
+	_, err := stream.Write([]byte{protocolVersion})
+	if err != nil {
+		return false, "", err
+	}
 	// Send client hello
-	err := struc.Pack(stream, &clientHello{
+	err = struc.Pack(stream, &clientHello{
 		Rate: transmissionRate{
 			SendBPS: c.sendBPS,
 			RecvBPS: c.recvBPS,

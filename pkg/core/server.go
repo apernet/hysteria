@@ -4,15 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"net"
-	"time"
 )
-
-const dialTimeout = 10 * time.Second
 
 type AuthFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
 type TCPRequestFunc func(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string)
@@ -132,8 +130,18 @@ func (s *Server) handleClient(cs quic.Session) {
 
 // Auth & negotiate speed
 func (s *Server) handleControlStream(cs quic.Session, stream quic.Stream) ([]byte, bool, error) {
+	// Check version
+	vb := make([]byte, 1)
+	_, err := stream.Read(vb)
+	if err != nil {
+		return nil, false, err
+	}
+	if vb[0] != protocolVersion {
+		return nil, false, fmt.Errorf("unsupported protocol version %d, expecting %d", vb[0], protocolVersion)
+	}
+	// Parse client hello
 	var ch clientHello
-	err := struc.Unpack(stream, &ch)
+	err = struc.Unpack(stream, &ch)
 	if err != nil {
 		return nil, false, err
 	}
