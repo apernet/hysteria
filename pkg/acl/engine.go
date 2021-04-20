@@ -52,39 +52,47 @@ func LoadFromFile(filename string) (*Engine, error) {
 	}, nil
 }
 
-func (e *Engine) Lookup(domain string, ip net.IP) (Action, string) {
-	if len(domain) > 0 {
+func (e *Engine) ResolveAndMatch(host string) (Action, string, *net.IPAddr, error) {
+	ip, zone := parseIPZone(host)
+	if ip == nil {
 		// Domain
-		if v, ok := e.Cache.Get(domain); ok {
+		ipAddr, err := net.ResolveIPAddr("ip", host)
+		if v, ok := e.Cache.Get(host); ok {
 			// Cache hit
 			ce := v.(cacheEntry)
-			return ce.Action, ce.Arg
+			return ce.Action, ce.Arg, ipAddr, err
 		}
-		ips, _ := net.LookupIP(domain)
 		for _, entry := range e.Entries {
-			if entry.MatchDomain(domain) || (len(ips) > 0 && entry.MatchIPs(ips)) {
-				e.Cache.Add(domain, cacheEntry{entry.Action, entry.ActionArg})
-				return entry.Action, entry.ActionArg
+			if entry.MatchDomain(host) || (ipAddr != nil && entry.MatchIP(ipAddr.IP)) {
+				e.Cache.Add(host, cacheEntry{entry.Action, entry.ActionArg})
+				return entry.Action, entry.ActionArg, ipAddr, err
 			}
 		}
-		e.Cache.Add(domain, cacheEntry{e.DefaultAction, ""})
-		return e.DefaultAction, ""
-	} else if ip != nil {
+		e.Cache.Add(host, cacheEntry{e.DefaultAction, ""})
+		return e.DefaultAction, "", ipAddr, err
+	} else {
 		// IP
 		if v, ok := e.Cache.Get(ip.String()); ok {
 			// Cache hit
 			ce := v.(cacheEntry)
-			return ce.Action, ce.Arg
+			return ce.Action, ce.Arg, &net.IPAddr{
+				IP:   ip,
+				Zone: zone,
+			}, nil
 		}
 		for _, entry := range e.Entries {
 			if entry.MatchIP(ip) {
 				e.Cache.Add(ip.String(), cacheEntry{entry.Action, entry.ActionArg})
-				return entry.Action, entry.ActionArg
+				return entry.Action, entry.ActionArg, &net.IPAddr{
+					IP:   ip,
+					Zone: zone,
+				}, nil
 			}
 		}
 		e.Cache.Add(ip.String(), cacheEntry{e.DefaultAction, ""})
-		return e.DefaultAction, ""
-	} else {
-		return e.DefaultAction, ""
+		return e.DefaultAction, "", &net.IPAddr{
+			IP:   ip,
+			Zone: zone,
+		}, nil
 	}
 }

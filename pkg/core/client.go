@@ -10,6 +10,7 @@ import (
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/lunixbochs/struc"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -106,8 +107,13 @@ func (c *Client) connectToServer() error {
 }
 
 func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (bool, string, error) {
+	// Send protocol version
+	_, err := stream.Write([]byte{protocolVersion})
+	if err != nil {
+		return false, "", err
+	}
 	// Send client hello
-	err := struc.Pack(stream, &clientHello{
+	err = struc.Pack(stream, &clientHello{
 		Rate: transmissionRate{
 			SendBPS: c.sendBPS,
 			RecvBPS: c.recvBPS,
@@ -182,14 +188,19 @@ func (c *Client) openStreamWithReconnect() (quic.Session, quic.Stream, error) {
 }
 
 func (c *Client) DialTCP(addr string) (net.Conn, error) {
+	host, port, err := splitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
 	session, stream, err := c.openStreamWithReconnect()
 	if err != nil {
 		return nil, err
 	}
 	// Send request
 	err = struc.Pack(stream, &clientRequest{
-		UDP:     false,
-		Address: addr,
+		UDP:  false,
+		Host: host,
+		Port: port,
 	})
 	if err != nil {
 		_ = stream.Close()
@@ -344,14 +355,19 @@ func (c *quicPktConn) ReadFrom() ([]byte, string, error) {
 		// Closed
 		return nil, "", ErrClosed
 	}
-	return msg.Data, msg.Address, nil
+	return msg.Data, net.JoinHostPort(msg.Host, strconv.Itoa(int(msg.Port))), nil
 }
 
 func (c *quicPktConn) WriteTo(p []byte, addr string) error {
+	host, port, err := splitHostPort(addr)
+	if err != nil {
+		return err
+	}
 	var msgBuf bytes.Buffer
 	_ = struc.Pack(&msgBuf, &udpMessage{
 		SessionID: c.UDPSessionID,
-		Address:   addr,
+		Host:      host,
+		Port:      port,
 		Data:      p,
 	})
 	return c.Session.SendMessage(msgBuf.Bytes())
@@ -360,4 +376,16 @@ func (c *quicPktConn) WriteTo(p []byte, addr string) error {
 func (c *quicPktConn) Close() error {
 	c.CloseFunc()
 	return c.Stream.Close()
+}
+
+func splitHostPort(hostport string) (string, uint16, error) {
+	host, port, err := net.SplitHostPort(hostport)
+	if err != nil {
+		return "", 0, err
+	}
+	portUint, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		return "", 0, err
+	}
+	return host, uint16(portUint), err
 }
