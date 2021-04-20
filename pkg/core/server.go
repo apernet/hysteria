@@ -9,6 +9,7 @@ import (
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 )
 
@@ -47,6 +48,10 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 	if err != nil {
 		return nil, err
 	}
+	if err := utils.SetDontFragment(udpConn); err != nil {
+		_ = udpConn.Close()
+		return nil, err
+	}
 	var listener quic.Listener
 	if obfuscator != nil {
 		// Wrap PacketConn with obfuscator
@@ -55,11 +60,13 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 			Obfuscator: obfuscator,
 		}, tlsConfig, quicConfig)
 		if err != nil {
+			_ = udpConn.Close()
 			return nil, err
 		}
 	} else {
 		listener, err = quic.Listen(udpConn, tlsConfig, quicConfig)
 		if err != nil {
+			_ = udpConn.Close()
 			return nil, err
 		}
 	}

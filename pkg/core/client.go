@@ -9,6 +9,7 @@ import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/lunixbochs/struc"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"strconv"
 	"sync"
@@ -66,6 +67,10 @@ func (c *Client) connectToServer() error {
 	if err != nil {
 		return err
 	}
+	if err := utils.SetDontFragment(udpConn); err != nil {
+		_ = udpConn.Close()
+		return err
+	}
 	var qs quic.Session
 	if c.obfuscator != nil {
 		// Wrap PacketConn with obfuscator
@@ -74,11 +79,13 @@ func (c *Client) connectToServer() error {
 			Obfuscator: c.obfuscator,
 		}, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
 		if err != nil {
+			_ = udpConn.Close()
 			return err
 		}
 	} else {
 		qs, err = quic.Dial(udpConn, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
 		if err != nil {
+			_ = udpConn.Close()
 			return err
 		}
 	}
