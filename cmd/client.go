@@ -68,7 +68,7 @@ func client(config *clientConfig) {
 	// Obfuscator
 	var obfuscator core.Obfuscator
 	if len(config.Obfs) > 0 {
-		obfuscator = obfs.XORObfuscator(config.Obfs)
+		obfuscator = obfs.NewXPlusObfuscator([]byte(config.Obfs))
 	}
 	// ACL
 	var aclEngine *acl.Engine

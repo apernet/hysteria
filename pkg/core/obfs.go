@@ -8,7 +8,7 @@ import (
 )
 
 type Obfuscator interface {
-	Deobfuscate(buf []byte, n int) int
+	Deobfuscate(in []byte, out []byte) int
 	Obfuscate(p []byte) []byte
 }
 
@@ -21,13 +21,21 @@ func (c *obfsUDPConn) SyscallConn() (syscall.RawConn, error) {
 	return c.Orig.SyscallConn()
 }
 
-func (c *obfsUDPConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	oldN, addr, err := c.Orig.ReadFrom(p)
-	if oldN > 0 {
-		newN := c.Obfuscator.Deobfuscate(p, oldN)
-		return newN, addr, err
-	} else {
-		return 0, addr, err
+func (c *obfsUDPConn) ReadFrom(p []byte) (int, net.Addr, error) {
+	buf := make([]byte, udpBufferSize)
+	for {
+		n, addr, err := c.Orig.ReadFrom(buf)
+		if n <= 0 {
+			return 0, addr, err
+		}
+		newN := c.Obfuscator.Deobfuscate(buf[:n], p)
+		if newN > 0 {
+			// Valid packet
+			return newN, addr, err
+		} else if err != nil {
+			// Not valid and Orig.ReadFrom had some error
+			return 0, addr, err
+		}
 	}
 }
 

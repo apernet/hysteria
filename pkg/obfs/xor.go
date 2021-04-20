@@ -2,12 +2,12 @@ package obfs
 
 type XORObfuscator []byte
 
-func (x XORObfuscator) Deobfuscate(buf []byte, n int) int {
+func (x XORObfuscator) Deobfuscate(in []byte, out []byte) int {
 	l := len(x)
-	for i := range buf {
-		buf[i] ^= x[i%l]
+	for i := range in {
+		out[i] = in[i] ^ x[i%l]
 	}
-	return n
+	return len(in)
 }
 
 func (x XORObfuscator) Obfuscate(p []byte) []byte {
