@@ -183,7 +183,7 @@ func client(config *clientConfig) {
 
 	if len(config.Relay.Listen) > 0 {
 		go func() {
-			rl, err := relay.NewRelay(client, config.Relay.Listen, config.Relay.Remote,
+			rl, err := relay.NewTCPRelay(client, config.Relay.Listen, config.Relay.Remote,
 				time.Duration(config.Relay.Timeout)*time.Second,
 				func(addr net.Addr) {
 					logrus.WithFields(logrus.Fields{
