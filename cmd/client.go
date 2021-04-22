@@ -181,10 +181,10 @@ func client(config *clientConfig) {
 		}()
 	}
 
-	if len(config.Relay.Listen) > 0 {
+	if len(config.TCPRelay.Listen) > 0 {
 		go func() {
-			rl, err := relay.NewTCPRelay(client, config.Relay.Listen, config.Relay.Remote,
-				time.Duration(config.Relay.Timeout)*time.Second,
+			rl, err := relay.NewTCPRelay(client, config.TCPRelay.Listen, config.TCPRelay.Remote,
+				time.Duration(config.TCPRelay.Timeout)*time.Second,
 				func(addr net.Addr) {
 					logrus.WithFields(logrus.Fields{
 						"src": addr.String(),
@@ -201,12 +201,40 @@ func client(config *clientConfig) {
 							"src": addr.String(),
 						}).Debug("TCP relay EOF")
 					}
-
 				})
 			if err != nil {
 				logrus.WithField("error", err).Fatal("Failed to initialize TCP relay")
 			}
-			logrus.WithField("addr", config.Relay.Listen).Info("TCP relay up and running")
+			logrus.WithField("addr", config.TCPRelay.Listen).Info("TCP relay up and running")
+			errChan <- rl.ListenAndServe()
+		}()
+	}
+
+	if len(config.UDPRelay.Listen) > 0 {
+		go func() {
+			rl, err := relay.NewUDPRelay(client, config.UDPRelay.Listen, config.UDPRelay.Remote,
+				time.Duration(config.UDPRelay.Timeout)*time.Second,
+				func(addr net.Addr) {
+					logrus.WithFields(logrus.Fields{
+						"src": addr.String(),
+					}).Debug("UDP relay request")
+				},
+				func(addr net.Addr, err error) {
+					if err != relay.ErrTimeout {
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"src":   addr.String(),
+						}).Info("UDP relay error")
+					} else {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+						}).Debug("UDP relay session closed")
+					}
+				})
+			if err != nil {
+				logrus.WithField("error", err).Fatal("Failed to initialize UDP relay")
+			}
+			logrus.WithField("addr", config.UDPRelay.Listen).Info("UDP relay up and running")
 			errChan <- rl.ListenAndServe()
 		}()
 	}
