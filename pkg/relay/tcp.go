@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type Relay struct {
+type TCPRelay struct {
 	HyClient   *core.Client
 	ListenAddr *net.TCPAddr
 	Remote     string
@@ -15,17 +15,15 @@ type Relay struct {
 
 	ConnFunc  func(addr net.Addr)
 	ErrorFunc func(addr net.Addr, err error)
-
-	tcpListener *net.TCPListener
 }
 
-func NewRelay(hyClient *core.Client, listen, remote string, timeout time.Duration,
-	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*Relay, error) {
+func NewTCPRelay(hyClient *core.Client, listen, remote string, timeout time.Duration,
+	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*TCPRelay, error) {
 	tAddr, err := net.ResolveTCPAddr("tcp", listen)
 	if err != nil {
 		return nil, err
 	}
-	r := &Relay{
+	r := &TCPRelay{
 		HyClient:   hyClient,
 		ListenAddr: tAddr,
 		Remote:     remote,
@@ -36,15 +34,14 @@ func NewRelay(hyClient *core.Client, listen, remote string, timeout time.Duratio
 	return r, nil
 }
 
-func (r *Relay) ListenAndServe() error {
-	var err error
-	r.tcpListener, err = net.ListenTCP("tcp", r.ListenAddr)
+func (r *TCPRelay) ListenAndServe() error {
+	listener, err := net.ListenTCP("tcp", r.ListenAddr)
 	if err != nil {
 		return err
 	}
-	defer r.tcpListener.Close()
+	defer listener.Close()
 	for {
-		c, err := r.tcpListener.AcceptTCP()
+		c, err := listener.AcceptTCP()
 		if err != nil {
 			return err
 		}

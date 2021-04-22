@@ -80,11 +80,16 @@ type clientConfig struct {
 		Cert     string `json:"cert"`
 		Key      string `json:"key"`
 	} `json:"http"`
-	Relay struct {
+	TCPRelay struct {
 		Listen  string `json:"listen"`
 		Remote  string `json:"remote"`
 		Timeout int    `json:"timeout"`
-	} `json:"relay"`
+	} `json:"relay_tcp"`
+	UDPRelay struct {
+		Listen  string `json:"listen"`
+		Remote  string `json:"remote"`
+		Timeout int    `json:"timeout"`
+	} `json:"relay_udp"`
 	ACL               string `json:"acl"`
 	Obfs              string `json:"obfs"`
 	Auth              []byte `json:"auth"`
@@ -96,11 +101,15 @@ type clientConfig struct {
 }
 
 func (c *clientConfig) Check() error {
-	if len(c.SOCKS5.Listen) == 0 && len(c.HTTP.Listen) == 0 && len(c.Relay.Listen) == 0 {
-		return errors.New("no SOCKS5, HTTP or relay listen address")
+	if len(c.SOCKS5.Listen) == 0 && len(c.HTTP.Listen) == 0 &&
+		len(c.TCPRelay.Listen) == 0 && len(c.UDPRelay.Listen) == 0 {
+		return errors.New("no SOCKS5, HTTP, TCP relay or UDP relay listen address")
 	}
-	if len(c.Relay.Listen) > 0 && len(c.Relay.Remote) == 0 {
-		return errors.New("no relay remote address")
+	if len(c.TCPRelay.Listen) > 0 && len(c.TCPRelay.Remote) == 0 {
+		return errors.New("no TCP relay remote address")
+	}
+	if len(c.UDPRelay.Listen) > 0 && len(c.UDPRelay.Remote) == 0 {
+		return errors.New("no UDP relay remote address")
 	}
 	if c.SOCKS5.Timeout != 0 && c.SOCKS5.Timeout <= 4 {
 		return errors.New("invalid SOCKS5 timeout")
@@ -108,8 +117,11 @@ func (c *clientConfig) Check() error {
 	if c.HTTP.Timeout != 0 && c.HTTP.Timeout <= 4 {
 		return errors.New("invalid HTTP timeout")
 	}
-	if c.Relay.Timeout != 0 && c.Relay.Timeout <= 4 {
-		return errors.New("invalid relay timeout")
+	if c.TCPRelay.Timeout != 0 && c.TCPRelay.Timeout <= 4 {
+		return errors.New("invalid TCP relay timeout")
+	}
+	if c.UDPRelay.Timeout != 0 && c.UDPRelay.Timeout <= 4 {
+		return errors.New("invalid UDP relay timeout")
 	}
 	if len(c.Server) == 0 {
 		return errors.New("no server address")

@@ -16,7 +16,7 @@
 
 [中文 README](README.zh.md)
 
-Hysteria is a TCP relay & SOCKS5/HTTP proxy tool optimized for networks of poor quality (e.g. satellite connections,
+Hysteria is a TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for networks of poor quality (e.g. satellite connections,
 congested public Wi-Fi, connecting from China to servers abroad) powered by a custom version of QUIC protocol.
 
 It is essentially a spiritual successor of my abandoned project https://github.com/dragonite-network/dragonite-java
@@ -87,14 +87,19 @@ Same as the server side, create a `config.json` under the root directory of the 
   "http": {
     "listen": "127.0.0.1:8080"
   },
-  "relay": {
+  "relay_tcp": {
     "listen": "127.0.0.1:2222",
     "remote": "123.123.123.123:22"
+  },
+  "relay_udp": {
+    "listen": "127.0.0.1:5333",
+    "remote": "8.8.8.8:53"
   }
 }
 ```
 
-This config enables a SOCKS5 proxy (with both TCP & UDP support), an HTTP proxy, and a TCP relay to `123.123.123.123:22`
+This config enables a SOCKS5 proxy (with both TCP & UDP support), an HTTP proxy, a TCP relay to `123.123.123.123:22` and
+a UDP relay to `8.8.8.8:53`
 at the same time. Please modify or remove these entries according to your actual needs.
 
 If your server certificate is not issued by a trusted CA, you need to specify the CA used
@@ -217,10 +222,15 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
     "cert": "/home/ubuntu/my_cert.crt", // Cert file (HTTPS proxy)
     "key": "/home/ubuntu/my_key.crt" // Key file (HTTPS proxy)
   },
-  "relay": {
-    "listen": "127.0.0.1:2222", // Relay listen address
-    "remote": "123.123.123.123:22", // Relay remote address
+  "relay_tcp": {
+    "listen": "127.0.0.1:2222", // TCP relay Listen address
+    "remote": "123.123.123.123:22", // TCP relay remote address
     "timeout": 300 // TCP timeout in seconds
+  },
+  "relay_udp": {
+    "listen": "127.0.0.1:5333", // UDP relay Listen address
+    "remote": "8.8.8.8:53", // UDP relay remote address
+    "timeout": 60 // UDP session timeout in seconds
   },
   "acl": "my_list.acl", // See ACL below
   "obfs": "AMOGUS", // Obfuscation password

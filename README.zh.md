@@ -14,7 +14,7 @@
 
 [6]: https://t.me/hysteria_github
 
-Hysteria 是专门针对恶劣网络环境进行优化的 TCP 连接转发和代理工具（双边加速），比如卫星网络、拥挤的公共 Wi-Fi、在中国连接国外服务器等。
+Hysteria 是专门针对恶劣网络环境进行优化的 TCP/UDP 转发和代理工具（双边加速），比如卫星网络、拥挤的公共 Wi-Fi、在中国连接国外服务器等。
 基于修改版的 QUIC 协议。
 
 是我此前弃坑的项目 https://github.com/dragonite-network/dragonite-java 的续作。
@@ -80,14 +80,19 @@ Hysteria 是专门针对恶劣网络环境进行优化的 TCP 连接转发和代
   "http": {
     "listen": "127.0.0.1:8080"
   },
-  "relay": {
+  "relay_tcp": {
     "listen": "127.0.0.1:2222",
     "remote": "123.123.123.123:22"
+  },
+  "relay_udp": {
+    "listen": "127.0.0.1:5333",
+    "remote": "8.8.8.8:53"
   }
 }
 ```
 
-这个配置同时开了 SOCK5 (支持 TCP & UDP) 代理，HTTP 代理和到 `123.123.123.123:22` 的 TCP 转发。请根据自己实际需要修改和删减。
+这个配置同时开了 SOCK5 (支持 TCP & UDP) 代理，HTTP 代理，到 `123.123.123.123:22` 的 TCP 转发和到 `8.8.8.8:53` 的 UDP 转发。
+请根据自己实际需要修改和删减。
 
 如果你的服务端证书不是由受信任的 CA 签发的，需要用 `"ca": "/path/to/file.ca"` 指定使用的 CA 或者用 `"insecure": true` 忽略所有
 证书错误（不推荐）。
@@ -205,10 +210,15 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
     "cert": "/home/ubuntu/my_cert.crt", // 证书 (变为 HTTPS 代理)
     "key": "/home/ubuntu/my_key.crt" // 证书密钥 (变为 HTTPS 代理)
   },
-  "relay": {
-    "listen": "127.0.0.1:2222", // 转发监听地址
-    "remote": "123.123.123.123:22", // 转发目标地址
+  "relay_tcp": {
+    "listen": "127.0.0.1:2222", // TCP 转发监听地址
+    "remote": "123.123.123.123:22", // TCP 转发目标地址
     "timeout": 300 // TCP 超时秒数
+  },
+  "relay_udp": {
+    "listen": "127.0.0.1:5333", // UDP 转发监听地址
+    "remote": "8.8.8.8:53", // UDP 转发目标地址
+    "timeout": 60 // UDP 超时秒数
   },
   "acl": "my_list.acl", // 见下文 ACL
   "obfs": "AMOGUS", // 混淆密码
