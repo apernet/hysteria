@@ -64,6 +64,7 @@ func (r *UDPRelay) ListenAndServe() error {
 	var connMapMutex sync.RWMutex
 	// Timeout cleanup routine
 	stopChan := make(chan bool)
+	defer close(stopChan)
 	go func() {
 		ticker := time.NewTicker(udpMinTimeout)
 		defer ticker.Stop()
