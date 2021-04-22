@@ -48,7 +48,7 @@ func (r *Relay) ListenAndServe() error {
 		if err != nil {
 			return err
 		}
-		go func(c *net.TCPConn) {
+		go func() {
 			defer c.Close()
 			r.ConnFunc(c.RemoteAddr())
 			rc, err := r.HyClient.DialTCP(r.Remote)
@@ -59,6 +59,6 @@ func (r *Relay) ListenAndServe() error {
 			defer rc.Close()
 			err = utils.PipePairWithTimeout(c, rc, r.Timeout)
 			r.ErrorFunc(c.RemoteAddr(), err)
-		}(c)
+		}()
 	}
 }

@@ -124,7 +124,7 @@ func (s *Server) ListenAndServe() error {
 		if err != nil {
 			return err
 		}
-		go func(c *net.TCPConn) {
+		go func() {
 			defer c.Close()
 			if s.TCPTimeout != 0 {
 				if err := c.SetDeadline(time.Now().Add(s.TCPTimeout)); err != nil {
@@ -139,7 +139,7 @@ func (s *Server) ListenAndServe() error {
 				return
 			}
 			_ = s.handle(c, r)
-		}(c)
+		}()
 	}
 }
 
