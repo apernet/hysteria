@@ -124,7 +124,7 @@ func (s *Server) ListenAndServe() error {
 		if err != nil {
 			return err
 		}
-		go func(c *net.TCPConn) {
+		go func() {
 			defer c.Close()
 			if s.TCPTimeout != 0 {
 				if err := c.SetDeadline(time.Now().Add(s.TCPTimeout)); err != nil {
@@ -139,7 +139,7 @@ func (s *Server) ListenAndServe() error {
 				return
 			}
 			_ = s.handle(c, r)
-		}(c)
+		}()
 	}
 }
 
@@ -327,10 +327,13 @@ func (s *Server) udpServer(clientConn *net.UDPConn, localRelayConn *net.UDPConn,
 				go func() {
 					buf := make([]byte, udpBufferSize)
 					for {
-						n, _, err := localRelayConn.ReadFrom(buf)
+						n, from, err := localRelayConn.ReadFrom(buf)
 						if n > 0 {
-							d := socks5.NewDatagram(socks5.ATYPIPv4,
-								[]byte{0x00, 0x00, 0x00, 0x00}, []byte{0x00, 0x00}, buf[:n])
+							atyp, addr, port, err := socks5.ParseAddress(from.String())
+							if err != nil {
+								continue
+							}
+							d := socks5.NewDatagram(atyp, addr, port, buf[:n])
 							_, _ = clientConn.WriteToUDP(d.Bytes(), clientAddr)
 						}
 						if err != nil {
