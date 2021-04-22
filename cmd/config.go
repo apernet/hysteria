@@ -106,7 +106,10 @@ func (c *clientConfig) Check() error {
 		return errors.New("no SOCKS5, HTTP, TCP relay or UDP relay listen address")
 	}
 	if len(c.TCPRelay.Listen) > 0 && len(c.TCPRelay.Remote) == 0 {
-		return errors.New("no relay remote address")
+		return errors.New("no TCP relay remote address")
+	}
+	if len(c.UDPRelay.Listen) > 0 && len(c.UDPRelay.Remote) == 0 {
+		return errors.New("no UDP relay remote address")
 	}
 	if c.SOCKS5.Timeout != 0 && c.SOCKS5.Timeout <= 4 {
 		return errors.New("invalid SOCKS5 timeout")
