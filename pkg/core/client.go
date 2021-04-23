@@ -140,7 +140,7 @@ func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (bool,
 	if sh.OK && c.congestionFactory != nil {
 		qs.SetCongestionControl(c.congestionFactory(sh.Rate.RecvBPS))
 	}
-	return true, sh.Message, nil
+	return sh.OK, sh.Message, nil
 }
 
 func (c *Client) handleMessage(qs quic.Session) {
