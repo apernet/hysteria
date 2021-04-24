@@ -243,11 +243,12 @@ func client(config *clientConfig) {
 	if len(config.TCPTProxy.Listen) > 0 {
 		go func() {
 			rl, err := tproxy.NewTCPTProxy(client, config.TCPTProxy.Listen,
-				time.Duration(config.TCPTProxy.Timeout)*time.Second,
-				func(addr, reqAddr net.Addr) {
+				time.Duration(config.TCPTProxy.Timeout)*time.Second, aclEngine,
+				func(addr, reqAddr net.Addr, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
-						"src": addr.String(),
-						"dst": reqAddr.String(),
+						"action": actionToString(action, arg),
+						"src":    addr.String(),
+						"dst":    reqAddr.String(),
 					}).Debug("TCP TProxy request")
 				},
 				func(addr, reqAddr net.Addr, err error) {

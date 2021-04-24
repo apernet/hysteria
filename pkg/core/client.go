@@ -195,7 +195,7 @@ func (c *Client) openStreamWithReconnect() (quic.Session, quic.Stream, error) {
 }
 
 func (c *Client) DialTCP(addr string) (net.Conn, error) {
-	host, port, err := splitHostPort(addr)
+	host, port, err := utils.SplitHostPort(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +366,7 @@ func (c *quicPktConn) ReadFrom() ([]byte, string, error) {
 }
 
 func (c *quicPktConn) WriteTo(p []byte, addr string) error {
-	host, port, err := splitHostPort(addr)
+	host, port, err := utils.SplitHostPort(addr)
 	if err != nil {
 		return err
 	}
@@ -383,16 +383,4 @@ func (c *quicPktConn) WriteTo(p []byte, addr string) error {
 func (c *quicPktConn) Close() error {
 	c.CloseFunc()
 	return c.Stream.Close()
-}
-
-func splitHostPort(hostport string) (string, uint16, error) {
-	host, port, err := net.SplitHostPort(hostport)
-	if err != nil {
-		return "", 0, err
-	}
-	portUint, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return "", 0, err
-	}
-	return host, uint16(portUint), err
 }
