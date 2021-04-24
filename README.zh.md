@@ -232,6 +232,15 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
     "cert": "/home/ubuntu/my_cert.crt", // 证书 (变为 HTTPS 代理)
     "key": "/home/ubuntu/my_key.crt" // 证书密钥 (变为 HTTPS 代理)
   },
+  "tun": {
+    "name": "tun-hy", // TUN 接口名称
+    "timeout": 300, // UDP 超时秒数
+    "address": "192.0.2.2", // TUN 接口地址（不适用于 Linux）
+    "gateway": "192.0.2.1", // TUN 接口网关（不适用于 Linux）
+    "mask": "255.255.255.252", // TUN 接口子网掩码（不适用于 Linux）
+    "dns": [ "8.8.8.8", "8.8.4.4" ], // TUN 接口 DNS 服务器（仅适用于 Windows）
+    "persist": false // 在程序退出之后保留接口（仅适用于 Linux）
+  },
   "relay_tcp": {
     "listen": "127.0.0.1:2222", // TCP 转发监听地址
     "remote": "123.123.123.123:22", // TCP 转发目标地址

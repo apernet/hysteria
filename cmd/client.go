@@ -15,6 +15,7 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/socks5"
 	"github.com/tobyxdd/hysteria/pkg/tproxy"
 	"github.com/tobyxdd/hysteria/pkg/transport"
+	"github.com/tobyxdd/hysteria/pkg/tun"
 	"io"
 	"io/ioutil"
 	"net"
@@ -185,6 +186,17 @@ func client(config *clientConfig) {
 				logrus.WithField("addr", config.HTTP.Listen).Info("HTTP server up and running")
 				errChan <- http.ListenAndServe(config.HTTP.Listen, proxy)
 			}
+		}()
+	}
+
+	if len(config.TUN.Name) != 0 {
+		go func() {
+			tunServer, err := tun.NewServer(client, time.Duration(config.TUN.Timeout)*time.Second,
+				config.TUN.Name, config.TUN.Address, config.TUN.Gateway, config.TUN.Mask, config.TUN.DNS, config.TUN.Persist)
+			if err != nil {
+				logrus.WithField("error", err).Fatal("Failed to initialize TUN server")
+			}
+			errChan <- tunServer.ListenAndServe()
 		}()
 	}
 

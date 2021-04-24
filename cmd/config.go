@@ -88,6 +88,15 @@ type clientConfig struct {
 		Cert     string `json:"cert"`
 		Key      string `json:"key"`
 	} `json:"http"`
+	TUN struct {
+		Name    string   `json:"name"`
+		Timeout int      `json:"timeout"`
+		Address string   `json:"address"`
+		Gateway string   `json:"gateway"`
+		Mask    string   `json:"mask"`
+		DNS     []string `json:"dns"`
+		Persist bool     `json:"persist"`
+	} `json:"tun"`
 	TCPRelay struct {
 		Listen  string `json:"listen"`
 		Remote  string `json:"remote"`
@@ -117,7 +126,7 @@ type clientConfig struct {
 }
 
 func (c *clientConfig) Check() error {
-	if len(c.SOCKS5.Listen) == 0 && len(c.HTTP.Listen) == 0 &&
+	if len(c.SOCKS5.Listen) == 0 && len(c.HTTP.Listen) == 0 && len(c.TUN.Name) == 0 &&
 		len(c.TCPRelay.Listen) == 0 && len(c.UDPRelay.Listen) == 0 &&
 		len(c.TCPTProxy.Listen) == 0 && len(c.UDPTProxy.Listen) == 0 {
 		return errors.New("no SOCKS5, HTTP, relay or TProxy listen address")
@@ -133,6 +142,9 @@ func (c *clientConfig) Check() error {
 	}
 	if c.HTTP.Timeout != 0 && c.HTTP.Timeout <= 4 {
 		return errors.New("invalid HTTP timeout")
+	}
+	if c.TUN.Timeout != 0 && c.TUN.Timeout < 4 {
+		return errors.New("invalid TUN timeout")
 	}
 	if c.TCPRelay.Timeout != 0 && c.TCPRelay.Timeout <= 4 {
 		return errors.New("invalid TCP relay timeout")
