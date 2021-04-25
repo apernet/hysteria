@@ -79,20 +79,12 @@ Hysteria 是专门针对恶劣网络环境进行优化的 TCP/UDP 转发和代�
   },
   "http": {
     "listen": "127.0.0.1:8080"
-  },
-  "relay_tcp": {
-    "listen": "127.0.0.1:2222",
-    "remote": "123.123.123.123:22"
-  },
-  "relay_udp": {
-    "listen": "127.0.0.1:5333",
-    "remote": "8.8.8.8:53"
   }
 }
 ```
 
-这个配置同时开了 SOCK5 (支持 TCP & UDP) 代理，HTTP 代理，到 `123.123.123.123:22` 的 TCP 转发和到 `8.8.8.8:53` 的 UDP 转发。
-请根据自己实际需要修改和删减。
+这个配置同时开了 SOCK5 (支持 TCP & UDP) 代理和 HTTP 代理。Hysteria 还有很多其他模式，请务必前往 [高级用法](#高级用法) 了解一下！
+要启用/禁用一个模式，在配置文件中添加/移除对应条目即可。
 
 如果你的服务端证书不是由受信任的 CA 签发的，需要用 `"ca": "/path/to/file.ca"` 指定使用的 CA 或者用 `"insecure": true` 忽略所有
 证书错误（不推荐）。
@@ -220,6 +212,14 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
     "remote": "8.8.8.8:53", // UDP 转发目标地址
     "timeout": 60 // UDP 超时秒数
   },
+  "tproxy_tcp": {
+    "listen": "127.0.0.1:9000", // TCP 透明代理监听地址
+    "timeout": 300 // TCP 超时秒数
+  },
+  "tproxy_udp": {
+    "listen": "127.0.0.1:9000", // UDP 透明代理监听地址
+    "timeout": 60 // UDP 超时秒数
+  },
   "acl": "my_list.acl", // 见下文 ACL
   "obfs": "AMOGUS", // 混淆密码
   "auth": "[BASE64]", // Base64 验证密钥
@@ -230,6 +230,14 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "recv_window": 67108864 // QUIC connection receive window
 }
 ```
+
+#### 透明代理
+
+TPROXY 模式 (`tproxy_tcp` 和 `tproxy_udp`) 只在 Linux 下可用。
+
+参考阅读：
+- https://www.kernel.org/doc/Documentation/networking/tproxy.txt
+- https://powerdns.org/tproxydoc/tproxy.md.html
 
 ## 关于 ACL
 
