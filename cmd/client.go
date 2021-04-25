@@ -273,6 +273,35 @@ func client(config *clientConfig) {
 		}()
 	}
 
+	if len(config.UDPTProxy.Listen) > 0 {
+		go func() {
+			rl, err := tproxy.NewUDPTProxy(client, config.UDPTProxy.Listen,
+				time.Duration(config.UDPTProxy.Timeout)*time.Second, aclEngine,
+				func(addr net.Addr) {
+					logrus.WithFields(logrus.Fields{
+						"src": addr.String(),
+					}).Debug("UDP TProxy request")
+				},
+				func(addr net.Addr, err error) {
+					if err != tproxy.ErrTimeout {
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"src":   addr.String(),
+						}).Info("UDP TProxy error")
+					} else {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+						}).Debug("UDP TProxy session closed")
+					}
+				})
+			if err != nil {
+				logrus.WithField("error", err).Fatal("Failed to initialize UDP TProxy")
+			}
+			logrus.WithField("addr", config.UDPTProxy.Listen).Info("UDP TProxy up and running")
+			errChan <- rl.ListenAndServe()
+		}()
+	}
+
 	err = <-errChan
 	logrus.WithField("error", err).Fatal("Client shutdown")
 }

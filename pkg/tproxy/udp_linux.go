@@ -1,7 +1,9 @@
-package relay
+package tproxy
 
 import (
 	"errors"
+	"github.com/LiamHaworth/go-tproxy"
+	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"net"
 	"sync"
@@ -13,27 +15,27 @@ const udpBufferSize = 65535
 
 var ErrTimeout = errors.New("inactivity timeout")
 
-type UDPRelay struct {
+type UDPTProxy struct {
 	HyClient   *core.Client
 	ListenAddr *net.UDPAddr
-	Remote     string
 	Timeout    time.Duration
+	ACLEngine  *acl.Engine
 
 	ConnFunc  func(addr net.Addr)
 	ErrorFunc func(addr net.Addr, err error)
 }
 
-func NewUDPRelay(hyClient *core.Client, listen, remote string, timeout time.Duration,
-	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*UDPRelay, error) {
+func NewUDPTProxy(hyClient *core.Client, listen string, timeout time.Duration, aclEngine *acl.Engine,
+	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*UDPTProxy, error) {
 	uAddr, err := net.ResolveUDPAddr("udp", listen)
 	if err != nil {
 		return nil, err
 	}
-	r := &UDPRelay{
+	r := &UDPTProxy{
 		HyClient:   hyClient,
 		ListenAddr: uAddr,
-		Remote:     remote,
 		Timeout:    timeout,
+		ACLEngine:  aclEngine,
 		ConnFunc:   connFunc,
 		ErrorFunc:  errorFunc,
 	}
@@ -48,8 +50,8 @@ type connEntry struct {
 	Deadline atomic.Value
 }
 
-func (r *UDPRelay) ListenAndServe() error {
-	conn, err := net.ListenUDP("udp", r.ListenAddr)
+func (r *UDPTProxy) ListenAndServe() error {
+	conn, err := tproxy.ListenUDP("udp", r.ListenAddr)
 	if err != nil {
 		return err
 	}
@@ -60,27 +62,27 @@ func (r *UDPRelay) ListenAndServe() error {
 	// Read loop
 	buf := make([]byte, udpBufferSize)
 	for {
-		n, rAddr, err := conn.ReadFromUDP(buf)
+		n, srcAddr, dstAddr, err := tproxy.ReadFromUDP(conn, buf)
 		if n > 0 {
 			connMapMutex.RLock()
-			cme := connMap[rAddr.String()]
+			cme := connMap[srcAddr.String()]
 			connMapMutex.RUnlock()
 			if cme != nil {
 				// Existing conn
 				cme.Deadline.Store(time.Now().Add(r.Timeout))
-				_ = cme.HyConn.WriteTo(buf[:n], r.Remote)
+				_ = cme.HyConn.WriteTo(buf[:n], dstAddr.String())
 			} else {
 				// New
-				r.ConnFunc(rAddr)
+				r.ConnFunc(srcAddr)
 				hyConn, err := r.HyClient.DialUDP()
 				if err != nil {
-					r.ErrorFunc(rAddr, err)
+					r.ErrorFunc(srcAddr, err)
 				} else {
 					// Add it to the map
 					ent := &connEntry{HyConn: hyConn}
 					ent.Deadline.Store(time.Now().Add(r.Timeout))
 					connMapMutex.Lock()
-					connMap[rAddr.String()] = ent
+					connMap[srcAddr.String()] = ent
 					connMapMutex.Unlock()
 					// Start remote to local
 					go func() {
@@ -90,7 +92,7 @@ func (r *UDPRelay) ListenAndServe() error {
 								break
 							}
 							ent.Deadline.Store(time.Now().Add(r.Timeout))
-							_, _ = conn.WriteToUDP(bs, rAddr)
+							_, _ = conn.WriteToUDP(bs, srcAddr)
 						}
 					}()
 					// Timeout cleanup routine
@@ -101,9 +103,9 @@ func (r *UDPRelay) ListenAndServe() error {
 								// Time to die
 								connMapMutex.Lock()
 								_ = hyConn.Close()
-								delete(connMap, rAddr.String())
+								delete(connMap, srcAddr.String())
 								connMapMutex.Unlock()
-								r.ErrorFunc(rAddr, ErrTimeout)
+								r.ErrorFunc(srcAddr, ErrTimeout)
 								return
 							} else {
 								time.Sleep(ttl)
@@ -111,7 +113,7 @@ func (r *UDPRelay) ListenAndServe() error {
 						}
 					}()
 					// Send the packet
-					_ = hyConn.WriteTo(buf[:n], r.Remote)
+					_ = hyConn.WriteTo(buf[:n], dstAddr.String())
 				}
 			}
 		}
