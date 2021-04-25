@@ -11,8 +11,6 @@ import (
 
 const udpBufferSize = 65535
 
-const udpMinTimeout = 4 * time.Second
-
 var ErrTimeout = errors.New("inactivity timeout")
 
 type UDPRelay struct {
@@ -41,8 +39,6 @@ func NewUDPRelay(hyClient *core.Client, listen, remote string, timeout time.Dura
 	}
 	if timeout == 0 {
 		r.Timeout = 1 * time.Minute
-	} else if timeout < udpMinTimeout {
-		r.Timeout = udpMinTimeout
 	}
 	return r, nil
 }
@@ -101,7 +97,7 @@ func (r *UDPRelay) ListenAndServe() error {
 					go func() {
 						for {
 							ttl := ent.Deadline.Load().(time.Time).Sub(time.Now())
-							if ttl < 0 {
+							if ttl <= 0 {
 								// Time to die
 								connMapMutex.Lock()
 								_ = hyConn.Close()
