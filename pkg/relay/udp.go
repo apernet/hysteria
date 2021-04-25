@@ -48,9 +48,8 @@ func NewUDPRelay(hyClient *core.Client, listen, remote string, timeout time.Dura
 }
 
 type cmEntry struct {
-	HyConn         core.UDPConn
-	Addr           *net.UDPAddr
-	LastActiveTime atomic.Value
+	HyConn   core.UDPConn
+	Deadline atomic.Value
 }
 
 func (r *UDPRelay) ListenAndServe() error {
@@ -62,31 +61,6 @@ func (r *UDPRelay) ListenAndServe() error {
 	// src <-> HyClient UDPConn
 	connMap := make(map[string]*cmEntry)
 	var connMapMutex sync.RWMutex
-	// Timeout cleanup routine
-	stopChan := make(chan bool)
-	defer close(stopChan)
-	go func() {
-		ticker := time.NewTicker(udpMinTimeout)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-stopChan:
-				return
-			case t := <-ticker.C:
-				allowedLAT := t.Add(-r.Timeout)
-				connMapMutex.Lock()
-				for k, v := range connMap {
-					if v.LastActiveTime.Load().(time.Time).Before(allowedLAT) {
-						// Timeout
-						r.ErrorFunc(v.Addr, ErrTimeout)
-						_ = v.HyConn.Close()
-						delete(connMap, k)
-					}
-				}
-				connMapMutex.Unlock()
-			}
-		}
-	}()
 	// Read loop
 	buf := make([]byte, udpBufferSize)
 	for {
@@ -97,7 +71,7 @@ func (r *UDPRelay) ListenAndServe() error {
 			connMapMutex.RUnlock()
 			if cme != nil {
 				// Existing conn
-				cme.LastActiveTime.Store(time.Now())
+				cme.Deadline.Store(time.Now().Add(r.Timeout))
 				_ = cme.HyConn.WriteTo(buf[:n], r.Remote)
 			} else {
 				// New
@@ -107,8 +81,8 @@ func (r *UDPRelay) ListenAndServe() error {
 					r.ErrorFunc(rAddr, err)
 				} else {
 					// Add it to the map
-					ent := &cmEntry{HyConn: hyConn, Addr: rAddr}
-					ent.LastActiveTime.Store(time.Now())
+					ent := &cmEntry{HyConn: hyConn}
+					ent.Deadline.Store(time.Now().Add(r.Timeout))
 					connMapMutex.Lock()
 					connMap[rAddr.String()] = ent
 					connMapMutex.Unlock()
@@ -119,8 +93,25 @@ func (r *UDPRelay) ListenAndServe() error {
 							if err != nil {
 								break
 							}
-							ent.LastActiveTime.Store(time.Now())
+							ent.Deadline.Store(time.Now().Add(r.Timeout))
 							_, _ = conn.WriteToUDP(bs, rAddr)
+						}
+					}()
+					// Timeout cleanup routine
+					go func() {
+						for {
+							ttl := ent.Deadline.Load().(time.Time).Sub(time.Now())
+							if ttl < 0 {
+								// Time to die
+								connMapMutex.Lock()
+								_ = hyConn.Close()
+								delete(connMap, rAddr.String())
+								connMapMutex.Unlock()
+								r.ErrorFunc(rAddr, ErrTimeout)
+								return
+							} else {
+								time.Sleep(ttl)
+							}
 						}
 					}()
 					// Send the packet
