@@ -11,7 +11,7 @@ const (
 
 	DefaultMaxReceiveStreamFlowControlWindow     = 33554432
 	DefaultMaxReceiveConnectionFlowControlWindow = 67108864
-	DefaultMaxIncomingStreams                    = 1024
+	DefaultMaxIncomingStreams                    = 4096
 
 	tlsProtocolName = "hysteria"
 )
