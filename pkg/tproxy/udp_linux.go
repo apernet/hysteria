@@ -5,7 +5,9 @@ import (
 	"github.com/LiamHaworth/go-tproxy"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,8 +48,52 @@ func NewUDPTProxy(hyClient *core.Client, listen string, timeout time.Duration, a
 }
 
 type connEntry struct {
-	HyConn   core.UDPConn
-	Deadline atomic.Value
+	HyConn    core.UDPConn
+	LocalConn *net.UDPConn
+	Deadline  atomic.Value
+}
+
+func (r *UDPTProxy) sendPacket(entry *connEntry, dstAddr *net.UDPAddr, data []byte) error {
+	entry.Deadline.Store(time.Now().Add(r.Timeout))
+	host, port, err := utils.SplitHostPort(dstAddr.String())
+	if err != nil {
+		return err
+	}
+	action, arg := acl.ActionProxy, ""
+	var ipAddr *net.IPAddr
+	var resErr error
+	if r.ACLEngine != nil && entry.LocalConn != nil {
+		action, arg, ipAddr, resErr = r.ACLEngine.ResolveAndMatch(host)
+		// Doesn't always matter if the resolution fails, as we may send it through HyClient
+	}
+	switch action {
+	case acl.ActionDirect:
+		if resErr != nil {
+			return resErr
+		}
+		_, err = entry.LocalConn.WriteToUDP(data, &net.UDPAddr{
+			IP:   ipAddr.IP,
+			Port: int(port),
+			Zone: ipAddr.Zone,
+		})
+		return err
+	case acl.ActionProxy:
+		return entry.HyConn.WriteTo(data, dstAddr.String())
+	case acl.ActionBlock:
+		// Do nothing
+		return nil
+	case acl.ActionHijack:
+		hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(port)))
+		rAddr, err := net.ResolveUDPAddr("udp", hijackAddr)
+		if err != nil {
+			return err
+		}
+		_, err = entry.LocalConn.WriteToUDP(data, rAddr)
+		return err
+	default:
+		// Do nothing
+		return nil
+	}
 }
 
 func (r *UDPTProxy) ListenAndServe() error {
@@ -65,56 +111,80 @@ func (r *UDPTProxy) ListenAndServe() error {
 		n, srcAddr, dstAddr, err := tproxy.ReadFromUDP(conn, buf)
 		if n > 0 {
 			connMapMutex.RLock()
-			cme := connMap[srcAddr.String()]
+			entry := connMap[srcAddr.String()]
 			connMapMutex.RUnlock()
-			if cme != nil {
+			if entry != nil {
 				// Existing conn
-				cme.Deadline.Store(time.Now().Add(r.Timeout))
-				_ = cme.HyConn.WriteTo(buf[:n], dstAddr.String())
+				_ = r.sendPacket(entry, dstAddr, buf[:n])
 			} else {
 				// New
 				r.ConnFunc(srcAddr)
 				hyConn, err := r.HyClient.DialUDP()
 				if err != nil {
 					r.ErrorFunc(srcAddr, err)
-				} else {
-					// Add it to the map
-					ent := &connEntry{HyConn: hyConn}
-					ent.Deadline.Store(time.Now().Add(r.Timeout))
-					connMapMutex.Lock()
-					connMap[srcAddr.String()] = ent
-					connMapMutex.Unlock()
-					// Start remote to local
+					continue
+				}
+				var localConn *net.UDPConn
+				if r.ACLEngine != nil {
+					localConn, err = net.ListenUDP("udp", nil)
+					if err != nil {
+						r.ErrorFunc(srcAddr, err)
+						continue
+					}
+				}
+				// Send
+				entry := &connEntry{HyConn: hyConn, LocalConn: localConn}
+				_ = r.sendPacket(entry, dstAddr, buf[:n])
+				// Add it to the map
+				connMapMutex.Lock()
+				connMap[srcAddr.String()] = entry
+				connMapMutex.Unlock()
+				// Start remote to local
+				go func() {
+					for {
+						bs, _, err := hyConn.ReadFrom()
+						if err != nil {
+							break
+						}
+						entry.Deadline.Store(time.Now().Add(r.Timeout))
+						_, _ = conn.WriteToUDP(bs, srcAddr)
+					}
+				}()
+				if localConn != nil {
 					go func() {
+						buf := make([]byte, udpBufferSize)
 						for {
-							bs, _, err := hyConn.ReadFrom()
+							n, _, err := localConn.ReadFrom(buf)
+							if n > 0 {
+								entry.Deadline.Store(time.Now().Add(r.Timeout))
+								_, _ = conn.WriteToUDP(buf[:n], srcAddr)
+							}
 							if err != nil {
 								break
 							}
-							ent.Deadline.Store(time.Now().Add(r.Timeout))
-							_, _ = conn.WriteToUDP(bs, srcAddr)
 						}
 					}()
-					// Timeout cleanup routine
-					go func() {
-						for {
-							ttl := ent.Deadline.Load().(time.Time).Sub(time.Now())
-							if ttl <= 0 {
-								// Time to die
-								connMapMutex.Lock()
-								_ = hyConn.Close()
-								delete(connMap, srcAddr.String())
-								connMapMutex.Unlock()
-								r.ErrorFunc(srcAddr, ErrTimeout)
-								return
-							} else {
-								time.Sleep(ttl)
-							}
-						}
-					}()
-					// Send the packet
-					_ = hyConn.WriteTo(buf[:n], dstAddr.String())
 				}
+				// Timeout cleanup routine
+				go func() {
+					for {
+						ttl := entry.Deadline.Load().(time.Time).Sub(time.Now())
+						if ttl <= 0 {
+							// Time to die
+							connMapMutex.Lock()
+							_ = hyConn.Close()
+							if localConn != nil {
+								_ = localConn.Close()
+							}
+							delete(connMap, srcAddr.String())
+							connMapMutex.Unlock()
+							r.ErrorFunc(srcAddr, ErrTimeout)
+							return
+						} else {
+							time.Sleep(ttl)
+						}
+					}
+				}()
 			}
 		}
 		if err != nil {

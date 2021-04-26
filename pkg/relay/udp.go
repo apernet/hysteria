@@ -63,12 +63,12 @@ func (r *UDPRelay) ListenAndServe() error {
 		n, rAddr, err := conn.ReadFromUDP(buf)
 		if n > 0 {
 			connMapMutex.RLock()
-			cme := connMap[rAddr.String()]
+			entry := connMap[rAddr.String()]
 			connMapMutex.RUnlock()
-			if cme != nil {
+			if entry != nil {
 				// Existing conn
-				cme.Deadline.Store(time.Now().Add(r.Timeout))
-				_ = cme.HyConn.WriteTo(buf[:n], r.Remote)
+				entry.Deadline.Store(time.Now().Add(r.Timeout))
+				_ = entry.HyConn.WriteTo(buf[:n], r.Remote)
 			} else {
 				// New
 				r.ConnFunc(rAddr)
@@ -77,10 +77,10 @@ func (r *UDPRelay) ListenAndServe() error {
 					r.ErrorFunc(rAddr, err)
 				} else {
 					// Add it to the map
-					ent := &connEntry{HyConn: hyConn}
-					ent.Deadline.Store(time.Now().Add(r.Timeout))
+					entry := &connEntry{HyConn: hyConn}
+					entry.Deadline.Store(time.Now().Add(r.Timeout))
 					connMapMutex.Lock()
-					connMap[rAddr.String()] = ent
+					connMap[rAddr.String()] = entry
 					connMapMutex.Unlock()
 					// Start remote to local
 					go func() {
@@ -89,14 +89,14 @@ func (r *UDPRelay) ListenAndServe() error {
 							if err != nil {
 								break
 							}
-							ent.Deadline.Store(time.Now().Add(r.Timeout))
+							entry.Deadline.Store(time.Now().Add(r.Timeout))
 							_, _ = conn.WriteToUDP(bs, rAddr)
 						}
 					}()
 					// Timeout cleanup routine
 					go func() {
 						for {
-							ttl := ent.Deadline.Load().(time.Time).Sub(time.Now())
+							ttl := entry.Deadline.Load().(time.Time).Sub(time.Now())
 							if ttl <= 0 {
 								// Time to die
 								connMapMutex.Lock()
