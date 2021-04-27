@@ -23,6 +23,7 @@ var (
 type CongestionFactory func(refBPS uint64) congestion.CongestionControl
 
 type Client struct {
+	transport         Transport
 	serverAddr        string
 	sendBPS, recvBPS  uint64
 	auth              []byte
@@ -40,9 +41,10 @@ type Client struct {
 	udpSessionMap   map[uint32]chan *udpMessage
 }
 
-func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
+func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config, transport Transport,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, obfuscator Obfuscator) (*Client, error) {
 	c := &Client{
+		transport:         transport,
 		serverAddr:        serverAddr,
 		sendBPS:           sendBPS,
 		recvBPS:           recvBPS,
@@ -59,11 +61,11 @@ func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig
 }
 
 func (c *Client) connectToServer() error {
-	serverUDPAddr, err := net.ResolveUDPAddr("udp", c.serverAddr)
+	serverUDPAddr, err := c.transport.QUICResolveUDPAddr(c.serverAddr)
 	if err != nil {
 		return err
 	}
-	udpConn, err := net.ListenUDP("udp", nil)
+	udpConn, err := c.transport.QUICListenUDP(nil)
 	if err != nil {
 		return err
 	}

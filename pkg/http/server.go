@@ -16,7 +16,7 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/core"
 )
 
-func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEngine *acl.Engine,
+func NewProxyHTTPServer(hyClient *core.Client, transport core.Transport, idleTimeout time.Duration, aclEngine *acl.Engine,
 	newDialFunc func(reqAddr string, action acl.Action, arg string),
 	basicAuthFunc func(user, password string) bool) (*goproxy.ProxyHttpServer, error) {
 	proxy := goproxy.NewProxyHttpServer()
@@ -44,7 +44,7 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 				if resErr != nil {
 					return nil, resErr
 				}
-				return net.DialTCP(network, nil, &net.TCPAddr{
+				return transport.OutDialTCP(nil, &net.TCPAddr{
 					IP:   ipAddr.IP,
 					Port: int(port),
 					Zone: ipAddr.Zone,
@@ -54,7 +54,7 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 			case acl.ActionBlock:
 				return nil, errors.New("blocked by ACL")
 			case acl.ActionHijack:
-				return net.Dial(network, net.JoinHostPort(arg, strconv.Itoa(int(port))))
+				return transport.OutDial(network, net.JoinHostPort(arg, strconv.Itoa(int(port))))
 			default:
 				return nil, fmt.Errorf("unknown action %d", action)
 			}

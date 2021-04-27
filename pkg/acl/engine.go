@@ -3,6 +3,7 @@ package acl
 import (
 	"bufio"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/tobyxdd/hysteria/pkg/core"
 	"net"
 	"os"
 	"strings"
@@ -14,6 +15,7 @@ type Engine struct {
 	DefaultAction Action
 	Entries       []Entry
 	Cache         *lru.ARCCache
+	Transport     core.Transport
 }
 
 type cacheEntry struct {
@@ -21,7 +23,7 @@ type cacheEntry struct {
 	Arg    string
 }
 
-func LoadFromFile(filename string) (*Engine, error) {
+func LoadFromFile(filename string, transport core.Transport) (*Engine, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -49,6 +51,7 @@ func LoadFromFile(filename string) (*Engine, error) {
 		DefaultAction: ActionProxy,
 		Entries:       entries,
 		Cache:         cache,
+		Transport:     transport,
 	}, nil
 }
 
@@ -56,7 +59,7 @@ func (e *Engine) ResolveAndMatch(host string) (Action, string, *net.IPAddr, erro
 	ip, zone := parseIPZone(host)
 	if ip == nil {
 		// Domain
-		ipAddr, err := net.ResolveIPAddr("ip", host)
+		ipAddr, err := e.Transport.OutResolveIPAddr(host)
 		if v, ok := e.Cache.Get(host); ok {
 			// Cache hit
 			ce := v.(cacheEntry)

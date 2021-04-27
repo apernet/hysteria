@@ -18,6 +18,7 @@ const udpBufferSize = 65535
 
 type serverClient struct {
 	CS              quic.Session
+	Transport       Transport
 	Auth            []byte
 	ClientAddr      net.Addr
 	DisableUDP      bool
@@ -34,12 +35,13 @@ type serverClient struct {
 	nextUDPSessionID uint32
 }
 
-func newServerClient(cs quic.Session, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
+func newServerClient(cs quic.Session, transport Transport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
 	CTCPRequestFunc TCPRequestFunc, CTCPErrorFunc TCPErrorFunc,
 	CUDPRequestFunc UDPRequestFunc, CUDPErrorFunc UDPErrorFunc,
 	UpCounterVec, DownCounterVec *prometheus.CounterVec) *serverClient {
 	sc := &serverClient{
 		CS:              cs,
+		Transport:       transport,
 		Auth:            auth,
 		ClientAddr:      cs.RemoteAddr(),
 		DisableUDP:      disableUDP,
@@ -118,7 +120,7 @@ func (c *serverClient) handleMessage(msg []byte) {
 		if c.ACLEngine != nil {
 			action, arg, ipAddr, err = c.ACLEngine.ResolveAndMatch(udpMsg.Host)
 		} else {
-			ipAddr, err = net.ResolveIPAddr("ip", udpMsg.Host)
+			ipAddr, err = c.Transport.OutResolveIPAddr(udpMsg.Host)
 		}
 		if err != nil {
 			return
@@ -137,7 +139,7 @@ func (c *serverClient) handleMessage(msg []byte) {
 			// Do nothing
 		case acl.ActionHijack:
 			hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(udpMsg.Port)))
-			addr, err := net.ResolveUDPAddr("udp", hijackAddr)
+			addr, err := c.Transport.OutResolveUDPAddr(hijackAddr)
 			if err == nil {
 				_, _ = conn.WriteToUDP(udpMsg.Data, addr)
 				if c.UpCounter != nil {
@@ -158,7 +160,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 	if c.ACLEngine != nil {
 		action, arg, ipAddr, err = c.ACLEngine.ResolveAndMatch(host)
 	} else {
-		ipAddr, err = net.ResolveIPAddr("ip", host)
+		ipAddr, err = c.Transport.OutResolveIPAddr(host)
 	}
 	if err != nil {
 		_ = struc.Pack(stream, &serverResponse{
@@ -173,7 +175,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 	var conn net.Conn // Connection to be piped
 	switch action {
 	case acl.ActionDirect, acl.ActionProxy: // Treat proxy as direct on server side
-		conn, err = net.DialTCP("tcp", nil, &net.TCPAddr{
+		conn, err = c.Transport.OutDialTCP(nil, &net.TCPAddr{
 			IP:   ipAddr.IP,
 			Port: int(port),
 			Zone: ipAddr.Zone,
@@ -194,7 +196,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 		return
 	case acl.ActionHijack:
 		hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(port)))
-		conn, err = net.Dial("tcp", hijackAddr)
+		conn, err = c.Transport.OutDial("tcp", hijackAddr)
 		if err != nil {
 			_ = struc.Pack(stream, &serverResponse{
 				OK:      false,
@@ -234,7 +236,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 
 func (c *serverClient) handleUDP(stream quic.Stream) {
 	// Like in SOCKS5, the stream here is only used to maintain the UDP session. No need to read anything from it
-	conn, err := net.ListenUDP("udp", nil)
+	conn, err := c.Transport.OutListenUDP(nil)
 	if err != nil {
 		_ = struc.Pack(stream, &serverResponse{
 			OK:      false,
