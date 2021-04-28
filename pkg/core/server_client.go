@@ -81,11 +81,15 @@ func (c *serverClient) Run() {
 		if err != nil {
 			break
 		}
-		c.ConnGauge.Inc()
+		if c.ConnGauge != nil {
+			c.ConnGauge.Inc()
+		}
 		go func() {
 			c.handleStream(stream)
 			_ = stream.Close()
-			c.ConnGauge.Dec()
+			if c.ConnGauge != nil {
+				c.ConnGauge.Dec()
+			}
 		}()
 	}
 }
