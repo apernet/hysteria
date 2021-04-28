@@ -104,7 +104,7 @@ func server(config *serverConfig) {
 	// ACL
 	var aclEngine *acl.Engine
 	if len(config.ACL) > 0 {
-		aclEngine, err = acl.LoadFromFile(config.ACL)
+		aclEngine, err = acl.LoadFromFile(config.ACL, core.DefaultTransport)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
@@ -123,7 +123,7 @@ func server(config *serverConfig) {
 			logrus.WithField("error", err).Fatal("Prometheus HTTP server error")
 		}()
 	}
-	server, err := core.NewServer(config.Listen, tlsConfig, quicConfig,
+	server, err := core.NewServer(config.Listen, tlsConfig, quicConfig, core.DefaultTransport,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))

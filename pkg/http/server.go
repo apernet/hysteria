@@ -44,7 +44,7 @@ func NewProxyHTTPServer(hyClient *core.Client, transport core.Transport, idleTim
 				if resErr != nil {
 					return nil, resErr
 				}
-				return transport.OutDialTCP(nil, &net.TCPAddr{
+				return transport.LocalDialTCP(nil, &net.TCPAddr{
 					IP:   ipAddr.IP,
 					Port: int(port),
 					Zone: ipAddr.Zone,
@@ -54,7 +54,7 @@ func NewProxyHTTPServer(hyClient *core.Client, transport core.Transport, idleTim
 			case acl.ActionBlock:
 				return nil, errors.New("blocked by ACL")
 			case acl.ActionHijack:
-				return transport.OutDial(network, net.JoinHostPort(arg, strconv.Itoa(int(port))))
+				return transport.LocalDial(network, net.JoinHostPort(arg, strconv.Itoa(int(port))))
 			default:
 				return nil, fmt.Errorf("unknown action %d", action)
 			}

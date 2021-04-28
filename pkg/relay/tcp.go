@@ -9,6 +9,7 @@ import (
 
 type TCPRelay struct {
 	HyClient   *core.Client
+	Transport  core.Transport
 	ListenAddr *net.TCPAddr
 	Remote     string
 	Timeout    time.Duration
@@ -17,14 +18,15 @@ type TCPRelay struct {
 	ErrorFunc func(addr net.Addr, err error)
 }
 
-func NewTCPRelay(hyClient *core.Client, listen, remote string, timeout time.Duration,
+func NewTCPRelay(hyClient *core.Client, transport core.Transport, listen, remote string, timeout time.Duration,
 	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*TCPRelay, error) {
-	tAddr, err := net.ResolveTCPAddr("tcp", listen)
+	tAddr, err := transport.LocalResolveTCPAddr(listen)
 	if err != nil {
 		return nil, err
 	}
 	r := &TCPRelay{
 		HyClient:   hyClient,
+		Transport:  transport,
 		ListenAddr: tAddr,
 		Remote:     remote,
 		Timeout:    timeout,
@@ -35,7 +37,7 @@ func NewTCPRelay(hyClient *core.Client, listen, remote string, timeout time.Dura
 }
 
 func (r *TCPRelay) ListenAndServe() error {
-	listener, err := net.ListenTCP("tcp", r.ListenAddr)
+	listener, err := r.Transport.LocalListenTCP(r.ListenAddr)
 	if err != nil {
 		return err
 	}

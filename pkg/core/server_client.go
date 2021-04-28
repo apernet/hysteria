@@ -120,7 +120,7 @@ func (c *serverClient) handleMessage(msg []byte) {
 		if c.ACLEngine != nil {
 			action, arg, ipAddr, err = c.ACLEngine.ResolveAndMatch(udpMsg.Host)
 		} else {
-			ipAddr, err = c.Transport.OutResolveIPAddr(udpMsg.Host)
+			ipAddr, err = c.Transport.LocalResolveIPAddr(udpMsg.Host)
 		}
 		if err != nil {
 			return
@@ -139,7 +139,7 @@ func (c *serverClient) handleMessage(msg []byte) {
 			// Do nothing
 		case acl.ActionHijack:
 			hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(udpMsg.Port)))
-			addr, err := c.Transport.OutResolveUDPAddr(hijackAddr)
+			addr, err := c.Transport.LocalResolveUDPAddr(hijackAddr)
 			if err == nil {
 				_, _ = conn.WriteToUDP(udpMsg.Data, addr)
 				if c.UpCounter != nil {
@@ -160,7 +160,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 	if c.ACLEngine != nil {
 		action, arg, ipAddr, err = c.ACLEngine.ResolveAndMatch(host)
 	} else {
-		ipAddr, err = c.Transport.OutResolveIPAddr(host)
+		ipAddr, err = c.Transport.LocalResolveIPAddr(host)
 	}
 	if err != nil {
 		_ = struc.Pack(stream, &serverResponse{
@@ -175,7 +175,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 	var conn net.Conn // Connection to be piped
 	switch action {
 	case acl.ActionDirect, acl.ActionProxy: // Treat proxy as direct on server side
-		conn, err = c.Transport.OutDialTCP(nil, &net.TCPAddr{
+		conn, err = c.Transport.LocalDialTCP(nil, &net.TCPAddr{
 			IP:   ipAddr.IP,
 			Port: int(port),
 			Zone: ipAddr.Zone,
@@ -196,7 +196,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 		return
 	case acl.ActionHijack:
 		hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(port)))
-		conn, err = c.Transport.OutDial("tcp", hijackAddr)
+		conn, err = c.Transport.LocalDial("tcp", hijackAddr)
 		if err != nil {
 			_ = struc.Pack(stream, &serverResponse{
 				OK:      false,
@@ -236,7 +236,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 
 func (c *serverClient) handleUDP(stream quic.Stream) {
 	// Like in SOCKS5, the stream here is only used to maintain the UDP session. No need to read anything from it
-	conn, err := c.Transport.OutListenUDP(nil)
+	conn, err := c.Transport.LocalListenUDP(nil)
 	if err != nil {
 		_ = struc.Pack(stream, &serverResponse{
 			OK:      false,

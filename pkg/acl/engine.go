@@ -59,7 +59,7 @@ func (e *Engine) ResolveAndMatch(host string) (Action, string, *net.IPAddr, erro
 	ip, zone := parseIPZone(host)
 	if ip == nil {
 		// Domain
-		ipAddr, err := e.Transport.OutResolveIPAddr(host)
+		ipAddr, err := e.Transport.LocalResolveIPAddr(host)
 		if v, ok := e.Cache.Get(host); ok {
 			// Cache hit
 			ce := v.(cacheEntry)

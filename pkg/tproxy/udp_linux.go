@@ -19,6 +19,7 @@ var ErrTimeout = errors.New("inactivity timeout")
 
 type UDPTProxy struct {
 	HyClient   *core.Client
+	Transport  core.Transport
 	ListenAddr *net.UDPAddr
 	Timeout    time.Duration
 	ACLEngine  *acl.Engine
@@ -27,14 +28,16 @@ type UDPTProxy struct {
 	ErrorFunc func(addr net.Addr, err error)
 }
 
-func NewUDPTProxy(hyClient *core.Client, listen string, timeout time.Duration, aclEngine *acl.Engine,
+func NewUDPTProxy(hyClient *core.Client, transport core.Transport, listen string, timeout time.Duration,
+	aclEngine *acl.Engine,
 	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*UDPTProxy, error) {
-	uAddr, err := net.ResolveUDPAddr("udp", listen)
+	uAddr, err := transport.LocalResolveUDPAddr(listen)
 	if err != nil {
 		return nil, err
 	}
 	r := &UDPTProxy{
 		HyClient:   hyClient,
+		Transport:  transport,
 		ListenAddr: uAddr,
 		Timeout:    timeout,
 		ACLEngine:  aclEngine,
@@ -84,7 +87,7 @@ func (r *UDPTProxy) sendPacket(entry *connEntry, dstAddr *net.UDPAddr, data []by
 		return nil
 	case acl.ActionHijack:
 		hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(port)))
-		rAddr, err := net.ResolveUDPAddr("udp", hijackAddr)
+		rAddr, err := r.Transport.LocalResolveUDPAddr(hijackAddr)
 		if err != nil {
 			return err
 		}
@@ -126,7 +129,7 @@ func (r *UDPTProxy) ListenAndServe() error {
 				}
 				var localConn *net.UDPConn
 				if r.ACLEngine != nil {
-					localConn, err = net.ListenUDP("udp", nil)
+					localConn, err = r.Transport.LocalListenUDP(nil)
 					if err != nil {
 						r.ErrorFunc(srcAddr, err)
 						continue
