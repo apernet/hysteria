@@ -171,6 +171,9 @@ Hysteria 是专门针对恶劣网络环境进行优化的 TCP/UDP 转发和代�
 例如如果配置在 8080 端口，则 API 地址是 `http://example.com:8080/metrics`
 
 ```text
+hysteria_active_conn{auth="55m95auW5oCq"} 32
+hysteria_active_conn{auth="aGFja2VyISE="} 7
+
 hysteria_traffic_downlink_bytes_total{auth="55m95auW5oCq"} 122639
 hysteria_traffic_downlink_bytes_total{auth="aGFja2VyISE="} 3.225058e+06
 
