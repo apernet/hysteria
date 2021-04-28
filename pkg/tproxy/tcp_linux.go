@@ -6,6 +6,7 @@ import (
 	"github.com/LiamHaworth/go-tproxy"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 
 type TCPTProxy struct {
 	HyClient   *core.Client
+	Transport  transport.Transport
 	ListenAddr *net.TCPAddr
 	Timeout    time.Duration
 	ACLEngine  *acl.Engine
@@ -22,15 +24,17 @@ type TCPTProxy struct {
 	ErrorFunc func(addr, reqAddr net.Addr, err error)
 }
 
-func NewTCPTProxy(hyClient *core.Client, listen string, timeout time.Duration, aclEngine *acl.Engine,
+func NewTCPTProxy(hyClient *core.Client, transport transport.Transport, listen string, timeout time.Duration,
+	aclEngine *acl.Engine,
 	connFunc func(addr, reqAddr net.Addr, action acl.Action, arg string),
 	errorFunc func(addr, reqAddr net.Addr, err error)) (*TCPTProxy, error) {
-	tAddr, err := net.ResolveTCPAddr("tcp", listen)
+	tAddr, err := transport.LocalResolveTCPAddr(listen)
 	if err != nil {
 		return nil, err
 	}
 	r := &TCPTProxy{
 		HyClient:   hyClient,
+		Transport:  transport,
 		ListenAddr: tAddr,
 		Timeout:    timeout,
 		ACLEngine:  aclEngine,
@@ -79,7 +83,7 @@ func (r *TCPTProxy) ListenAndServe() error {
 					closeErr = resErr
 					return
 				}
-				rc, err := net.DialTCP("tcp", nil, &net.TCPAddr{
+				rc, err := r.Transport.LocalDialTCP(nil, &net.TCPAddr{
 					IP:   ipAddr.IP,
 					Port: int(port),
 					Zone: ipAddr.Zone,
@@ -104,7 +108,7 @@ func (r *TCPTProxy) ListenAndServe() error {
 				closeErr = errors.New("blocked in ACL")
 				return
 			case acl.ActionHijack:
-				rc, err := net.Dial("tcp", net.JoinHostPort(arg, strconv.Itoa(int(port))))
+				rc, err := r.Transport.LocalDial("tcp", net.JoinHostPort(arg, strconv.Itoa(int(port))))
 				if err != nil {
 					closeErr = err
 					return

@@ -9,6 +9,7 @@ import (
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
+	transport2 "github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 )
@@ -20,6 +21,7 @@ type UDPRequestFunc func(addr net.Addr, auth []byte, sessionID uint32)
 type UDPErrorFunc func(addr net.Addr, auth []byte, sessionID uint32, err error)
 
 type Server struct {
+	transport         transport2.Transport
 	sendBPS, recvBPS  uint64
 	congestionFactory CongestionFactory
 	disableUDP        bool
@@ -36,15 +38,15 @@ type Server struct {
 	listener quic.Listener
 }
 
-func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
+func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config, transport transport2.Transport,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
 	obfuscator Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry) (*Server, error) {
-	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	udpAddr, err := transport.QUICResolveUDPAddr(addr)
 	if err != nil {
 		return nil, err
 	}
-	udpConn, err := net.ListenUDP("udp", udpAddr)
+	udpConn, err := transport.QUICListenUDP(udpAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +74,7 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 	}
 	s := &Server{
 		listener:          listener,
+		transport:         transport,
 		sendBPS:           sendBPS,
 		recvBPS:           recvBPS,
 		congestionFactory: congestionFactory,
@@ -129,7 +132,7 @@ func (s *Server) handleClient(cs quic.Session) {
 		return
 	}
 	// Start accepting streams and messages
-	sc := newServerClient(cs, auth, s.disableUDP, s.aclEngine,
+	sc := newServerClient(cs, s.transport, auth, s.disableUDP, s.aclEngine,
 		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc, s.upCounterVec, s.downCounterVec)
 	sc.Run()
 	_ = cs.CloseWithError(closeErrorCodeGeneric, "")

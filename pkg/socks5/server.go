@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"strconv"
 )
@@ -25,6 +26,7 @@ var (
 
 type Server struct {
 	HyClient   *core.Client
+	Transport  transport.Transport
 	AuthFunc   func(username, password string) bool
 	Method     byte
 	TCPAddr    *net.TCPAddr
@@ -40,12 +42,13 @@ type Server struct {
 	tcpListener *net.TCPListener
 }
 
-func NewServer(hyClient *core.Client, addr string, authFunc func(username, password string) bool, tcpTimeout time.Duration,
+func NewServer(hyClient *core.Client, transport transport.Transport, addr string,
+	authFunc func(username, password string) bool, tcpTimeout time.Duration,
 	aclEngine *acl.Engine, disableUDP bool,
 	tcpReqFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string),
 	tcpErrorFunc func(addr net.Addr, reqAddr string, err error),
 	udpAssocFunc func(addr net.Addr), udpErrorFunc func(addr net.Addr, err error)) (*Server, error) {
-	tAddr, err := net.ResolveTCPAddr("tcp", addr)
+	tAddr, err := transport.LocalResolveTCPAddr(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +58,7 @@ func NewServer(hyClient *core.Client, addr string, authFunc func(username, passw
 	}
 	s := &Server{
 		HyClient:         hyClient,
+		Transport:        transport,
 		AuthFunc:         authFunc,
 		Method:           m,
 		TCPAddr:          tAddr,
@@ -114,7 +118,7 @@ func (s *Server) negotiate(c *net.TCPConn) error {
 
 func (s *Server) ListenAndServe() error {
 	var err error
-	s.tcpListener, err = net.ListenTCP("tcp", s.TCPAddr)
+	s.tcpListener, err = s.Transport.LocalListenTCP(s.TCPAddr)
 	if err != nil {
 		return err
 	}
@@ -183,7 +187,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 			closeErr = resErr
 			return resErr
 		}
-		rc, err := net.DialTCP("tcp", nil, &net.TCPAddr{
+		rc, err := s.Transport.LocalDialTCP(nil, &net.TCPAddr{
 			IP:   ipAddr.IP,
 			Port: int(port),
 			Zone: ipAddr.Zone,
@@ -213,7 +217,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 		closeErr = errors.New("blocked in ACL")
 		return nil
 	case acl.ActionHijack:
-		rc, err := net.Dial("tcp", net.JoinHostPort(arg, strconv.Itoa(int(port))))
+		rc, err := s.Transport.LocalDial("tcp", net.JoinHostPort(arg, strconv.Itoa(int(port))))
 		if err != nil {
 			_ = sendReply(c, socks5.RepHostUnreachable)
 			closeErr = err
@@ -237,7 +241,7 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 		s.UDPErrorFunc(c.RemoteAddr(), closeErr)
 	}()
 	// Start local UDP server
-	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{
+	udpConn, err := s.Transport.LocalListenUDP(&net.UDPAddr{
 		IP:   s.TCPAddr.IP,
 		Zone: s.TCPAddr.Zone,
 	})
@@ -250,7 +254,7 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 	// Local UDP relay conn for ACL Direct
 	var localRelayConn *net.UDPConn
 	if s.ACLEngine != nil {
-		localRelayConn, err = net.ListenUDP("udp", nil)
+		localRelayConn, err = s.Transport.LocalListenUDP(nil)
 		if err != nil {
 			_ = sendReply(c, socks5.RepServerFailure)
 			closeErr = err
@@ -371,7 +375,7 @@ func (s *Server) udpServer(clientConn *net.UDPConn, localRelayConn *net.UDPConn,
 			// Do nothing
 		case acl.ActionHijack:
 			hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(port)))
-			rAddr, err := net.ResolveUDPAddr("udp", hijackAddr)
+			rAddr, err := s.Transport.LocalResolveUDPAddr(hijackAddr)
 			if err == nil {
 				_, _ = localRelayConn.WriteToUDP(d.Data, rAddr)
 			}
