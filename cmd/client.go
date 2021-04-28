@@ -13,6 +13,7 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"github.com/tobyxdd/hysteria/pkg/relay"
 	"github.com/tobyxdd/hysteria/pkg/socks5"
+	"github.com/tobyxdd/hysteria/pkg/tproxy"
 	"io"
 	"io/ioutil"
 	"net"
@@ -235,6 +236,68 @@ func client(config *clientConfig) {
 				logrus.WithField("error", err).Fatal("Failed to initialize UDP relay")
 			}
 			logrus.WithField("addr", config.UDPRelay.Listen).Info("UDP relay up and running")
+			errChan <- rl.ListenAndServe()
+		}()
+	}
+
+	if len(config.TCPTProxy.Listen) > 0 {
+		go func() {
+			rl, err := tproxy.NewTCPTProxy(client, config.TCPTProxy.Listen,
+				time.Duration(config.TCPTProxy.Timeout)*time.Second, aclEngine,
+				func(addr, reqAddr net.Addr, action acl.Action, arg string) {
+					logrus.WithFields(logrus.Fields{
+						"action": actionToString(action, arg),
+						"src":    addr.String(),
+						"dst":    reqAddr.String(),
+					}).Debug("TCP TProxy request")
+				},
+				func(addr, reqAddr net.Addr, err error) {
+					if err != io.EOF {
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"src":   addr.String(),
+							"dst":   reqAddr.String(),
+						}).Info("TCP TProxy error")
+					} else {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+							"dst": reqAddr.String(),
+						}).Debug("TCP TProxy EOF")
+					}
+				})
+			if err != nil {
+				logrus.WithField("error", err).Fatal("Failed to initialize TCP TProxy")
+			}
+			logrus.WithField("addr", config.TCPTProxy.Listen).Info("TCP TProxy up and running")
+			errChan <- rl.ListenAndServe()
+		}()
+	}
+
+	if len(config.UDPTProxy.Listen) > 0 {
+		go func() {
+			rl, err := tproxy.NewUDPTProxy(client, config.UDPTProxy.Listen,
+				time.Duration(config.UDPTProxy.Timeout)*time.Second, aclEngine,
+				func(addr net.Addr) {
+					logrus.WithFields(logrus.Fields{
+						"src": addr.String(),
+					}).Debug("UDP TProxy request")
+				},
+				func(addr net.Addr, err error) {
+					if err != tproxy.ErrTimeout {
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"src":   addr.String(),
+						}).Info("UDP TProxy error")
+					} else {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+						}).Debug("UDP TProxy session closed")
+					}
+				})
+			if err != nil {
+				logrus.WithField("error", err).Fatal("Failed to initialize UDP TProxy")
+			}
+			logrus.WithField("addr", config.UDPTProxy.Listen).Info("UDP TProxy up and running")
 			errChan <- rl.ListenAndServe()
 		}()
 	}

@@ -46,7 +46,7 @@ func Pipe2Way(rw1, rw2 io.ReadWriter, count func(int)) error {
 	return <-errChan
 }
 
-func PipePairWithTimeout(conn *net.TCPConn, stream io.ReadWriteCloser, timeout time.Duration) error {
+func PipePairWithTimeout(conn net.Conn, stream io.ReadWriteCloser, timeout time.Duration) error {
 	errChan := make(chan error, 2)
 	// TCP to stream
 	go func() {

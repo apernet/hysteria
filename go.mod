@@ -3,6 +3,7 @@ module github.com/tobyxdd/hysteria
 go 1.14
 
 require (
+	github.com/LiamHaworth/go-tproxy v0.0.0-20190726054950-ef7efd7f24ed
 	github.com/elazarl/goproxy v0.0.0-20200426045556-49ad98f6dac1
 	github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2
 	github.com/hashicorp/golang-lru v0.5.4

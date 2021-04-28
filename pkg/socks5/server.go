@@ -370,7 +370,7 @@ func (s *Server) udpServer(clientConn *net.UDPConn, localRelayConn *net.UDPConn,
 		case acl.ActionBlock:
 			// Do nothing
 		case acl.ActionHijack:
-			hijackAddr := net.JoinHostPort(arg, net.JoinHostPort(arg, strconv.Itoa(int(port))))
+			hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(port)))
 			rAddr, err := net.ResolveUDPAddr("udp", hijackAddr)
 			if err == nil {
 				_, _ = localRelayConn.WriteToUDP(d.Data, rAddr)

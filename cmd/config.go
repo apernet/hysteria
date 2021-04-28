@@ -11,7 +11,7 @@ const (
 
 	DefaultMaxReceiveStreamFlowControlWindow     = 33554432
 	DefaultMaxReceiveConnectionFlowControlWindow = 67108864
-	DefaultMaxIncomingStreams                    = 1024
+	DefaultMaxIncomingStreams                    = 4096
 
 	tlsProtocolName = "hysteria"
 )
@@ -90,6 +90,14 @@ type clientConfig struct {
 		Remote  string `json:"remote"`
 		Timeout int    `json:"timeout"`
 	} `json:"relay_udp"`
+	TCPTProxy struct {
+		Listen  string `json:"listen"`
+		Timeout int    `json:"timeout"`
+	} `json:"tproxy_tcp"`
+	UDPTProxy struct {
+		Listen  string `json:"listen"`
+		Timeout int    `json:"timeout"`
+	} `json:"tproxy_udp"`
 	ACL               string `json:"acl"`
 	Obfs              string `json:"obfs"`
 	Auth              []byte `json:"auth"`
@@ -102,8 +110,9 @@ type clientConfig struct {
 
 func (c *clientConfig) Check() error {
 	if len(c.SOCKS5.Listen) == 0 && len(c.HTTP.Listen) == 0 &&
-		len(c.TCPRelay.Listen) == 0 && len(c.UDPRelay.Listen) == 0 {
-		return errors.New("no SOCKS5, HTTP, TCP relay or UDP relay listen address")
+		len(c.TCPRelay.Listen) == 0 && len(c.UDPRelay.Listen) == 0 &&
+		len(c.TCPTProxy.Listen) == 0 && len(c.UDPTProxy.Listen) == 0 {
+		return errors.New("no SOCKS5, HTTP, relay or TProxy listen address")
 	}
 	if len(c.TCPRelay.Listen) > 0 && len(c.TCPRelay.Remote) == 0 {
 		return errors.New("no TCP relay remote address")
@@ -122,6 +131,12 @@ func (c *clientConfig) Check() error {
 	}
 	if c.UDPRelay.Timeout != 0 && c.UDPRelay.Timeout <= 4 {
 		return errors.New("invalid UDP relay timeout")
+	}
+	if c.TCPTProxy.Timeout != 0 && c.TCPTProxy.Timeout <= 4 {
+		return errors.New("invalid TCP TProxy timeout")
+	}
+	if c.UDPTProxy.Timeout != 0 && c.UDPTProxy.Timeout <= 4 {
+		return errors.New("invalid UDP TProxy timeout")
 	}
 	if len(c.Server) == 0 {
 		return errors.New("no server address")

@@ -3,6 +3,7 @@ package http
 import (
 	"errors"
 	"fmt"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"net/http"
 	"strconv"
@@ -24,11 +25,7 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 	proxy.Tr = &http.Transport{
 		Dial: func(network, addr string) (net.Conn, error) {
 			// Parse addr string
-			host, port, err := net.SplitHostPort(addr)
-			if err != nil {
-				return nil, err
-			}
-			portUint, err := strconv.ParseUint(port, 10, 16)
+			host, port, err := utils.SplitHostPort(addr)
 			if err != nil {
 				return nil, err
 			}
@@ -49,7 +46,7 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 				}
 				return net.DialTCP(network, nil, &net.TCPAddr{
 					IP:   ipAddr.IP,
-					Port: int(portUint),
+					Port: int(port),
 					Zone: ipAddr.Zone,
 				})
 			case acl.ActionProxy:
@@ -57,7 +54,7 @@ func NewProxyHTTPServer(hyClient *core.Client, idleTimeout time.Duration, aclEng
 			case acl.ActionBlock:
 				return nil, errors.New("blocked by ACL")
 			case acl.ActionHijack:
-				return net.Dial(network, net.JoinHostPort(arg, port))
+				return net.Dial(network, net.JoinHostPort(arg, strconv.Itoa(int(port))))
 			default:
 				return nil, fmt.Errorf("unknown action %d", action)
 			}

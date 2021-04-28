@@ -14,7 +14,7 @@
 
 [6]: https://t.me/hysteria_github
 
-[中文 README](README.zh.md)
+[中文](README.zh.md)
 
 Hysteria is a TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for networks of poor quality (e.g. satellite connections,
 congested public Wi-Fi, connecting from China to servers abroad) powered by a custom version of QUIC protocol.
@@ -86,21 +86,13 @@ Same as the server side, create a `config.json` under the root directory of the 
   },
   "http": {
     "listen": "127.0.0.1:8080"
-  },
-  "relay_tcp": {
-    "listen": "127.0.0.1:2222",
-    "remote": "123.123.123.123:22"
-  },
-  "relay_udp": {
-    "listen": "127.0.0.1:5333",
-    "remote": "8.8.8.8:53"
   }
 }
 ```
 
-This config enables a SOCKS5 proxy (with both TCP & UDP support), an HTTP proxy, a TCP relay to `123.123.123.123:22` and
-a UDP relay to `8.8.8.8:53`
-at the same time. Please modify or remove these entries according to your actual needs.
+This config enables a SOCKS5 proxy (with both TCP & UDP support), and an HTTP proxy at the same time. There are many
+other modes in Hysteria, be sure to check them out in [Advanced usage](#advanced-usage)! To enable or disable a mode,
+simply add or remove its entry in the config file.
 
 If your server certificate is not issued by a trusted CA, you need to specify the CA used
 with `"ca": "/path/to/file.ca"` on the client or use `"insecure": true` to ignore all certificate errors (not
@@ -223,13 +215,21 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
     "key": "/home/ubuntu/my_key.crt" // Key file (HTTPS proxy)
   },
   "relay_tcp": {
-    "listen": "127.0.0.1:2222", // TCP relay Listen address
+    "listen": "127.0.0.1:2222", // TCP relay listen address
     "remote": "123.123.123.123:22", // TCP relay remote address
     "timeout": 300 // TCP timeout in seconds
   },
   "relay_udp": {
-    "listen": "127.0.0.1:5333", // UDP relay Listen address
+    "listen": "127.0.0.1:5333", // UDP relay listen address
     "remote": "8.8.8.8:53", // UDP relay remote address
+    "timeout": 60 // UDP session timeout in seconds
+  },
+  "tproxy_tcp": {
+    "listen": "127.0.0.1:9000", // TCP TProxy listen address
+    "timeout": 300 // TCP timeout in seconds
+  },
+  "tproxy_udp": {
+    "listen": "127.0.0.1:9000", // UDP TProxy listen address
     "timeout": 60 // UDP session timeout in seconds
   },
   "acl": "my_list.acl", // See ACL below
@@ -242,6 +242,14 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "recv_window": 67108864 // QUIC connection receive window
 }
 ```
+
+#### Transparency proxy
+
+TPROXY modes (`tproxy_tcp` & `tproxy_udp`) are only available on Linux.
+
+References:
+- https://www.kernel.org/doc/Documentation/networking/tproxy.txt
+- https://powerdns.org/tproxydoc/tproxy.md.html
 
 ## ACL
 
