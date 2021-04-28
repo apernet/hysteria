@@ -3,7 +3,7 @@ package acl
 import (
 	"bufio"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"net"
 	"os"
 	"strings"
@@ -15,7 +15,7 @@ type Engine struct {
 	DefaultAction Action
 	Entries       []Entry
 	Cache         *lru.ARCCache
-	Transport     core.Transport
+	Transport     transport.Transport
 }
 
 type cacheEntry struct {
@@ -23,7 +23,7 @@ type cacheEntry struct {
 	Arg    string
 }
 
-func LoadFromFile(filename string, transport core.Transport) (*Engine, error) {
+func LoadFromFile(filename string, transport transport.Transport) (*Engine, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err

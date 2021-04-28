@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"strconv"
 )
@@ -25,7 +26,7 @@ var (
 
 type Server struct {
 	HyClient   *core.Client
-	Transport  core.Transport
+	Transport  transport.Transport
 	AuthFunc   func(username, password string) bool
 	Method     byte
 	TCPAddr    *net.TCPAddr
@@ -41,7 +42,7 @@ type Server struct {
 	tcpListener *net.TCPListener
 }
 
-func NewServer(hyClient *core.Client, transport core.Transport, addr string,
+func NewServer(hyClient *core.Client, transport transport.Transport, addr string,
 	authFunc func(username, password string) bool, tcpTimeout time.Duration,
 	aclEngine *acl.Engine, disableUDP bool,
 	tcpReqFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string),

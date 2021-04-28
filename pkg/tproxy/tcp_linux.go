@@ -6,6 +6,7 @@ import (
 	"github.com/LiamHaworth/go-tproxy"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"strconv"
@@ -14,7 +15,7 @@ import (
 
 type TCPTProxy struct {
 	HyClient   *core.Client
-	Transport  core.Transport
+	Transport  transport.Transport
 	ListenAddr *net.TCPAddr
 	Timeout    time.Duration
 	ACLEngine  *acl.Engine
@@ -23,7 +24,7 @@ type TCPTProxy struct {
 	ErrorFunc func(addr, reqAddr net.Addr, err error)
 }
 
-func NewTCPTProxy(hyClient *core.Client, transport core.Transport, listen string, timeout time.Duration,
+func NewTCPTProxy(hyClient *core.Client, transport transport.Transport, listen string, timeout time.Duration,
 	aclEngine *acl.Engine,
 	connFunc func(addr, reqAddr net.Addr, action acl.Action, arg string),
 	errorFunc func(addr, reqAddr net.Addr, err error)) (*TCPTProxy, error) {

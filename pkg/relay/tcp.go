@@ -2,6 +2,7 @@ package relay
 
 import (
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"time"
@@ -9,7 +10,7 @@ import (
 
 type TCPRelay struct {
 	HyClient   *core.Client
-	Transport  core.Transport
+	Transport  transport.Transport
 	ListenAddr *net.TCPAddr
 	Remote     string
 	Timeout    time.Duration
@@ -18,7 +19,7 @@ type TCPRelay struct {
 	ErrorFunc func(addr net.Addr, err error)
 }
 
-func NewTCPRelay(hyClient *core.Client, transport core.Transport, listen, remote string, timeout time.Duration,
+func NewTCPRelay(hyClient *core.Client, transport transport.Transport, listen, remote string, timeout time.Duration,
 	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*TCPRelay, error) {
 	tAddr, err := transport.LocalResolveTCPAddr(listen)
 	if err != nil {

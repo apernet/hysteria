@@ -5,6 +5,7 @@ import (
 	"github.com/LiamHaworth/go-tproxy"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"strconv"
@@ -19,7 +20,7 @@ var ErrTimeout = errors.New("inactivity timeout")
 
 type UDPTProxy struct {
 	HyClient   *core.Client
-	Transport  core.Transport
+	Transport  transport.Transport
 	ListenAddr *net.UDPAddr
 	Timeout    time.Duration
 	ACLEngine  *acl.Engine
@@ -28,7 +29,7 @@ type UDPTProxy struct {
 	ErrorFunc func(addr net.Addr, err error)
 }
 
-func NewUDPTProxy(hyClient *core.Client, transport core.Transport, listen string, timeout time.Duration,
+func NewUDPTProxy(hyClient *core.Client, transport transport.Transport, listen string, timeout time.Duration,
 	aclEngine *acl.Engine,
 	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*UDPTProxy, error) {
 	uAddr, err := transport.LocalResolveUDPAddr(listen)

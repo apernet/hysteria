@@ -8,6 +8,7 @@ import (
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"strconv"
@@ -18,7 +19,7 @@ const udpBufferSize = 65535
 
 type serverClient struct {
 	CS              quic.Session
-	Transport       Transport
+	Transport       transport.Transport
 	Auth            []byte
 	ClientAddr      net.Addr
 	DisableUDP      bool
@@ -35,7 +36,7 @@ type serverClient struct {
 	nextUDPSessionID uint32
 }
 
-func newServerClient(cs quic.Session, transport Transport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
+func newServerClient(cs quic.Session, transport transport.Transport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
 	CTCPRequestFunc TCPRequestFunc, CTCPErrorFunc TCPErrorFunc,
 	CUDPRequestFunc UDPRequestFunc, CUDPErrorFunc UDPErrorFunc,
 	UpCounterVec, DownCounterVec *prometheus.CounterVec) *serverClient {

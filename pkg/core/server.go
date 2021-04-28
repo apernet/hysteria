@@ -9,6 +9,7 @@ import (
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
+	transport2 "github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 )
@@ -20,7 +21,7 @@ type UDPRequestFunc func(addr net.Addr, auth []byte, sessionID uint32)
 type UDPErrorFunc func(addr net.Addr, auth []byte, sessionID uint32, err error)
 
 type Server struct {
-	transport         Transport
+	transport         transport2.Transport
 	sendBPS, recvBPS  uint64
 	congestionFactory CongestionFactory
 	disableUDP        bool
@@ -37,7 +38,7 @@ type Server struct {
 	listener quic.Listener
 }
 
-func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config, transport Transport,
+func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config, transport transport2.Transport,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
 	obfuscator Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry) (*Server, error) {

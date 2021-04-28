@@ -3,6 +3,7 @@ package relay
 import (
 	"errors"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -15,7 +16,7 @@ var ErrTimeout = errors.New("inactivity timeout")
 
 type UDPRelay struct {
 	HyClient   *core.Client
-	Transport  core.Transport
+	Transport  transport.Transport
 	ListenAddr *net.UDPAddr
 	Remote     string
 	Timeout    time.Duration
@@ -24,7 +25,7 @@ type UDPRelay struct {
 	ErrorFunc func(addr net.Addr, err error)
 }
 
-func NewUDPRelay(hyClient *core.Client, transport core.Transport, listen, remote string, timeout time.Duration,
+func NewUDPRelay(hyClient *core.Client, transport transport.Transport, listen, remote string, timeout time.Duration,
 	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*UDPRelay, error) {
 	uAddr, err := transport.LocalResolveUDPAddr(listen)
 	if err != nil {

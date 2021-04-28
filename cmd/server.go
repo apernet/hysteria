@@ -12,6 +12,7 @@ import (
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
 	"net"
@@ -104,7 +105,7 @@ func server(config *serverConfig) {
 	// ACL
 	var aclEngine *acl.Engine
 	if len(config.ACL) > 0 {
-		aclEngine, err = acl.LoadFromFile(config.ACL, core.DefaultTransport)
+		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultTransport)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
@@ -123,7 +124,7 @@ func server(config *serverConfig) {
 			logrus.WithField("error", err).Fatal("Prometheus HTTP server error")
 		}()
 	}
-	server, err := core.NewServer(config.Listen, tlsConfig, quicConfig, core.DefaultTransport,
+	server, err := core.NewServer(config.Listen, tlsConfig, quicConfig, transport.DefaultTransport,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
