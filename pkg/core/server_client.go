@@ -30,6 +30,7 @@ type serverClient struct {
 	CUDPErrorFunc   UDPErrorFunc
 
 	UpCounter, DownCounter prometheus.Counter
+	ConnGauge              prometheus.Gauge
 
 	udpSessionMutex  sync.RWMutex
 	udpSessionMap    map[uint32]*net.UDPConn
@@ -39,7 +40,8 @@ type serverClient struct {
 func newServerClient(cs quic.Session, transport transport.Transport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
 	CTCPRequestFunc TCPRequestFunc, CTCPErrorFunc TCPErrorFunc,
 	CUDPRequestFunc UDPRequestFunc, CUDPErrorFunc UDPErrorFunc,
-	UpCounterVec, DownCounterVec *prometheus.CounterVec) *serverClient {
+	UpCounterVec, DownCounterVec *prometheus.CounterVec,
+	ConnGaugeVec *prometheus.GaugeVec) *serverClient {
 	sc := &serverClient{
 		CS:              cs,
 		Transport:       transport,
@@ -53,10 +55,11 @@ func newServerClient(cs quic.Session, transport transport.Transport, auth []byte
 		CUDPErrorFunc:   CUDPErrorFunc,
 		udpSessionMap:   make(map[uint32]*net.UDPConn),
 	}
-	if UpCounterVec != nil && DownCounterVec != nil {
+	if UpCounterVec != nil && DownCounterVec != nil && ConnGaugeVec != nil {
 		authB64 := base64.StdEncoding.EncodeToString(auth)
 		sc.UpCounter = UpCounterVec.WithLabelValues(authB64)
 		sc.DownCounter = DownCounterVec.WithLabelValues(authB64)
+		sc.ConnGauge = ConnGaugeVec.WithLabelValues(authB64)
 	}
 	return sc
 }
@@ -78,12 +81,16 @@ func (c *serverClient) Run() {
 		if err != nil {
 			break
 		}
-		go c.handleStream(stream)
+		c.ConnGauge.Inc()
+		go func() {
+			c.handleStream(stream)
+			_ = stream.Close()
+			c.ConnGauge.Dec()
+		}()
 	}
 }
 
 func (c *serverClient) handleStream(stream quic.Stream) {
-	defer stream.Close()
 	// Read request
 	var req clientRequest
 	err := struc.Unpack(stream, &req)

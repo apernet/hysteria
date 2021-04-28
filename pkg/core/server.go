@@ -34,6 +34,7 @@ type Server struct {
 	udpErrorFunc   UDPErrorFunc
 
 	upCounterVec, downCounterVec *prometheus.CounterVec
+	connGaugeVec                 *prometheus.GaugeVec
 
 	listener quic.Listener
 }
@@ -93,7 +94,10 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config, tran
 		s.downCounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "hysteria_traffic_downlink_bytes_total",
 		}, []string{"auth"})
-		promRegistry.MustRegister(s.upCounterVec, s.downCounterVec)
+		s.connGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "hysteria_active_conn",
+		}, []string{"auth"})
+		promRegistry.MustRegister(s.upCounterVec, s.downCounterVec, s.connGaugeVec)
 	}
 	return s, nil
 }
@@ -133,7 +137,8 @@ func (s *Server) handleClient(cs quic.Session) {
 	}
 	// Start accepting streams and messages
 	sc := newServerClient(cs, s.transport, auth, s.disableUDP, s.aclEngine,
-		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc, s.upCounterVec, s.downCounterVec)
+		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc,
+		s.upCounterVec, s.downCounterVec, s.connGaugeVec)
 	sc.Run()
 	_ = cs.CloseWithError(closeErrorCodeGeneric, "")
 }
