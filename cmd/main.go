@@ -19,8 +19,9 @@ var (
 )
 
 var (
-	configPath  = flag.String("config", "config.json", "Config file")
-	showVersion = flag.Bool("version", false, "Show version")
+	configPath         = flag.String("config", "config.json", "Config file")
+	showVersion        = flag.Bool("version", false, "Show version")
+	disableUpdateCheck = flag.Bool("no-check", false, "Disable update check")
 )
 
 func init() {
@@ -47,7 +48,10 @@ func init() {
 	} else {
 		logrus.SetFormatter(&nested.Formatter{
 			FieldsOrder: []string{
-				"config", "file", "mode", "addr", "src", "dst", "session", "action", "error",
+				"version", "url",
+				"config", "file", "mode",
+				"addr", "src", "dst", "session", "action",
+				"error",
 			},
 			TimestampFormat: tsFormat,
 		})
@@ -63,6 +67,9 @@ func main() {
 		fmt.Printf("%-10s%s\n", "Commit:", appCommit)
 		fmt.Printf("%-10s%s\n", "Date:", appDate)
 		return
+	}
+	if !*disableUpdateCheck {
+		go checkUpdate()
 	}
 	cb, err := ioutil.ReadFile(*configPath)
 	if err != nil {
