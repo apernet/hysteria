@@ -368,8 +368,8 @@ github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJy
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07/go.mod h1:kDXzergiv9cbyO7IOYJZWg1U88JhDg3PB6klq9Hg2pA=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
-github.com/tobyxdd/quic-go v0.20.1-0.20210320001547-eb20d732ffed h1:bhRIrbeMeMHYFqjNPkQaLWH+kd4gBjkdeKgZUJtokYE=
-github.com/tobyxdd/quic-go v0.20.1-0.20210320001547-eb20d732ffed/go.mod h1:fZq/HUDIM+mW6X6wtzORjC0E/WDBMKe5Hf9bgjISwLk=
+github.com/tobyxdd/quic-go v0.20.2-0.20210428051806-514b63007176 h1:nbWMoDuseG5gz/H7yIL4YyuLIqPWjT5YLNjJCNy5mCc=
+github.com/tobyxdd/quic-go v0.20.2-0.20210428051806-514b63007176/go.mod h1:fZq/HUDIM+mW6X6wtzORjC0E/WDBMKe5Hf9bgjISwLk=
 github.com/txthinking/runnergroup v0.0.0-20200327135940-540a793bb997 h1:vlDgnShahmE2XLslpr0hnzxfAmSj3JLX2CYi8Xct7G4=
 github.com/txthinking/runnergroup v0.0.0-20200327135940-540a793bb997/go.mod h1:CLUSJbazqETbaR+i0YAhXBICV9TrKH93pziccMhmhpM=
 github.com/txthinking/socks5 v0.0.0-20200327133705-caf148ab5e9d h1:V+Wyj2AqtLwLG7KnniV8QG+gEkENPsudZbivvLyX4kw=
