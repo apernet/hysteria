@@ -17,7 +17,15 @@ const (
 )
 
 type serverConfig struct {
-	Listen   string `json:"listen"`
+	Listen string `json:"listen"`
+	ACME   struct {
+		Domains                 []string `json:"domains"`
+		Email                   string   `json:"email"`
+		DisableHTTPChallenge    bool     `json:"disable_http"`
+		DisableTLSALPNChallenge bool     `json:"disable_tlsalpn"`
+		AltHTTPPort             int      `json:"alt_http_port"`
+		AltTLSALPNPort          int      `json:"alt_tlsalpn_port"`
+	} `json:"acme"`
 	CertFile string `json:"cert"`
 	KeyFile  string `json:"key"`
 	// Optional below
@@ -40,8 +48,8 @@ func (c *serverConfig) Check() error {
 	if len(c.Listen) == 0 {
 		return errors.New("no listen address")
 	}
-	if len(c.CertFile) == 0 || len(c.KeyFile) == 0 {
-		return errors.New("TLS cert or key not provided")
+	if len(c.ACME.Domains) == 0 && (len(c.CertFile) == 0 || len(c.KeyFile) == 0) {
+		return errors.New("ACME domain or TLS cert not provided")
 	}
 	if c.UpMbps < 0 || c.DownMbps < 0 {
 		return errors.New("invalid speed")

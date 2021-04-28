@@ -37,15 +37,31 @@ Hysteria 是专门针对恶劣网络环境进行优化的 TCP/UDP 转发和代�
 ```json
 {
   "listen": ":36712",
-  "cert": "/home/ubuntu/my_cert.crt",
-  "key": "/home/ubuntu/my_key.crt",
-  "obfs": "AMOGUS",
+  "acme": {
+    "domains": [
+      "your.domain.com"
+    ],
+    "email": "hacker@gmail.com"
+  },
+  "obfs": "fuck me till the daylight",
   "up_mbps": 100,
   "down_mbps": 100
 }
 ```
 
-服务端需要一个 TLS 证书，但未必一定要是有效、可信的。（只是在这种情况下客户端需要进行额外的配置）
+服务端需要一个 TLS 证书。 你可以让 Hysteria 内置的 ACME 尝试自动从 Let's Encrypt 为你的服务器签发一个证书，也可以自己提供。
+证书未必一定要是有效、可信的，但在这种情况下客户端需要进行额外的配置。要使用自己的 TLS 证书，参考这个配置：
+
+```json
+{
+  "listen": ":36712",
+  "cert": "/home/ubuntu/my.crt",
+  "key": "/home/ubuntu/my.key",
+  "obfs": "fuck me till the daylight",
+  "up_mbps": 100,
+  "down_mbps": 100
+}
+```
 
 可选的 `obfs` 选项使用提供的密码对协议进行混淆，这样协议就不容易被检测出是 Hysteria/QUIC，可以用来绕过针对性的 DPI 屏蔽或者 QoS。
 如果服务端和客户端的密码不匹配就不能建立连接，因此这也可以作为一个简单的密码验证。对于更高级的验证方案请见下文 `auth`。
@@ -109,6 +125,17 @@ Hysteria 是专门针对恶劣网络环境进行优化的 TCP/UDP 转发和代�
 ```json5
 {
   "listen": ":36712", // 监听地址
+  "acme": {
+    "domains": [
+      "your.domain.com",
+      "another.domain.net"
+    ], // ACME 证书域名
+    "email": "hacker@gmail.com", // 注册邮箱，可选，推荐
+    "disable_http": false, // 禁用 HTTP 验证方式
+    "disable_tlsalpn": false, // 禁用 TLS-ALPN 验证方式
+    "alt_http_port": 8080, // HTTP 验证方式替代端口
+    "alt_tlsalpn_port": 4433 // TLS-ALPN 验证方式替代端口
+  },
   "cert": "/home/ubuntu/my_cert.crt", // 证书
   "key": "/home/ubuntu/my_key.crt", // 证书密钥
   "up_mbps": 100, // 单客户端最大上传速度
@@ -128,6 +155,10 @@ Hysteria 是专门针对恶劣网络环境进行优化的 TCP/UDP 转发和代�
   "max_conn_client": 4096 // 单客户端最大活跃连接数
 }
 ```
+
+#### ACME
+
+目前仅支持 HTTP 与 TLS-ALPN 验证方式，不支持 DNS 验证。对于两种方式请分别确保 TCP 80/443 端口能够被访问。
 
 #### 接入外部验证
 
