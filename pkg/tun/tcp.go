@@ -1,73 +1,74 @@
 package tun
 
 import (
-	"io"
+	"errors"
+	"fmt"
+	"github.com/tobyxdd/hysteria/pkg/acl"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
+	"strconv"
 )
 
 func (s *Server) Handle(conn net.Conn, target *net.TCPAddr) error {
-	hyConn, err := s.HyClient.DialTCP(target.String())
-	if err != nil {
-		return err
+	action, arg := acl.ActionProxy, ""
+	var resErr error
+	if s.ACLEngine != nil {
+		action, arg, _, resErr = s.ACLEngine.ResolveAndMatch(target.IP.String())
 	}
-	go s.relay(conn, hyConn)
-	return nil
-}
-
-type direction byte
-
-const (
-	directionUplink direction = iota
-	directionDownlink
-)
-
-type duplexConn interface {
-	net.Conn
-	CloseRead() error
-	CloseWrite() error
-}
-
-func (s *Server) relay(clientConn, relayConn net.Conn) {
-	uplinkDone := make(chan struct{})
-
-	halfCloseConn := func(dir direction, interrupt bool) {
-		clientDuplexConn, ok1 := clientConn.(duplexConn)
-		relayDuplexConn, ok2 := relayConn.(duplexConn)
-		if !interrupt && ok1 && ok2 {
-			switch dir {
-			case directionUplink:
-				clientDuplexConn.CloseRead()
-				relayDuplexConn.CloseWrite()
-			case directionDownlink:
-				clientDuplexConn.CloseWrite()
-				relayDuplexConn.CloseRead()
-			}
-		} else {
-			clientConn.Close()
-			relayConn.Close()
-		}
+	if s.RequestFunc != nil {
+		s.RequestFunc(conn.LocalAddr(), target.String(), action, arg)
 	}
-
-	// Uplink
-	go func() {
-		var err error
-		_, err = io.Copy(relayConn, clientConn)
-		if err != nil {
-			halfCloseConn(directionUplink, true)
-		} else {
-			halfCloseConn(directionUplink, false)
+	var closeErr error
+	defer func() {
+		if s.ErrorFunc != nil && closeErr != nil {
+			s.ErrorFunc(conn.LocalAddr(), target.String(), closeErr)
 		}
-		uplinkDone <- struct{}{}
 	}()
-
-	// Downlink
-	var err error
-	_, err = io.Copy(clientConn, relayConn)
-	if err != nil {
-		halfCloseConn(directionDownlink, true)
-	} else {
-		halfCloseConn(directionDownlink, false)
+	switch action {
+	case acl.ActionDirect:
+		if resErr != nil {
+			closeErr = resErr
+			return resErr
+		}
+		rc, err := s.Transport.LocalDialTCP(nil, target)
+		if err != nil {
+			closeErr = err
+			return err
+		}
+		go s.relayTCP(conn, rc)
+		return nil
+	case acl.ActionProxy:
+		rc, err := s.HyClient.DialTCP(target.String())
+		if err != nil {
+			closeErr = err
+			return err
+		}
+		go s.relayTCP(conn, rc)
+		return nil
+	case acl.ActionBlock:
+		closeErr = errors.New("blocked in ACL")
+		// caller will abort the connection when err != nil
+		return closeErr
+	case acl.ActionHijack:
+		rc, err := s.Transport.LocalDial("tcp", net.JoinHostPort(arg, strconv.Itoa(target.Port)))
+		if err != nil {
+			closeErr = err
+			return err
+		}
+		go s.relayTCP(conn, rc)
+		return nil
+	default:
+		closeErr = fmt.Errorf("unknown action %d", action)
+		// caller will abort the connection when err != nil
+		return closeErr
 	}
+}
 
-	<-uplinkDone
+func (s *Server) relayTCP(clientConn, relayConn net.Conn) {
+	closeErr := utils.PipePairWithTimeout(clientConn, relayConn, s.Timeout)
+	if s.ErrorFunc != nil {
+		s.ErrorFunc(clientConn.LocalAddr(), relayConn.RemoteAddr().String(), closeErr)
+	}
+	relayConn.Close()
+	clientConn.Close()
 }

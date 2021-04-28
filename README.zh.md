@@ -234,7 +234,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   },
   "tun": {
     "name": "tun-hy", // TUN 接口名称
-    "timeout": 300, // UDP 超时秒数
+    "timeout": 300, // 超时秒数
     "address": "192.0.2.2", // TUN 接口地址（不适用于 Linux）
     "gateway": "192.0.2.1", // TUN 接口网关（不适用于 Linux）
     "mask": "255.255.255.252", // TUN 接口子网掩码（不适用于 Linux）

@@ -247,7 +247,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   },
   "tun": {
     "name": "tun-hy", // TUN interface name
-    "timeout": 300, // UDP timeout in seconds
+    "timeout": 300, // Timeout in seconds
     "address": "192.0.2.2", // TUN interface address, not applicable for Linux
     "gateway": "192.0.2.1", // TUN interface gateway, not applicable for Linux
     "mask": "255.255.255.252", // TUN interface mask, not applicable for Linux
