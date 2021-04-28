@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io/ioutil"
@@ -44,9 +45,10 @@ func init() {
 			TimestampFormat: tsFormat,
 		})
 	} else {
-		logrus.SetFormatter(&logrus.TextFormatter{
-			ForceColors:     true,
-			FullTimestamp:   true,
+		logrus.SetFormatter(&nested.Formatter{
+			FieldsOrder: []string{
+				"config", "file", "mode", "addr", "src", "dst", "session", "action", "error",
+			},
 			TimestampFormat: tsFormat,
 		})
 	}
