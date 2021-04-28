@@ -183,6 +183,9 @@ You can make Hysteria expose a Prometheus HTTP client endpoint for monitoring tr
 If configured on port 8080, the endpoint would be at `http://example.com:8080/metrics`.
 
 ```text
+hysteria_active_conn{auth="55m95auW5oCq"} 32
+hysteria_active_conn{auth="aGFja2VyISE="} 7
+
 hysteria_traffic_downlink_bytes_total{auth="55m95auW5oCq"} 122639
 hysteria_traffic_downlink_bytes_total{auth="aGFja2VyISE="} 3.225058e+06
 
