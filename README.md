@@ -40,16 +40,32 @@ Create a `config.json` under the root directory of the program:
 ```json
 {
   "listen": ":36712",
-  "cert": "/home/ubuntu/my_cert.crt",
-  "key": "/home/ubuntu/my_key.crt",
-  "obfs": "AMOGUS",
+  "acme": {
+    "domains": [
+      "your.domain.com"
+    ],
+    "email": "hacker@gmail.com"
+  },
+  "obfs": "fuck me till the daylight",
   "up_mbps": 100,
   "down_mbps": 100
 }
 ```
 
-A TLS certificate is required on the server side. It does not have to be valid and trusted, but in that case the clients
-need additional configuration.
+Hysteria requires a TLS certificate. You can either get a trusted TLS certificate from Let's Encrypt automatically using
+the built-in ACME integration, or provide it yourself. It does not have to be valid and trusted, but in that case the
+clients need additional configuration. To use your own existing TLS certificate, refer to this config:
+
+```json
+{
+  "listen": ":36712",
+  "cert": "/home/ubuntu/my.crt",
+  "key": "/home/ubuntu/my.key",
+  "obfs": "fuck me till the daylight",
+  "up_mbps": 100,
+  "down_mbps": 100
+}
+```
 
 The (optional) `obfs` option obfuscates the protocol using the provided password, so that it is not apparent that this
 is Hysteria/QUIC, which could be useful for bypassing DPI blocking or QoS. If the passwords of the server and client do
@@ -78,7 +94,7 @@ Same as the server side, create a `config.json` under the root directory of the 
 ```json
 {
   "server": "example.com:36712",
-  "obfs": "AMOGUS",
+  "obfs": "fuck me till the daylight",
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
@@ -121,8 +137,19 @@ Proxy Server: AWS US West Oregon (us-west-2)
 ```json5
 {
   "listen": ":36712", // Listen address
-  "cert": "/home/ubuntu/my_cert.crt", // Cert file
-  "key": "/home/ubuntu/my_key.crt", // Key file
+  "acme": {
+    "domains": [
+      "your.domain.com",
+      "another.domain.net"
+    ], // Domains for the ACME cert
+    "email": "hacker@gmail.com", // Registration email, optional but recommended
+    "disable_http": false, // Disable HTTP challenges
+    "disable_tlsalpn": false, // Disable TLS-ALPN challenges
+    "alt_http_port": 8080, // Alternate port for HTTP challenges
+    "alt_tlsalpn_port": 4433 // Alternate port for TLS-ALPN challenges
+  },
+  "cert": "/home/ubuntu/my_cert.crt", // Cert file, mutually exclusive with the ACME options above
+  "key": "/home/ubuntu/my_key.crt", // Key file, mutually exclusive with the ACME options above
   "up_mbps": 100, // Max upload Mbps per client
   "down_mbps": 100, // Max download Mbps per client
   "disable_udp": false, // Disable UDP support
@@ -140,6 +167,11 @@ Proxy Server: AWS US West Oregon (us-west-2)
   "max_conn_client": 4096 // Max concurrent connections per client
 }
 ```
+
+#### ACME
+
+Only HTTP and TLS-ALPN challenges are currently supported (no DNS challenges). Make sure your TCP ports 80/443 are
+accessible respectively.
 
 #### External authentication integration
 

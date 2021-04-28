@@ -22,19 +22,36 @@ import (
 
 func server(config *serverConfig) {
 	logrus.WithField("config", config.String()).Info("Server configuration loaded")
-	// Load cert
-	cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"error": err,
-			"cert":  config.CertFile,
-			"key":   config.KeyFile,
-		}).Fatal("Failed to load the certificate")
-	}
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		NextProtos:   []string{tlsProtocolName},
-		MinVersion:   tls.VersionTLS13,
+	// Load TLS config
+	var tlsConfig *tls.Config
+	if len(config.ACME.Domains) > 0 {
+		// ACME mode
+		tc, err := acmeTLSConfig(config.ACME.Domains, config.ACME.Email,
+			config.ACME.DisableHTTPChallenge, config.ACME.DisableTLSALPNChallenge,
+			config.ACME.AltHTTPPort, config.ACME.AltTLSALPNPort)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to get a certificate with ACME")
+		}
+		tc.NextProtos = []string{tlsProtocolName}
+		tc.MinVersion = tls.VersionTLS13
+		tlsConfig = tc
+	} else {
+		// Local cert mode
+		cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+				"cert":  config.CertFile,
+				"key":   config.KeyFile,
+			}).Fatal("Failed to load the certificate")
+		}
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			NextProtos:   []string{tlsProtocolName},
+			MinVersion:   tls.VersionTLS13,
+		}
 	}
 	// QUIC config
 	quicConfig := &quic.Config{
@@ -55,6 +72,7 @@ func server(config *serverConfig) {
 	}
 	// Auth
 	var authFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
+	var err error
 	switch authMode := config.Auth.Mode; authMode {
 	case "", "none":
 		logrus.Warn("No authentication configured")
