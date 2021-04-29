@@ -202,6 +202,7 @@ func client(config *clientConfig) {
 			if err != nil {
 				logrus.WithField("error", err).Fatal("Failed to initialize TUN server")
 			}
+			tunServer.ACLEngine = aclEngine
 			tunServer.RequestFunc = func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
 				logrus.WithFields(logrus.Fields{
 					"action": actionToString(action, arg),
