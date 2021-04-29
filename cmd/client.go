@@ -192,6 +192,10 @@ func client(config *clientConfig) {
 
 	if len(config.TUN.Name) != 0 {
 		go func() {
+			timeout := time.Duration(config.TUN.Timeout) * time.Second
+			if timeout == 0 {
+				timeout = 300 * time.Second
+			}
 			tunServer, err := tun.NewServer(client, transport.DefaultTransport,
 				time.Duration(config.TUN.Timeout)*time.Second,
 				config.TUN.Name, config.TUN.Address, config.TUN.Gateway, config.TUN.Mask, config.TUN.DNS, config.TUN.Persist)
