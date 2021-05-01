@@ -162,7 +162,7 @@ Proxy Server: AWS US West Oregon (us-west-2)
     }
   },
   "prometheus_listen": ":8080", // Prometheus HTTP metrics server listen address (at /metrics)
-  "recv_window_conn": 33554432, // QUIC stream receive window
+  "recv_window_conn": 15728640, // QUIC stream receive window
   "recv_window_client": 67108864, // QUIC connection receive window
   "max_conn_client": 4096 // Max concurrent connections per client
 }
@@ -273,7 +273,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "auth_str": "yubiyubi", // Authentication payload in string, mutually exclusive with the option above
   "insecure": false, // Ignore all certificate errors 
   "ca": "my.ca", // Custom CA file
-  "recv_window_conn": 33554432, // QUIC stream receive window
+  "recv_window_conn": 15728640, // QUIC stream receive window
   "recv_window": 67108864 // QUIC connection receive window
 }
 ```
@@ -285,6 +285,31 @@ TPROXY modes (`tproxy_tcp` & `tproxy_udp`) are only available on Linux.
 References:
 - https://www.kernel.org/doc/Documentation/networking/tproxy.txt
 - https://powerdns.org/tproxydoc/tproxy.md.html
+
+## Optimization tips
+
+### Optimizing for extreme transfer speeds
+
+If you want to use Hysteria for very high speed transfers (e.g. 10GE, 1G+ over inter-country long fat pipes), consider
+increasing your system's UDP receive buffer size.
+
+```shell
+sysctl -w net.core.rmem_max=4000000
+```
+
+This would increase the buffer size to roughly 4 MB on Linux.
+
+You may also need to increase `recv_window_conn` and `recv_window` (`recv_window_client` on server side) to make sure
+they are at least no less than the bandwidth-delay product. For example, if you want to achieve a transfer speed of 500
+MB/s on a line with an RTT of 200 ms, you need a minimum receive window size of 100 MB (500*0.2).
+
+### Routers and other embedded devices
+
+For devices with very limited computing power and RAM, turning off obfuscation can bring a slight performance boost.
+
+The default receive window size for both Hysteria server and client is 64 MB. Consider lowering them if it's too large
+for your device. Keeping a ratio of one to four between stream receive window and connection receive window is
+recommended.
 
 ## ACL
 

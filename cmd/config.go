@@ -9,9 +9,9 @@ import (
 const (
 	mbpsToBps = 125000
 
-	DefaultMaxReceiveStreamFlowControlWindow     = 33554432
-	DefaultMaxReceiveConnectionFlowControlWindow = 67108864
-	DefaultMaxIncomingStreams                    = 1024
+	DefaultStreamReceiveWindow     = 15728640 // 15 MB/s
+	DefaultConnectionReceiveWindow = 67108864 // 64 MB/s
+	DefaultMaxIncomingStreams      = 1024
 
 	tlsProtocolName = "hysteria"
 )
