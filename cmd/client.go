@@ -49,16 +49,20 @@ func client(config *clientConfig) {
 	}
 	// QUIC config
 	quicConfig := &quic.Config{
-		MaxStreamReceiveWindow:     config.ReceiveWindowConn,
-		MaxConnectionReceiveWindow: config.ReceiveWindow,
-		KeepAlive:                  true,
-		EnableDatagrams:            true,
+		InitialStreamReceiveWindow:     config.ReceiveWindowConn,
+		MaxStreamReceiveWindow:         config.ReceiveWindowConn,
+		InitialConnectionReceiveWindow: config.ReceiveWindow,
+		MaxConnectionReceiveWindow:     config.ReceiveWindow,
+		KeepAlive:                      true,
+		EnableDatagrams:                true,
 	}
-	if quicConfig.MaxStreamReceiveWindow == 0 {
-		quicConfig.MaxStreamReceiveWindow = DefaultMaxReceiveStreamFlowControlWindow
+	if config.ReceiveWindowConn == 0 {
+		quicConfig.InitialStreamReceiveWindow = DefaultStreamReceiveWindow
+		quicConfig.MaxStreamReceiveWindow = DefaultStreamReceiveWindow
 	}
-	if quicConfig.MaxConnectionReceiveWindow == 0 {
-		quicConfig.MaxConnectionReceiveWindow = DefaultMaxReceiveConnectionFlowControlWindow
+	if config.ReceiveWindow == 0 {
+		quicConfig.InitialConnectionReceiveWindow = DefaultConnectionReceiveWindow
+		quicConfig.MaxConnectionReceiveWindow = DefaultConnectionReceiveWindow
 	}
 	// Auth
 	var auth []byte

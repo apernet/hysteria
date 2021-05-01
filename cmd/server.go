@@ -55,17 +55,21 @@ func server(config *serverConfig) {
 	}
 	// QUIC config
 	quicConfig := &quic.Config{
-		MaxStreamReceiveWindow:     config.ReceiveWindowConn,
-		MaxConnectionReceiveWindow: config.ReceiveWindowClient,
-		MaxIncomingStreams:         int64(config.MaxConnClient),
-		KeepAlive:                  true,
-		EnableDatagrams:            true,
+		InitialStreamReceiveWindow:     config.ReceiveWindowConn,
+		MaxStreamReceiveWindow:         config.ReceiveWindowConn,
+		InitialConnectionReceiveWindow: config.ReceiveWindowClient,
+		MaxConnectionReceiveWindow:     config.ReceiveWindowClient,
+		MaxIncomingStreams:             int64(config.MaxConnClient),
+		KeepAlive:                      true,
+		EnableDatagrams:                true,
 	}
-	if quicConfig.MaxStreamReceiveWindow == 0 {
-		quicConfig.MaxStreamReceiveWindow = DefaultMaxReceiveStreamFlowControlWindow
+	if config.ReceiveWindowConn == 0 {
+		quicConfig.InitialStreamReceiveWindow = DefaultStreamReceiveWindow
+		quicConfig.MaxStreamReceiveWindow = DefaultStreamReceiveWindow
 	}
-	if quicConfig.MaxConnectionReceiveWindow == 0 {
-		quicConfig.MaxConnectionReceiveWindow = DefaultMaxReceiveConnectionFlowControlWindow
+	if config.ReceiveWindowClient == 0 {
+		quicConfig.InitialConnectionReceiveWindow = DefaultConnectionReceiveWindow
+		quicConfig.MaxConnectionReceiveWindow = DefaultConnectionReceiveWindow
 	}
 	if quicConfig.MaxIncomingStreams == 0 {
 		quicConfig.MaxIncomingStreams = DefaultMaxIncomingStreams
