@@ -112,11 +112,7 @@ Hysteria 是专门针对恶劣网络环境进行优化的 TCP/UDP 转发和代�
 
 ## 对比
 
-代理客户端：广州移动宽带 100M
-
-代理服务端：AWS 美西 Oregon (us-west-2) (最差线路之一)
-
-![Bench1](docs/bench/bench1.png)
+![Bench](docs/bench/bench.png)
 
 ## 高级用法
 

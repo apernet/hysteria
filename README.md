@@ -124,11 +124,7 @@ encryption. If you need a proxy, just use our proxy mode.
 
 ## Comparison
 
-Proxy Client: Guangzhou, China Mobile Broadband 100 Mbps
-
-Proxy Server: AWS US West Oregon (us-west-2)
-
-![Bench1](docs/bench/bench1.png)
+![Bench](docs/bench/bench.png)
 
 ## Advanced usage
 
