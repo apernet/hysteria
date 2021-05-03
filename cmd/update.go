@@ -2,10 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const githubAPIURL = "https://api.github.com/repos/HyNetwork/hysteria/releases/latest"

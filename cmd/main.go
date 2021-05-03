@@ -1,110 +1,96 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	nested "github.com/antonfisher/nested-logrus-formatter"
-	"github.com/sirupsen/logrus"
-	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
+
+	nested "github.com/antonfisher/nested-logrus-formatter"
+	"github.com/sirupsen/logrus"
+	"github.com/yosuke-furukawa/json5/encoding/json5"
+
+	"github.com/urfave/cli/v2"
 )
 
-// Injected when compiling
 var (
 	appVersion = "Unknown"
 	appCommit  = "Unknown"
 	appDate    = "Unknown"
 )
 
-var (
-	configPath         = flag.String("config", "config.json", "Config file")
-	showVersion        = flag.Bool("version", false, "Show version")
-	disableUpdateCheck = flag.Bool("no-check", false, "Disable update check")
-)
-
-func init() {
-	logrus.SetOutput(os.Stdout)
-
-	lvl, err := logrus.ParseLevel(os.Getenv("LOGGING_LEVEL"))
-	if err == nil {
-		logrus.SetLevel(lvl)
-	} else {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
-
-	// tsFormat is used to format the log timestamp, by default(empty)
-	// the RFC3339("2006-01-02T15:04:05Z07:00") format is used.
-	// The user can use environment variable to override the default
-	// timestamp format(e.g. "2006-01-02 15:04:05").
-	tsFormat := os.Getenv("LOGGING_TIMESTAMP_FORMAT")
-
-	fmtter := os.Getenv("LOGGING_FORMATTER")
-	if strings.ToLower(fmtter) == "json" {
-		logrus.SetFormatter(&logrus.JSONFormatter{
-			TimestampFormat: tsFormat,
-		})
-	} else {
-		logrus.SetFormatter(&nested.Formatter{
-			FieldsOrder: []string{
-				"version", "url",
-				"config", "file", "mode",
-				"addr", "src", "dst", "session", "action",
-				"error",
-			},
-			TimestampFormat: tsFormat,
-		})
-	}
-
-	flag.Parse()
-}
-
 func main() {
-	if *showVersion {
-		// Print version and quit
-		fmt.Printf("%-10s%s\n", "Version:", appVersion)
-		fmt.Printf("%-10s%s\n", "Commit:", appCommit)
-		fmt.Printf("%-10s%s\n", "Date:", appDate)
-		return
+	app := &cli.App{
+		Name:                 "hysteria",
+		Usage:                "A TCP/UDP relay & SOCKS5/HTTP proxy tool",
+		Version:              fmt.Sprintf("%s %s %s", appVersion, appDate, appCommit),
+		Authors:              []*cli.Author{{Name: "HyNetwork <https://github.com/HyNetwork>"}},
+		EnableBashCompletion: true,
+		Action: func(c *cli.Context) error {
+			return cli.ShowAppHelp(c)
+		},
+		Commands: []*cli.Command{
+			{
+				Name:   "server",
+				Usage:  "Run as server mode",
+				Before: initApp,
+				Flags:  commonFlags(),
+				Action: func(c *cli.Context) error {
+					cbs, err := ioutil.ReadFile(c.String("config"))
+					if err != nil {
+						logrus.WithFields(logrus.Fields{
+							"file":  c.String("config"),
+							"error": err,
+						}).Fatal("Failed to read configuration")
+					}
+
+					// server mode
+					sc, err := parseServerConfig(cbs)
+					if err != nil {
+						logrus.WithFields(logrus.Fields{
+							"file":  c.String("config"),
+							"error": err,
+						}).Fatal("Failed to parse server configuration")
+					}
+					server(sc)
+					return nil
+				},
+			},
+			{
+				Name:   "client",
+				Usage:  "Run as client mode",
+				Before: initApp,
+				Flags:  commonFlags(),
+				Action: func(c *cli.Context) error {
+					cbs, err := ioutil.ReadFile(c.String("config"))
+					if err != nil {
+						logrus.WithFields(logrus.Fields{
+							"file":  c.String("config"),
+							"error": err,
+						}).Fatal("Failed to read configuration")
+					}
+
+					// client mode
+					cc, err := parseClientConfig(cbs)
+					if err != nil {
+						logrus.WithFields(logrus.Fields{
+							"file":  c.String("config"),
+							"error": err,
+						}).Fatal("Failed to parse client configuration")
+					}
+					client(cc)
+					return nil
+				},
+			},
+		},
 	}
-	if !*disableUpdateCheck {
-		go checkUpdate()
-	}
-	cb, err := ioutil.ReadFile(*configPath)
+
+	err := app.Run(os.Args)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"file":  *configPath,
-			"error": err,
-		}).Fatal("Failed to read configuration")
+		logrus.Fatal(err)
 	}
-	mode := flag.Arg(0)
-	if strings.EqualFold(mode, "server") {
-		// server mode
-		c, err := parseServerConfig(cb)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"file":  *configPath,
-				"error": err,
-			}).Fatal("Failed to parse server configuration")
-		}
-		server(c)
-	} else if len(mode) == 0 || strings.EqualFold(mode, "client") {
-		// client mode
-		c, err := parseClientConfig(cb)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"file":  *configPath,
-				"error": err,
-			}).Fatal("Failed to parse client configuration")
-		}
-		client(c)
-	} else {
-		// invalid
-		fmt.Println()
-		fmt.Printf("Usage: %s MODE [OPTIONS]\n\n"+
-			"Available modes: server, client\n\n", os.Args[0])
-	}
+
 }
 
 func parseServerConfig(cb []byte) (*serverConfig, error) {
@@ -123,4 +109,72 @@ func parseClientConfig(cb []byte) (*clientConfig, error) {
 		return nil, err
 	}
 	return &c, c.Check()
+}
+
+func initApp(c *cli.Context) error {
+	logrus.SetOutput(os.Stdout)
+
+	lvl, err := logrus.ParseLevel(c.String("log-level"))
+	if err == nil {
+		logrus.SetLevel(lvl)
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
+	}
+
+	if strings.ToLower(c.String("log-format")) == "json" {
+		logrus.SetFormatter(&logrus.JSONFormatter{
+			TimestampFormat: c.String("log-timestamp"),
+		})
+	} else {
+		logrus.SetFormatter(&nested.Formatter{
+			FieldsOrder: []string{
+				"version", "url",
+				"config", "file", "mode",
+				"addr", "src", "dst", "session", "action",
+				"error",
+			},
+			TimestampFormat: c.String("log-timestamp"),
+		})
+	}
+
+	if !c.Bool("no-check") {
+		go checkUpdate()
+	}
+
+	return nil
+}
+
+func commonFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:    "config",
+			Aliases: []string{"c"},
+			Usage:   "config file",
+			EnvVars: []string{"HYSTERIA_CONFIG"},
+			Value:   "./config.json",
+		},
+		&cli.StringFlag{
+			Name:    "log-level",
+			Usage:   "log level",
+			EnvVars: []string{"HYSTERIA_LOG_LEVEL", "LOGGING_LEVEL"},
+			Value:   "info",
+		},
+		&cli.StringFlag{
+			Name:    "log-timestamp",
+			Usage:   "log timestamp format",
+			EnvVars: []string{"HYSTERIA_LOG_TIMESTAMP", "LOGGING_TIMESTAMP_FORMAT"},
+			Value:   time.RFC3339,
+		},
+		&cli.StringFlag{
+			Name:    "log-format",
+			Usage:   "log output format",
+			EnvVars: []string{"HYSTERIA_LOG_FORMAT", "LOGGING_FORMATTER"},
+			Value:   "txt",
+		},
+		&cli.BoolFlag{
+			Name:    "no-check",
+			Usage:   "disable update check",
+			EnvVars: []string{"HYSTERIA_CHECK_UPDATE"},
+		},
+	}
 }
