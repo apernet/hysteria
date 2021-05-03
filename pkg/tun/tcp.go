@@ -3,6 +3,7 @@ package tun
 import (
 	"errors"
 	"fmt"
+	tun2socks "github.com/eycorsican/go-tun2socks/core"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
@@ -65,10 +66,15 @@ func (s *Server) Handle(conn net.Conn, target *net.TCPAddr) error {
 }
 
 func (s *Server) relayTCP(clientConn, relayConn net.Conn) {
-	closeErr := utils.PipePairWithTimeout(clientConn, relayConn, s.Timeout)
+	closeErr := utils.PipePairWithTimeout(relayConn, clientConn, s.Timeout)
 	if s.ErrorFunc != nil {
 		s.ErrorFunc(clientConn.LocalAddr(), relayConn.RemoteAddr().String(), closeErr)
 	}
 	relayConn.Close()
 	clientConn.Close()
+	if closeErr != nil && closeErr.Error() == "deadline exceeded" {
+		if clientConn, ok := clientConn.(tun2socks.TCPConn); ok {
+			clientConn.Abort()
+		}
+	}
 }
