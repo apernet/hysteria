@@ -22,66 +22,24 @@ var (
 
 func main() {
 	app := &cli.App{
-		Name:                 "hysteria",
-		Usage:                "A TCP/UDP relay & SOCKS5/HTTP proxy tool",
+		Name:                 "Hysteria",
+		Usage:                "a TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for poor network environments",
 		Version:              fmt.Sprintf("%s %s %s", appVersion, appDate, appCommit),
 		Authors:              []*cli.Author{{Name: "HyNetwork <https://github.com/HyNetwork>"}},
 		EnableBashCompletion: true,
-		Action: func(c *cli.Context) error {
-			return cli.ShowAppHelp(c)
-		},
+		Action:               clientAction,
+		Flags:                commonFlags(),
+		Before:               initApp,
 		Commands: []*cli.Command{
 			{
 				Name:   "server",
 				Usage:  "Run as server mode",
-				Before: initApp,
-				Flags:  commonFlags(),
-				Action: func(c *cli.Context) error {
-					cbs, err := ioutil.ReadFile(c.String("config"))
-					if err != nil {
-						logrus.WithFields(logrus.Fields{
-							"file":  c.String("config"),
-							"error": err,
-						}).Fatal("Failed to read configuration")
-					}
-
-					// server mode
-					sc, err := parseServerConfig(cbs)
-					if err != nil {
-						logrus.WithFields(logrus.Fields{
-							"file":  c.String("config"),
-							"error": err,
-						}).Fatal("Failed to parse server configuration")
-					}
-					server(sc)
-					return nil
-				},
+				Action: serverAction,
 			},
 			{
 				Name:   "client",
 				Usage:  "Run as client mode",
-				Before: initApp,
-				Flags:  commonFlags(),
-				Action: func(c *cli.Context) error {
-					cbs, err := ioutil.ReadFile(c.String("config"))
-					if err != nil {
-						logrus.WithFields(logrus.Fields{
-							"file":  c.String("config"),
-							"error": err,
-						}).Fatal("Failed to read configuration")
-					}
-
-					// client mode
-					cc, err := parseClientConfig(cbs)
-					if err != nil {
-						logrus.WithFields(logrus.Fields{
-							"file":  c.String("config"),
-							"error": err,
-						}).Fatal("Failed to parse client configuration")
-					}
-					client(cc)
-					return nil
-				},
+				Action: clientAction,
 			},
 		},
 	}
@@ -91,6 +49,46 @@ func main() {
 		logrus.Fatal(err)
 	}
 
+}
+
+func clientAction(c *cli.Context) error {
+	cbs, err := ioutil.ReadFile(c.String("config"))
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"file":  c.String("config"),
+			"error": err,
+		}).Fatal("Failed to read configuration")
+	}
+	// client mode
+	cc, err := parseClientConfig(cbs)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"file":  c.String("config"),
+			"error": err,
+		}).Fatal("Failed to parse client configuration")
+	}
+	client(cc)
+	return nil
+}
+
+func serverAction(c *cli.Context) error {
+	cbs, err := ioutil.ReadFile(c.String("config"))
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"file":  c.String("config"),
+			"error": err,
+		}).Fatal("Failed to read configuration")
+	}
+	// server mode
+	sc, err := parseServerConfig(cbs)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"file":  c.String("config"),
+			"error": err,
+		}).Fatal("Failed to parse server configuration")
+	}
+	server(sc)
+	return nil
 }
 
 func parseServerConfig(cb []byte) (*serverConfig, error) {
