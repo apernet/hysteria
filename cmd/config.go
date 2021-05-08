@@ -110,6 +110,7 @@ type clientConfig struct {
 	Obfs              string `json:"obfs"`
 	Auth              []byte `json:"auth"`
 	AuthString        string `json:"auth_str"`
+	ServerName        string `json:"server_name"`
 	Insecure          bool   `json:"insecure"`
 	CustomCA          string `json:"ca"`
 	ReceiveWindowConn uint64 `json:"recv_window_conn"`

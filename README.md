@@ -267,6 +267,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "obfs": "AMOGUS", // Obfuscation password
   "auth": "[BASE64]", // Authentication payload in Base64
   "auth_str": "yubiyubi", // Authentication payload in string, mutually exclusive with the option above
+  "server_name": "real.name.com", // TLS hostname used to verify the server certificate
   "insecure": false, // Ignore all certificate errors 
   "ca": "my.ca", // Custom CA file
   "recv_window_conn": 15728640, // QUIC stream receive window

@@ -254,6 +254,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "obfs": "AMOGUS", // 混淆密码
   "auth": "[BASE64]", // Base64 验证密钥
   "auth_str": "yubiyubi", // 字符串验证密钥，和上面的选项二选一
+  "server_name": "real.name.com", // 用于验证服务端证书的 hostname
   "insecure": false, // 忽略一切证书错误 
   "ca": "my.ca", // 自定义 CA
   "recv_window_conn": 15728640, // QUIC stream receive window
