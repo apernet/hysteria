@@ -26,6 +26,7 @@ func client(config *clientConfig) {
 	logrus.WithField("config", config.String()).Info("Client configuration loaded")
 	// TLS
 	tlsConfig := &tls.Config{
+		ServerName:         config.ServerName,
 		InsecureSkipVerify: config.Insecure,
 		NextProtos:         []string{tlsProtocolName},
 		MinVersion:         tls.VersionTLS13,
