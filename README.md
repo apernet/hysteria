@@ -24,7 +24,7 @@ currently has the following features: (still growing!)
 - HTTP/HTTPS proxy
 - TCP/UDP relay
 - TCP/UDP TPROXY (Linux only)
-- TUN/TAP
+- TUN (TAP on Windows)
 
 ## Installation
 

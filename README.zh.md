@@ -21,7 +21,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 - HTTP/HTTPS 代理
 - TCP/UDP 转发
 - TCP/UDP TPROXY 透明代理 (Linux)
-- TUN/TAP
+- TUN (Windows 下为 TAP)
 
 ## 下载安装
 
