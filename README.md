@@ -16,10 +16,15 @@
 
 [中文](README.zh.md)
 
-Hysteria is a TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for networks of poor quality (e.g. satellite connections,
-congested public Wi-Fi, connecting from China to servers abroad) powered by a custom version of QUIC protocol.
+Hysteria is a feature-packed network utility optimized for networks of poor quality (e.g. satellite connections,
+congested public Wi-Fi, connecting from China to servers abroad) powered by a custom version of QUIC protocol. It
+currently has the following features: (still growing!)
 
-It is essentially a spiritual successor of my abandoned project https://github.com/dragonite-network/dragonite-java
+- SOCKS5 proxy (TCP & UDP)
+- HTTP/HTTPS proxy
+- TCP/UDP relay
+- TCP/UDP TPROXY (Linux only)
+- TUN/TAP
 
 ## Installation
 
