@@ -27,16 +27,17 @@ jobs:
         id: current-time
 
       - name: Build
-        uses: tobyxdd/go-cross-build@25e1ba1da2fb42ed9787b615f0e89235569c58fa
+        uses: crazy-max/ghaction-xgo@v1
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
         with:
-          name: hysteria
-          dest: ./dist/
+          xgo_version: latest
+          go_version: latest
+          dest: dist
+          prefix: hysteria
+          targets: linux/amd64,linux/386,linux/arm,linux/arm64,linux/mipsle,darwin/amd64,darwin/arm64,windows/amd64,windows/386
           ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
-          platforms: 'linux/amd64, linux/386, linux/arm, linux/arm64, linux/mipsle, darwin/amd64, darwin/arm64, windows/amd64, windows/386'
-          package: ./cmd
-          compress: false
+          package: cmd
 
       - name: Upload
         uses: meeDamian/github-release@2.0
