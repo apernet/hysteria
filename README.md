@@ -245,6 +245,15 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
     "cert": "/home/ubuntu/my_cert.crt", // Cert file (HTTPS proxy)
     "key": "/home/ubuntu/my_key.crt" // Key file (HTTPS proxy)
   },
+  "tun": {
+    "name": "tun-hy", // TUN interface name
+    "timeout": 300, // Timeout in seconds
+    "address": "192.0.2.2", // TUN interface address, not applicable for Linux
+    "gateway": "192.0.2.1", // TUN interface gateway, not applicable for Linux
+    "mask": "255.255.255.252", // TUN interface mask, not applicable for Linux
+    "dns": [ "8.8.8.8", "8.8.4.4" ], // TUN interface DNS, only applicable for Windows
+    "persist": false // Persist TUN interface after exit, only applicable for Linux
+  },
   "relay_tcp": {
     "listen": "127.0.0.1:2222", // TCP relay listen address
     "remote": "123.123.123.123:22", // TCP relay remote address

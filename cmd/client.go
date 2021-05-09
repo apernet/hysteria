@@ -15,10 +15,12 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/socks5"
 	"github.com/tobyxdd/hysteria/pkg/tproxy"
 	"github.com/tobyxdd/hysteria/pkg/transport"
+	"github.com/tobyxdd/hysteria/pkg/tun"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -186,6 +188,56 @@ func client(config *clientConfig) {
 				logrus.WithField("addr", config.HTTP.Listen).Info("HTTP server up and running")
 				errChan <- http.ListenAndServe(config.HTTP.Listen, proxy)
 			}
+		}()
+	}
+
+	if len(config.TUN.Name) != 0 {
+		go func() {
+			timeout := time.Duration(config.TUN.Timeout) * time.Second
+			if timeout == 0 {
+				timeout = 300 * time.Second
+			}
+			tunServer, err := tun.NewServer(client, transport.DefaultTransport,
+				time.Duration(config.TUN.Timeout)*time.Second,
+				config.TUN.Name, config.TUN.Address, config.TUN.Gateway, config.TUN.Mask, config.TUN.DNS, config.TUN.Persist)
+			if err != nil {
+				logrus.WithField("error", err).Fatal("Failed to initialize TUN server")
+			}
+			tunServer.ACLEngine = aclEngine
+			tunServer.RequestFunc = func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
+				logrus.WithFields(logrus.Fields{
+					"action": actionToString(action, arg),
+					"src":    addr.String(),
+					"dst":    reqAddr,
+				}).Debugf("TUN %s request", strings.ToUpper(addr.Network()))
+			}
+			tunServer.ErrorFunc = func(addr net.Addr, reqAddr string, err error) {
+				if err != nil {
+					if err == io.EOF {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+							"dst": reqAddr,
+						}).Debugf("TUN %s EOF", strings.ToUpper(addr.Network()))
+					} else if err == core.ErrClosed && strings.HasPrefix(addr.Network(), "udp") {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+							"dst": reqAddr,
+						}).Debugf("TUN %s closed for timeout", strings.ToUpper(addr.Network()))
+					} else if err.Error() == "deadline exceeded" && strings.HasPrefix(addr.Network(), "tcp") {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+							"dst": reqAddr,
+						}).Debugf("TUN %s closed for timeout", strings.ToUpper(addr.Network()))
+					} else {
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"src":   addr.String(),
+							"dst":   reqAddr,
+						}).Infof("TUN %s error", strings.ToUpper(addr.Network()))
+					}
+				}
+			}
+			errChan <- tunServer.ListenAndServe()
 		}()
 	}
 
