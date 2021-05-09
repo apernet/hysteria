@@ -52,9 +52,10 @@ func NewUDPTProxy(hyClient *core.Client, transport transport.Transport, listen s
 }
 
 type connEntry struct {
-	HyConn    core.UDPConn
-	LocalConn *net.UDPConn
-	Deadline  atomic.Value
+	LocalConn  *net.UDPConn
+	HyConn     core.UDPConn
+	DirectConn *net.UDPConn
+	Deadline   atomic.Value
 }
 
 func (r *UDPTProxy) sendPacket(entry *connEntry, dstAddr *net.UDPAddr, data []byte) error {
@@ -66,7 +67,7 @@ func (r *UDPTProxy) sendPacket(entry *connEntry, dstAddr *net.UDPAddr, data []by
 	action, arg := acl.ActionProxy, ""
 	var ipAddr *net.IPAddr
 	var resErr error
-	if r.ACLEngine != nil && entry.LocalConn != nil {
+	if r.ACLEngine != nil && entry.DirectConn != nil {
 		action, arg, ipAddr, resErr = r.ACLEngine.ResolveAndMatch(host)
 		// Doesn't always matter if the resolution fails, as we may send it through HyClient
 	}
@@ -75,7 +76,7 @@ func (r *UDPTProxy) sendPacket(entry *connEntry, dstAddr *net.UDPAddr, data []by
 		if resErr != nil {
 			return resErr
 		}
-		_, err = entry.LocalConn.WriteToUDP(data, &net.UDPAddr{
+		_, err = entry.DirectConn.WriteToUDP(data, &net.UDPAddr{
 			IP:   ipAddr.IP,
 			Port: int(port),
 			Zone: ipAddr.Zone,
@@ -92,7 +93,7 @@ func (r *UDPTProxy) sendPacket(entry *connEntry, dstAddr *net.UDPAddr, data []by
 		if err != nil {
 			return err
 		}
-		_, err = entry.LocalConn.WriteToUDP(data, rAddr)
+		_, err = entry.DirectConn.WriteToUDP(data, rAddr)
 		return err
 	default:
 		// Do nothing
@@ -123,21 +124,33 @@ func (r *UDPTProxy) ListenAndServe() error {
 			} else {
 				// New
 				r.ConnFunc(srcAddr)
-				hyConn, err := r.HyClient.DialUDP()
+				localConn, err := tproxy.DialUDP("udp", dstAddr, srcAddr)
 				if err != nil {
 					r.ErrorFunc(srcAddr, err)
 					continue
 				}
-				var localConn *net.UDPConn
+				hyConn, err := r.HyClient.DialUDP()
+				if err != nil {
+					r.ErrorFunc(srcAddr, err)
+					_ = localConn.Close()
+					continue
+				}
+				var directConn *net.UDPConn
 				if r.ACLEngine != nil {
-					localConn, err = r.Transport.LocalListenUDP(nil)
+					directConn, err = r.Transport.LocalListenUDP(nil)
 					if err != nil {
 						r.ErrorFunc(srcAddr, err)
+						_ = localConn.Close()
+						_ = hyConn.Close()
 						continue
 					}
 				}
 				// Send
-				entry := &connEntry{HyConn: hyConn, LocalConn: localConn}
+				entry := &connEntry{
+					LocalConn:  localConn,
+					HyConn:     hyConn,
+					DirectConn: directConn,
+				}
 				_ = r.sendPacket(entry, dstAddr, buf[:n])
 				// Add it to the map
 				connMapMutex.Lock()
@@ -151,17 +164,17 @@ func (r *UDPTProxy) ListenAndServe() error {
 							break
 						}
 						entry.Deadline.Store(time.Now().Add(r.Timeout))
-						_, _ = conn.WriteToUDP(bs, srcAddr)
+						_, _ = localConn.Write(bs)
 					}
 				}()
-				if localConn != nil {
+				if directConn != nil {
 					go func() {
 						buf := make([]byte, udpBufferSize)
 						for {
-							n, _, err := localConn.ReadFrom(buf)
+							n, _, err := directConn.ReadFrom(buf)
 							if n > 0 {
 								entry.Deadline.Store(time.Now().Add(r.Timeout))
-								_, _ = conn.WriteToUDP(buf[:n], srcAddr)
+								_, _ = localConn.Write(buf[:n])
 							}
 							if err != nil {
 								break
@@ -176,9 +189,10 @@ func (r *UDPTProxy) ListenAndServe() error {
 						if ttl <= 0 {
 							// Time to die
 							connMapMutex.Lock()
+							_ = localConn.Close()
 							_ = hyConn.Close()
-							if localConn != nil {
-								_ = localConn.Close()
+							if directConn != nil {
+								_ = directConn.Close()
 							}
 							delete(connMap, srcAddr.String())
 							connMapMutex.Unlock()
