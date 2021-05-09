@@ -30,7 +30,6 @@ jobs:
         uses: tobyxdd/go-cross-build@25e1ba1da2fb42ed9787b615f0e89235569c58fa
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
-          CGO_ENABLED: "0"
         with:
           name: hysteria
           dest: ./dist/
