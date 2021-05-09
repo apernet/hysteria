@@ -116,7 +116,7 @@ func initApp(c *cli.Context) error {
 	if err == nil {
 		logrus.SetLevel(lvl)
 	} else {
-		logrus.SetLevel(logrus.InfoLevel)
+		logrus.SetLevel(logrus.DebugLevel)
 	}
 
 	if strings.ToLower(c.String("log-format")) == "json" {
@@ -155,7 +155,7 @@ func commonFlags() []cli.Flag {
 			Name:    "log-level",
 			Usage:   "log level",
 			EnvVars: []string{"HYSTERIA_LOG_LEVEL", "LOGGING_LEVEL"},
-			Value:   "info",
+			Value:   "debug",
 		},
 		&cli.StringFlag{
 			Name:    "log-timestamp",
