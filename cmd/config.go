@@ -129,7 +129,7 @@ func (c *clientConfig) Check() error {
 	if len(c.SOCKS5.Listen) == 0 && len(c.HTTP.Listen) == 0 && len(c.TUN.Name) == 0 &&
 		len(c.TCPRelay.Listen) == 0 && len(c.UDPRelay.Listen) == 0 &&
 		len(c.TCPTProxy.Listen) == 0 && len(c.UDPTProxy.Listen) == 0 {
-		return errors.New("no SOCKS5, HTTP, relay or TProxy listen address")
+		return errors.New("please enable at least one mode")
 	}
 	if len(c.TCPRelay.Listen) > 0 && len(c.TCPRelay.Remote) == 0 {
 		return errors.New("no TCP relay remote address")
