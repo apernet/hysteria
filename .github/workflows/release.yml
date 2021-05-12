@@ -40,7 +40,7 @@ jobs:
           pkg: cmd
 
       - name: Upload
-        uses: meeDamian/github-release@2.0
+        uses: meeDamian/github-release@v2.0.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           gzip: false
