@@ -14,7 +14,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.20.1
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
-	github.com/prometheus/client_golang v1.10.0
+	github.com/prometheus/client_golang v1.11.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sirupsen/logrus v1.8.1
 	github.com/txthinking/runnergroup v0.0.0-20210326110939-37fc67d0da7c // indirect
@@ -22,7 +22,6 @@ require (
 	github.com/txthinking/x v0.0.0-20210326105829-476fab902fbe // indirect
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/yosuke-furukawa/json5 v0.1.1
-	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887 // indirect
 )
 
 replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.20.2-0.20210428051806-514b63007176
