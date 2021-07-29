@@ -24,4 +24,4 @@ require (
 	github.com/yosuke-furukawa/json5 v0.1.1
 )
 
-replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.20.2-0.20210428051806-514b63007176
+replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.22.0-mod

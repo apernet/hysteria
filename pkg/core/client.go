@@ -70,10 +70,6 @@ func (c *Client) connectToServer() error {
 	if err != nil {
 		return err
 	}
-	if err := utils.SetDontFragment(udpConn); err != nil {
-		_ = udpConn.Close()
-		return err
-	}
 	var qs quic.Session
 	if c.obfuscator != nil {
 		// Wrap PacketConn with obfuscator

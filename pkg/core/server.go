@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	transport2 "github.com/tobyxdd/hysteria/pkg/transport"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 )
 
@@ -49,10 +48,6 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config, tran
 	}
 	udpConn, err := transport.QUICListenUDP(udpAddr)
 	if err != nil {
-		return nil, err
-	}
-	if err := utils.SetDontFragment(udpConn); err != nil {
-		_ = udpConn.Close()
 		return nil, err
 	}
 	var listener quic.Listener
