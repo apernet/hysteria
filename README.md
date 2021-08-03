@@ -33,6 +33,14 @@ currently has the following features: (still growing!)
 - Use our Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
 - Build from source with `go build ./cmd`
 
+### Android
+
+- [SagerNet](https://github.com/SagerNet/SagerNet) with hysteria-plugin
+
+### iOS, macOS, Windows & Linux GUI
+
+- Feel free to contribute!
+
 ## Quick Start
 
 Note: This is only a bare-bones example to get the server and client running. Go to [Advanced usage](#advanced-usage)
