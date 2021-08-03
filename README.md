@@ -28,6 +28,8 @@ currently has the following features: (still growing!)
 
 ## Installation
 
+### Windows, Linux, macOS CLI
+
 - Download pre-built binaries from https://github.com/tobyxdd/hysteria/releases
 - Pull the image from Docker Hub: https://hub.docker.com/r/tobyxdd/hysteria
 - Use our Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
@@ -37,7 +39,7 @@ currently has the following features: (still growing!)
 
 - [SagerNet](https://github.com/SagerNet/SagerNet) with [hysteria-plugin](https://github.com/SagerNet/SagerNet/releases/tag/hysteria-plugin-0.8.3)
 
-### iOS, macOS, Windows & Linux GUI
+### iOS
 
 - Feel free to contribute!
 

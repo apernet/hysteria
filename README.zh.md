@@ -25,6 +25,8 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 
 ## 下载安装
 
+### Windows, Linux, macOS CLI
+
 - 从 https://github.com/tobyxdd/hysteria/releases 下载编译好的版本
 - Docker 镜像: https://hub.docker.com/r/tobyxdd/hysteria
 - 使用 Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
@@ -34,7 +36,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 
 - [SagerNet](https://github.com/SagerNet/SagerNet) 配合 [hysteria-plugin](https://github.com/SagerNet/SagerNet/releases/tag/hysteria-plugin-0.8.3)
 
-### iOS, macOS, Windows & Linux GUI
+### iOS
 
 - 欢迎贡献，或给已有代理工具添加整合
 
