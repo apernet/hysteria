@@ -297,7 +297,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
 }
 ```
 
-#### Transparency proxy
+#### Transparent proxy
 
 TPROXY modes (`tproxy_tcp` & `tproxy_udp`) are only available on Linux.
 
