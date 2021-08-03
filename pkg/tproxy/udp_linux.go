@@ -124,6 +124,7 @@ func (r *UDPTProxy) ListenAndServe() error {
 			} else {
 				// New
 				r.ConnFunc(srcAddr)
+				// TODO: Change fixed dstAddr
 				localConn, err := tproxy.DialUDP("udp", dstAddr, srcAddr)
 				if err != nil {
 					r.ErrorFunc(srcAddr, err)
