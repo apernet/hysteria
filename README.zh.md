@@ -32,7 +32,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 
 ### Android
 
-- [SagerNet](https://github.com/SagerNet/SagerNet) 配合 hysteria-plugin
+- [SagerNet](https://github.com/SagerNet/SagerNet) 配合 [hysteria-plugin](https://github.com/SagerNet/SagerNet/releases/tag/hysteria-plugin-0.8.3)
 
 ### iOS, macOS, Windows & Linux GUI
 
