@@ -51,7 +51,3 @@ jobs:
             ./dist/hysteria-linux-arm
             ./dist/hysteria-linux-arm64
             ./dist/hysteria-linux-mipsle
-            ./dist/hysteria-darwin-amd64
-            ./dist/hysteria-darwin-arm64
-            ./dist/hysteria-windows-amd64.exe
-            ./dist/hysteria-windows-386.exe
