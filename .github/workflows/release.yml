@@ -32,7 +32,7 @@ jobs:
           TIME: "${{ steps.current-time.outputs.time }}"
           CGO_ENABLED: "0"
         with:
-          name: hysteria
+          name: hysteria-notun
           dest: ./dist/
           ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
           platforms: 'linux/amd64, linux/386, linux/arm, linux/arm64, linux/mipsle, darwin/amd64, darwin/arm64, windows/amd64, windows/386'
@@ -46,8 +46,8 @@ jobs:
           gzip: false
           allow_override: true
           files: >
-            ./dist/hysteria-linux-amd64
-            ./dist/hysteria-linux-386
-            ./dist/hysteria-linux-arm
-            ./dist/hysteria-linux-arm64
-            ./dist/hysteria-linux-mipsle
+            ./dist/hysteria-notun-linux-amd64
+            ./dist/hysteria-notun-linux-386
+            ./dist/hysteria-notun-linux-arm
+            ./dist/hysteria-notun-linux-arm64
+            ./dist/hysteria-notun-linux-mipsle

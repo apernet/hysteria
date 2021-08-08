@@ -31,6 +31,9 @@ currently has the following features: (still growing!)
 ### Windows, Linux, macOS CLI
 
 - Download pre-built binaries from https://github.com/tobyxdd/hysteria/releases
+  - Linux builds are available as `hysteria` (with tun support) and `hysteria-notun` (without tun support). Builds 
+    without tun support are statically linked and do not depend on glibc. If you use a non-standard distribution that 
+    can't run `hysteria` properly, try `hysteria-notun` instead.
 - Pull the image from Docker Hub: https://hub.docker.com/r/tobyxdd/hysteria
 - Use our Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
 - Build from source with `go build ./cmd`

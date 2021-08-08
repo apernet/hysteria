@@ -34,7 +34,7 @@ jobs:
           xgo_version: latest
           go_version: latest
           dest: dist
-          prefix: hysteria-tun
+          prefix: hysteria
           targets: linux/amd64,linux/386,linux/arm-5,linux/arm-7,linux/arm64,linux/mipsle,darwin-10.12/amd64,darwin-10.12/arm64,windows-6.0/amd64,windows-6.0/386
           ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
           pkg: cmd
@@ -46,13 +46,13 @@ jobs:
           gzip: false
           allow_override: true
           files: >
-            ./dist/hysteria-tun-linux-amd64
-            ./dist/hysteria-tun-linux-386
-            ./dist/hysteria-tun-linux-arm-5
-            ./dist/hysteria-tun-linux-arm-7
-            ./dist/hysteria-tun-linux-arm64
-            ./dist/hysteria-tun-linux-mipsle
-            ./dist/hysteria-tun-darwin-10.12-amd64
-            ./dist/hysteria-tun-darwin-10.12-arm64
-            ./dist/hysteria-tun-windows-6.0-amd64.exe
-            ./dist/hysteria-tun-windows-6.0-386.exe
+            ./dist/hysteria-linux-amd64
+            ./dist/hysteria-linux-386
+            ./dist/hysteria-linux-arm-5
+            ./dist/hysteria-linux-arm-7
+            ./dist/hysteria-linux-arm64
+            ./dist/hysteria-linux-mipsle
+            ./dist/hysteria-darwin-10.12-amd64
+            ./dist/hysteria-darwin-10.12-arm64
+            ./dist/hysteria-windows-6.0-amd64.exe
+            ./dist/hysteria-windows-6.0-386.exe

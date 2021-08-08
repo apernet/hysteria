@@ -28,6 +28,8 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 ### Windows, Linux, macOS CLI
 
 - 从 https://github.com/tobyxdd/hysteria/releases 下载编译好的版本
+  - Linux 分为 `hysteria` (带有 tun 支持) 和 `hysteria-notun` (无 tun 支持) 两个版本。无 tun 支持的版本是静态链接，不依赖系统
+    glibc 的。如果你使用了非标准 Linux 发行版，无法正常执行 `hysteria`，可尝试 `hysteria-notun`
 - Docker 镜像: https://hub.docker.com/r/tobyxdd/hysteria
 - 使用 Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
 - 自己用 `go build ./cmd` 从源码编译
