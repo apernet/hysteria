@@ -32,8 +32,8 @@ currently has the following features: (still growing!)
 
 - Download pre-built binaries from https://github.com/tobyxdd/hysteria/releases
   - Linux builds are available as `hysteria` (with tun support) and `hysteria-notun` (without tun support). Builds 
-    without tun support are statically linked and do not depend on glibc. If you use a non-standard distribution that 
-    can't run `hysteria` properly, try `hysteria-notun` instead.
+    without tun support are statically linked and do not depend on glibc. **If you use a non-standard distribution that 
+    can't run `hysteria` properly, try `hysteria-notun` instead.**
 - Pull the image from Docker Hub: https://hub.docker.com/r/tobyxdd/hysteria
 - Use our Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
 - Build from source with `go build ./cmd`
@@ -96,13 +96,13 @@ them if you don't need.
 To launch the server, simply run
 
 ```
-./cmd_linux_amd64 server
+./hysteria-linux-amd64 server
 ```
 
 If your config file is not named `config.json` or is in a different path, specify it with `-config`:
 
 ```
-./cmd_linux_amd64 -config blah.json server
+./hysteria-linux-amd64 -config blah.json server
 ```
 
 ### Client
@@ -138,7 +138,7 @@ according to your network conditions, as they are crucial for Hysteria to work o
 Some users may attempt to forward other encrypted proxy protocols such as Shadowsocks with relay. While this technically
 works, it's not optimal from a performance standpoint - Hysteria itself uses TLS, considering that the proxy protocol
 being forwarded is also encrypted, and the fact that almost all sites are now using HTTPS, it essentially becomes triple
-encryption. If you need a proxy, just use our proxy mode.
+encryption. If you need a proxy, just use our proxy modes.
 
 ## Comparison
 

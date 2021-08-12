@@ -5,9 +5,9 @@ from itertools import chain
 from datetime import date
 
 data_ipv4 = urllib.request.urlopen(
-    'https://www.ipdeny.com/ipblocks/data/aggregated/cn-aggregated.zone')
+    'http://www.ipdeny.com/ipblocks/data/aggregated/cn-aggregated.zone')
 data_ipv6 = urllib.request.urlopen(
-    'https://www.ipdeny.com/ipv6/ipaddresses/aggregated/cn-aggregated.zone')
+    'http://www.ipdeny.com/ipv6/ipaddresses/aggregated/cn-aggregated.zone')
 
 data = chain(data_ipv4, data_ipv6)
 

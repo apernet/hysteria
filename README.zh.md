@@ -29,7 +29,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 
 - 从 https://github.com/tobyxdd/hysteria/releases 下载编译好的版本
   - Linux 分为 `hysteria` (带有 tun 支持) 和 `hysteria-notun` (无 tun 支持) 两个版本。无 tun 支持的版本是静态链接，不依赖系统
-    glibc 的。如果你使用了非标准 Linux 发行版，无法正常执行 `hysteria`，可尝试 `hysteria-notun`
+    glibc 的。**如果你使用了非标准 Linux 发行版，无法正常执行 `hysteria`，可尝试 `hysteria-notun`**
 - Docker 镜像: https://hub.docker.com/r/tobyxdd/hysteria
 - 使用 Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
 - 自己用 `go build ./cmd` 从源码编译
@@ -87,13 +87,13 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 要启动服务端，只需运行
 
 ```
-./cmd_linux_amd64 server
+./hysteria-linux-amd64 server
 ```
 
 如果你的配置文件没有命名为 `config.json` 或在别的路径，请用 `-config` 指定路径：
 
 ```
-./cmd_linux_amd64 -config blah.json server
+./hysteria-linux-amd64 -config blah.json server
 ```
 
 ### 客户端
@@ -124,7 +124,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 `up_mbps` 和 `down_mbps` 在客户端是必填选项，请根据实际网络情况尽量准确地填写，否则将影响 Hysteria 的使用体验。
 
 有些用户可能会尝试用这个功能转发其他加密代理协议，比如 Shadowsocks。这样虽然可行，但从性能的角度不推荐 - Hysteria 本身就用 TLS，
-转发的代理协议也是加密的，再加上如今几乎所有网站都是 HTTPS 了，等于做了三重加密。如果需要代理就用我们的代理模式。
+转发的代理协议也是加密的，再加上如今几乎所有网站都是 HTTPS 了，等于做了三重加密。如果需要代理，建议直接使用代理模式。
 
 ## 对比
 
