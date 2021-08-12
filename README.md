@@ -223,6 +223,8 @@ The endpoint must return results with HTTP status code 200 (even if the authenti
 }
 ```
 
+`ok` indicates whether the authentication passed. `msg` is a success/failure message.
+
 #### Prometheus Metrics
 
 You can make Hysteria expose a Prometheus HTTP client endpoint for monitoring traffic usage with `prometheus_listen`.
