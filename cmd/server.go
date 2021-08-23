@@ -61,6 +61,7 @@ func server(config *serverConfig) {
 		MaxConnectionReceiveWindow:     config.ReceiveWindowClient,
 		MaxIncomingStreams:             int64(config.MaxConnClient),
 		KeepAlive:                      true,
+		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
 	}
 	if config.ReceiveWindowConn == 0 {
