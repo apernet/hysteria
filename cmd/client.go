@@ -57,6 +57,7 @@ func client(config *clientConfig) {
 		InitialConnectionReceiveWindow: config.ReceiveWindow,
 		MaxConnectionReceiveWindow:     config.ReceiveWindow,
 		KeepAlive:                      true,
+		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
 	}
 	if config.ReceiveWindowConn == 0 {

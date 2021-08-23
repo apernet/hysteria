@@ -178,7 +178,8 @@ encryption. If you need a proxy, just use our proxy modes.
   "prometheus_listen": ":8080", // Prometheus HTTP metrics server listen address (at /metrics)
   "recv_window_conn": 15728640, // QUIC stream receive window
   "recv_window_client": 67108864, // QUIC connection receive window
-  "max_conn_client": 4096 // Max concurrent connections per client
+  "max_conn_client": 4096, // Max concurrent connections per client
+  "disable_mtu_discovery": false // Disable Path MTU Discovery (RFC 8899)
 }
 ```
 
@@ -300,7 +301,8 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "insecure": false, // Ignore all certificate errors 
   "ca": "my.ca", // Custom CA file
   "recv_window_conn": 15728640, // QUIC stream receive window
-  "recv_window": 67108864 // QUIC connection receive window
+  "recv_window": 67108864, // QUIC connection receive window
+  "disable_mtu_discovery": false // Disable Path MTU Discovery (RFC 8899)
 }
 ```
 
