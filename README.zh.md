@@ -34,6 +34,10 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 - 使用 Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
 - 自己用 `go build ./cmd` 从源码编译
 
+### OpenWrt LuCI app
+
+- [openwrt-passwall](https://github.com/xiaorouji/openwrt-passwall)
+
 ### Android
 
 - [SagerNet](https://github.com/SagerNet/SagerNet) 配合 [hysteria-plugin](https://github.com/SagerNet/SagerNet/releases/tag/hysteria-plugin-0.8.5)

@@ -38,6 +38,10 @@ currently has the following features: (still growing!)
 - Use our Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
 - Build from source with `go build ./cmd`
 
+### OpenWrt LuCI app
+
+- [openwrt-passwall](https://github.com/xiaorouji/openwrt-passwall)
+
 ### Android
 
 - [SagerNet](https://github.com/SagerNet/SagerNet) with [hysteria-plugin](https://github.com/SagerNet/SagerNet/releases/tag/hysteria-plugin-0.8.5)
