@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"github.com/caddyserver/certmagic"
 )
@@ -14,5 +15,5 @@ func acmeTLSConfig(domains []string, email string, disableHTTP bool, disableTLSA
 	certmagic.DefaultACME.AltHTTPPort = altHTTPPort
 	certmagic.DefaultACME.AltTLSALPNPort = altTLSALPNPort
 	cfg := certmagic.NewDefault()
-	return cfg.TLSConfig(), cfg.ManageSync(domains)
+	return cfg.TLSConfig(), cfg.ManageSync(context.Background(), domains)
 }
