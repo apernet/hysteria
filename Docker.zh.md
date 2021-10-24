@@ -28,7 +28,7 @@ docker run -dt --name hysteria \
 
 ### Docker Compose 用户 
 
-首先您需要创建一个任意名称的目录，然后将项目内的 [docker-compise.yaml](https://raw.githubusercontent.com/HyNetwork/hysteria/master/docker-compose.yaml) 文件复制到该目录；
+首先您需要创建一个任意名称的目录，然后将项目内的 [docker-compose.yaml](https://raw.githubusercontent.com/HyNetwork/hysteria/master/docker-compose.yaml) 文件复制到该目录；
 最后创建自己的配置文件并启动即可。
 
 ```sh

@@ -30,7 +30,7 @@ docker run -dt --name hysteria \
 
 ### For docker-compose users
 
-First, you need to create a directory with any name, and then copy [docker-compise.yaml](https://raw.githubusercontent.com/HyNetwork/hysteria/master/docker-compose.yaml) to 
+First, you need to create a directory with any name, and then copy [docker-compose.yaml](https://raw.githubusercontent.com/HyNetwork/hysteria/master/docker-compose.yaml) to 
 that directory. Finally, create your configuration file and start it.
 
 ```sh
