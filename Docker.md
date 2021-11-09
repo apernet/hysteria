@@ -21,9 +21,12 @@ You can mount the configuration file to any location of the docker container and
 In the following commands, we assume that the **`/root/hysteria.json`** configuration
 file is mounted to **`/etc/hysteria.json`**:
 
+⚠️ Note: **If you don't want to use the host network (`--network=host`), please make sure that
+the hysteria UDP port is correctly mapped (`-p 1234:1234/udp`)**
+
 ```sh
 # Please replace `/root/hysteria.json` with the actual configuration file location
-docker run -dt --name hysteria \
+docker run -dt --network=host --name hysteria \
     -v /root/hysteria.json:/etc/hysteria.json \
     tobyxdd/hysteria -config /etc/hysteria.json server
 ```
