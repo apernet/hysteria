@@ -4,7 +4,6 @@ package tun
 
 import (
 	"errors"
-	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"io"
@@ -17,9 +16,8 @@ type Server struct {
 	Timeout   time.Duration
 	TunDev    io.ReadWriteCloser
 	Transport transport.Transport
-	ACLEngine *acl.Engine
 
-	RequestFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string)
+	RequestFunc func(addr net.Addr, reqAddr string)
 	ErrorFunc   func(addr net.Addr, reqAddr string, err error)
 }
 
@@ -30,13 +28,13 @@ const (
 func NewServerWithTunDev(hyClient *core.Client, transport transport.Transport,
 	timeout time.Duration,
 	tunDev io.ReadWriteCloser) (*Server, error) {
-	return nil, errors.New("TUN mode is not available when build with CGO_ENABLED=0")
+	return nil, errors.New("TUN mode is not available in this build")
 }
 
 func NewServer(hyClient *core.Client, transport transport.Transport,
 	timeout time.Duration,
 	name, address, gateway, mask string, dnsServers []string, persist bool) (*Server, error) {
-	return nil, errors.New("TUN mode is not available when build with CGO_ENABLED=0")
+	return nil, errors.New("TUN mode is not available in this build")
 }
 
 func (s *Server) ListenAndServe() error {

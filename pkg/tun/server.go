@@ -5,7 +5,6 @@ package tun
 import (
 	tun2socks "github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/tun"
-	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"io"
@@ -19,9 +18,8 @@ type Server struct {
 	Timeout   time.Duration
 	TunDev    io.ReadWriteCloser
 	Transport transport.Transport
-	ACLEngine *acl.Engine
 
-	RequestFunc func(addr net.Addr, reqAddr string, action acl.Action, arg string)
+	RequestFunc func(addr net.Addr, reqAddr string)
 	ErrorFunc   func(addr net.Addr, reqAddr string, err error)
 
 	udpConnMap     map[tun2socks.UDPConn]*udpConnInfo

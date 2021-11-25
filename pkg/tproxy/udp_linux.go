@@ -3,12 +3,9 @@ package tproxy
 import (
 	"errors"
 	"github.com/LiamHaworth/go-tproxy"
-	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/transport"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,14 +20,12 @@ type UDPTProxy struct {
 	Transport  transport.Transport
 	ListenAddr *net.UDPAddr
 	Timeout    time.Duration
-	ACLEngine  *acl.Engine
 
 	ConnFunc  func(addr net.Addr)
 	ErrorFunc func(addr net.Addr, err error)
 }
 
 func NewUDPTProxy(hyClient *core.Client, transport transport.Transport, listen string, timeout time.Duration,
-	aclEngine *acl.Engine,
 	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*UDPTProxy, error) {
 	uAddr, err := transport.LocalResolveUDPAddr(listen)
 	if err != nil {
@@ -41,7 +36,6 @@ func NewUDPTProxy(hyClient *core.Client, transport transport.Transport, listen s
 		Transport:  transport,
 		ListenAddr: uAddr,
 		Timeout:    timeout,
-		ACLEngine:  aclEngine,
 		ConnFunc:   connFunc,
 		ErrorFunc:  errorFunc,
 	}
@@ -52,53 +46,9 @@ func NewUDPTProxy(hyClient *core.Client, transport transport.Transport, listen s
 }
 
 type connEntry struct {
-	LocalConn  *net.UDPConn
-	HyConn     core.UDPConn
-	DirectConn *net.UDPConn
-	Deadline   atomic.Value
-}
-
-func (r *UDPTProxy) sendPacket(entry *connEntry, dstAddr *net.UDPAddr, data []byte) error {
-	entry.Deadline.Store(time.Now().Add(r.Timeout))
-	host, port, err := utils.SplitHostPort(dstAddr.String())
-	if err != nil {
-		return err
-	}
-	action, arg := acl.ActionProxy, ""
-	var ipAddr *net.IPAddr
-	var resErr error
-	if r.ACLEngine != nil && entry.DirectConn != nil {
-		action, arg, ipAddr, resErr = r.ACLEngine.ResolveAndMatch(host)
-		// Doesn't always matter if the resolution fails, as we may send it through HyClient
-	}
-	switch action {
-	case acl.ActionDirect:
-		if resErr != nil {
-			return resErr
-		}
-		_, err = entry.DirectConn.WriteToUDP(data, &net.UDPAddr{
-			IP:   ipAddr.IP,
-			Port: int(port),
-			Zone: ipAddr.Zone,
-		})
-		return err
-	case acl.ActionProxy:
-		return entry.HyConn.WriteTo(data, dstAddr.String())
-	case acl.ActionBlock:
-		// Do nothing
-		return nil
-	case acl.ActionHijack:
-		hijackAddr := net.JoinHostPort(arg, strconv.Itoa(int(port)))
-		rAddr, err := r.Transport.LocalResolveUDPAddr(hijackAddr)
-		if err != nil {
-			return err
-		}
-		_, err = entry.DirectConn.WriteToUDP(data, rAddr)
-		return err
-	default:
-		// Do nothing
-		return nil
-	}
+	LocalConn *net.UDPConn
+	HyConn    core.UDPConn
+	Deadline  atomic.Value
 }
 
 func (r *UDPTProxy) ListenAndServe() error {
@@ -120,7 +70,8 @@ func (r *UDPTProxy) ListenAndServe() error {
 			connMapMutex.RUnlock()
 			if entry != nil {
 				// Existing conn
-				_ = r.sendPacket(entry, dstAddr, buf[:n])
+				entry.Deadline.Store(time.Now().Add(r.Timeout))
+				_ = entry.HyConn.WriteTo(buf[:n], dstAddr.String())
 			} else {
 				// New
 				r.ConnFunc(srcAddr)
@@ -136,23 +87,12 @@ func (r *UDPTProxy) ListenAndServe() error {
 					_ = localConn.Close()
 					continue
 				}
-				var directConn *net.UDPConn
-				if r.ACLEngine != nil {
-					directConn, err = r.Transport.LocalListenUDP(nil)
-					if err != nil {
-						r.ErrorFunc(srcAddr, err)
-						_ = localConn.Close()
-						_ = hyConn.Close()
-						continue
-					}
-				}
 				// Send
 				entry := &connEntry{
-					LocalConn:  localConn,
-					HyConn:     hyConn,
-					DirectConn: directConn,
+					LocalConn: localConn,
+					HyConn:    hyConn,
 				}
-				_ = r.sendPacket(entry, dstAddr, buf[:n])
+				entry.Deadline.Store(time.Now().Add(r.Timeout))
 				// Add it to the map
 				connMapMutex.Lock()
 				connMap[srcAddr.String()] = entry
@@ -168,21 +108,6 @@ func (r *UDPTProxy) ListenAndServe() error {
 						_, _ = localConn.Write(bs)
 					}
 				}()
-				if directConn != nil {
-					go func() {
-						buf := make([]byte, udpBufferSize)
-						for {
-							n, _, err := directConn.ReadFrom(buf)
-							if n > 0 {
-								entry.Deadline.Store(time.Now().Add(r.Timeout))
-								_, _ = localConn.Write(buf[:n])
-							}
-							if err != nil {
-								break
-							}
-						}
-					}()
-				}
 				// Timeout cleanup routine
 				go func() {
 					for {
@@ -192,9 +117,6 @@ func (r *UDPTProxy) ListenAndServe() error {
 							connMapMutex.Lock()
 							_ = localConn.Close()
 							_ = hyConn.Close()
-							if directConn != nil {
-								_ = directConn.Close()
-							}
 							delete(connMap, srcAddr.String())
 							connMapMutex.Unlock()
 							r.ErrorFunc(srcAddr, ErrTimeout)
@@ -204,6 +126,7 @@ func (r *UDPTProxy) ListenAndServe() error {
 						}
 					}
 				}()
+				_ = hyConn.WriteTo(buf[:n], dstAddr.String())
 			}
 		}
 		if err != nil {

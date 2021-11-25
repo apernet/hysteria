@@ -204,12 +204,10 @@ func client(config *clientConfig) {
 			if err != nil {
 				logrus.WithField("error", err).Fatal("Failed to initialize TUN server")
 			}
-			tunServer.ACLEngine = aclEngine
-			tunServer.RequestFunc = func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
+			tunServer.RequestFunc = func(addr net.Addr, reqAddr string) {
 				logrus.WithFields(logrus.Fields{
-					"action": actionToString(action, arg),
-					"src":    addr.String(),
-					"dst":    reqAddr,
+					"src": addr.String(),
+					"dst": reqAddr,
 				}).Debugf("TUN %s request", strings.ToUpper(addr.Network()))
 			}
 			tunServer.ErrorFunc = func(addr net.Addr, reqAddr string, err error) {
@@ -305,12 +303,11 @@ func client(config *clientConfig) {
 	if len(config.TCPTProxy.Listen) > 0 {
 		go func() {
 			rl, err := tproxy.NewTCPTProxy(client, transport.DefaultTransport,
-				config.TCPTProxy.Listen, time.Duration(config.TCPTProxy.Timeout)*time.Second, aclEngine,
-				func(addr, reqAddr net.Addr, action acl.Action, arg string) {
+				config.TCPTProxy.Listen, time.Duration(config.TCPTProxy.Timeout)*time.Second,
+				func(addr, reqAddr net.Addr) {
 					logrus.WithFields(logrus.Fields{
-						"action": actionToString(action, arg),
-						"src":    addr.String(),
-						"dst":    reqAddr.String(),
+						"src": addr.String(),
+						"dst": reqAddr.String(),
 					}).Debug("TCP TProxy request")
 				},
 				func(addr, reqAddr net.Addr, err error) {
@@ -338,7 +335,7 @@ func client(config *clientConfig) {
 	if len(config.UDPTProxy.Listen) > 0 {
 		go func() {
 			rl, err := tproxy.NewUDPTProxy(client, transport.DefaultTransport,
-				config.UDPTProxy.Listen, time.Duration(config.UDPTProxy.Timeout)*time.Second, aclEngine,
+				config.UDPTProxy.Listen, time.Duration(config.UDPTProxy.Timeout)*time.Second,
 				func(addr net.Addr) {
 					logrus.WithFields(logrus.Fields{
 						"src": addr.String(),

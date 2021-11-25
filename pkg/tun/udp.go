@@ -3,13 +3,9 @@
 package tun
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
 	tun2socks "github.com/eycorsican/go-tun2socks/core"
-	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
-	"io"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -66,13 +62,8 @@ func (s *Server) fetchUDPInput(conn tun2socks.UDPConn, ci *udpConnInfo) {
 }
 
 func (s *Server) Connect(conn tun2socks.UDPConn, target *net.UDPAddr) error {
-	action, arg := acl.ActionProxy, ""
-	var resErr error
-	if s.ACLEngine != nil {
-		action, arg, _, resErr = s.ACLEngine.ResolveAndMatch(target.IP.String())
-	}
 	if s.RequestFunc != nil {
-		s.RequestFunc(conn.LocalAddr(), target.String(), action, arg)
+		s.RequestFunc(conn.LocalAddr(), target.String())
 	}
 	var hyConn core.UDPConn
 	var closeErr error
@@ -81,43 +72,9 @@ func (s *Server) Connect(conn tun2socks.UDPConn, target *net.UDPAddr) error {
 			s.ErrorFunc(conn.LocalAddr(), target.String(), closeErr)
 		}
 	}()
-	switch action {
-	case acl.ActionDirect:
-		if resErr != nil {
-			closeErr = resErr
-			return resErr
-		}
-		var relayConn net.Conn
-		relayConn, closeErr = s.Transport.LocalDial("udp", target.String())
-		if closeErr != nil {
-			return closeErr
-		}
-		hyConn = &delegatedUDPConn{
-			underlayConn:        relayConn,
-			delegatedRemoteAddr: target.String(),
-		}
-	case acl.ActionProxy:
-		hyConn, closeErr = s.HyClient.DialUDP()
-		if closeErr != nil {
-			return closeErr
-		}
-	case acl.ActionBlock:
-		closeErr = errors.New("blocked in ACL")
+	hyConn, closeErr = s.HyClient.DialUDP()
+	if closeErr != nil {
 		return closeErr
-	case acl.ActionHijack:
-		hijackAddr := net.JoinHostPort(arg, strconv.Itoa(target.Port))
-		var relayConn net.Conn
-		relayConn, closeErr = s.Transport.LocalDial("udp", hijackAddr)
-		if closeErr != nil {
-			return closeErr
-		}
-		hyConn = &delegatedUDPConn{
-			underlayConn:        relayConn,
-			delegatedRemoteAddr: target.String(),
-		}
-	default:
-		closeErr = fmt.Errorf("unknown action %d", action)
-		return nil
 	}
 	ci := udpConnInfo{
 		hyConn: hyConn,
@@ -153,30 +110,4 @@ func (s *Server) closeUDPConn(conn tun2socks.UDPConn) {
 		c.hyConn.Close()
 		delete(s.udpConnMap, conn)
 	}
-}
-
-type delegatedUDPConn struct {
-	underlayConn        net.Conn
-	delegatedRemoteAddr string
-}
-
-func (c *delegatedUDPConn) ReadFrom() (bs []byte, addr string, err error) {
-	buf := make([]byte, udpBufferSize)
-	n, err := c.underlayConn.Read(buf)
-	if n > 0 {
-		bs = append(bs, buf[0:n]...)
-	}
-	if err != nil || err == io.EOF {
-		addr = c.delegatedRemoteAddr
-	}
-	return
-}
-
-func (c *delegatedUDPConn) WriteTo(bs []byte, addr string) error {
-	_, err := io.Copy(c.underlayConn, bytes.NewReader(bs))
-	return err
-}
-
-func (c *delegatedUDPConn) Close() error {
-	return c.underlayConn.Close()
 }
