@@ -13,7 +13,7 @@ const (
 	DefaultConnectionReceiveWindow = 67108864 // 64 MB/s
 	DefaultMaxIncomingStreams      = 1024
 
-	tlsProtocolName = "hysteria"
+	DefaultALPN = "hysteria"
 )
 
 type serverConfig struct {
@@ -38,6 +38,7 @@ type serverConfig struct {
 		Mode   string           `json:"mode"`
 		Config json5.RawMessage `json:"config"`
 	} `json:"auth"`
+	ALPN                string `json:"alpn"`
 	PrometheusListen    string `json:"prometheus_listen"`
 	ReceiveWindowConn   uint64 `json:"recv_window_conn"`
 	ReceiveWindowClient uint64 `json:"recv_window_client"`
@@ -120,6 +121,7 @@ type clientConfig struct {
 	Obfs                string `json:"obfs"`
 	Auth                []byte `json:"auth"`
 	AuthString          string `json:"auth_str"`
+	ALPN                string `json:"alpn"`
 	ServerName          string `json:"server_name"`
 	Insecure            bool   `json:"insecure"`
 	CustomCA            string `json:"ca"`

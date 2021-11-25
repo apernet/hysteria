@@ -179,6 +179,7 @@ encryption. If you need a proxy, just use our proxy modes.
       "password": "yubiyubi"
     }
   },
+  "alpn": "ayaya", // QUIC TLS ALPN
   "prometheus_listen": ":8080", // Prometheus HTTP metrics server listen address (at /metrics)
   "recv_window_conn": 15728640, // QUIC stream receive window
   "recv_window_client": 67108864, // QUIC connection receive window
@@ -301,6 +302,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "obfs": "AMOGUS", // Obfuscation password
   "auth": "[BASE64]", // Authentication payload in Base64
   "auth_str": "yubiyubi", // Authentication payload in string, mutually exclusive with the option above
+  "alpn": "ayaya", // QUIC TLS ALPN
   "server_name": "real.name.com", // TLS hostname used to verify the server certificate
   "insecure": false, // Ignore all certificate errors 
   "ca": "my.ca", // Custom CA file
