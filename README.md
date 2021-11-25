@@ -349,7 +349,9 @@ recommended.
 
 [ACL File Format](ACL.md)
 
-Note: ACL is only available in SOCKS5 & HTTP proxy mode! It has no effect in other modes.
+ACL is available on both client & server. On the server side it can be used to restrict what the clients can access, and
+is valid for any mode on the client side. On the client side, it's only supported in SOCKS5 & HTTP proxy modes, and has
+no effect in other modes (all traffic will go through the proxy)
 
 ## Logging
 
