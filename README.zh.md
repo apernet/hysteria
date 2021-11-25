@@ -329,6 +329,8 @@ Hysteria 服务端与客户端默认的 receive window 大小是 64 MB。如果�
 
 [ACL 文件格式](ACL.zh.md)
 
+注意：ACL 模式仅在 SOCKS5 和 HTTP 代理模式下生效！其他模式没有效果。
+
 ## 日志
 
 程序默认在 stdout 输出 DEBUG 级别，文字格式的日志。

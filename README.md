@@ -347,6 +347,8 @@ recommended.
 
 [ACL File Format](ACL.md)
 
+Note: ACL is only available in SOCKS5 & HTTP proxy mode! It has no effect in other modes.
+
 ## Logging
 
 The program outputs `DEBUG` level, text format logs via stdout by default.
