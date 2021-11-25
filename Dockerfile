@@ -18,7 +18,7 @@ RUN set -ex \
     && export VERSION=$(git describe --tags) \
     && export COMMIT=$(git rev-parse HEAD) \
     && export TIMESTAMP=$(date "+%F %T") \
-    && go build -o /go/bin/hysteria -ldflags \
+    && go build -trimpath -o /go/bin/hysteria -ldflags \
         "-w -s -X 'main.appVersion=${VERSION}' \
         -X 'main.appCommit=${COMMIT}' \
         -X 'main.appDate=${TIMESTAMP}'"

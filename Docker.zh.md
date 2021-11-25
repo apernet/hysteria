@@ -19,9 +19,11 @@ hysteria 二进制可执行文件默认被安装到 `/usr/local/bin/hysteria`，
 
 在下面的命令中我们假设将 **`/root/hysteria.json`** 配置文件挂载为容器内的 **`/etc/hysteria.json`** 文件。
 
+⚠️ 注意: 如果您不想使用宿主机网络(`--network=host`)，请确保正确的映射了 hysteria 的 UDP 端口(`-p 1234:1234/udp`)。
+
 ```sh
 # Please replace `/root/hysteria.json` with the actual configuration file location
-docker run -dt --name hysteria \
+docker run -dt --network=host --name hysteria \
     -v /root/hysteria.json:/etc/hysteria.json \
     tobyxdd/hysteria -config /etc/hysteria.json server
 ```
