@@ -165,6 +165,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
       "password": "yubiyubi"
     }
   },
+  "alpn": "ayaya", // QUIC TLS ALPN
   "prometheus_listen": ":8080", // Prometheus 统计接口监听地址 (在 /metrics)
   "recv_window_conn": 15728640, // QUIC stream receive window
   "recv_window_client": 67108864, // QUIC connection receive window
@@ -286,6 +287,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "obfs": "AMOGUS", // 混淆密码
   "auth": "[BASE64]", // Base64 验证密钥
   "auth_str": "yubiyubi", // 字符串验证密钥，和上面的选项二选一
+  "alpn": "ayaya", // QUIC TLS ALPN
   "server_name": "real.name.com", // 用于验证服务端证书的 hostname
   "insecure": false, // 忽略一切证书错误 
   "ca": "my.ca", // 自定义 CA
