@@ -38,7 +38,7 @@ func server(config *serverConfig) {
 		tlsConfig = tc
 	} else {
 		// Local cert mode
-		cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+		kpl, err := newKeypairLoader(config.CertFile, config.KeyFile)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
@@ -47,8 +47,8 @@ func server(config *serverConfig) {
 			}).Fatal("Failed to load the certificate")
 		}
 		tlsConfig = &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			MinVersion:   tls.VersionTLS13,
+			GetCertificate: kpl.GetCertificateFunc(),
+			MinVersion:     tls.VersionTLS13,
 		}
 	}
 	if config.ALPN != "" {
