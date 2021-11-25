@@ -34,7 +34,6 @@ func server(config *serverConfig) {
 				"error": err,
 			}).Fatal("Failed to get a certificate with ACME")
 		}
-		tc.NextProtos = []string{tlsProtocolName}
 		tc.MinVersion = tls.VersionTLS13
 		tlsConfig = tc
 	} else {
@@ -49,9 +48,13 @@ func server(config *serverConfig) {
 		}
 		tlsConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
-			NextProtos:   []string{tlsProtocolName},
 			MinVersion:   tls.VersionTLS13,
 		}
+	}
+	if config.ALPN != "" {
+		tlsConfig.NextProtos = []string{config.ALPN}
+	} else {
+		tlsConfig.NextProtos = []string{DefaultALPN}
 	}
 	// QUIC config
 	quicConfig := &quic.Config{

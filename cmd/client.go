@@ -30,8 +30,12 @@ func client(config *clientConfig) {
 	tlsConfig := &tls.Config{
 		ServerName:         config.ServerName,
 		InsecureSkipVerify: config.Insecure,
-		NextProtos:         []string{tlsProtocolName},
 		MinVersion:         tls.VersionTLS13,
+	}
+	if config.ALPN != "" {
+		tlsConfig.NextProtos = []string{config.ALPN}
+	} else {
+		tlsConfig.NextProtos = []string{DefaultALPN}
 	}
 	// Load CA
 	if len(config.CustomCA) > 0 {
