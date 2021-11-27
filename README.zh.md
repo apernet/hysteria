@@ -44,7 +44,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 
 ### iOS
 
-- 欢迎贡献，或给已有代理工具添加整合
+- [Shadowrocket](https://apps.apple.com/us/app/shadowrocket/id932747118)
 
 ## 快速入门
 

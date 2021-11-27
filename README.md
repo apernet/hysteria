@@ -48,7 +48,7 @@ currently has the following features: (still growing!)
 
 ### iOS
 
-- Feel free to contribute!
+- [Shadowrocket](https://apps.apple.com/us/app/shadowrocket/id932747118)
 
 ## Quick Start
 
