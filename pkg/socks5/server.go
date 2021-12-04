@@ -52,6 +52,9 @@ func NewServer(hyClient *core.Client, transport transport.Transport, addr string
 	if err != nil {
 		return nil, err
 	}
+	if tAddr.IP == nil || tAddr.IP.IsUnspecified() {
+		return nil, errors.New("listen address must have a specified IP")
+	}
 	m := socks5.MethodNone
 	if authFunc != nil {
 		m = socks5.MethodUsernamePassword
