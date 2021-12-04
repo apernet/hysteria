@@ -52,9 +52,6 @@ func NewServer(hyClient *core.Client, transport transport.Transport, addr string
 	if err != nil {
 		return nil, err
 	}
-	if tAddr.IP == nil || tAddr.IP.IsUnspecified() {
-		return nil, errors.New("listen address must have a specified IP")
-	}
 	m := socks5.MethodNone
 	if authFunc != nil {
 		m = socks5.MethodUsernamePassword
@@ -274,12 +271,23 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 	}
 	defer hyUDP.Close()
 	// Send UDP server addr to the client
-	atyp, addr, port, err := socks5.ParseAddress(udpConn.LocalAddr().String())
-	if err != nil {
+	// Same IP as TCP but a different port
+	tcpLocalAddr := c.LocalAddr().(*net.TCPAddr)
+	var atyp byte
+	var addr, port []byte
+	if ip4 := tcpLocalAddr.IP.To4(); ip4 != nil {
+		atyp = socks5.ATYPIPv4
+		addr = ip4
+	} else if ip6 := tcpLocalAddr.IP.To16(); ip6 != nil {
+		atyp = socks5.ATYPIPv6
+		addr = ip6
+	} else {
 		_ = sendReply(c, socks5.RepServerFailure)
-		closeErr = err
-		return err
+		closeErr = errors.New("invalid local addr")
+		return closeErr
 	}
+	port = make([]byte, 2)
+	binary.BigEndian.PutUint16(port, uint16(udpConn.LocalAddr().(*net.UDPAddr).Port))
 	_, _ = socks5.NewReply(socks5.RepSuccess, atyp, addr, port).WriteTo(c)
 	// Let UDP server do its job, we hold the TCP connection here
 	go s.udpServer(udpConn, localRelayConn, hyUDP)
