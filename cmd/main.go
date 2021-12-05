@@ -9,9 +9,8 @@ import (
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
-	"github.com/yosuke-furukawa/json5/encoding/json5"
-
 	"github.com/urfave/cli/v2"
+	"github.com/yosuke-furukawa/json5/encoding/json5"
 )
 
 var (

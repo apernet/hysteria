@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 )
 
@@ -107,9 +108,9 @@ type clientConfig struct {
 		Persist bool     `json:"persist"`
 	} `json:"tun"`
 	TCPRelays []Relay `json:"relay_tcps"`
-	TCPRelay  Relay   `json:"relay_tcp"`
+	TCPRelay  Relay   `json:"relay_tcp"` // deprecated, but still support, compatibility
 	UDPRelays []Relay `json:"relay_udps"`
-	UDPRelay  Relay   `json:"relay_udp"`
+	UDPRelay  Relay   `json:"relay_udp"` // deprecated, but still support, compatibility
 	TCPTProxy struct {
 		Listen  string `json:"listen"`
 		Timeout int    `json:"timeout"`
@@ -134,6 +135,7 @@ type clientConfig struct {
 func (c *clientConfig) Check() error {
 	if len(c.SOCKS5.Listen) == 0 && len(c.HTTP.Listen) == 0 && len(c.TUN.Name) == 0 &&
 		len(c.TCPRelay.Listen) == 0 && len(c.UDPRelay.Listen) == 0 &&
+		len(c.TCPRelays) == 0 && len(c.UDPRelays) == 0 &&
 		len(c.TCPTProxy.Listen) == 0 && len(c.UDPTProxy.Listen) == 0 {
 		return errors.New("please enable at least one mode")
 	}
@@ -173,6 +175,12 @@ func (c *clientConfig) Check() error {
 	if (c.ReceiveWindowConn != 0 && c.ReceiveWindowConn < 65536) ||
 		(c.ReceiveWindow != 0 && c.ReceiveWindow < 65536) {
 		return errors.New("invalid receive window size")
+	}
+	if len(c.TCPRelay.Listen) > 0 {
+		logrus.Warn("config 'relay_tcp' is deprecated, please use 'relay_tcps' instead of it")
+	}
+	if len(c.UDPRelay.Listen) > 0 {
+		logrus.Warn("config 'relay_udp' is deprecated, please use 'relay_udps' instead of it")
 	}
 	return nil
 }
