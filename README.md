@@ -363,3 +363,75 @@ To change the logging level, use `LOGGING_LEVEL` environment variable. The avail
 To print JSON instead, set `LOGGING_FORMATTER` to `json`
 
 To change the logging timestamp format, set `LOGGING_TIMESTAMP_FORMAT`
+
+ ## Hysteria custom CA
+
+  1. Suppose the server address is `123.123.123.123`, UDP port `5678` is not blocked by firewall
+  2. openssl is already installed
+  3. hysteria is already installed in `/root/hysteria/` directory
+<details>
+  <summary>4. Generate custom CA certificate</summary>
+
+- Run below shell in `/root/hysteria/` folder
+
+``` shell
+#!/usr/bin/env bash
+
+domain=$(openssl rand -hex 8)
+password=$(openssl rand -hex 16)
+obfs=$(openssl rand -hex 6)
+path="/root/hysteria"
+
+openssl genrsa -out hysteria.ca.key 2048
+
+openssl req -new -x509 -days 3650 -key hysteria.ca.key -subj "/C=CN/ST=GD/L=SZ/O=Hysteria, Inc./CN=Hysteria Root CA" -out hysteria.ca.crt
+
+openssl req -newkey rsa:2048 -nodes -keyout hysteria.server.key -subj "/C=CN/ST=GD/L=SZ/O=Hysteria, Inc./CN=*.${domain}.com" -out hysteria.server.csr
+
+openssl x509 -req -extfile <(printf "subjectAltName=DNS:${domain}.com,DNS:www.${domain}.com") -days 3650 -in hysteria.server.csr -CA hysteria.ca.crt -CAkey hysteria.ca.key -CAcreateserial -out hysteria.server.crt
+
+cat > ./client.json <<EOF
+{
+    "server": "123.123.123.123:5678",
+    "alpn": "h3",
+    "obfs": "${obfs}",
+    "auth_str": "${password}",
+    "up_mbps": 30,
+    "down_mbps": 30,
+    "socks5": {
+        "listen": "0.0.0.0:1080"
+    },
+    "http": {
+        "listen": "0.0.0.0:8080"
+    },
+    "server_name": "www.${domain}.com",
+    "ca": "${path}/hysteria.ca.crt"
+}
+EOF
+
+
+cat > ./server.json <<EOF
+{
+    "listen": ":5678",
+    "alpn": "h3",
+    "obfs": "${obfs}",
+    "cert": "${path}/hysteria.server.crt",
+    "key": "${path}/hysteria.server.key" ,
+    "auth": {
+        "mode": "password",
+        "config": {
+            "password": "${password}"
+        }
+    }
+}
+EOF
+```
+</details>
+
+5. Server side: copy `server.json`、 `hysteria.server.crt`、 `hysteria.server.key` to `/root/hysteria/` directory, run `/root/hysteria/hysteria -c /root/hysteria/server.json server` command
+
+6. Client side: Assuming that the client directory is also`/root/hysteria`, copy `client.json`、`hysteria.ca.crt` to `/root/hysteria/` directory, run `/root/hysteria/hysteria -c /root/hysteria/client.json` cmmand
+
+7. After generating CA certificate, modify the server address, port and certificate file path according to your own situation, add obfs and alpn to prevent the first time to be walled in some environment, after the first test passed in full parameters, you can remove the unnecessary parameters such as obfs and alpn in your own network environment.
+
+8. If you are using shadowrocket on IOS, you can airdrop the file `hysteria.ca.crt` to your iPhone and install it, then you can use custom CA certificate.
