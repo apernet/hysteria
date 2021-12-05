@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 )
 
@@ -70,6 +71,12 @@ func (c *serverConfig) String() string {
 	return fmt.Sprintf("%+v", *c)
 }
 
+type Relay struct {
+	Listen  string `json:"listen"`
+	Remote  string `json:"remote"`
+	Timeout int    `json:"timeout"`
+}
+
 type clientConfig struct {
 	Server   string `json:"server"`
 	UpMbps   int    `json:"up_mbps"`
@@ -99,16 +106,10 @@ type clientConfig struct {
 		DNS     []string `json:"dns"`
 		Persist bool     `json:"persist"`
 	} `json:"tun"`
-	TCPRelay struct {
-		Listen  string `json:"listen"`
-		Remote  string `json:"remote"`
-		Timeout int    `json:"timeout"`
-	} `json:"relay_tcp"`
-	UDPRelay struct {
-		Listen  string `json:"listen"`
-		Remote  string `json:"remote"`
-		Timeout int    `json:"timeout"`
-	} `json:"relay_udp"`
+	TCPRelays []Relay `json:"relay_tcps"`
+	TCPRelay  Relay   `json:"relay_tcp"`
+	UDPRelays []Relay `json:"relay_udps"`
+	UDPRelay  Relay   `json:"relay_udp"`
 	TCPTProxy struct {
 		Listen  string `json:"listen"`
 		Timeout int    `json:"timeout"`
