@@ -78,6 +78,19 @@ type Relay struct {
 	Timeout int    `json:"timeout"`
 }
 
+func (r *Relay) Check() error {
+	if len(r.Listen) == 0 {
+		return errors.New("no relay listen address")
+	}
+	if len(r.Remote) == 0 {
+		return errors.New("no relay remote address")
+	}
+	if r.Timeout != 0 && r.Timeout <= 4 {
+		return errors.New("invalid relay timeout")
+	}
+	return nil
+}
+
 type clientConfig struct {
 	Server   string `json:"server"`
 	UpMbps   int    `json:"up_mbps"`
@@ -108,9 +121,9 @@ type clientConfig struct {
 		Persist bool     `json:"persist"`
 	} `json:"tun"`
 	TCPRelays []Relay `json:"relay_tcps"`
-	TCPRelay  Relay   `json:"relay_tcp"` // deprecated, but still support, compatibility
+	TCPRelay  Relay   `json:"relay_tcp"` // deprecated, but we still support it for backward compatibility
 	UDPRelays []Relay `json:"relay_udps"`
-	UDPRelay  Relay   `json:"relay_udp"` // deprecated, but still support, compatibility
+	UDPRelay  Relay   `json:"relay_udp"` // deprecated, but we still support it for backward compatibility
 	TCPTProxy struct {
 		Listen  string `json:"listen"`
 		Timeout int    `json:"timeout"`
@@ -139,12 +152,6 @@ func (c *clientConfig) Check() error {
 		len(c.TCPTProxy.Listen) == 0 && len(c.UDPTProxy.Listen) == 0 {
 		return errors.New("please enable at least one mode")
 	}
-	if len(c.TCPRelay.Listen) > 0 && len(c.TCPRelay.Remote) == 0 {
-		return errors.New("no TCP relay remote address")
-	}
-	if len(c.UDPRelay.Listen) > 0 && len(c.UDPRelay.Remote) == 0 {
-		return errors.New("no UDP relay remote address")
-	}
 	if c.SOCKS5.Timeout != 0 && c.SOCKS5.Timeout <= 4 {
 		return errors.New("invalid SOCKS5 timeout")
 	}
@@ -154,11 +161,27 @@ func (c *clientConfig) Check() error {
 	if c.TUN.Timeout != 0 && c.TUN.Timeout < 4 {
 		return errors.New("invalid TUN timeout")
 	}
+	if len(c.TCPRelay.Listen) > 0 && len(c.TCPRelay.Remote) == 0 {
+		return errors.New("no TCP relay remote address")
+	}
+	if len(c.UDPRelay.Listen) > 0 && len(c.UDPRelay.Remote) == 0 {
+		return errors.New("no UDP relay remote address")
+	}
 	if c.TCPRelay.Timeout != 0 && c.TCPRelay.Timeout <= 4 {
 		return errors.New("invalid TCP relay timeout")
 	}
 	if c.UDPRelay.Timeout != 0 && c.UDPRelay.Timeout <= 4 {
 		return errors.New("invalid UDP relay timeout")
+	}
+	for _, r := range c.TCPRelays {
+		if err := r.Check(); err != nil {
+			return err
+		}
+	}
+	for _, r := range c.UDPRelays {
+		if err := r.Check(); err != nil {
+			return err
+		}
 	}
 	if c.TCPTProxy.Timeout != 0 && c.TCPTProxy.Timeout <= 4 {
 		return errors.New("invalid TCP TProxy timeout")
@@ -177,10 +200,10 @@ func (c *clientConfig) Check() error {
 		return errors.New("invalid receive window size")
 	}
 	if len(c.TCPRelay.Listen) > 0 {
-		logrus.Warn("config 'relay_tcp' is deprecated, please use 'relay_tcps' instead of it")
+		logrus.Warn("'relay_tcp' is deprecated, please use 'relay_tcps' instead")
 	}
 	if len(c.UDPRelay.Listen) > 0 {
-		logrus.Warn("config 'relay_udp' is deprecated, please use 'relay_udps' instead of it")
+		logrus.Warn("config 'relay_udp' is deprecated, please use 'relay_udps' instead")
 	}
 	return nil
 }
