@@ -280,24 +280,30 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
     "dns": [ "8.8.8.8", "8.8.4.4" ], // TUN interface DNS, only applicable for Windows
     "persist": false // Persist TUN interface after exit, only applicable for Linux
   },
-  "relay_tcps": [{
-    "listen": "127.0.0.1:2222", // TCP relay listen address
-    "remote": "123.123.123.123:22", // TCP relay remote address
-    "timeout": 300 // TCP timeout in seconds
-  },{
-    "listen": "127.0.0.1:13389", // TCP relay listen address
-    "remote": "124.124.124.124:3389", // TCP relay remote address
-    "timeout": 300 // TCP timeout in seconds
-  }],
-  "relay_udps": [{
-    "listen": "127.0.0.1:5333", // UDP relay listen address
-    "remote": "8.8.8.8:53", // UDP relay remote address
-    "timeout": 60 // UDP session timeout in seconds
-  },{
-    "listen": "127.0.0.1:11080", // UDP relay listen address
-    "remote": "9.9.9.9.9:1080", // UDP relay remote address
-    "timeout": 60 // UDP session timeout in seconds
-  }],
+  "relay_tcps": [
+    {
+      "listen": "127.0.0.1:2222", // TCP relay listen address
+      "remote": "123.123.123.123:22", // TCP relay remote address
+      "timeout": 300 // TCP timeout in seconds
+    },
+    {
+      "listen": "127.0.0.1:13389", // TCP relay listen address
+      "remote": "124.124.124.124:3389", // TCP relay remote address
+      "timeout": 300 // TCP timeout in seconds
+    }
+  ],
+  "relay_udps": [
+    {
+      "listen": "127.0.0.1:5333", // UDP relay listen address
+      "remote": "8.8.8.8:53", // UDP relay remote address
+      "timeout": 60 // UDP session timeout in seconds
+    },
+    {
+      "listen": "127.0.0.1:11080", // UDP relay listen address
+      "remote": "9.9.9.9.9:1080", // UDP relay remote address
+      "timeout": 60 // UDP session timeout in seconds
+    }
+  ],
   "tproxy_tcp": {
     "listen": "127.0.0.1:9000", // TCP TProxy listen address
     "timeout": 300 // TCP timeout in seconds
