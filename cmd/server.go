@@ -128,6 +128,10 @@ func server(config *serverConfig) {
 	if len(config.Obfs) > 0 {
 		obfuscator = obfs.NewXPlusObfuscator([]byte(config.Obfs))
 	}
+	// IPv6 only mode
+	if config.IPv6Only {
+		transport.DefaultTransport = transport.IPv6OnlyTransport
+	}
 	// ACL
 	var aclEngine *acl.Engine
 	if len(config.ACL) > 0 {

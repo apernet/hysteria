@@ -46,6 +46,7 @@ type serverConfig struct {
 	ReceiveWindowClient uint64 `json:"recv_window_client"`
 	MaxConnClient       int    `json:"max_conn_client"`
 	DisableMTUDiscovery bool   `json:"disable_mtu_discovery"`
+	IPv6Only            bool   `json:"ipv6_only"`
 }
 
 func (c *serverConfig) Check() error {

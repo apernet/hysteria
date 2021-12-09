@@ -22,6 +22,12 @@ var DefaultTransport Transport = &defaultTransport{
 	Timeout: 8 * time.Second,
 }
 
+var IPv6OnlyTransport Transport = &ipv6OnlyTransport{
+	defaultTransport{
+		Timeout: 8 * time.Second,
+	},
+}
+
 type defaultTransport struct {
 	Timeout time.Duration
 }
@@ -66,4 +72,12 @@ func (t *defaultTransport) LocalListenTCP(laddr *net.TCPAddr) (*net.TCPListener,
 
 func (t *defaultTransport) LocalListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
 	return net.ListenUDP("udp", laddr)
+}
+
+type ipv6OnlyTransport struct {
+	defaultTransport
+}
+
+func (t *ipv6OnlyTransport) LocalResolveIPAddr(address string) (*net.IPAddr, error) {
+	return net.ResolveIPAddr("ip6", address)
 }
