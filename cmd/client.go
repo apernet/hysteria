@@ -3,6 +3,13 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/sirupsen/logrus"
@@ -16,12 +23,6 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/tproxy"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/tun"
-	"io"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"strings"
-	"time"
 )
 
 func client(config *clientConfig) {
@@ -245,63 +246,83 @@ func client(config *clientConfig) {
 	}
 
 	if len(config.TCPRelay.Listen) > 0 {
-		go func() {
-			rl, err := relay.NewTCPRelay(client, transport.DefaultTransport,
-				config.TCPRelay.Listen, config.TCPRelay.Remote,
-				time.Duration(config.TCPRelay.Timeout)*time.Second,
-				func(addr net.Addr) {
-					logrus.WithFields(logrus.Fields{
-						"src": addr.String(),
-					}).Debug("TCP relay request")
-				},
-				func(addr net.Addr, err error) {
-					if err != io.EOF {
-						logrus.WithFields(logrus.Fields{
-							"error": err,
-							"src":   addr.String(),
-						}).Info("TCP relay error")
-					} else {
+		config.TCPRelays = append(config.TCPRelays, Relay{
+			Listen:  config.TCPRelay.Listen,
+			Remote:  config.TCPRelay.Remote,
+			Timeout: config.TCPRelay.Timeout,
+		})
+	}
+
+	if len(config.TCPRelays) > 0 {
+		for _, tcpr := range config.TCPRelays {
+			go func(tcpr Relay) {
+				rl, err := relay.NewTCPRelay(client, transport.DefaultTransport,
+					tcpr.Listen, tcpr.Remote,
+					time.Duration(tcpr.Timeout)*time.Second,
+					func(addr net.Addr) {
 						logrus.WithFields(logrus.Fields{
 							"src": addr.String(),
-						}).Debug("TCP relay EOF")
-					}
-				})
-			if err != nil {
-				logrus.WithField("error", err).Fatal("Failed to initialize TCP relay")
-			}
-			logrus.WithField("addr", config.TCPRelay.Listen).Info("TCP relay up and running")
-			errChan <- rl.ListenAndServe()
-		}()
+						}).Debug("TCP relay request")
+					},
+					func(addr net.Addr, err error) {
+						if err != io.EOF {
+							logrus.WithFields(logrus.Fields{
+								"error": err,
+								"src":   addr.String(),
+							}).Info("TCP relay error")
+						} else {
+							logrus.WithFields(logrus.Fields{
+								"src": addr.String(),
+							}).Debug("TCP relay EOF")
+						}
+					})
+				if err != nil {
+					logrus.WithField("error", err).Fatal("Failed to initialize TCP relay")
+				}
+				logrus.WithField("addr", tcpr.Listen).Info("TCP relay up and running")
+				errChan <- rl.ListenAndServe()
+			}(tcpr)
+		}
 	}
 
 	if len(config.UDPRelay.Listen) > 0 {
-		go func() {
-			rl, err := relay.NewUDPRelay(client, transport.DefaultTransport,
-				config.UDPRelay.Listen, config.UDPRelay.Remote,
-				time.Duration(config.UDPRelay.Timeout)*time.Second,
-				func(addr net.Addr) {
-					logrus.WithFields(logrus.Fields{
-						"src": addr.String(),
-					}).Debug("UDP relay request")
-				},
-				func(addr net.Addr, err error) {
-					if err != relay.ErrTimeout {
-						logrus.WithFields(logrus.Fields{
-							"error": err,
-							"src":   addr.String(),
-						}).Info("UDP relay error")
-					} else {
+		config.UDPRelays = append(config.UDPRelays, Relay{
+			Listen:  config.UDPRelay.Listen,
+			Remote:  config.UDPRelay.Remote,
+			Timeout: config.UDPRelay.Timeout,
+		})
+	}
+
+	if len(config.UDPRelays) > 0 {
+		for _, udpr := range config.UDPRelays {
+			go func(udpr Relay) {
+				rl, err := relay.NewUDPRelay(client, transport.DefaultTransport,
+					udpr.Listen, udpr.Remote,
+					time.Duration(udpr.Timeout)*time.Second,
+					func(addr net.Addr) {
 						logrus.WithFields(logrus.Fields{
 							"src": addr.String(),
-						}).Debug("UDP relay session closed")
-					}
-				})
-			if err != nil {
-				logrus.WithField("error", err).Fatal("Failed to initialize UDP relay")
-			}
-			logrus.WithField("addr", config.UDPRelay.Listen).Info("UDP relay up and running")
-			errChan <- rl.ListenAndServe()
-		}()
+						}).Debug("UDP relay request")
+					},
+					func(addr net.Addr, err error) {
+						if err != relay.ErrTimeout {
+							logrus.WithFields(logrus.Fields{
+								"error": err,
+								"src":   addr.String(),
+							}).Info("UDP relay error")
+						} else {
+							logrus.WithFields(logrus.Fields{
+								"src": addr.String(),
+							}).Debug("UDP relay session closed")
+						}
+					})
+				if err != nil {
+					logrus.WithField("error", err).Fatal("Failed to initialize UDP relay")
+				}
+				logrus.WithField("addr", udpr.Listen).Info("UDP relay up and running")
+				errChan <- rl.ListenAndServe()
+			}(udpr)
+		}
 	}
 
 	if len(config.TCPTProxy.Listen) > 0 {

@@ -265,16 +265,30 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
     "dns": [ "8.8.8.8", "8.8.4.4" ], // TUN 接口 DNS 服务器（仅适用于 Windows）
     "persist": false // 在程序退出之后保留接口（仅适用于 Linux）
   },
-  "relay_tcp": {
-    "listen": "127.0.0.1:2222", // TCP 转发监听地址
-    "remote": "123.123.123.123:22", // TCP 转发目标地址
-    "timeout": 300 // TCP 超时秒数
-  },
-  "relay_udp": {
-    "listen": "127.0.0.1:5333", // UDP 转发监听地址
-    "remote": "8.8.8.8:53", // UDP 转发目标地址
-    "timeout": 60 // UDP 超时秒数
-  },
+  "relay_tcps": [
+    {
+      "listen": "127.0.0.1:2222", // TCP 转发监听地址
+      "remote": "123.123.123.123:22", // TCP 转发目标地址
+      "timeout": 300 // TCP 超时秒数
+    },
+    {
+      "listen": "127.0.0.1:13389", // TCP 转发监听地址
+      "remote": "124.124.124.124:3389", // TCP 转发目标地址
+      "timeout": 300 // TCP 超时秒数
+    }
+  ],
+  "relay_udps": [
+    {
+      "listen": "127.0.0.1:5333", // UDP 转发监听地址
+      "remote": "8.8.8.8:53", // UDP 转发目标地址
+      "timeout": 60 // UDP 超时秒数
+    },
+    {
+      "listen": "127.0.0.1:11080", // UDP 转发监听地址
+      "remote": "9.9.9.9.9:1080", // UDP 转发目标地址
+      "timeout": 60 // UDP 超时秒数
+    }
+  ],
   "tproxy_tcp": {
     "listen": "127.0.0.1:9000", // TCP 透明代理监听地址
     "timeout": 300 // TCP 超时秒数
