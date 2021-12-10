@@ -8,3 +8,10 @@
 
 - Added an option for customizing ALPN `alpn`
 - Removed ACL support from TPROXY & TUN modes
+
+## 0.9.0
+
+- Auto keypair reloading
+- SOCKS5 listen address no longer needs a specific IP
+- Multi-relay support
+- IPv6 only mode for server
