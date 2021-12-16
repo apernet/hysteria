@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
@@ -22,6 +23,16 @@ import (
 
 func server(config *serverConfig) {
 	logrus.WithField("config", config.String()).Info("Server configuration loaded")
+	// Resolver
+	if len(config.Resolver) > 0 {
+		net.DefaultResolver = &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{}
+				return d.DialContext(ctx, "udp", config.Resolver)
+			},
+		}
+	}
 	// Load TLS config
 	var tlsConfig *tls.Config
 	if len(config.ACME.Domains) > 0 {
