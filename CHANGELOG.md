@@ -16,7 +16,7 @@
 - Multi-relay support
 - IPv6 only mode for server
 
-# 0.9.1
+## 0.9.1
 
 - faketcp implementation
 - DNS `resolver` option in config
