@@ -141,6 +141,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 ```json5
 {
   "listen": ":36712", // 监听地址
+  "protocol": "faketcp", // 留空或 "udp" 为 UDP 模式，"faketcp" 为伪装 TCP 模式，详情见下
   "acme": {
     "domains": [
       "your.domain.com",
@@ -171,7 +172,8 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
   "recv_window_client": 67108864, // QUIC connection receive window
   "max_conn_client": 4096, // 单客户端最大活跃连接数
   "disable_mtu_discovery": false, // 禁用 MTU 探测 (RFC 8899)
-  "ipv6_only": false // 强制把域名解析成 IPv6 地址
+  "ipv6_only": false, // 强制把域名解析成 IPv6 地址
+  "resolver": "1.1.1.1" // DNS 地址
 }
 ```
 
@@ -240,6 +242,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
 ```json5
 {
   "server": "example.com:36712", // 服务器地址
+  "protocol": "faketcp", // 留空或 "udp" 为 UDP 模式，"faketcp" 为伪装 TCP 模式，详情见下
   "up_mbps": 10, // 最大上传速度
   "down_mbps": 50, // 最大下载速度
   "socks5": {
@@ -308,9 +311,19 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "ca": "my.ca", // 自定义 CA
   "recv_window_conn": 15728640, // QUIC stream receive window
   "recv_window": 67108864, // QUIC connection receive window
-  "disable_mtu_discovery": false // 禁用 MTU 探测 (RFC 8899)
+  "disable_mtu_discovery": false, // 禁用 MTU 探测 (RFC 8899)
+  "resolver": "1.1.1.1" // DNS 地址
 }
 ```
+
+#### 伪装 TCP (faketcp 模式)
+
+某些网络可能对 UDP 流量施加各种限制，或者完全屏蔽。Hysteria 提供了一个 "faketcp" 模式，让服务端与客户端之间用看起来是 TCP 但实际不走
+系统 TCP 栈的方式通信。通过这种方式可以让防火墙、QoS 设备认为这是真的 TCP 连接，绕过对 UDP 的限制。
+
+目前只在 Linux 上支持（客户端和服务器都是），并且需要 root 权限。
+
+如果你的服务器有防火墙，请放行相应的 TCP 端口而不是 UDP。
 
 #### 透明代理
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"io"
@@ -27,6 +28,16 @@ import (
 
 func client(config *clientConfig) {
 	logrus.WithField("config", config.String()).Info("Client configuration loaded")
+	// Resolver
+	if len(config.Resolver) > 0 {
+		net.DefaultResolver = &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{}
+				return d.DialContext(ctx, "udp", config.Resolver)
+			},
+		}
+	}
 	// TLS
 	tlsConfig := &tls.Config{
 		ServerName:         config.ServerName,
@@ -98,8 +109,8 @@ func client(config *clientConfig) {
 		}
 	}
 	// Client
-	client, err := core.NewClient(config.Server, auth, tlsConfig, quicConfig, transport.DefaultTransport,
-		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
+	client, err := core.NewClient(config.Server, config.Protocol, auth, tlsConfig, quicConfig,
+		transport.DefaultTransport, uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		}, obfuscator)

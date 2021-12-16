@@ -6,10 +6,12 @@ require (
 	github.com/LiamHaworth/go-tproxy v0.0.0-20190726054950-ef7efd7f24ed
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
 	github.com/caddyserver/certmagic v0.15.2
+	github.com/coreos/go-iptables v0.6.0
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/elazarl/goproxy v0.0.0-20210110162100-a92cc753f88e
 	github.com/elazarl/goproxy/ext v0.0.0-20210110162100-a92cc753f88e
 	github.com/eycorsican/go-tun2socks v1.16.11
+	github.com/google/gopacket v1.1.19
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/lucas-clemente/quic-go v0.22.0
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40

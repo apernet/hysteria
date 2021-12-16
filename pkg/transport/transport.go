@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"github.com/tobyxdd/hysteria/pkg/faketcp"
 	"net"
 	"time"
 )
@@ -8,6 +9,8 @@ import (
 type Transport interface {
 	QUICResolveUDPAddr(address string) (*net.UDPAddr, error)
 	QUICListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error)
+	QUICListenFakeTCP(address string) (*faketcp.TCPConn, error)
+	QUICDialFakeTCP(address string) (*faketcp.TCPConn, error)
 
 	LocalResolveIPAddr(address string) (*net.IPAddr, error)
 	LocalResolveTCPAddr(address string) (*net.TCPAddr, error)
@@ -38,6 +41,14 @@ func (t *defaultTransport) QUICResolveUDPAddr(address string) (*net.UDPAddr, err
 
 func (t *defaultTransport) QUICListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
 	return net.ListenUDP("udp", laddr)
+}
+
+func (t *defaultTransport) QUICListenFakeTCP(address string) (*faketcp.TCPConn, error) {
+	return faketcp.Listen("tcp", address)
+}
+
+func (t *defaultTransport) QUICDialFakeTCP(address string) (*faketcp.TCPConn, error) {
+	return faketcp.Dial("tcp", address)
 }
 
 func (t *defaultTransport) LocalResolveIPAddr(address string) (*net.IPAddr, error) {

@@ -155,6 +155,7 @@ encryption. If you need a proxy, just use our proxy modes.
 ```json5
 {
   "listen": ":36712", // Listen address
+  "protocol": "faketcp", // Blank or "udp" for UDP mode, "faketcp" for TCP "masquerade", see below for details
   "acme": {
     "domains": [
       "your.domain.com",
@@ -185,7 +186,8 @@ encryption. If you need a proxy, just use our proxy modes.
   "recv_window_client": 67108864, // QUIC connection receive window
   "max_conn_client": 4096, // Max concurrent connections per client
   "disable_mtu_discovery": false, // Disable Path MTU Discovery (RFC 8899)
-  "ipv6_only": false // Only resolve domains to IPv6 address
+  "ipv6_only": false, // Only resolve domains to IPv6 address
+  "resolver": "1.1.1.1" // DNS resolver address
 }
 ```
 
@@ -255,6 +257,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
 ```json5
 {
   "server": "example.com:36712", // Server address
+  "protocol": "faketcp", // Blank or "udp" for UDP mode, "faketcp" for TCP "masquerade", see below for details
   "up_mbps": 10, // Max upload Mbps
   "down_mbps": 50, // Max download Mbps
   "socks5": {
@@ -323,9 +326,21 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "ca": "my.ca", // Custom CA file
   "recv_window_conn": 15728640, // QUIC stream receive window
   "recv_window": 67108864, // QUIC connection receive window
-  "disable_mtu_discovery": false // Disable Path MTU Discovery (RFC 8899)
+  "disable_mtu_discovery": false, // Disable Path MTU Discovery (RFC 8899)
+  "resolver": "1.1.1.1" // DNS resolver address
 }
 ```
+
+#### Fake TCP / TCP masquerade
+
+Certain networks may impose various restrictions on UDP traffic or block it altogether. Hysteria offers a "faketcp" mode
+that allows servers and clients to communicate using a protocol that looks like TCP but does not actually go through the
+system TCP stack. This tricks whatever middleboxes into thinking it's actually TCP traffic, rendering UDP-specific
+restrictions useless.
+
+This mode is currently only supported on Linux (both client and server) and requires root privileges.
+
+If your server is behind a firewall, open the corresponding TCP port instead of UDP.
 
 #### Transparent proxy
 

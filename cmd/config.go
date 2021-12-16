@@ -19,8 +19,9 @@ const (
 )
 
 type serverConfig struct {
-	Listen string `json:"listen"`
-	ACME   struct {
+	Listen   string `json:"listen"`
+	Protocol string `json:"protocol"`
+	ACME     struct {
 		Domains                 []string `json:"domains"`
 		Email                   string   `json:"email"`
 		DisableHTTPChallenge    bool     `json:"disable_http"`
@@ -47,6 +48,7 @@ type serverConfig struct {
 	MaxConnClient       int    `json:"max_conn_client"`
 	DisableMTUDiscovery bool   `json:"disable_mtu_discovery"`
 	IPv6Only            bool   `json:"ipv6_only"`
+	Resolver            string `json:"resolver"`
 }
 
 func (c *serverConfig) Check() error {
@@ -94,6 +96,7 @@ func (r *Relay) Check() error {
 
 type clientConfig struct {
 	Server   string `json:"server"`
+	Protocol string `json:"protocol"`
 	UpMbps   int    `json:"up_mbps"`
 	DownMbps int    `json:"down_mbps"`
 	// Optional below
@@ -144,6 +147,7 @@ type clientConfig struct {
 	ReceiveWindowConn   uint64 `json:"recv_window_conn"`
 	ReceiveWindow       uint64 `json:"recv_window"`
 	DisableMTUDiscovery bool   `json:"disable_mtu_discovery"`
+	Resolver            string `json:"resolver"`
 }
 
 func (c *clientConfig) Check() error {

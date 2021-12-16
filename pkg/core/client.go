@@ -26,6 +26,7 @@ type CongestionFactory func(refBPS uint64) congestion.CongestionControl
 type Client struct {
 	transport         transport2.Transport
 	serverAddr        string
+	protocol          string
 	sendBPS, recvBPS  uint64
 	auth              []byte
 	congestionFactory CongestionFactory
@@ -42,11 +43,13 @@ type Client struct {
 	udpSessionMap   map[uint32]chan *udpMessage
 }
 
-func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config, transport transport2.Transport,
-	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, obfuscator Obfuscator) (*Client, error) {
+func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
+	transport transport2.Transport, sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
+	obfuscator Obfuscator) (*Client, error) {
 	c := &Client{
 		transport:         transport,
 		serverAddr:        serverAddr,
+		protocol:          protocol,
 		sendBPS:           sendBPS,
 		recvBPS:           recvBPS,
 		auth:              auth,
@@ -66,27 +69,40 @@ func (c *Client) connectToServer() error {
 	if err != nil {
 		return err
 	}
-	udpConn, err := c.transport.QUICListenUDP(nil)
-	if err != nil {
-		return err
-	}
-	var qs quic.Session
-	if c.obfuscator != nil {
-		// Wrap PacketConn with obfuscator
-		qs, err = quic.Dial(&obfsUDPConn{
-			Orig:       udpConn,
-			Obfuscator: c.obfuscator,
-		}, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
+	var pktConn net.PacketConn
+	if len(c.protocol) == 0 || c.protocol == "udp" {
+		udpConn, err := c.transport.QUICListenUDP(nil)
 		if err != nil {
-			_ = udpConn.Close()
 			return err
+		}
+		if c.obfuscator != nil {
+			pktConn = &obfsUDPConn{
+				Orig:       udpConn,
+				Obfuscator: c.obfuscator,
+			}
+		} else {
+			pktConn = udpConn
+		}
+	} else if c.protocol == "faketcp" {
+		ftcpConn, err := c.transport.QUICDialFakeTCP(c.serverAddr)
+		if err != nil {
+			return err
+		}
+		if c.obfuscator != nil {
+			pktConn = &obfsPacketConn{
+				Orig:       ftcpConn,
+				Obfuscator: c.obfuscator,
+			}
+		} else {
+			pktConn = ftcpConn
 		}
 	} else {
-		qs, err = quic.Dial(udpConn, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
-		if err != nil {
-			_ = udpConn.Close()
-			return err
-		}
+		return fmt.Errorf("unsupported protocol: %s", c.protocol)
+	}
+	qs, err := quic.Dial(pktConn, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
+	if err != nil {
+		_ = pktConn.Close()
+		return err
 	}
 	// Control stream
 	ctx, ctxCancel := context.WithTimeout(context.Background(), protocolTimeout)
