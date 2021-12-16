@@ -186,7 +186,8 @@ encryption. If you need a proxy, just use our proxy modes.
   "recv_window_client": 67108864, // QUIC connection receive window
   "max_conn_client": 4096, // Max concurrent connections per client
   "disable_mtu_discovery": false, // Disable Path MTU Discovery (RFC 8899)
-  "ipv6_only": false // Only resolve domains to IPv6 address
+  "ipv6_only": false, // Only resolve domains to IPv6 address
+  "resolver": "1.1.1.1" // DNS resolver address
 }
 ```
 
@@ -325,7 +326,8 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
   "ca": "my.ca", // Custom CA file
   "recv_window_conn": 15728640, // QUIC stream receive window
   "recv_window": 67108864, // QUIC connection receive window
-  "disable_mtu_discovery": false // Disable Path MTU Discovery (RFC 8899)
+  "disable_mtu_discovery": false, // Disable Path MTU Discovery (RFC 8899)
+  "resolver": "1.1.1.1" // DNS resolver address
 }
 ```
 
