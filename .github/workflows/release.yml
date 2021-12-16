@@ -40,12 +40,10 @@ jobs:
           compress: false
 
       - name: Upload
-        uses: meeDamian/github-release@v2.0.3
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          gzip: false
-          allow_override: true
-          files: >
+          files: |
             ./dist/hysteria-notun-linux-amd64
             ./dist/hysteria-notun-linux-386
             ./dist/hysteria-notun-linux-arm
