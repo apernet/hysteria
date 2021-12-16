@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"io"
@@ -30,13 +29,7 @@ func client(config *clientConfig) {
 	logrus.WithField("config", config.String()).Info("Client configuration loaded")
 	// Resolver
 	if len(config.Resolver) > 0 {
-		net.DefaultResolver = &net.Resolver{
-			PreferGo: true,
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				d := net.Dialer{}
-				return d.DialContext(ctx, "udp", config.Resolver)
-			},
-		}
+		setResolver(config.Resolver)
 	}
 	// TLS
 	tlsConfig := &tls.Config{
