@@ -15,3 +15,8 @@
 - SOCKS5 listen address no longer needs a specific IP
 - Multi-relay support
 - IPv6 only mode for server
+
+# 0.9.1
+
+- faketcp implementation
+- DNS `resolver` option in config
