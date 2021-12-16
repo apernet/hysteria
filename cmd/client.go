@@ -98,8 +98,8 @@ func client(config *clientConfig) {
 		}
 	}
 	// Client
-	client, err := core.NewClient(config.Server, auth, tlsConfig, quicConfig, transport.DefaultTransport,
-		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
+	client, err := core.NewClient(config.Server, config.Protocol, auth, tlsConfig, quicConfig,
+		transport.DefaultTransport, uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		}, obfuscator)

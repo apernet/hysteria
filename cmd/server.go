@@ -154,7 +154,7 @@ func server(config *serverConfig) {
 			logrus.WithField("error", err).Fatal("Prometheus HTTP server error")
 		}()
 	}
-	server, err := core.NewServer(config.Listen, tlsConfig, quicConfig, transport.DefaultTransport,
+	server, err := core.NewServer(config.Listen, config.Protocol, tlsConfig, quicConfig, transport.DefaultTransport,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))

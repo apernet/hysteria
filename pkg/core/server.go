@@ -38,35 +38,48 @@ type Server struct {
 	listener quic.Listener
 }
 
-func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config, transport transport2.Transport,
+func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *quic.Config, transport transport2.Transport,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
 	obfuscator Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry) (*Server, error) {
-	udpAddr, err := transport.QUICResolveUDPAddr(addr)
-	if err != nil {
-		return nil, err
-	}
-	udpConn, err := transport.QUICListenUDP(udpAddr)
-	if err != nil {
-		return nil, err
-	}
-	var listener quic.Listener
-	if obfuscator != nil {
-		// Wrap PacketConn with obfuscator
-		listener, err = quic.Listen(&obfsUDPConn{
-			Orig:       udpConn,
-			Obfuscator: obfuscator,
-		}, tlsConfig, quicConfig)
+	var pktConn net.PacketConn
+	if len(protocol) == 0 || protocol == "udp" {
+		udpAddr, err := transport.QUICResolveUDPAddr(addr)
 		if err != nil {
-			_ = udpConn.Close()
 			return nil, err
+		}
+		udpConn, err := transport.QUICListenUDP(udpAddr)
+		if err != nil {
+			return nil, err
+		}
+		if obfuscator != nil {
+			pktConn = &obfsUDPConn{
+				Orig:       udpConn,
+				Obfuscator: obfuscator,
+			}
+		} else {
+			pktConn = udpConn
+		}
+	} else if protocol == "faketcp" {
+		ftcpConn, err := transport.QUICListenFakeTCP(addr)
+		if err != nil {
+			return nil, err
+		}
+		if obfuscator != nil {
+			pktConn = &obfsPacketConn{
+				Orig:       ftcpConn,
+				Obfuscator: obfuscator,
+			}
+		} else {
+			pktConn = ftcpConn
 		}
 	} else {
-		listener, err = quic.Listen(udpConn, tlsConfig, quicConfig)
-		if err != nil {
-			_ = udpConn.Close()
-			return nil, err
-		}
+		return nil, fmt.Errorf("unsupported protocol: %s", protocol)
+	}
+	listener, err := quic.Listen(pktConn, tlsConfig, quicConfig)
+	if err != nil {
+		_ = pktConn.Close()
+		return nil, err
 	}
 	s := &Server{
 		listener:          listener,
