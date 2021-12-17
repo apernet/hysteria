@@ -13,7 +13,7 @@ require (
 	github.com/eycorsican/go-tun2socks v1.16.11
 	github.com/google/gopacket v1.1.19
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/lucas-clemente/quic-go v0.22.0
+	github.com/lucas-clemente/quic-go v0.24.0
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/prometheus/client_golang v1.11.0
@@ -26,4 +26,4 @@ require (
 	github.com/yosuke-furukawa/json5 v0.1.1
 )
 
-replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.22.0-mod
+replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.24.0-mod
