@@ -362,6 +362,25 @@ Hysteria 服务端与客户端默认的 receive window 大小是 64 MB。如果�
 ACL 在服务端和客户端都可以使用。在服务端可以用来实现限制客户端能访问的目标，对客户端任何模式都有效。在客户端只有 SOCKS5 和 HTTP 代理
 支持 ACL。其他模式下没有效果（所有流量都会走代理）。
 
+## URI Scheme
+
+希望包含链接分享/导入功能的第三方客户端，建议按照如下 URI Scheme 实现（最初由 Shadowrocket 引入）：
+
+    hysteria://host:port?protocol=udp&auth=123456&peer=sni.domain&insecure=1&upmbps=100&downmbps=100&alpn=hysteria&obfs=xplus&obfsParam=123456#remarks
+
+    - host: hostname or IP address of the server to connect to (required)
+    - port: port of the server to connect to (required)
+    - protocol: protocol to use ("udp" or "faketcp") (optional, default: "udp")
+    - auth: authentication payload (string) (optional)
+    - peer: SNI for TLS (optional)
+    - insecure: ignore certificate errors (optional)
+    - upmbps: upstream bandwidth in Mbps (required)
+    - downmbps: downstream bandwidth in Mbps (required)
+    - alpn: QUIC ALPN (optional)
+    - obfs: Obfuscation mode (optional, empty or "xplus")
+    - obfsParam: Obfuscation password (optional)
+    - remarks: remarks (optional)
+
 ## 日志
 
 程序默认在 stdout 输出 DEBUG 级别，文字格式的日志。
@@ -373,7 +392,7 @@ ACL 在服务端和客户端都可以使用。在服务端可以用来实现限�
 如果需要修改日志时间戳格式可以使用 `LOGGING_TIMESTAMP_FORMAT`
 
 
- ## Hysteria自定义CA方法
+ ## 自定义 CA 方法
 
   1. 假设服务器地址是 `123.123.123.123`, 端口`5678`UDP/TCP协议未被防火墙拦截
   2. 已经安装了 openssl

@@ -383,6 +383,26 @@ ACL is available on both client & server. On the server side it can be used to r
 is valid for any mode on the client side. On the client side, it's only supported in SOCKS5 & HTTP proxy modes, and has
 no effect in other modes (all traffic will go through the proxy)
 
+## URI Scheme
+
+Third party clients looking to implement a "share by link" feature are advised to follow the following URI scheme 
+(initially introduced by Shadowrocket):
+
+    hysteria://host:port?protocol=udp&auth=123456&peer=sni.domain&insecure=1&upmbps=100&downmbps=100&alpn=hysteria&obfs=xplus&obfsParam=123456#remarks
+
+    - host: hostname or IP address of the server to connect to (required)
+    - port: port of the server to connect to (required)
+    - protocol: protocol to use ("udp" or "faketcp") (optional, default: "udp")
+    - auth: authentication payload (string) (optional)
+    - peer: SNI for TLS (optional)
+    - insecure: ignore certificate errors (optional)
+    - upmbps: upstream bandwidth in Mbps (required)
+    - downmbps: downstream bandwidth in Mbps (required)
+    - alpn: QUIC ALPN (optional)
+    - obfs: Obfuscation mode (optional, empty or "xplus")
+    - obfsParam: Obfuscation password (optional)
+    - remarks: remarks (optional)
+
 ## Logging
 
 The program outputs `DEBUG` level, text format logs via stdout by default.
@@ -394,7 +414,7 @@ To print JSON instead, set `LOGGING_FORMATTER` to `json`
 
 To change the logging timestamp format, set `LOGGING_TIMESTAMP_FORMAT`
 
- ## Hysteria custom CA
+## Custom CA
 
   1. Suppose the server address is `123.123.123.123`, UDP port `5678` is not blocked by firewall
   2. openssl is already installed
