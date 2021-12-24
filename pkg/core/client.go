@@ -76,10 +76,7 @@ func (c *Client) connectToServer() error {
 			return err
 		}
 		if c.obfuscator != nil {
-			pktConn = &obfsUDPConn{
-				Orig:       udpConn,
-				Obfuscator: c.obfuscator,
-			}
+			pktConn = newObfsUDPConn(udpConn, c.obfuscator)
 		} else {
 			pktConn = udpConn
 		}
@@ -89,10 +86,7 @@ func (c *Client) connectToServer() error {
 			return err
 		}
 		if c.obfuscator != nil {
-			pktConn = &obfsPacketConn{
-				Orig:       ftcpConn,
-				Obfuscator: c.obfuscator,
-			}
+			pktConn = newObfsPacketConn(ftcpConn, c.obfuscator)
 		} else {
 			pktConn = ftcpConn
 		}

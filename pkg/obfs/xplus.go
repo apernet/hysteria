@@ -39,16 +39,14 @@ func (x *XPlusObfuscator) Deobfuscate(in []byte, out []byte) int {
 	return pLen
 }
 
-func (x *XPlusObfuscator) Obfuscate(p []byte) []byte {
-	pLen := len(p)
-	buf := make([]byte, saltLen+pLen)
+func (x *XPlusObfuscator) Obfuscate(in []byte, out []byte) int {
 	x.lk.Lock()
-	_, _ = x.RandSrc.Read(buf[:saltLen]) // salt
+	_, _ = x.RandSrc.Read(out[:saltLen]) // salt
 	x.lk.Unlock()
 	// Obfuscate the payload
-	key := sha256.Sum256(append(x.Key, buf[:saltLen]...))
-	for i, c := range p {
-		buf[i+saltLen] = c ^ key[i%sha256.Size]
+	key := sha256.Sum256(append(x.Key, out[:saltLen]...))
+	for i, c := range in {
+		out[i+saltLen] = c ^ key[i%sha256.Size]
 	}
-	return buf
+	return len(in) + saltLen
 }

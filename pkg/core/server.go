@@ -53,10 +53,7 @@ func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *
 			return nil, err
 		}
 		if obfuscator != nil {
-			pktConn = &obfsUDPConn{
-				Orig:       udpConn,
-				Obfuscator: obfuscator,
-			}
+			pktConn = newObfsUDPConn(udpConn, obfuscator)
 		} else {
 			pktConn = udpConn
 		}
@@ -66,10 +63,7 @@ func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *
 			return nil, err
 		}
 		if obfuscator != nil {
-			pktConn = &obfsPacketConn{
-				Orig:       ftcpConn,
-				Obfuscator: obfuscator,
-			}
+			pktConn = newObfsPacketConn(ftcpConn, obfuscator)
 		} else {
 			pktConn = ftcpConn
 		}

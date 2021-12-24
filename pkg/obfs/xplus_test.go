@@ -20,11 +20,11 @@ func TestXPlusObfuscator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bs := x.Obfuscate(tt.p)
-			outBs := make([]byte, len(bs))
-			n := x.Deobfuscate(bs, outBs)
-			if !bytes.Equal(tt.p, outBs[:n]) {
-				t.Errorf("Inconsistent deobfuscate result: got %v, want %v", outBs[:n], tt.p)
+			buf := make([]byte, 10240)
+			n := x.Obfuscate(tt.p, buf)
+			n2 := x.Deobfuscate(buf[:n], buf[n:])
+			if !bytes.Equal(tt.p, buf[n:n+n2]) {
+				t.Errorf("Inconsistent deobfuscate result: got %v, want %v", buf[n:n+n2], tt.p)
 			}
 		})
 	}

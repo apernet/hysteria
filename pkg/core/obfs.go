@@ -3,41 +3,60 @@ package core
 import (
 	"net"
 	"os"
+	"sync"
 	"syscall"
 	"time"
 )
 
 type Obfuscator interface {
 	Deobfuscate(in []byte, out []byte) int
-	Obfuscate(p []byte) []byte
+	Obfuscate(in []byte, out []byte) int
 }
 
 type obfsUDPConn struct {
-	Orig       *net.UDPConn
-	Obfuscator Obfuscator
+	orig *net.UDPConn
+	obfs Obfuscator
+
+	readBuf    []byte
+	readMutex  sync.Mutex
+	writeBuf   []byte
+	writeMutex sync.Mutex
+}
+
+func newObfsUDPConn(orig *net.UDPConn, obfs Obfuscator) *obfsUDPConn {
+	return &obfsUDPConn{
+		orig:     orig,
+		obfs:     obfs,
+		readBuf:  make([]byte, udpBufferSize),
+		writeBuf: make([]byte, udpBufferSize),
+	}
 }
 
 func (c *obfsUDPConn) ReadFrom(p []byte) (int, net.Addr, error) {
-	buf := make([]byte, udpBufferSize)
 	for {
-		n, addr, err := c.Orig.ReadFrom(buf)
+		c.readMutex.Lock()
+		n, addr, err := c.orig.ReadFrom(c.readBuf)
 		if n <= 0 {
+			c.readMutex.Unlock()
 			return 0, addr, err
 		}
-		newN := c.Obfuscator.Deobfuscate(buf[:n], p)
+		newN := c.obfs.Deobfuscate(c.readBuf[:n], p)
+		c.readMutex.Unlock()
 		if newN > 0 {
 			// Valid packet
 			return newN, addr, err
 		} else if err != nil {
-			// Not valid and Orig.ReadFrom had some error
+			// Not valid and orig.ReadFrom had some error
 			return 0, addr, err
 		}
 	}
 }
 
 func (c *obfsUDPConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
-	np := c.Obfuscator.Obfuscate(p)
-	_, err = c.Orig.WriteTo(np, addr)
+	c.writeMutex.Lock()
+	bn := c.obfs.Obfuscate(p, c.writeBuf)
+	_, err = c.orig.WriteTo(c.writeBuf[:bn], addr)
+	c.writeMutex.Unlock()
 	if err != nil {
 		return 0, err
 	} else {
@@ -46,67 +65,85 @@ func (c *obfsUDPConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 }
 
 func (c *obfsUDPConn) Close() error {
-	return c.Orig.Close()
+	return c.orig.Close()
 }
 
 func (c *obfsUDPConn) LocalAddr() net.Addr {
-	return c.Orig.LocalAddr()
+	return c.orig.LocalAddr()
 }
 
 func (c *obfsUDPConn) SetDeadline(t time.Time) error {
-	return c.Orig.SetDeadline(t)
+	return c.orig.SetDeadline(t)
 }
 
 func (c *obfsUDPConn) SetReadDeadline(t time.Time) error {
-	return c.Orig.SetReadDeadline(t)
+	return c.orig.SetReadDeadline(t)
 }
 
 func (c *obfsUDPConn) SetWriteDeadline(t time.Time) error {
-	return c.Orig.SetWriteDeadline(t)
+	return c.orig.SetWriteDeadline(t)
 }
 
 func (c *obfsUDPConn) SetReadBuffer(bytes int) error {
-	return c.Orig.SetReadBuffer(bytes)
+	return c.orig.SetReadBuffer(bytes)
 }
 
 func (c *obfsUDPConn) SetWriteBuffer(bytes int) error {
-	return c.Orig.SetWriteBuffer(bytes)
+	return c.orig.SetWriteBuffer(bytes)
 }
 
 func (c *obfsUDPConn) SyscallConn() (syscall.RawConn, error) {
-	return c.Orig.SyscallConn()
+	return c.orig.SyscallConn()
 }
 
 func (c *obfsUDPConn) File() (f *os.File, err error) {
-	return c.Orig.File()
+	return c.orig.File()
 }
 
 type obfsPacketConn struct {
-	Orig       net.PacketConn
-	Obfuscator Obfuscator
+	orig net.PacketConn
+	obfs Obfuscator
+
+	readBuf    []byte
+	readMutex  sync.Mutex
+	writeBuf   []byte
+	writeMutex sync.Mutex
+}
+
+func newObfsPacketConn(orig net.PacketConn, obfs Obfuscator) *obfsPacketConn {
+	return &obfsPacketConn{
+		orig:     orig,
+		obfs:     obfs,
+		readBuf:  make([]byte, udpBufferSize),
+		writeBuf: make([]byte, udpBufferSize),
+	}
 }
 
 func (c *obfsPacketConn) ReadFrom(p []byte) (int, net.Addr, error) {
-	buf := make([]byte, udpBufferSize)
 	for {
-		n, addr, err := c.Orig.ReadFrom(buf)
+		c.readMutex.Lock()
+		n, addr, err := c.orig.ReadFrom(c.readBuf)
 		if n <= 0 {
+			c.readMutex.Unlock()
 			return 0, addr, err
 		}
-		newN := c.Obfuscator.Deobfuscate(buf[:n], p)
+		newN := c.obfs.Deobfuscate(c.readBuf[:n], p)
+		c.readMutex.Unlock()
 		if newN > 0 {
 			// Valid packet
 			return newN, addr, err
 		} else if err != nil {
-			// Not valid and Orig.ReadFrom had some error
+			// Not valid and orig.ReadFrom had some error
 			return 0, addr, err
 		}
 	}
 }
 
 func (c *obfsPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
-	np := c.Obfuscator.Obfuscate(p)
-	_, err = c.Orig.WriteTo(np, addr)
+	c.writeMutex.Lock()
+	bn := c.obfs.Obfuscate(p, c.writeBuf)
+	_, err = c.orig.WriteTo(c.writeBuf[:bn], addr)
+	c.writeMutex.Unlock()
 	if err != nil {
 		return 0, err
 	} else {
@@ -115,21 +152,21 @@ func (c *obfsPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 }
 
 func (c *obfsPacketConn) Close() error {
-	return c.Orig.Close()
+	return c.orig.Close()
 }
 
 func (c *obfsPacketConn) LocalAddr() net.Addr {
-	return c.Orig.LocalAddr()
+	return c.orig.LocalAddr()
 }
 
 func (c *obfsPacketConn) SetDeadline(t time.Time) error {
-	return c.Orig.SetDeadline(t)
+	return c.orig.SetDeadline(t)
 }
 
 func (c *obfsPacketConn) SetReadDeadline(t time.Time) error {
-	return c.Orig.SetReadDeadline(t)
+	return c.orig.SetReadDeadline(t)
 }
 
 func (c *obfsPacketConn) SetWriteDeadline(t time.Time) error {
-	return c.Orig.SetWriteDeadline(t)
+	return c.orig.SetWriteDeadline(t)
 }
