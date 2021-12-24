@@ -20,3 +20,8 @@
 
 - faketcp implementation
 - DNS `resolver` option in config
+
+## 0.9.2
+
+- Updated quic-go to v0.24.0
+- Reduced obfs overhead by reusing buffers
