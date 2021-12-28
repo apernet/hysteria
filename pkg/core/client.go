@@ -9,6 +9,7 @@ import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/lunixbochs/struc"
+	"github.com/tobyxdd/hysteria/pkg/obfs"
 	transport2 "github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
@@ -30,7 +31,7 @@ type Client struct {
 	sendBPS, recvBPS  uint64
 	auth              []byte
 	congestionFactory CongestionFactory
-	obfuscator        Obfuscator
+	obfuscator        obfs.Obfuscator
 
 	tlsConfig  *tls.Config
 	quicConfig *quic.Config
@@ -45,7 +46,7 @@ type Client struct {
 
 func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
 	transport transport2.Transport, sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
-	obfuscator Obfuscator) (*Client, error) {
+	obfuscator obfs.Obfuscator) (*Client, error) {
 	c := &Client{
 		transport:         transport,
 		serverAddr:        serverAddr,
@@ -69,29 +70,9 @@ func (c *Client) connectToServer() error {
 	if err != nil {
 		return err
 	}
-	var pktConn net.PacketConn
-	if len(c.protocol) == 0 || c.protocol == "udp" {
-		udpConn, err := c.transport.QUICListenUDP(nil)
-		if err != nil {
-			return err
-		}
-		if c.obfuscator != nil {
-			pktConn = newObfsUDPConn(udpConn, c.obfuscator)
-		} else {
-			pktConn = udpConn
-		}
-	} else if c.protocol == "faketcp" {
-		ftcpConn, err := c.transport.QUICDialFakeTCP(c.serverAddr)
-		if err != nil {
-			return err
-		}
-		if c.obfuscator != nil {
-			pktConn = newObfsFakeTCPConn(ftcpConn, c.obfuscator)
-		} else {
-			pktConn = ftcpConn
-		}
-	} else {
-		return fmt.Errorf("unsupported protocol: %s", c.protocol)
+	pktConn, err := c.transport.QUICPacketConn(c.protocol, false, "", c.serverAddr, c.obfuscator)
+	if err != nil {
+		return err
 	}
 	qs, err := quic.Dial(pktConn, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
 	if err != nil {

@@ -1,16 +1,17 @@
 package transport
 
 import (
-	"github.com/tobyxdd/hysteria/pkg/faketcp"
+	"fmt"
+	"github.com/tobyxdd/hysteria/pkg/conns/faketcp"
+	"github.com/tobyxdd/hysteria/pkg/conns/udp"
+	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"net"
 	"time"
 )
 
 type Transport interface {
 	QUICResolveUDPAddr(address string) (*net.UDPAddr, error)
-	QUICListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error)
-	QUICListenFakeTCP(address string) (*faketcp.TCPConn, error)
-	QUICDialFakeTCP(address string) (*faketcp.TCPConn, error)
+	QUICPacketConn(proto string, server bool, laddr, raddr string, obfs obfs.Obfuscator) (net.PacketConn, error)
 
 	LocalResolveIPAddr(address string) (*net.IPAddr, error)
 	LocalResolveTCPAddr(address string) (*net.TCPAddr, error)
@@ -39,16 +40,49 @@ func (t *defaultTransport) QUICResolveUDPAddr(address string) (*net.UDPAddr, err
 	return net.ResolveUDPAddr("udp", address)
 }
 
-func (t *defaultTransport) QUICListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
-	return net.ListenUDP("udp", laddr)
-}
-
-func (t *defaultTransport) QUICListenFakeTCP(address string) (*faketcp.TCPConn, error) {
-	return faketcp.Listen("tcp", address)
-}
-
-func (t *defaultTransport) QUICDialFakeTCP(address string) (*faketcp.TCPConn, error) {
-	return faketcp.Dial("tcp", address)
+func (t *defaultTransport) QUICPacketConn(proto string, server bool, laddr, raddr string, obfs obfs.Obfuscator) (net.PacketConn, error) {
+	if len(proto) == 0 || proto == "udp" {
+		var laddrU *net.UDPAddr
+		if len(laddr) > 0 {
+			var err error
+			laddrU, err = t.QUICResolveUDPAddr(laddr)
+			if err != nil {
+				return nil, err
+			}
+		}
+		conn, err := net.ListenUDP("udp", laddrU)
+		if err != nil {
+			return nil, err
+		}
+		if obfs != nil {
+			oc := udp.NewObfsUDPConn(conn, obfs)
+			return oc, nil
+		} else {
+			return conn, nil
+		}
+	} else if proto == "faketcp" {
+		var conn *faketcp.TCPConn
+		var err error
+		if server {
+			conn, err = faketcp.Listen("tcp", laddr)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			conn, err = faketcp.Dial("tcp", raddr)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if obfs != nil {
+			oc := faketcp.NewObfsFakeTCPConn(conn, obfs)
+			return oc, nil
+		} else {
+			return conn, nil
+		}
+	} else {
+		return nil, fmt.Errorf("unsupported protocol: %s", proto)
+	}
 }
 
 func (t *defaultTransport) LocalResolveIPAddr(address string) (*net.IPAddr, error) {

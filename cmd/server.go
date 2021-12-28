@@ -128,7 +128,7 @@ func server(config *serverConfig) {
 		logrus.WithField("mode", config.Auth.Mode).Fatal("Unsupported authentication mode")
 	}
 	// Obfuscator
-	var obfuscator core.Obfuscator
+	var obfuscator obfs.Obfuscator
 	if len(config.Obfs) > 0 {
 		obfuscator = obfs.NewXPlusObfuscator([]byte(config.Obfs))
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
+	"github.com/tobyxdd/hysteria/pkg/obfs"
 	transport2 "github.com/tobyxdd/hysteria/pkg/transport"
 	"net"
 )
@@ -40,35 +41,11 @@ type Server struct {
 
 func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *quic.Config, transport transport2.Transport,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
-	obfuscator Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
+	obfuscator obfs.Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry) (*Server, error) {
-	var pktConn net.PacketConn
-	if len(protocol) == 0 || protocol == "udp" {
-		udpAddr, err := transport.QUICResolveUDPAddr(addr)
-		if err != nil {
-			return nil, err
-		}
-		udpConn, err := transport.QUICListenUDP(udpAddr)
-		if err != nil {
-			return nil, err
-		}
-		if obfuscator != nil {
-			pktConn = newObfsUDPConn(udpConn, obfuscator)
-		} else {
-			pktConn = udpConn
-		}
-	} else if protocol == "faketcp" {
-		ftcpConn, err := transport.QUICListenFakeTCP(addr)
-		if err != nil {
-			return nil, err
-		}
-		if obfuscator != nil {
-			pktConn = newObfsFakeTCPConn(ftcpConn, obfuscator)
-		} else {
-			pktConn = ftcpConn
-		}
-	} else {
-		return nil, fmt.Errorf("unsupported protocol: %s", protocol)
+	pktConn, err := transport.QUICPacketConn(protocol, true, addr, "", obfuscator)
+	if err != nil {
+		return nil, err
 	}
 	listener, err := quic.Listen(pktConn, tlsConfig, quicConfig)
 	if err != nil {

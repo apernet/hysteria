@@ -85,7 +85,7 @@ func client(config *clientConfig) {
 		auth = []byte(config.AuthString)
 	}
 	// Obfuscator
-	var obfuscator core.Obfuscator
+	var obfuscator obfs.Obfuscator
 	if len(config.Obfs) > 0 {
 		obfuscator = obfs.NewXPlusObfuscator([]byte(config.Obfs))
 	}
