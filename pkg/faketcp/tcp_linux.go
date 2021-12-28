@@ -381,6 +381,14 @@ func (conn *TCPConn) SetWriteBuffer(bytes int) error {
 	return err
 }
 
+func (conn *TCPConn) SyscallConn() (syscall.RawConn, error) {
+	if len(conn.handles) == 0 {
+		return nil, errors.New("no handles")
+		// How is it possible?
+	}
+	return conn.handles[0].SyscallConn()
+}
+
 // Dial connects to the remote TCP port,
 // and returns a single packet-oriented connection
 func Dial(network, address string) (*TCPConn, error) {

@@ -86,7 +86,7 @@ func (c *Client) connectToServer() error {
 			return err
 		}
 		if c.obfuscator != nil {
-			pktConn = newObfsPacketConn(ftcpConn, c.obfuscator)
+			pktConn = newObfsFakeTCPConn(ftcpConn, c.obfuscator)
 		} else {
 			pktConn = ftcpConn
 		}
