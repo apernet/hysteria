@@ -6,9 +6,8 @@ import (
 )
 
 const (
-	ackRateMinSampleInterval = 4 * time.Second
-	ackRateMaxSampleInterval = 20 * time.Second
-	ackRateMinACKSampleCount = 100
+	pktInfoSlotCount = 4
+	minSampleCount   = 50
 )
 
 type BrutalSender struct {
@@ -17,10 +16,13 @@ type BrutalSender struct {
 	maxDatagramSize congestion.ByteCount
 	pacer           *pacer
 
-	ackCount, lossCount  uint64
-	ackRate              float64
-	ackRateNextUpdateMin time.Time
-	ackRateNextUpdateMax time.Time
+	pktInfoSlots [pktInfoSlotCount]pktInfo
+}
+
+type pktInfo struct {
+	Timestamp int64
+	AckCount  uint64
+	LossCount uint64
 }
 
 func NewBrutalSender(bps congestion.ByteCount) *BrutalSender {
@@ -64,14 +66,30 @@ func (b *BrutalSender) OnPacketSent(sentTime time.Time, bytesInFlight congestion
 
 func (b *BrutalSender) OnPacketAcked(number congestion.PacketNumber, ackedBytes congestion.ByteCount,
 	priorInFlight congestion.ByteCount, eventTime time.Time) {
-	b.ackCount += 1
-	b.maybeUpdateACKRate()
+	currentTimestamp := eventTime.Unix()
+	slot := currentTimestamp % pktInfoSlotCount
+	if b.pktInfoSlots[slot].Timestamp == currentTimestamp {
+		b.pktInfoSlots[slot].AckCount++
+	} else {
+		// uninitialized slot or too old, reset
+		b.pktInfoSlots[slot].Timestamp = currentTimestamp
+		b.pktInfoSlots[slot].AckCount = 1
+		b.pktInfoSlots[slot].LossCount = 0
+	}
 }
 
 func (b *BrutalSender) OnPacketLost(number congestion.PacketNumber, lostBytes congestion.ByteCount,
 	priorInFlight congestion.ByteCount) {
-	b.lossCount += 1
-	b.maybeUpdateACKRate()
+	currentTimestamp := time.Now().Unix()
+	slot := currentTimestamp % pktInfoSlotCount
+	if b.pktInfoSlots[slot].Timestamp == currentTimestamp {
+		b.pktInfoSlots[slot].LossCount++
+	} else {
+		// uninitialized slot or too old, reset
+		b.pktInfoSlots[slot].Timestamp = currentTimestamp
+		b.pktInfoSlots[slot].AckCount = 0
+		b.pktInfoSlots[slot].LossCount = 1
+	}
 }
 
 func (b *BrutalSender) SetMaxDatagramSize(size congestion.ByteCount) {
@@ -79,36 +97,26 @@ func (b *BrutalSender) SetMaxDatagramSize(size congestion.ByteCount) {
 	b.pacer.SetMaxDatagramSize(size)
 }
 
-func (b *BrutalSender) maybeUpdateACKRate() {
+func (b *BrutalSender) getAckRate() float64 {
 	now := time.Now()
-	if !now.After(b.ackRateNextUpdateMin) {
-		return
-	}
-	// Min interval reached
-	if b.ackCount >= ackRateMinACKSampleCount {
-		// And enough samples, update ackRate now
-		b.ackRate = float64(b.ackCount) / float64(b.ackCount+b.lossCount)
-		b.ackCount, b.lossCount = 0, 0
-		b.ackRateNextUpdateMin = now.Add(ackRateMinSampleInterval)
-		b.ackRateNextUpdateMax = now.Add(ackRateMaxSampleInterval)
-	} else {
-		if now.After(b.ackRateNextUpdateMax) {
-			// Max interval reached, still not enough samples, reset
-			b.ackCount, b.lossCount = 0, 0
-			b.ackRateNextUpdateMin = now.Add(ackRateMinSampleInterval)
-			b.ackRateNextUpdateMax = now.Add(ackRateMaxSampleInterval)
+	currentTimestamp := now.Unix()
+	minTimestamp := currentTimestamp - pktInfoSlotCount
+	var ackCount, lossCount uint64
+	for _, info := range b.pktInfoSlots {
+		if info.Timestamp < minTimestamp {
+			continue
 		}
+		ackCount += info.AckCount
+		lossCount += info.LossCount
 	}
-}
-
-func (b *BrutalSender) getAckRate() (rate float64) {
-	rate = b.ackRate
-	if rate <= 0 {
-		rate = 1
-	} else if rate < 0.5 {
-		rate = 0.5
+	if ackCount+lossCount < minSampleCount {
+		return 1
 	}
-	return
+	rate := float64(ackCount) / float64(ackCount+lossCount)
+	if rate < 0.5 {
+		return 0.5
+	}
+	return rate
 }
 
 func (b *BrutalSender) InSlowStart() bool {
