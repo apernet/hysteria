@@ -463,4 +463,4 @@ EOF
 
 7. 生成CA证书之后，根据自身情况修改服务器地址、端口和证书文件路径，加上`obfs`和`alpn`是防止首次在某些环境下被墙，第一次在全参数情况下测试通过后，可以自身网络环境删除不必须要参数，比如`obfs`和`alpn`.
 
-8. IOS端如果使用的是小火箭shadowrocket，可以把文件`hysteria.ca.crt` airdrop到手机，然后在手机上安装并信任后, 就可以使用自定义CA证书了。
+8. iOS 端如果使用的是小火箭 Shadowrocket，可以把文件`hysteria.ca.crt` airdrop到手机，然后在手机上安装并信任后, 就可以使用自定义CA证书了。
