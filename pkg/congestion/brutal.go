@@ -8,6 +8,7 @@ import (
 const (
 	pktInfoSlotCount = 4
 	minSampleCount   = 50
+	minAckRate       = 0.75
 )
 
 type BrutalSender struct {
@@ -113,8 +114,8 @@ func (b *BrutalSender) getAckRate() float64 {
 		return 1
 	}
 	rate := float64(ackCount) / float64(ackCount+lossCount)
-	if rate < 0.5 {
-		return 0.5
+	if rate < minAckRate {
+		return minAckRate
 	}
 	return rate
 }
