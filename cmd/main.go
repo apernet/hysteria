@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -20,6 +21,8 @@ var (
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	app := &cli.App{
 		Name:                 "Hysteria",
 		Usage:                "a TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for poor network environments",
