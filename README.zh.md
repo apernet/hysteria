@@ -141,7 +141,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 ```json5
 {
   "listen": ":36712", // 监听地址
-  "protocol": "faketcp", // 留空或 "udp" 为 UDP 模式，"faketcp" 为伪装 TCP 模式，详情见下
+  "protocol": "faketcp", // 留空或 "udp", "wechat-video", "faketcp"
   "acme": {
     "domains": [
       "your.domain.com",
@@ -242,7 +242,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
 ```json5
 {
   "server": "example.com:36712", // 服务器地址
-  "protocol": "faketcp", // 留空或 "udp" 为 UDP 模式，"faketcp" 为伪装 TCP 模式，详情见下
+  "protocol": "faketcp", // 留空或 "udp", "wechat-video", "faketcp"
   "up_mbps": 10, // 最大上传速度
   "down_mbps": 50, // 最大下载速度
   "socks5": {
@@ -370,7 +370,7 @@ ACL 在服务端和客户端都可以使用。在服务端可以用来实现限�
 
     - host: hostname or IP address of the server to connect to (required)
     - port: port of the server to connect to (required)
-    - protocol: protocol to use ("udp" or "faketcp") (optional, default: "udp")
+    - protocol: protocol to use ("udp", "wechat-video", "faketcp") (optional, default: "udp")
     - auth: authentication payload (string) (optional)
     - peer: SNI for TLS (optional)
     - insecure: ignore certificate errors (optional)

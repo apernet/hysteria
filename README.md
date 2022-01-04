@@ -155,7 +155,7 @@ encryption. If you need a proxy, just use our proxy modes.
 ```json5
 {
   "listen": ":36712", // Listen address
-  "protocol": "faketcp", // Blank or "udp" for UDP mode, "faketcp" for TCP "masquerade", see below for details
+  "protocol": "faketcp", // Blank, "udp", "wechat-video", "faketcp"
   "acme": {
     "domains": [
       "your.domain.com",
@@ -257,7 +257,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
 ```json5
 {
   "server": "example.com:36712", // Server address
-  "protocol": "faketcp", // Blank or "udp" for UDP mode, "faketcp" for TCP "masquerade", see below for details
+  "protocol": "faketcp", // Blank, "udp", "wechat-video", "faketcp"
   "up_mbps": 10, // Max upload Mbps
   "down_mbps": 50, // Max download Mbps
   "socks5": {
@@ -392,7 +392,7 @@ Third party clients looking to implement a "share by link" feature are advised t
 
     - host: hostname or IP address of the server to connect to (required)
     - port: port of the server to connect to (required)
-    - protocol: protocol to use ("udp" or "faketcp") (optional, default: "udp")
+    - protocol: protocol to use ("udp", "wechat-video", "faketcp") (optional, default: "udp")
     - auth: authentication payload (string) (optional)
     - peer: SNI for TLS (optional)
     - insecure: ignore certificate errors (optional)
