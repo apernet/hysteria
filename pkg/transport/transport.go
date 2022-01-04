@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/tobyxdd/hysteria/pkg/conns/faketcp"
 	"github.com/tobyxdd/hysteria/pkg/conns/udp"
+	"github.com/tobyxdd/hysteria/pkg/conns/wechat"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"net"
 	"time"
@@ -56,6 +57,25 @@ func (t *defaultTransport) QUICPacketConn(proto string, server bool, laddr, radd
 		}
 		if obfs != nil {
 			oc := udp.NewObfsUDPConn(conn, obfs)
+			return oc, nil
+		} else {
+			return conn, nil
+		}
+	} else if proto == "wechat-video" {
+		var laddrU *net.UDPAddr
+		if len(laddr) > 0 {
+			var err error
+			laddrU, err = t.QUICResolveUDPAddr(laddr)
+			if err != nil {
+				return nil, err
+			}
+		}
+		conn, err := net.ListenUDP("udp", laddrU)
+		if err != nil {
+			return nil, err
+		}
+		if obfs != nil {
+			oc := wechat.NewObfsWeChatUDPConn(conn, obfs)
 			return oc, nil
 		} else {
 			return conn, nil
