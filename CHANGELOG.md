@@ -25,3 +25,9 @@
 
 - Updated quic-go to v0.24.0
 - Reduced obfs overhead by reusing buffers
+
+## 0.9.3
+
+- CC optimizations
+- Set buffer correctly for faketcp mode
+- "wechat-video" protocol
