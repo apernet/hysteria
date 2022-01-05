@@ -33,7 +33,7 @@ currently has the following features: (still growing!)
 - Download pre-built binaries from https://github.com/tobyxdd/hysteria/releases
   - Linux builds are available as `hysteria-tun` (with tun support) and `hysteria` (without tun support). Builds 
     without tun support are statically linked and do not depend on glibc. **If you use a Linux distribution that 
-    can't run `hysteria-tun` properly, try `hysteria-notun` instead.**
+    can't run `hysteria-tun` properly, try `hysteria` instead.**
   - Other platforms do not have glibc compatibility issues. The builds are all with tun support.
 - Use Docker or Docker Compose: https://github.com/HyNetwork/hysteria/blob/master/Docker.md
 - Use our Arch Linux AUR: https://aur.archlinux.org/packages/hysteria/
