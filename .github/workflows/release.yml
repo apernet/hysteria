@@ -27,6 +27,19 @@ jobs:
         id: current-time
 
       - name: Build
+        uses: crazy-max/ghaction-xgo@v1.6.1
+        env:
+          TIME: "${{ steps.current-time.outputs.time }}"
+        with:
+          xgo_version: latest
+          go_version: 1.17
+          dest: dist
+          prefix: hysteria
+          targets: linux/amd64,linux/386,linux/arm-5,linux/arm-7,linux/arm64,linux/mipsle,darwin-10.12/amd64,darwin-10.12/arm64,windows-6.0/amd64,windows-6.0/386
+          ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
+          pkg: cmd
+
+      - name: Build (notun)
         uses: tobyxdd/go-cross-build@25e1ba1da2fb42ed9787b615f0e89235569c58fa
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
@@ -35,7 +48,7 @@ jobs:
           name: hysteria-notun
           dest: ./dist/
           ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
-          platforms: 'linux/amd64, linux/386, linux/arm, linux/arm64, linux/mipsle, darwin/amd64, darwin/arm64, windows/amd64, windows/386'
+          platforms: 'linux/amd64, linux/386, linux/arm, linux/arm64, linux/mipsle'
           package: ./cmd
           compress: false
 
@@ -44,6 +57,16 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
+            ./dist/hysteria-linux-amd64
+            ./dist/hysteria-linux-386
+            ./dist/hysteria-linux-arm-5
+            ./dist/hysteria-linux-arm-7
+            ./dist/hysteria-linux-arm64
+            ./dist/hysteria-linux-mipsle
+            ./dist/hysteria-darwin-10.12-amd64
+            ./dist/hysteria-darwin-10.12-arm64
+            ./dist/hysteria-windows-6.0-amd64.exe
+            ./dist/hysteria-windows-6.0-386.exe
             ./dist/hysteria-notun-linux-amd64
             ./dist/hysteria-notun-linux-386
             ./dist/hysteria-notun-linux-arm
