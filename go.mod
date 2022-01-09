@@ -11,6 +11,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20210110162100-a92cc753f88e
 	github.com/elazarl/goproxy/ext v0.0.0-20210110162100-a92cc753f88e
 	github.com/eycorsican/go-tun2socks v1.16.11
+	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/google/gopacket v1.1.19
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/lucas-clemente/quic-go v0.24.0

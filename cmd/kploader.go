@@ -2,13 +2,9 @@ package main
 
 import (
 	"crypto/tls"
+	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 	"sync"
-	"time"
-)
-
-const (
-	keypairReloadInterval = 10 * time.Minute
 )
 
 type keypairLoader struct {
@@ -19,7 +15,7 @@ type keypairLoader struct {
 }
 
 func newKeypairLoader(certPath, keyPath string) (*keypairLoader, error) {
-	result := &keypairLoader{
+	loader := &keypairLoader{
 		certPath: certPath,
 		keyPath:  keyPath,
 	}
@@ -27,25 +23,66 @@ func newKeypairLoader(certPath, keyPath string) (*keypairLoader, error) {
 	if err != nil {
 		return nil, err
 	}
-	result.cert = &cert
+	loader.cert = &cert
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
 	go func() {
 		for {
-			time.Sleep(keypairReloadInterval)
-			cert, err := tls.LoadX509KeyPair(certPath, keyPath)
-			if err != nil {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				switch event.Op {
+				case fsnotify.Create, fsnotify.Write, fsnotify.Rename, fsnotify.Chmod:
+					logrus.WithFields(logrus.Fields{
+						"file": event.Name,
+					}).Info("Keypair change detected, reloading...")
+					if err := loader.load(); err != nil {
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+						}).Error("Failed to reload keypair")
+					} else {
+						logrus.Info("Keypair successfully reloaded")
+					}
+				case fsnotify.Remove:
+					_ = watcher.Add(event.Name) // Workaround for vim
+					// https://github.com/fsnotify/fsnotify/issues/92
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
 				logrus.WithFields(logrus.Fields{
 					"error": err,
-					"cert":  certPath,
-					"key":   keyPath,
-				}).Warning("Failed to reload keypair")
-				continue
+				}).Error("Failed to watch keypair files for changes")
 			}
-			result.certMu.Lock()
-			result.cert = &cert
-			result.certMu.Unlock()
 		}
 	}()
-	return result, nil
+	err = watcher.Add(certPath)
+	if err != nil {
+		_ = watcher.Close()
+		return nil, err
+	}
+	err = watcher.Add(keyPath)
+	if err != nil {
+		_ = watcher.Close()
+		return nil, err
+	}
+	return loader, nil
+}
+
+func (kpr *keypairLoader) load() error {
+	cert, err := tls.LoadX509KeyPair(kpr.certPath, kpr.keyPath)
+	if err != nil {
+		return err
+	}
+	kpr.certMu.Lock()
+	kpr.cert = &cert
+	kpr.certMu.Unlock()
+	return nil
 }
 
 func (kpr *keypairLoader) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
