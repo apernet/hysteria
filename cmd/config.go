@@ -16,6 +16,8 @@ const (
 	DefaultMaxIncomingStreams      = 1024
 
 	DefaultALPN = "hysteria"
+
+	DefaultMMDBFilename = "GeoLite2-Country.mmdb"
 )
 
 type serverConfig struct {
@@ -36,6 +38,7 @@ type serverConfig struct {
 	DownMbps   int    `json:"down_mbps"`
 	DisableUDP bool   `json:"disable_udp"`
 	ACL        string `json:"acl"`
+	MMDB       string `json:"mmdb"`
 	Obfs       string `json:"obfs"`
 	Auth       struct {
 		Mode   string           `json:"mode"`
@@ -137,6 +140,7 @@ type clientConfig struct {
 		Timeout int    `json:"timeout"`
 	} `json:"tproxy_udp"`
 	ACL                 string `json:"acl"`
+	MMDB                string `json:"mmdb"`
 	Obfs                string `json:"obfs"`
 	Auth                []byte `json:"auth"`
 	AuthString          string `json:"auth_str"`

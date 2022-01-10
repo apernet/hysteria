@@ -174,6 +174,7 @@ encryption. If you need a proxy, just use our proxy modes.
   "down_mbps": 100, // Max download Mbps per client
   "disable_udp": false, // Disable UDP support
   "acl": "my_list.acl", // See ACL below
+  "mmdb": "GeoLite2-Country.mmdb", // MaxMind database for ACL country lookups
   "obfs": "AMOGUS", // Obfuscation password
   "auth": { // Authentication
     "mode": "password", // Mode, supports "password" "none" and "external" for now
@@ -318,6 +319,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
     "timeout": 60 // UDP session timeout in seconds
   },
   "acl": "my_list.acl", // See ACL below
+  "mmdb": "GeoLite2-Country.mmdb", // MaxMind database for ACL country lookups
   "obfs": "AMOGUS", // Obfuscation password
   "auth": "[BASE64]", // Authentication payload in Base64
   "auth_str": "yubiyubi", // Authentication payload in string, mutually exclusive with the option above

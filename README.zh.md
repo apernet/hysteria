@@ -160,6 +160,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
   "down_mbps": 100, // 单客户端最大下载速度
   "disable_udp": false, // 禁用 UDP 支持
   "acl": "my_list.acl", // 见下文 ACL
+  "mmdb": "GeoLite2-Country.mmdb", // MaxMind IP 库 (ACL)
   "obfs": "AMOGUS", // 混淆密码
   "auth": { // 验证
     "mode": "password", // 验证模式，暂时只支持 "password" 与 "none"
@@ -303,6 +304,7 @@ hysteria_traffic_uplink_bytes_total{auth="aGFja2VyISE="} 37452
     "timeout": 60 // UDP 超时秒数
   },
   "acl": "my_list.acl", // 见下文 ACL
+  "mmdb": "GeoLite2-Country.mmdb", // MaxMind IP 库 (ACL)
   "obfs": "AMOGUS", // 混淆密码
   "auth": "[BASE64]", // Base64 验证密钥
   "auth_str": "yubiyubi", // 字符串验证密钥，和上面的选项二选一
