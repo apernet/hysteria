@@ -12,12 +12,11 @@ ACL 文件描述如何处理传入请求。服务器和客户端都支持 ACL，
 direct domain evil.corp
 proxy domain-suffix google.com
 block ip 1.2.3.4
+block country cn
 hijack cidr 192.168.1.1/24 127.0.0.1
 
 direct all
 ```
-
-一个直连所有中国 IP 的规则和 Python 生成脚本 [在这里](docs/acl)。
 
 Hysteria 根据文件中第一个匹配到规则对每个请求进行操作。当没有匹配时默认的行为是代理连接。可以通过在文件的末尾添加一个规则加上条件 "all" 来设置默认行为。
 
@@ -31,7 +30,7 @@ Hysteria 根据文件中第一个匹配到规则对每个请求进行操作。�
 
 `hijack` - 把连接劫持到另一个目的地 （必须在参数中指定）
 
-5 种条件类型:
+6 种条件类型:
 
 `domain` - 匹配特定的域名（不匹配子域名！例如：`apple.com` 不匹配 `cdn.apple.com`）
 
@@ -40,6 +39,8 @@ Hysteria 根据文件中第一个匹配到规则对每个请求进行操作。�
 `cidr` - IPv4 / IPv6 CIDR
 
 `ip` - IPv4 / IPv6 地址
+
+`country` - 匹配国家 IP，ISO 两位字母国家代码
 
 `all` - 匹配所有地址 （通常放在文件尾作为默认规则）
 

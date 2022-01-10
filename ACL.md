@@ -13,13 +13,11 @@ Example:
 direct domain evil.corp
 proxy domain-suffix google.com
 block ip 1.2.3.4
+block country cn
 hijack cidr 192.168.1.1/24 127.0.0.1
 
 direct all
 ```
-
-A real-life ACL example of directly connecting to all China IPs (and its generator Python
-script) [can be found here](docs/acl).
 
 Hysteria acts according to the first matching rule in the file for each request. When there is no match, the default
 behavior is to proxy all connections. You can override this by adding a rule at the end of the file with the condition
@@ -35,7 +33,7 @@ behavior is to proxy all connections. You can override this by adding a rule at 
 
 `hijack` - hijack the connection to another target address (must be specified in the argument)
 
-5 condition types:
+6 condition types:
 
 `domain` - match a specific domain (does NOT match subdomains! e.g. `apple.com` will not match `cdn.apple.com`)
 
@@ -44,6 +42,8 @@ behavior is to proxy all connections. You can override this by adding a rule at 
 `cidr` - IPv4 or IPv6 CIDR
 
 `ip` - IPv4 or IPv6 address
+
+`country` - match IP by ISO 3166-1 alpha-2 country code
 
 `all` - match anything (usually placed at the end of the file as a default rule)
 
