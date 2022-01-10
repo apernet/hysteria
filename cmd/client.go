@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"github.com/oschwald/geoip2-golang"
 	"io"
 	"io/ioutil"
 	"net"
@@ -93,7 +94,13 @@ func client(config *clientConfig) {
 	var aclEngine *acl.Engine
 	if len(config.ACL) > 0 {
 		var err error
-		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultTransport)
+		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultTransport, func() (*geoip2.Reader, error) {
+			if len(config.MMDB) > 0 {
+				return loadMMDBReader(config.MMDB)
+			} else {
+				return loadMMDBReader(DefaultMMDBFilename)
+			}
+		})
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,

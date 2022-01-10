@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
+	"github.com/oschwald/geoip2-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
@@ -139,7 +140,13 @@ func server(config *serverConfig) {
 	// ACL
 	var aclEngine *acl.Engine
 	if len(config.ACL) > 0 {
-		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultTransport)
+		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultTransport, func() (*geoip2.Reader, error) {
+			if len(config.MMDB) > 0 {
+				return loadMMDBReader(config.MMDB)
+			} else {
+				return loadMMDBReader(DefaultMMDBFilename)
+			}
+		})
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
