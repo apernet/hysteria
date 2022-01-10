@@ -31,3 +31,8 @@
 - CC optimizations
 - Set buffer correctly for faketcp mode
 - "wechat-video" protocol
+
+## 0.9.4
+
+- fsnotify-based auto keypair reloading
+- ACL country code support
