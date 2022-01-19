@@ -1,6 +1,6 @@
 # ![Logo](docs/logos/readme.png)
 
-[![License][1]][2] [![Release][3]][4] [![Telegram][5]][6]
+[![License][1]][2] [![Release][3]][4] [![Telegram][5]][6] [![Discussions][7]][8]
 
 [1]: https://img.shields.io/github/license/tobyxdd/hysteria?style=flat-square
 
@@ -13,6 +13,10 @@
 [5]: https://img.shields.io/badge/chat-Telegram-blue?style=flat-square
 
 [6]: https://t.me/hysteria_github
+
+[7]: https://img.shields.io/github/discussions/HyNetwork/hysteria?style=flat-square
+
+[8]: https://github.com/HyNetwork/hysteria/discussions
 
 Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网络工具（双边加速），比如卫星网络、拥挤的公共 Wi-Fi、在中国连接国外服务器等。
 基于修改版的 QUIC 协议。目前有以下模式：（仍在增加中）
