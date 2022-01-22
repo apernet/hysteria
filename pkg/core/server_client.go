@@ -64,7 +64,7 @@ func newServerClient(cs quic.Session, transport transport.Transport, auth []byte
 	return sc
 }
 
-func (c *serverClient) Run() {
+func (c *serverClient) Run() error {
 	if !c.DisableUDP {
 		go func() {
 			for {
@@ -79,7 +79,7 @@ func (c *serverClient) Run() {
 	for {
 		stream, err := c.CS.AcceptStream(context.Background())
 		if err != nil {
-			break
+			return err
 		}
 		if c.ConnGauge != nil {
 			c.ConnGauge.Inc()

@@ -128,6 +128,20 @@ func server(config *serverConfig) {
 	default:
 		logrus.WithField("mode", config.Auth.Mode).Fatal("Unsupported authentication mode")
 	}
+	connectFunc := func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
+		ok, msg := authFunc(addr, auth, sSend, sRecv)
+		if !ok {
+			logrus.WithFields(logrus.Fields{
+				"src": addr,
+				"msg": msg,
+			}).Info("Authentication failed, client rejected")
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"src": addr,
+			}).Info("Client connected")
+		}
+		return ok, msg
+	}
 	// Obfuscator
 	var obfuscator obfs.Obfuscator
 	if len(config.Obfs) > 0 {
@@ -169,7 +183,7 @@ func server(config *serverConfig) {
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
-		}, config.DisableUDP, aclEngine, obfuscator, authFunc,
+		}, config.DisableUDP, aclEngine, obfuscator, connectFunc, disconnectFunc,
 		tcpRequestFunc, tcpErrorFunc, udpRequestFunc, udpErrorFunc, promReg)
 	if err != nil {
 		logrus.WithField("error", err).Fatal("Failed to initialize server")
@@ -179,6 +193,13 @@ func server(config *serverConfig) {
 
 	err = server.Serve()
 	logrus.WithField("error", err).Fatal("Server shutdown")
+}
+
+func disconnectFunc(addr net.Addr, auth []byte, err error) {
+	logrus.WithFields(logrus.Fields{
+		"src":   addr,
+		"error": err,
+	}).Info("Client disconnected")
 }
 
 func tcpRequestFunc(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string) {

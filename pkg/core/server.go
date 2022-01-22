@@ -14,7 +14,8 @@ import (
 	"net"
 )
 
-type AuthFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
+type ConnectFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
+type DisconnectFunc func(addr net.Addr, auth []byte, err error)
 type TCPRequestFunc func(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string)
 type TCPErrorFunc func(addr net.Addr, auth []byte, reqAddr string, err error)
 type UDPRequestFunc func(addr net.Addr, auth []byte, sessionID uint32)
@@ -27,7 +28,8 @@ type Server struct {
 	disableUDP        bool
 	aclEngine         *acl.Engine
 
-	authFunc       AuthFunc
+	connectFunc    ConnectFunc
+	disconnectFunc DisconnectFunc
 	tcpRequestFunc TCPRequestFunc
 	tcpErrorFunc   TCPErrorFunc
 	udpRequestFunc UDPRequestFunc
@@ -41,7 +43,8 @@ type Server struct {
 
 func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *quic.Config, transport transport2.Transport,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
-	obfuscator obfs.Obfuscator, authFunc AuthFunc, tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
+	obfuscator obfs.Obfuscator, connectFunc ConnectFunc, disconnectFunc DisconnectFunc,
+	tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry) (*Server, error) {
 	pktConn, err := transport.QUICPacketConn(protocol, true, addr, "", obfuscator)
 	if err != nil {
@@ -60,7 +63,8 @@ func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *
 		congestionFactory: congestionFactory,
 		disableUDP:        disableUDP,
 		aclEngine:         aclEngine,
-		authFunc:          authFunc,
+		connectFunc:       connectFunc,
+		disconnectFunc:    disconnectFunc,
 		tcpRequestFunc:    tcpRequestFunc,
 		tcpErrorFunc:      tcpErrorFunc,
 		udpRequestFunc:    udpRequestFunc,
@@ -118,8 +122,9 @@ func (s *Server) handleClient(cs quic.Session) {
 	sc := newServerClient(cs, s.transport, auth, s.disableUDP, s.aclEngine,
 		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc,
 		s.upCounterVec, s.downCounterVec, s.connGaugeVec)
-	sc.Run()
+	err = sc.Run()
 	_ = cs.CloseWithError(closeErrorCodeGeneric, "")
+	s.disconnectFunc(cs.RemoteAddr(), auth, err)
 }
 
 // Auth & negotiate speed
@@ -151,7 +156,7 @@ func (s *Server) handleControlStream(cs quic.Session, stream quic.Stream) ([]byt
 		serverRecvBPS = s.recvBPS
 	}
 	// Auth
-	ok, msg := s.authFunc(cs.RemoteAddr(), ch.Auth, serverSendBPS, serverRecvBPS)
+	ok, msg := s.connectFunc(cs.RemoteAddr(), ch.Auth, serverSendBPS, serverRecvBPS)
 	// Response
 	err = struc.Pack(stream, &serverHello{
 		OK: ok,
