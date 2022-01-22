@@ -40,7 +40,7 @@ jobs:
           pkg: cmd
 
       - name: Build (notun)
-        uses: tobyxdd/go-cross-build@25e1ba1da2fb42ed9787b615f0e89235569c58fa
+        uses: tobyxdd/go-cross-build@21e6b202e20aea08df331ea747dc9c266b420db8
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
           CGO_ENABLED: "0"
