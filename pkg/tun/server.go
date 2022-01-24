@@ -1,3 +1,4 @@
+//go:build cgo
 // +build cgo
 
 package tun
@@ -6,7 +7,6 @@ import (
 	tun2socks "github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/tun"
 	"github.com/tobyxdd/hysteria/pkg/core"
-	"github.com/tobyxdd/hysteria/pkg/transport"
 	"io"
 	"net"
 	"sync"
@@ -14,10 +14,9 @@ import (
 )
 
 type Server struct {
-	HyClient  *core.Client
-	Timeout   time.Duration
-	TunDev    io.ReadWriteCloser
-	Transport transport.Transport
+	HyClient *core.Client
+	Timeout  time.Duration
+	TunDev   io.ReadWriteCloser
 
 	RequestFunc func(addr net.Addr, reqAddr string)
 	ErrorFunc   func(addr net.Addr, reqAddr string, err error)
@@ -30,12 +29,9 @@ const (
 	MTU = 1500
 )
 
-func NewServerWithTunDev(hyClient *core.Client, transport transport.Transport,
-	timeout time.Duration,
-	tunDev io.ReadWriteCloser) (*Server, error) {
+func NewServerWithTunDev(hyClient *core.Client, timeout time.Duration, tunDev io.ReadWriteCloser) (*Server, error) {
 	s := &Server{
 		HyClient:   hyClient,
-		Transport:  transport,
 		Timeout:    timeout,
 		TunDev:     tunDev,
 		udpConnMap: make(map[tun2socks.UDPConn]*udpConnInfo),
@@ -43,14 +39,13 @@ func NewServerWithTunDev(hyClient *core.Client, transport transport.Transport,
 	return s, nil
 }
 
-func NewServer(hyClient *core.Client, transport transport.Transport,
-	timeout time.Duration,
+func NewServer(hyClient *core.Client, timeout time.Duration,
 	name, address, gateway, mask string, dnsServers []string, persist bool) (*Server, error) {
 	tunDev, err := tun.OpenTunDevice(name, address, gateway, mask, dnsServers, persist)
 	if err != nil {
 		return nil, err
 	}
-	return NewServerWithTunDev(hyClient, transport, timeout, tunDev)
+	return NewServerWithTunDev(hyClient, timeout, tunDev)
 }
 
 func (s *Server) ListenAndServe() error {

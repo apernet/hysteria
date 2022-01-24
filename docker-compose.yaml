@@ -7,4 +7,4 @@ services:
     network_mode: "host"
     volumes:
       - ./hysteria.json:/etc/hysteria.json
-    command: ["-config","/etc/hysteria.json","server"]
+    command: [ "-config","/etc/hysteria.json","server" ]

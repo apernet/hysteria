@@ -3,7 +3,6 @@ package tproxy
 import (
 	"github.com/LiamHaworth/go-tproxy"
 	"github.com/tobyxdd/hysteria/pkg/core"
-	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"time"
@@ -11,7 +10,6 @@ import (
 
 type TCPTProxy struct {
 	HyClient   *core.Client
-	Transport  transport.Transport
 	ListenAddr *net.TCPAddr
 	Timeout    time.Duration
 
@@ -19,16 +17,15 @@ type TCPTProxy struct {
 	ErrorFunc func(addr, reqAddr net.Addr, err error)
 }
 
-func NewTCPTProxy(hyClient *core.Client, transport transport.Transport, listen string, timeout time.Duration,
+func NewTCPTProxy(hyClient *core.Client, listen string, timeout time.Duration,
 	connFunc func(addr, reqAddr net.Addr),
 	errorFunc func(addr, reqAddr net.Addr, err error)) (*TCPTProxy, error) {
-	tAddr, err := transport.LocalResolveTCPAddr(listen)
+	tAddr, err := net.ResolveTCPAddr("tcp", listen)
 	if err != nil {
 		return nil, err
 	}
 	r := &TCPTProxy{
 		HyClient:   hyClient,
-		Transport:  transport,
 		ListenAddr: tAddr,
 		Timeout:    timeout,
 		ConnFunc:   connFunc,

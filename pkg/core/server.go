@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
-	transport2 "github.com/tobyxdd/hysteria/pkg/transport"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"net"
 )
 
@@ -22,7 +22,7 @@ type UDPRequestFunc func(addr net.Addr, auth []byte, sessionID uint32)
 type UDPErrorFunc func(addr net.Addr, auth []byte, sessionID uint32, err error)
 
 type Server struct {
-	transport         transport2.Transport
+	transport         *transport.ServerTransport
 	sendBPS, recvBPS  uint64
 	congestionFactory CongestionFactory
 	disableUDP        bool
@@ -41,18 +41,13 @@ type Server struct {
 	listener quic.Listener
 }
 
-func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *quic.Config, transport transport2.Transport,
+func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *quic.Config, transport *transport.ServerTransport,
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
 	obfuscator obfs.Obfuscator, connectFunc ConnectFunc, disconnectFunc DisconnectFunc,
 	tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry) (*Server, error) {
-	pktConn, err := transport.QUICPacketConn(protocol, true, addr, "", obfuscator)
+	listener, err := transport.QUICListen(protocol, addr, tlsConfig, quicConfig, obfuscator)
 	if err != nil {
-		return nil, err
-	}
-	listener, err := quic.Listen(pktConn, tlsConfig, quicConfig)
-	if err != nil {
-		_ = pktConn.Close()
 		return nil, err
 	}
 	s := &Server{

@@ -7,7 +7,6 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/elazarl/goproxy/ext/auth"
@@ -17,8 +16,8 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/core"
 )
 
-func NewProxyHTTPServer(hyClient *core.Client, transport transport.Transport, idleTimeout time.Duration, aclEngine *acl.Engine,
-	newDialFunc func(reqAddr string, action acl.Action, arg string),
+func NewProxyHTTPServer(hyClient *core.Client, transport *transport.ClientTransport, idleTimeout time.Duration,
+	aclEngine *acl.Engine, newDialFunc func(reqAddr string, action acl.Action, arg string),
 	basicAuthFunc func(user, password string) bool) (*goproxy.ProxyHttpServer, error) {
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Logger = &nopLogger{}
@@ -45,7 +44,7 @@ func NewProxyHTTPServer(hyClient *core.Client, transport transport.Transport, id
 				if resErr != nil {
 					return nil, resErr
 				}
-				return transport.LocalDialTCP(nil, &net.TCPAddr{
+				return transport.DialTCP(&net.TCPAddr{
 					IP:   ipAddr.IP,
 					Port: int(port),
 					Zone: ipAddr.Zone,
@@ -55,7 +54,15 @@ func NewProxyHTTPServer(hyClient *core.Client, transport transport.Transport, id
 			case acl.ActionBlock:
 				return nil, errors.New("blocked by ACL")
 			case acl.ActionHijack:
-				return transport.LocalDial(network, net.JoinHostPort(arg, strconv.Itoa(int(port))))
+				hijackIPAddr, err := transport.ResolveIPAddr(arg)
+				if err != nil {
+					return nil, err
+				}
+				return transport.DialTCP(&net.TCPAddr{
+					IP:   hijackIPAddr.IP,
+					Port: int(port),
+					Zone: hijackIPAddr.Zone,
+				})
 			default:
 				return nil, fmt.Errorf("unknown action %d", action)
 			}

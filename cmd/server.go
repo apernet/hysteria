@@ -149,18 +149,19 @@ func server(config *serverConfig) {
 	}
 	// IPv6 only mode
 	if config.IPv6Only {
-		transport.DefaultTransport = transport.IPv6OnlyTransport
+		transport.DefaultServerTransport.IPv6Only = true
 	}
 	// ACL
 	var aclEngine *acl.Engine
 	if len(config.ACL) > 0 {
-		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultTransport, func() (*geoip2.Reader, error) {
-			if len(config.MMDB) > 0 {
-				return loadMMDBReader(config.MMDB)
-			} else {
-				return loadMMDBReader(DefaultMMDBFilename)
-			}
-		})
+		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultServerTransport.ResolveIPAddr,
+			func() (*geoip2.Reader, error) {
+				if len(config.MMDB) > 0 {
+					return loadMMDBReader(config.MMDB)
+				} else {
+					return loadMMDBReader(DefaultMMDBFilename)
+				}
+			})
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
@@ -179,7 +180,7 @@ func server(config *serverConfig) {
 			logrus.WithField("error", err).Fatal("Prometheus HTTP server error")
 		}()
 	}
-	server, err := core.NewServer(config.Listen, config.Protocol, tlsConfig, quicConfig, transport.DefaultTransport,
+	server, err := core.NewServer(config.Listen, config.Protocol, tlsConfig, quicConfig, transport.DefaultServerTransport,
 		uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
