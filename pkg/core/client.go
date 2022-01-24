@@ -10,7 +10,7 @@ import (
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/lunixbochs/struc"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
-	transport2 "github.com/tobyxdd/hysteria/pkg/transport"
+	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"strconv"
@@ -25,7 +25,7 @@ var (
 type CongestionFactory func(refBPS uint64) congestion.CongestionControl
 
 type Client struct {
-	transport         transport2.Transport
+	transport         *transport.ClientTransport
 	serverAddr        string
 	protocol          string
 	sendBPS, recvBPS  uint64
@@ -45,7 +45,7 @@ type Client struct {
 }
 
 func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
-	transport transport2.Transport, sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
+	transport *transport.ClientTransport, sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
 	obfuscator obfs.Obfuscator) (*Client, error) {
 	c := &Client{
 		transport:         transport,
@@ -66,17 +66,8 @@ func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.C
 }
 
 func (c *Client) connectToServer() error {
-	serverUDPAddr, err := c.transport.QUICResolveUDPAddr(c.serverAddr)
+	qs, err := c.transport.QUICDial(c.protocol, c.serverAddr, c.tlsConfig, c.quicConfig, c.obfuscator)
 	if err != nil {
-		return err
-	}
-	pktConn, err := c.transport.QUICPacketConn(c.protocol, false, "", c.serverAddr, c.obfuscator)
-	if err != nil {
-		return err
-	}
-	qs, err := quic.Dial(pktConn, serverUDPAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
-	if err != nil {
-		_ = pktConn.Close()
 		return err
 	}
 	// Control stream

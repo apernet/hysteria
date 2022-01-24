@@ -94,13 +94,14 @@ func client(config *clientConfig) {
 	var aclEngine *acl.Engine
 	if len(config.ACL) > 0 {
 		var err error
-		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultTransport, func() (*geoip2.Reader, error) {
-			if len(config.MMDB) > 0 {
-				return loadMMDBReader(config.MMDB)
-			} else {
-				return loadMMDBReader(DefaultMMDBFilename)
-			}
-		})
+		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultClientTransport.ResolveIPAddr,
+			func() (*geoip2.Reader, error) {
+				if len(config.MMDB) > 0 {
+					return loadMMDBReader(config.MMDB)
+				} else {
+					return loadMMDBReader(DefaultMMDBFilename)
+				}
+			})
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
@@ -110,7 +111,7 @@ func client(config *clientConfig) {
 	}
 	// Client
 	client, err := core.NewClient(config.Server, config.Protocol, auth, tlsConfig, quicConfig,
-		transport.DefaultTransport, uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
+		transport.DefaultClientTransport, uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
 		func(refBPS uint64) congestion.CongestionControl {
 			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 		}, obfuscator)
@@ -130,8 +131,8 @@ func client(config *clientConfig) {
 					return config.SOCKS5.User == user && config.SOCKS5.Password == password
 				}
 			}
-			socks5server, err := socks5.NewServer(client, transport.DefaultTransport, config.SOCKS5.Listen, authFunc,
-				time.Duration(config.SOCKS5.Timeout)*time.Second, aclEngine, config.SOCKS5.DisableUDP,
+			socks5server, err := socks5.NewServer(client, transport.DefaultClientTransport, config.SOCKS5.Listen,
+				authFunc, time.Duration(config.SOCKS5.Timeout)*time.Second, aclEngine, config.SOCKS5.DisableUDP,
 				func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
 						"action": actionToString(action, arg),
@@ -186,7 +187,7 @@ func client(config *clientConfig) {
 					return config.HTTP.User == user && config.HTTP.Password == password
 				}
 			}
-			proxy, err := hyHTTP.NewProxyHTTPServer(client, transport.DefaultTransport,
+			proxy, err := hyHTTP.NewProxyHTTPServer(client, transport.DefaultClientTransport,
 				time.Duration(config.HTTP.Timeout)*time.Second, aclEngine,
 				func(reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
@@ -214,8 +215,7 @@ func client(config *clientConfig) {
 			if timeout == 0 {
 				timeout = 300 * time.Second
 			}
-			tunServer, err := tun.NewServer(client, transport.DefaultTransport,
-				time.Duration(config.TUN.Timeout)*time.Second,
+			tunServer, err := tun.NewServer(client, time.Duration(config.TUN.Timeout)*time.Second,
 				config.TUN.Name, config.TUN.Address, config.TUN.Gateway, config.TUN.Mask, config.TUN.DNS, config.TUN.Persist)
 			if err != nil {
 				logrus.WithField("error", err).Fatal("Failed to initialize TUN server")
@@ -267,8 +267,7 @@ func client(config *clientConfig) {
 	if len(config.TCPRelays) > 0 {
 		for _, tcpr := range config.TCPRelays {
 			go func(tcpr Relay) {
-				rl, err := relay.NewTCPRelay(client, transport.DefaultTransport,
-					tcpr.Listen, tcpr.Remote,
+				rl, err := relay.NewTCPRelay(client, tcpr.Listen, tcpr.Remote,
 					time.Duration(tcpr.Timeout)*time.Second,
 					func(addr net.Addr) {
 						logrus.WithFields(logrus.Fields{
@@ -307,8 +306,7 @@ func client(config *clientConfig) {
 	if len(config.UDPRelays) > 0 {
 		for _, udpr := range config.UDPRelays {
 			go func(udpr Relay) {
-				rl, err := relay.NewUDPRelay(client, transport.DefaultTransport,
-					udpr.Listen, udpr.Remote,
+				rl, err := relay.NewUDPRelay(client, udpr.Listen, udpr.Remote,
 					time.Duration(udpr.Timeout)*time.Second,
 					func(addr net.Addr) {
 						logrus.WithFields(logrus.Fields{
@@ -338,8 +336,8 @@ func client(config *clientConfig) {
 
 	if len(config.TCPTProxy.Listen) > 0 {
 		go func() {
-			rl, err := tproxy.NewTCPTProxy(client, transport.DefaultTransport,
-				config.TCPTProxy.Listen, time.Duration(config.TCPTProxy.Timeout)*time.Second,
+			rl, err := tproxy.NewTCPTProxy(client, config.TCPTProxy.Listen,
+				time.Duration(config.TCPTProxy.Timeout)*time.Second,
 				func(addr, reqAddr net.Addr) {
 					logrus.WithFields(logrus.Fields{
 						"src": addr.String(),
@@ -370,8 +368,8 @@ func client(config *clientConfig) {
 
 	if len(config.UDPTProxy.Listen) > 0 {
 		go func() {
-			rl, err := tproxy.NewUDPTProxy(client, transport.DefaultTransport,
-				config.UDPTProxy.Listen, time.Duration(config.UDPTProxy.Timeout)*time.Second,
+			rl, err := tproxy.NewUDPTProxy(client, config.UDPTProxy.Listen,
+				time.Duration(config.UDPTProxy.Timeout)*time.Second,
 				func(addr net.Addr) {
 					logrus.WithFields(logrus.Fields{
 						"src": addr.String(),

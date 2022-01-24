@@ -4,7 +4,6 @@ import (
 	"bufio"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/geoip2-golang"
-	"github.com/tobyxdd/hysteria/pkg/transport"
 	"net"
 	"os"
 	"strings"
@@ -16,7 +15,7 @@ type Engine struct {
 	DefaultAction Action
 	Entries       []Entry
 	Cache         *lru.ARCCache
-	Transport     transport.Transport
+	ResolveIPAddr func(string) (*net.IPAddr, error)
 	GeoIPReader   *geoip2.Reader
 }
 
@@ -25,7 +24,7 @@ type cacheEntry struct {
 	Arg    string
 }
 
-func LoadFromFile(filename string, transport transport.Transport, geoIPLoadFunc func() (*geoip2.Reader, error)) (*Engine, error) {
+func LoadFromFile(filename string, resolveIPAddr func(string) (*net.IPAddr, error), geoIPLoadFunc func() (*geoip2.Reader, error)) (*Engine, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -60,7 +59,7 @@ func LoadFromFile(filename string, transport transport.Transport, geoIPLoadFunc 
 		DefaultAction: ActionProxy,
 		Entries:       entries,
 		Cache:         cache,
-		Transport:     transport,
+		ResolveIPAddr: resolveIPAddr,
 		GeoIPReader:   geoIPReader,
 	}, nil
 }
@@ -69,7 +68,7 @@ func (e *Engine) ResolveAndMatch(host string) (Action, string, *net.IPAddr, erro
 	ip, zone := parseIPZone(host)
 	if ip == nil {
 		// Domain
-		ipAddr, err := e.Transport.LocalResolveIPAddr(host)
+		ipAddr, err := e.ResolveIPAddr(host)
 		if v, ok := e.Cache.Get(host); ok {
 			// Cache hit
 			ce := v.(cacheEntry)
