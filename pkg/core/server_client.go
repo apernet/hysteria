@@ -264,7 +264,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 
 func (c *serverClient) handleUDP(stream quic.Stream) {
 	// Like in SOCKS5, the stream here is only used to maintain the UDP session. No need to read anything from it
-	conn, err := c.Transport.ListenUDP(nil)
+	conn, err := c.Transport.ListenUDP()
 	if err != nil {
 		_ = struc.Pack(stream, &serverResponse{
 			OK:      false,

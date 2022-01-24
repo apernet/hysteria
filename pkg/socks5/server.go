@@ -264,7 +264,7 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 	// Local UDP relay conn for ACL Direct
 	var localRelayConn *net.UDPConn
 	if s.ACLEngine != nil {
-		localRelayConn, err = s.Transport.ListenUDP(nil)
+		localRelayConn, err = s.Transport.ListenUDP()
 		if err != nil {
 			_ = sendReply(c, socks5.RepServerFailure)
 			closeErr = err

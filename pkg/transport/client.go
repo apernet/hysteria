@@ -91,6 +91,6 @@ func (ct *ClientTransport) DialTCP(raddr *net.TCPAddr) (*net.TCPConn, error) {
 	return conn.(*net.TCPConn), nil
 }
 
-func (ct *ClientTransport) ListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
-	return net.ListenUDP("udp", laddr)
+func (ct *ClientTransport) ListenUDP() (*net.UDPConn, error) {
+	return net.ListenUDP("udp", nil)
 }
