@@ -3,6 +3,7 @@ package auth
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -33,24 +34,39 @@ func (p *HTTPAuthProvider) Auth(addr net.Addr, auth []byte, sSend uint64, sRecv 
 		Recv:    sRecv,
 	})
 	if err != nil {
-		return false, "Internal error"
+		logrus.WithFields(logrus.Fields{
+			"error": err,
+		}).Error("Failed to marshal auth request")
+		return false, "internal error"
 	}
 	resp, err := p.Client.Post(p.URL, "application/json", bytes.NewBuffer(jbs))
 	if err != nil {
-		return false, "Internal error"
+		logrus.WithFields(logrus.Fields{
+			"error": err,
+		}).Error("Failed to send auth request")
+		return false, "internal error"
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return false, "Auth endpoint error"
+		logrus.WithFields(logrus.Fields{
+			"code": resp.StatusCode,
+		}).Error("Invalid status code from auth server")
+		return false, "internal error"
 	}
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return false, "Auth endpoint error"
+		logrus.WithFields(logrus.Fields{
+			"error": err,
+		}).Error("Failed to read auth response")
+		return false, "internal error"
 	}
 	var ar authResp
 	err = json.Unmarshal(data, &ar)
 	if err != nil {
-		return false, "Auth endpoint error"
+		logrus.WithFields(logrus.Fields{
+			"error": err,
+		}).Error("Failed to unmarshal auth response")
+		return false, "internal error"
 	}
 	return ar.OK, ar.Msg
 }

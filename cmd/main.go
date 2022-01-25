@@ -131,7 +131,7 @@ func initApp(c *cli.Context) error {
 				"version", "url",
 				"config", "file", "mode",
 				"addr", "src", "dst", "session", "action",
-				"msg", "error",
+				"code", "msg", "error",
 			},
 			TimestampFormat: c.String("log-timestamp"),
 		})

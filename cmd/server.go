@@ -2,14 +2,15 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"github.com/tobyxdd/hysteria/cmd/auth"
 	"github.com/tobyxdd/hysteria/pkg/acl"
-	"github.com/tobyxdd/hysteria/pkg/auth"
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
@@ -84,7 +85,7 @@ func server(config *serverConfig) {
 		quicConfig.MaxIncomingStreams = DefaultMaxIncomingStreams
 	}
 	// Auth
-	var authFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
+	var authFunc core.ConnectFunc
 	var err error
 	switch authMode := config.Auth.Mode; authMode {
 	case "", "none":
@@ -95,39 +96,24 @@ func server(config *serverConfig) {
 		authFunc = func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
 			return true, "Welcome"
 		}
-	case "password":
-		logrus.Info("Password authentication enabled")
-		var pwdConfig map[string]string
-		err = json5.Unmarshal(config.Auth.Config, &pwdConfig)
-		if err != nil || len(pwdConfig["password"]) == 0 {
+	case "password", "passwords":
+		authFunc, err = passwordAuthFunc(config.Auth.Config)
+		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
-			}).Fatal("Invalid password authentication config")
-		}
-		pwd := pwdConfig["password"]
-		authFunc = func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
-			if string(auth) == pwd {
-				return true, "Welcome"
-			} else {
-				return false, "Wrong password"
-			}
+			}).Fatal("Failed to enable password authentication")
+		} else {
+			logrus.Info("Password authentication enabled")
 		}
 	case "external":
-		logrus.Info("External authentication enabled")
-		var extConfig map[string]string
-		err = json5.Unmarshal(config.Auth.Config, &extConfig)
-		if err != nil || len(extConfig["http"]) == 0 {
+		authFunc, err = externalAuthFunc(config.Auth.Config)
+		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
-			}).Fatal("Invalid external authentication config")
+			}).Fatal("Failed to enable external authentication")
+		} else {
+			logrus.Info("External authentication enabled")
 		}
-		provider := &auth.HTTPAuthProvider{
-			Client: &http.Client{
-				Timeout: 10 * time.Second,
-			},
-			URL: extConfig["http"],
-		}
-		authFunc = provider.Auth
 	default:
 		logrus.WithField("mode", config.Auth.Mode).Fatal("Unsupported authentication mode")
 	}
@@ -197,6 +183,54 @@ func server(config *serverConfig) {
 
 	err = server.Serve()
 	logrus.WithField("error", err).Fatal("Server shutdown")
+}
+
+func passwordAuthFunc(rawMsg json5.RawMessage) (core.ConnectFunc, error) {
+	var pwds []string
+	err := json5.Unmarshal(rawMsg, &pwds)
+	if err != nil {
+		// not a string list, legacy format?
+		var pwdConfig map[string]string
+		err = json5.Unmarshal(rawMsg, &pwdConfig)
+		if err != nil || len(pwdConfig["password"]) == 0 {
+			// still no, invalid config
+			return nil, errors.New("invalid config")
+		}
+		// yes it is
+		pwds = []string{pwdConfig["password"]}
+	}
+	return func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
+		for _, pwd := range pwds {
+			if string(auth) == pwd {
+				return true, "Welcome"
+			}
+		}
+		return false, "Wrong password"
+	}, nil
+}
+
+func externalAuthFunc(rawMsg json5.RawMessage) (core.ConnectFunc, error) {
+	var extConfig map[string]string
+	err := json5.Unmarshal(rawMsg, &extConfig)
+	if err != nil {
+		return nil, errors.New("invalid config")
+	}
+	if len(extConfig["http"]) != 0 {
+		hp := &auth.HTTPAuthProvider{
+			Client: &http.Client{
+				Timeout: 10 * time.Second,
+			},
+			URL: extConfig["http"],
+		}
+		return hp.Auth, nil
+	} else if len(extConfig["cmd"]) != 0 {
+		cp := &auth.CmdAuthProvider{
+			Cmd: extConfig["cmd"],
+		}
+		return cp.Auth, nil
+	} else {
+		return nil, errors.New("invalid config")
+	}
 }
 
 func disconnectFunc(addr net.Addr, auth []byte, err error) {
