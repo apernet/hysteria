@@ -88,7 +88,10 @@ func server(config *serverConfig) {
 	var err error
 	switch authMode := config.Auth.Mode; authMode {
 	case "", "none":
-		logrus.Warn("No authentication configured")
+		if len(config.Obfs) == 0 {
+			logrus.Warn("No authentication or obfuscation enabled. " +
+				"Your server could be accessed by anyone! Are you sure this is what you intended?")
+		}
 		authFunc = func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
 			return true, "Welcome"
 		}
