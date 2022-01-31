@@ -18,7 +18,7 @@ require (
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/oschwald/geoip2-golang v1.6.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
-	github.com/prometheus/client_golang v1.12.0
+	github.com/prometheus/client_golang v1.12.1
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sirupsen/logrus v1.8.1
 	github.com/txthinking/runnergroup v0.0.0-20210326110939-37fc67d0da7c // indirect
