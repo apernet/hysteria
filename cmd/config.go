@@ -97,10 +97,12 @@ func (r *Relay) Check() error {
 }
 
 type clientConfig struct {
-	Server   string `json:"server"`
-	Protocol string `json:"protocol"`
-	UpMbps   int    `json:"up_mbps"`
-	DownMbps int    `json:"down_mbps"`
+	Server        string `json:"server"`
+	Protocol      string `json:"protocol"`
+	UpMbps        int    `json:"up_mbps"`
+	DownMbps      int    `json:"down_mbps"`
+	Retry         int    `json:"retry"`
+	RetryInterval int    `json:"retry_interval"`
 	// Optional below
 	SOCKS5 struct {
 		Listen     string `json:"listen"`

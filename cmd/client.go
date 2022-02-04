@@ -110,13 +110,30 @@ func client(config *clientConfig) {
 		}
 	}
 	// Client
-	client, err := core.NewClient(config.Server, config.Protocol, auth, tlsConfig, quicConfig,
-		transport.DefaultClientTransport, uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
-		func(refBPS uint64) congestion.CongestionControl {
-			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
-		}, obfuscator)
-	if err != nil {
-		logrus.WithField("error", err).Fatal("Failed to initialize client")
+	var client *core.Client
+	try := 0
+	for {
+		try += 1
+		c, err := core.NewClient(config.Server, config.Protocol, auth, tlsConfig, quicConfig,
+			transport.DefaultClientTransport, uint64(config.UpMbps)*mbpsToBps, uint64(config.DownMbps)*mbpsToBps,
+			func(refBPS uint64) congestion.CongestionControl {
+				return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
+			}, obfuscator)
+		if err != nil {
+			logrus.WithField("error", err).Error("Failed to initialize client")
+			if try <= config.Retry || config.Retry < 0 {
+				logrus.WithFields(logrus.Fields{
+					"retry":    try,
+					"interval": config.RetryInterval,
+				}).Info("Retrying...")
+				time.Sleep(time.Duration(config.RetryInterval) * time.Second)
+			} else {
+				logrus.Fatal("Out of retries, exiting...")
+			}
+		} else {
+			client = c
+			break
+		}
 	}
 	defer client.Close()
 	logrus.WithField("addr", config.Server).Info("Connected")
@@ -395,6 +412,6 @@ func client(config *clientConfig) {
 		}()
 	}
 
-	err = <-errChan
+	err := <-errChan
 	logrus.WithField("error", err).Fatal("Client shutdown")
 }
