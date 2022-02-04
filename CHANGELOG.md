@@ -42,3 +42,9 @@
 - Client connect & disconnect log
 - Warning when no auth or obfs is set
 - Multi-password & cmd auth support
+
+## 0.9.6
+
+- Disable quic-go PMTUD due to broken implementation
+- Fix zero initMaxDatagramSize in brutal CC
+- Client retry
