@@ -67,7 +67,7 @@ func client(config *clientConfig) {
 		InitialConnectionReceiveWindow: config.ReceiveWindow,
 		MaxConnectionReceiveWindow:     config.ReceiveWindow,
 		KeepAlive:                      true,
-		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
+		DisablePathMTUDiscovery:        true, // Ref: https://github.com/lucas-clemente/quic-go/issues/3327
 		EnableDatagrams:                true,
 	}
 	if config.ReceiveWindowConn == 0 {

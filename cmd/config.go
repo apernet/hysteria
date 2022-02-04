@@ -49,7 +49,6 @@ type serverConfig struct {
 	ReceiveWindowConn   uint64 `json:"recv_window_conn"`
 	ReceiveWindowClient uint64 `json:"recv_window_client"`
 	MaxConnClient       int    `json:"max_conn_client"`
-	DisableMTUDiscovery bool   `json:"disable_mtu_discovery"`
 	IPv6Only            bool   `json:"ipv6_only"`
 	Resolver            string `json:"resolver"`
 }
@@ -139,19 +138,18 @@ type clientConfig struct {
 		Listen  string `json:"listen"`
 		Timeout int    `json:"timeout"`
 	} `json:"tproxy_udp"`
-	ACL                 string `json:"acl"`
-	MMDB                string `json:"mmdb"`
-	Obfs                string `json:"obfs"`
-	Auth                []byte `json:"auth"`
-	AuthString          string `json:"auth_str"`
-	ALPN                string `json:"alpn"`
-	ServerName          string `json:"server_name"`
-	Insecure            bool   `json:"insecure"`
-	CustomCA            string `json:"ca"`
-	ReceiveWindowConn   uint64 `json:"recv_window_conn"`
-	ReceiveWindow       uint64 `json:"recv_window"`
-	DisableMTUDiscovery bool   `json:"disable_mtu_discovery"`
-	Resolver            string `json:"resolver"`
+	ACL               string `json:"acl"`
+	MMDB              string `json:"mmdb"`
+	Obfs              string `json:"obfs"`
+	Auth              []byte `json:"auth"`
+	AuthString        string `json:"auth_str"`
+	ALPN              string `json:"alpn"`
+	ServerName        string `json:"server_name"`
+	Insecure          bool   `json:"insecure"`
+	CustomCA          string `json:"ca"`
+	ReceiveWindowConn uint64 `json:"recv_window_conn"`
+	ReceiveWindow     uint64 `json:"recv_window"`
+	Resolver          string `json:"resolver"`
 }
 
 func (c *clientConfig) Check() error {

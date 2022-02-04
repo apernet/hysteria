@@ -7,9 +7,8 @@ import (
 )
 
 const (
-	initMaxDatagramSize = 1252
-	maxBurstPackets     = 10
-	minPacingDelay      = time.Millisecond
+	maxBurstPackets = 10
+	minPacingDelay  = time.Millisecond
 )
 
 // The pacer implements a token bucket pacing algorithm.

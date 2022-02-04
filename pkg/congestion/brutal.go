@@ -6,6 +6,8 @@ import (
 )
 
 const (
+	initMaxDatagramSize = 1252
+
 	pktInfoSlotCount = 4
 	minSampleCount   = 50
 	minAckRate       = 0.75
@@ -28,7 +30,8 @@ type pktInfo struct {
 
 func NewBrutalSender(bps congestion.ByteCount) *BrutalSender {
 	bs := &BrutalSender{
-		bps: bps,
+		bps:             bps,
+		maxDatagramSize: initMaxDatagramSize,
 	}
 	bs.pacer = newPacer(func() congestion.ByteCount {
 		return congestion.ByteCount(float64(bs.bps) / bs.getAckRate())
