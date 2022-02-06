@@ -304,8 +304,8 @@ start_hysteria() {
 }
 
 stop_hysteria() {
-  $HYSTERIA_CUSTOMIZE="$(systemctl list-units | grep 'hysteria@' | awk -F ' ' '{print $1}')"
-  if [[ -z "$VHYSTERIA_CUSTOMIZE" ]]; then
+  HYSTERIA_CUSTOMIZE="$(systemctl list-units | grep 'hysteria@' | awk -F ' ' '{print $1}')"
+  if [[ -z "$HYSTERIA_CUSTOMIZE" ]]; then
     local hysteria_daemon_to_stop='hysteria-server.service'
   else
     local hysteria_daemon_to_stop="$HYSTERIA_CUSTOMIZE"
