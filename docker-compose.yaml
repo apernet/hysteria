@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 services:
   hysteria:
     image: tobyxdd/hysteria
@@ -7,4 +7,4 @@ services:
     network_mode: "host"
     volumes:
       - ./hysteria.json:/etc/hysteria.json
-    command: [ "-config","/etc/hysteria.json","server" ]
+    command: ["server", "--config", "/etc/hysteria.json"]
