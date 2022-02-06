@@ -14,11 +14,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	appVersion = "Unknown"
-	appCommit  = "Unknown"
-	appDate    = "Unknown"
-
+const (
 	logo = `
 ██╗  ██╗██╗   ██╗███████╗████████╗███████╗██████╗ ██╗ █████╗ 
 ██║  ██║╚██╗ ██╔╝██╔════╝╚══██╔══╝██╔════╝██╔══██╗██║██╔══██╗
@@ -28,11 +24,19 @@ var (
 ╚═╝  ╚═╝   ╚═╝   ╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
                                                              
 `
+	desc    = "A TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for poor network environments"
+	authors = "HyNetwork <https://github.com/HyNetwork>"
+)
+
+var (
+	appVersion = "Unknown"
+	appCommit  = "Unknown"
+	appDate    = "Unknown"
 )
 
 var rootCmd = &cobra.Command{
 	Use:     "hysteria",
-	Short:   logo + "A TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for poor network environments",
+	Short:   fmt.Sprintf("%s%s\n\n%s %s %s -- %s", logo, desc, appVersion, appDate, appCommit, authors),
 	Example: "./hysteria server --config /etc/hysteria.json",
 	Version: fmt.Sprintf("%s%s %s %s", logo, appVersion, appDate, appCommit),
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -129,16 +133,20 @@ func init() {
 	// add to root cmd
 	rootCmd.AddCommand(clientCmd, serverCmd)
 
-	// bind env
+	// bind flag
 	_ = viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
 	_ = viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level"))
 	_ = viper.BindPFlag("log-timestamp", rootCmd.PersistentFlags().Lookup("log-timestamp"))
 	_ = viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format"))
-	_ = viper.BindPFlag("no-check", rootCmd.PersistentFlags().Lookup("log-format"))
+	_ = viper.BindPFlag("no-check", rootCmd.PersistentFlags().Lookup("no-check"))
 
-	viper.SetEnvPrefix("HYSTERIA")
+	// bind env
+	_ = viper.BindEnv("config", "HYSTERIA_CONFIG")
+	_ = viper.BindEnv("log-level", "HYSTERIA_LOG_LEVEL", "LOGGING_LEVEL")
+	_ = viper.BindEnv("log-timestamp", "HYSTERIA_LOG_TIMESTAMP", "LOGGING_TIMESTAMP_FORMAT")
+	_ = viper.BindEnv("log-format", "HYSTERIA_LOG_FORMAT", "LOGGING_FORMATTER")
+	_ = viper.BindEnv("no-check", "HYSTERIA_NO_CHECK", "HYSTERIA_NO_CHECK_UPDATE")
 	viper.AutomaticEnv()
-	_ = viper.ReadInConfig()
 }
 
 func main() {
