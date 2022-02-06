@@ -10,172 +10,137 @@ import (
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
-	"github.com/yosuke-furukawa/json5/encoding/json5"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
 	appVersion = "Unknown"
 	appCommit  = "Unknown"
 	appDate    = "Unknown"
+
+	logo = `
+██╗  ██╗██╗   ██╗███████╗████████╗███████╗██████╗ ██╗ █████╗ 
+██║  ██║╚██╗ ██╔╝██╔════╝╚══██╔══╝██╔════╝██╔══██╗██║██╔══██╗
+███████║ ╚████╔╝ ███████╗   ██║   █████╗  ██████╔╝██║███████║
+██╔══██║  ╚██╔╝  ╚════██║   ██║   ██╔══╝  ██╔══██╗██║██╔══██║
+██║  ██║   ██║   ███████║   ██║   ███████╗██║  ██║██║██║  ██║
+╚═╝  ╚═╝   ╚═╝   ╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+                                                             
+`
 )
 
+var rootCmd = &cobra.Command{
+	Use:     "hysteria",
+	Short:   logo + "A TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for poor network environments",
+	Example: "./hysteria server --config /etc/hysteria.json",
+	Version: fmt.Sprintf("%s%s %s %s", logo, appVersion, appDate, appCommit),
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		rand.Seed(time.Now().UnixNano())
+
+		// log config
+		logrus.SetOutput(os.Stdout)
+		if lvl, err := logrus.ParseLevel(viper.GetString("log-level")); err == nil {
+			logrus.SetLevel(lvl)
+		} else {
+			logrus.SetLevel(logrus.DebugLevel)
+		}
+
+		if strings.ToLower(viper.GetString("log-timestamp")) == "json" {
+			logrus.SetFormatter(&logrus.JSONFormatter{
+				TimestampFormat: viper.GetString("log-timestamp"),
+			})
+		} else {
+			logrus.SetFormatter(&nested.Formatter{
+				FieldsOrder: []string{
+					"version", "url",
+					"config", "file", "mode",
+					"addr", "src", "dst", "session", "action",
+					"retry", "interval",
+					"code", "msg", "error",
+				},
+				TimestampFormat: viper.GetString("log-timestamp"),
+			})
+		}
+
+		// check update
+		if !viper.GetBool("no-check") {
+			go checkUpdate()
+		}
+	},
+}
+
+var clientCmd = &cobra.Command{
+	Use:     "client",
+	Short:   "Run as client mode",
+	Example: "./hysteria client --config /etc/client.json",
+	Run: func(cmd *cobra.Command, args []string) {
+		cbs, err := ioutil.ReadFile(viper.GetString("config"))
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"file":  viper.GetString("config"),
+				"error": err,
+			}).Fatal("Failed to read configuration")
+		}
+		// client mode
+		cc, err := parseClientConfig(cbs)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"file":  viper.GetString("config"),
+				"error": err,
+			}).Fatal("Failed to parse client configuration")
+		}
+		client(cc)
+	},
+}
+
+var serverCmd = &cobra.Command{
+	Use:     "server",
+	Short:   "Run as server mode",
+	Example: "./hysteria server --config /etc/server.json",
+	Run: func(cmd *cobra.Command, args []string) {
+		cbs, err := ioutil.ReadFile(viper.GetString("config"))
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"file":  viper.GetString("config"),
+				"error": err,
+			}).Fatal("Failed to read configuration")
+		}
+		// server mode
+		sc, err := parseServerConfig(cbs)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"file":  viper.GetString("config"),
+				"error": err,
+			}).Fatal("Failed to parse server configuration")
+		}
+		server(sc)
+	},
+}
+
+func init() {
+	// add global flags
+	rootCmd.PersistentFlags().StringP("config", "c", "./config.json", "config file")
+	rootCmd.PersistentFlags().String("log-level", "debug", "log level")
+	rootCmd.PersistentFlags().String("log-timestamp", time.RFC3339, "log timestamp format")
+	rootCmd.PersistentFlags().String("log-format", "txt", "log output format")
+	rootCmd.PersistentFlags().Bool("no-check", false, "disable update check")
+
+	// add to root cmd
+	rootCmd.AddCommand(clientCmd, serverCmd)
+
+	// bind env
+	_ = viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
+	_ = viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level"))
+	_ = viper.BindPFlag("log-timestamp", rootCmd.PersistentFlags().Lookup("log-timestamp"))
+	_ = viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format"))
+	_ = viper.BindPFlag("no-check", rootCmd.PersistentFlags().Lookup("log-format"))
+
+	viper.SetEnvPrefix("HYSTERIA")
+	viper.AutomaticEnv()
+	_ = viper.ReadInConfig()
+}
+
 func main() {
-	rand.Seed(time.Now().UnixNano())
-
-	app := &cli.App{
-		Name:                 "Hysteria",
-		Usage:                "a TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for poor network environments",
-		Version:              fmt.Sprintf("%s %s %s", appVersion, appDate, appCommit),
-		Authors:              []*cli.Author{{Name: "HyNetwork <https://github.com/HyNetwork>"}},
-		EnableBashCompletion: true,
-		Action:               clientAction,
-		Flags:                commonFlags(),
-		Before:               initApp,
-		Commands: []*cli.Command{
-			{
-				Name:   "server",
-				Usage:  "Run as server mode",
-				Action: serverAction,
-			},
-			{
-				Name:   "client",
-				Usage:  "Run as client mode",
-				Action: clientAction,
-			},
-		},
-	}
-
-	err := app.Run(os.Args)
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-}
-
-func clientAction(c *cli.Context) error {
-	cbs, err := ioutil.ReadFile(c.String("config"))
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"file":  c.String("config"),
-			"error": err,
-		}).Fatal("Failed to read configuration")
-	}
-	// client mode
-	cc, err := parseClientConfig(cbs)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"file":  c.String("config"),
-			"error": err,
-		}).Fatal("Failed to parse client configuration")
-	}
-	client(cc)
-	return nil
-}
-
-func serverAction(c *cli.Context) error {
-	cbs, err := ioutil.ReadFile(c.String("config"))
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"file":  c.String("config"),
-			"error": err,
-		}).Fatal("Failed to read configuration")
-	}
-	// server mode
-	sc, err := parseServerConfig(cbs)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"file":  c.String("config"),
-			"error": err,
-		}).Fatal("Failed to parse server configuration")
-	}
-	server(sc)
-	return nil
-}
-
-func parseServerConfig(cb []byte) (*serverConfig, error) {
-	var c serverConfig
-	err := json5.Unmarshal(cb, &c)
-	if err != nil {
-		return nil, err
-	}
-	return &c, c.Check()
-}
-
-func parseClientConfig(cb []byte) (*clientConfig, error) {
-	var c clientConfig
-	err := json5.Unmarshal(cb, &c)
-	if err != nil {
-		return nil, err
-	}
-	return &c, c.Check()
-}
-
-func initApp(c *cli.Context) error {
-	logrus.SetOutput(os.Stdout)
-
-	lvl, err := logrus.ParseLevel(c.String("log-level"))
-	if err == nil {
-		logrus.SetLevel(lvl)
-	} else {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
-
-	if strings.ToLower(c.String("log-format")) == "json" {
-		logrus.SetFormatter(&logrus.JSONFormatter{
-			TimestampFormat: c.String("log-timestamp"),
-		})
-	} else {
-		logrus.SetFormatter(&nested.Formatter{
-			FieldsOrder: []string{
-				"version", "url",
-				"config", "file", "mode",
-				"addr", "src", "dst", "session", "action",
-				"retry", "interval",
-				"code", "msg", "error",
-			},
-			TimestampFormat: c.String("log-timestamp"),
-		})
-	}
-
-	if !c.Bool("no-check") {
-		go checkUpdate()
-	}
-
-	return nil
-}
-
-func commonFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:    "config",
-			Aliases: []string{"c"},
-			Usage:   "config file",
-			EnvVars: []string{"HYSTERIA_CONFIG"},
-			Value:   "./config.json",
-		},
-		&cli.StringFlag{
-			Name:    "log-level",
-			Usage:   "log level",
-			EnvVars: []string{"HYSTERIA_LOG_LEVEL", "LOGGING_LEVEL"},
-			Value:   "debug",
-		},
-		&cli.StringFlag{
-			Name:    "log-timestamp",
-			Usage:   "log timestamp format",
-			EnvVars: []string{"HYSTERIA_LOG_TIMESTAMP", "LOGGING_TIMESTAMP_FORMAT"},
-			Value:   time.RFC3339,
-		},
-		&cli.StringFlag{
-			Name:    "log-format",
-			Usage:   "log output format",
-			EnvVars: []string{"HYSTERIA_LOG_FORMAT", "LOGGING_FORMATTER"},
-			Value:   "txt",
-		},
-		&cli.BoolFlag{
-			Name:    "no-check",
-			Usage:   "disable update check",
-			EnvVars: []string{"HYSTERIA_CHECK_UPDATE"},
-		},
-	}
+	cobra.CheckErr(rootCmd.Execute())
 }

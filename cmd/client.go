@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"github.com/oschwald/geoip2-golang"
+	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
 	"io/ioutil"
 	"net"
@@ -414,4 +415,13 @@ func client(config *clientConfig) {
 
 	err := <-errChan
 	logrus.WithField("error", err).Fatal("Client shutdown")
+}
+
+func parseClientConfig(cb []byte) (*clientConfig, error) {
+	var c clientConfig
+	err := json5.Unmarshal(cb, &c)
+	if err != nil {
+		return nil, err
+	}
+	return &c, c.Check()
 }
