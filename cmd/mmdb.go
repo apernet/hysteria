@@ -3,17 +3,14 @@ package main
 import (
 	"github.com/oschwald/geoip2-golang"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"io"
 	"net/http"
 	"os"
 )
 
-const (
-	mmdbURL = "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb"
-)
-
 func downloadMMDB(filename string) error {
-	resp, err := http.Get(mmdbURL)
+	resp, err := http.Get(viper.GetString("mmdb-url"))
 	if err != nil {
 		return err
 	}

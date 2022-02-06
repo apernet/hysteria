@@ -77,7 +77,7 @@ var rootCmd = &cobra.Command{
 var clientCmd = &cobra.Command{
 	Use:     "client",
 	Short:   "Run as client mode",
-	Example: "./hysteria client --config /etc/client.json",
+	Example: "./hysteria client --config /etc/hysteria/client.json",
 	Run: func(cmd *cobra.Command, args []string) {
 		cbs, err := ioutil.ReadFile(viper.GetString("config"))
 		if err != nil {
@@ -101,7 +101,7 @@ var clientCmd = &cobra.Command{
 var serverCmd = &cobra.Command{
 	Use:     "server",
 	Short:   "Run as server mode",
-	Example: "./hysteria server --config /etc/server.json",
+	Example: "./hysteria server --config /etc/hysteria/server.json",
 	Run: func(cmd *cobra.Command, args []string) {
 		cbs, err := ioutil.ReadFile(viper.GetString("config"))
 		if err != nil {
@@ -125,6 +125,7 @@ var serverCmd = &cobra.Command{
 func init() {
 	// add global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "./config.json", "config file")
+	rootCmd.PersistentFlags().String("mmdb-url", "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb", "mmdb download url")
 	rootCmd.PersistentFlags().String("log-level", "debug", "log level")
 	rootCmd.PersistentFlags().String("log-timestamp", time.RFC3339, "log timestamp format")
 	rootCmd.PersistentFlags().String("log-format", "txt", "log output format")
@@ -135,6 +136,7 @@ func init() {
 
 	// bind flag
 	_ = viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
+	_ = viper.BindPFlag("mmdb-url", rootCmd.PersistentFlags().Lookup("mmdb-url"))
 	_ = viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level"))
 	_ = viper.BindPFlag("log-timestamp", rootCmd.PersistentFlags().Lookup("log-timestamp"))
 	_ = viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format"))
@@ -142,6 +144,7 @@ func init() {
 
 	// bind env
 	_ = viper.BindEnv("config", "HYSTERIA_CONFIG")
+	_ = viper.BindEnv("mmdb-url", "HYSTERIA_MMDB_URL")
 	_ = viper.BindEnv("log-level", "HYSTERIA_LOG_LEVEL", "LOGGING_LEVEL")
 	_ = viper.BindEnv("log-timestamp", "HYSTERIA_LOG_TIMESTAMP", "LOGGING_TIMESTAMP_FORMAT")
 	_ = viper.BindEnv("log-format", "HYSTERIA_LOG_FORMAT", "LOGGING_FORMATTER")
