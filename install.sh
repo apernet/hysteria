@@ -247,50 +247,53 @@ install_hysteria() {
 }
 
 install_startup_service_file() {
+  useradd -s /sbin/nologin --create-home hysteria 
+	[ $? -eq 0 ] && echo "User hysteria has been added."
   echo "[Unit]
 Description=Hysteria, a feature-packed network utility optimized for networks of poor quality
 Documentation=https://github.com/HyNetwork/hysteria/wiki
-After=network-online.target nss-lookup.target
-Wants=network-online.target systemd-networkd-wait-online.service
+After=network.target
 
 [Service]
-User=root
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+User=hysteria
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_RAW
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_RAW
 NoNewPrivileges=true
+WorkingDirectory=/etc/hysteria
+Environment=HYSTERIA_LOG_LEVEL=info
 ExecStart=/usr/local/bin/hysteria -c /etc/hysteria/config.json server
 Restart=on-failure
 RestartPreventExitStatus=1
 RestartSec=5
 
 [Install]
-WantedBy=multi-user.target" > /lib/systemd/system/hysteria.service
+WantedBy=multi-user.target" > /lib/systemd/system/hysteria-server.service
   echo "[Unit]
 Description=Hysteria, a feature-packed network utility optimized for networks of poor quality
 Documentation=https://github.com/HyNetwork/hysteria/wiki
-After=network-online.target nss-lookup.target
-Wants=network-online.target systemd-networkd-wait-online.service
+After=network.target
 
 [Service]
-User=root
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+User=hysteria
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_RAW
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_RAW
 NoNewPrivileges=true
+WorkingDirectory=/etc/hysteria
+Environment=HYSTERIA_LOG_LEVEL=info
 ExecStart=/usr/local/bin/hysteria -c /etc/hysteria/%i.json server
 Restart=on-failure
 RestartPreventExitStatus=1
 RestartSec=5
 
-
 [Install]
-WantedBy=multi-user.target" > /lib/systemd/system/hysteria@.service
+WantedBy=multi-user.target" > /lib/systemd/system/hysteria-server@.service
   echo "info: Systemd service files have been installed successfully!"
   systemctl daemon-reload
   SYSTEMD='1'
 }
 
 start_hysteria() {
-  if [[ -f '/lib/systemd/system/hysteria.service' ]]; then
+  if [[ -f '/lib/systemd/system/hysteria-server.service' ]]; then
     if systemctl start "${HYSTERIA_CUSTOMIZE:-hysteria}"; then
       echo 'info: Start the Hystaria service.'
     else
@@ -301,9 +304,9 @@ start_hysteria() {
 }
 
 stop_hysteria() {
-  HYSTERIA_CUSTOMIZE="$(systemctl list-units | grep 'hysteria@' | awk -F ' ' '{print $1}')"
+  $HYSTERIA_CUSTOMIZE="$(systemctl list-units | grep 'hysteria@' | awk -F ' ' '{print $1}')"
   if [[ -z "$VHYSTERIA_CUSTOMIZE" ]]; then
-    local hysteria_daemon_to_stop='hysteria.service'
+    local hysteria_daemon_to_stop='hysteria-server.service'
   else
     local hysteria_daemon_to_stop="$HYSTERIA_CUSTOMIZE"
   fi
@@ -315,7 +318,7 @@ stop_hysteria() {
 }
 
 check_update() {
-  if [[ -f '/lib/systemd/system/hysteria.service' ]]; then
+  if [[ -f '/lib/systemd/system/hysteria-server.service' ]]; then
     get_version
     local get_ver_exit_code=$?
     if [[ "$get_ver_exit_code" -eq '0' ]]; then
@@ -336,14 +339,14 @@ remove_hysteria() {
       stop_hysteria
     fi
     if ! ("rm" -r '/usr/local/bin/hysteria' \
-      '/lib/systemd/system/hysteria.service' \
-      '/lib/systemd/system/hysteria@.service'); then
+      '/lib/systemd/system/hysteria-server.service' \
+      '/lib/systemd/system/hysteria-server@.service'); then
       echo 'error: Failed to remove Hysteria.'
       exit 1
     else
       echo 'removed: /usr/local/bin/hysteria'
-      echo 'removed: /lib/systemd/system/hysteria.service'
-      echo 'removed: /lib/systemd/system/hysteria@.service'
+      echo 'removed: /lib/systemd/system/hysteria-server.service'
+      echo 'removed: /lib/systemd/system/hysteria-server@.service'
       echo 'Please execute the command: systemctl disable hysteria'
       echo 'info: Hysteria has been removed.'
       echo 'info: If necessary, manually delete the configuration and log files.'
@@ -364,9 +367,11 @@ show_help() {
   echo '  -c, --check     Check if Hysteria can be updated'
   echo '  -f, --force     Force installation of the latest version of Hysteria'
   echo '  -h, --help      Show help'
+  echo '  -l, --local     Install Hysteria from a local file'
   echo '  -p, --proxy     Download through a proxy server, e.g., -p http://127.0.0.1:8118 or -p socks5://127.0.0.1:1080'
   exit 0
 }
+
 
 main() {
   check_if_running_as_root
@@ -429,8 +434,8 @@ main() {
     echo "installed: ${JSON_PATH}/config.json"
   fi
   if [[ "$SYSTEMD" -eq '1' ]]; then
-    echo 'installed: /lib/systemd/system/hysteria.service'
-    echo 'installed: /lib/systemd/system/hysteria@.service'
+    echo 'installed: /lib/systemd/system/hysteria-server.service'
+    echo 'installed: /lib/systemd/system/hysteria-server@.service'
   fi
   "rm" -r "$TMP_DIRECTORY"
   echo "removed: $TMP_DIRECTORY"
@@ -441,7 +446,7 @@ main() {
   if [[ "$HYSTERIA_RUNNING" -eq '1' ]]; then
     start_hysteria
   else
-    echo 'Please execute the command: systemctl enable hysteria; systemctl start hysteria'
+    echo 'Please execute the command: systemctl enable hysteria-server; systemctl start hysteria-server'
   fi
 }
 
