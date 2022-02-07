@@ -36,7 +36,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:     "hysteria",
-	Short:   fmt.Sprintf("%s%s\n\n%s %s %s -- %s", logo, desc, appVersion, appDate, appCommit, authors),
+	Long:    fmt.Sprintf("%s%s\n\nVersion:\t%s\nBuildDate:\t%s\nCommitHash:\t%s\nAuthors:\t%s", logo, desc, appVersion, appDate, appCommit, authors),
 	Example: "./hysteria server --config /etc/hysteria.json",
 	Version: fmt.Sprintf("%s%s %s %s", logo, appVersion, appDate, appCommit),
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
