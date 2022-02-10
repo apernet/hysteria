@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -47,7 +48,7 @@ var rootCmd = &cobra.Command{
 			logrus.SetLevel(logrus.DebugLevel)
 		}
 
-		if strings.ToLower(viper.GetString("log-timestamp")) == "json" {
+		if strings.ToLower(viper.GetString("log-format")) == "json" {
 			logrus.SetFormatter(&logrus.JSONFormatter{
 				TimestampFormat: viper.GetString("log-timestamp"),
 			})
@@ -122,13 +123,31 @@ var serverCmd = &cobra.Command{
 	},
 }
 
+func fakeFlags() {
+	var args []string
+	fr, _ := regexp.Compile(`^-[a-zA-Z]{2,}`)
+	for _, arg := range os.Args {
+		if fr.MatchString(arg) {
+			args = append(args, "-"+arg)
+			logrus.WithField("FLAG", arg).Warn("flag format is not standard, please use standard POSIX format(-h/--help)")
+		} else {
+			args = append(args, arg)
+		}
+
+	}
+	os.Args = args
+}
+
 func init() {
+	// compatible with old flag format
+	fakeFlags()
+
 	// add global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "./config.json", "config file")
 	rootCmd.PersistentFlags().String("mmdb-url", "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb", "mmdb download url")
 	rootCmd.PersistentFlags().String("log-level", "debug", "log level")
 	rootCmd.PersistentFlags().String("log-timestamp", time.RFC3339, "log timestamp format")
-	rootCmd.PersistentFlags().String("log-format", "txt", "log output format")
+	rootCmd.PersistentFlags().String("log-format", "txt", "log output format(txt/json)")
 	rootCmd.PersistentFlags().Bool("no-check", false, "disable update check")
 
 	// add to root cmd
