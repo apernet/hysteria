@@ -123,6 +123,7 @@ var serverCmd = &cobra.Command{
 	},
 }
 
+// fakeFlags replace the old flag format with the new format(eg: `-config` ->> `--config`)
 func fakeFlags() {
 	var args []string
 	fr, _ := regexp.Compile(`^-[a-zA-Z]{2,}`)
@@ -133,7 +134,6 @@ func fakeFlags() {
 		} else {
 			args = append(args, arg)
 		}
-
 	}
 	os.Args = args
 }
