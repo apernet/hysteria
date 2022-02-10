@@ -72,6 +72,9 @@ var rootCmd = &cobra.Command{
 			go checkUpdate()
 		}
 	},
+	Run: func(cmd *cobra.Command, args []string) {
+		clientCmd.Run(cmd, args)
+	},
 }
 
 var clientCmd = &cobra.Command{
