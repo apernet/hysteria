@@ -16,13 +16,10 @@ import (
 
 const (
 	logo = `
-██╗  ██╗██╗   ██╗███████╗████████╗███████╗██████╗ ██╗ █████╗ 
-██║  ██║╚██╗ ██╔╝██╔════╝╚══██╔══╝██╔════╝██╔══██╗██║██╔══██╗
-███████║ ╚████╔╝ ███████╗   ██║   █████╗  ██████╔╝██║███████║
-██╔══██║  ╚██╔╝  ╚════██║   ██║   ██╔══╝  ██╔══██╗██║██╔══██║
-██║  ██║   ██║   ███████║   ██║   ███████╗██║  ██║██║██║  ██║
-╚═╝  ╚═╝   ╚═╝   ╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
-                                                             
+░█░█░█░█░█▀▀░▀█▀░█▀▀░█▀▄░▀█▀░█▀█
+░█▀█░░█░░▀▀█░░█░░█▀▀░█▀▄░░█░░█▀█
+░▀░▀░░▀░░▀▀▀░░▀░░▀▀▀░▀░▀░▀▀▀░▀░▀
+
 `
 	desc    = "A TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for poor network environments"
 	authors = "HyNetwork <https://github.com/HyNetwork>"
@@ -38,7 +35,7 @@ var rootCmd = &cobra.Command{
 	Use:     "hysteria",
 	Long:    fmt.Sprintf("%s%s\n\nVersion:\t%s\nBuildDate:\t%s\nCommitHash:\t%s\nAuthors:\t%s", logo, desc, appVersion, appDate, appCommit, authors),
 	Example: "./hysteria server --config /etc/hysteria.json",
-	Version: fmt.Sprintf("%s%s %s %s", logo, appVersion, appDate, appCommit),
+	Version: fmt.Sprintf("%s %s %s", appVersion, appDate, appCommit),
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		rand.Seed(time.Now().UnixNano())
 
