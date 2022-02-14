@@ -299,3 +299,12 @@ func actionToString(action acl.Action, arg string) string {
 		return "Unknown"
 	}
 }
+
+func parseServerConfig(cb []byte) (*serverConfig, error) {
+	var c serverConfig
+	err := json5.Unmarshal(cb, &c)
+	if err != nil {
+		return nil, err
+	}
+	return &c, c.Check()
+}
