@@ -130,7 +130,6 @@ func fakeFlags() {
 	for _, arg := range os.Args {
 		if fr.MatchString(arg) {
 			args = append(args, "-"+arg)
-			logrus.WithField("FLAG", arg).Warn("flag format is not standard, please use standard POSIX format(-h/--help)")
 		} else {
 			args = append(args, arg)
 		}
@@ -145,6 +144,9 @@ func init() {
 	// compatible windows double click
 	cobra.MousetrapHelpText = ""
 
+	// disable cmd sorting
+	cobra.EnableCommandSorting = false
+
 	// add global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "./config.json", "config file")
 	rootCmd.PersistentFlags().String("mmdb-url", "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb", "mmdb download url")
@@ -154,7 +156,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("no-check", false, "disable update check")
 
 	// add to root cmd
-	rootCmd.AddCommand(clientCmd, serverCmd)
+	rootCmd.AddCommand(clientCmd, serverCmd, completionCmd)
 
 	// bind flag
 	_ = viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
