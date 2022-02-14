@@ -142,6 +142,9 @@ func init() {
 	// compatible with old flag format
 	fakeFlags()
 
+	// compatible windows double click
+	cobra.MousetrapHelpText = ""
+
 	// add global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "./config.json", "config file")
 	rootCmd.PersistentFlags().String("mmdb-url", "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb", "mmdb download url")
