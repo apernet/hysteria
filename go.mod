@@ -73,4 +73,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
+
 replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.24.0-mod
