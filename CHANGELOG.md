@@ -48,3 +48,9 @@
 - Disable quic-go PMTUD due to broken implementation
 - Fix zero initMaxDatagramSize in brutal CC
 - Client retry
+
+## 0.9.7
+
+- CLI improvements (cobra)
+- Fix broken UDP TProxy mode
+- Re-enable PMTUD on Windows & Linux
