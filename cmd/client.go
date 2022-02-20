@@ -3,12 +3,14 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -388,20 +390,23 @@ func client(config *clientConfig) {
 		go func() {
 			rl, err := tproxy.NewUDPTProxy(client, config.UDPTProxy.Listen,
 				time.Duration(config.UDPTProxy.Timeout)*time.Second,
-				func(addr net.Addr) {
+				func(addr, reqAddr net.Addr) {
 					logrus.WithFields(logrus.Fields{
 						"src": addr.String(),
+						"dst": reqAddr.String(),
 					}).Debug("UDP TProxy request")
 				},
-				func(addr net.Addr, err error) {
-					if err != tproxy.ErrTimeout {
+				func(addr, reqAddr net.Addr, err error) {
+					if !errors.Is(err, os.ErrDeadlineExceeded) {
 						logrus.WithFields(logrus.Fields{
 							"error": err,
 							"src":   addr.String(),
+							"dst":   reqAddr.String(),
 						}).Info("UDP TProxy error")
 					} else {
 						logrus.WithFields(logrus.Fields{
 							"src": addr.String(),
+							"dst": reqAddr.String(),
 						}).Debug("UDP TProxy session closed")
 					}
 				})
