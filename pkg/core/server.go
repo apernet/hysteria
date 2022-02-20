@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
+	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"net"
 )
@@ -46,6 +47,7 @@ func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *
 	obfuscator obfs.Obfuscator, connectFunc ConnectFunc, disconnectFunc DisconnectFunc,
 	tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry) (*Server, error) {
+	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud_fix.DisablePathMTUDiscovery
 	listener, err := transport.QUICListen(protocol, addr, tlsConfig, quicConfig, obfuscator)
 	if err != nil {
 		return nil, err

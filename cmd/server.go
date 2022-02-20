@@ -14,6 +14,7 @@ import (
 	hyCongestion "github.com/tobyxdd/hysteria/pkg/congestion"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
+	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
@@ -70,7 +71,7 @@ func server(config *serverConfig) {
 		MaxConnectionReceiveWindow:     config.ReceiveWindowClient,
 		MaxIncomingStreams:             int64(config.MaxConnClient),
 		KeepAlive:                      true,
-		DisablePathMTUDiscovery:        true, // Ref: https://github.com/lucas-clemente/quic-go/issues/3327
+		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
 	}
 	if config.ReceiveWindowConn == 0 {
@@ -83,6 +84,9 @@ func server(config *serverConfig) {
 	}
 	if quicConfig.MaxIncomingStreams == 0 {
 		quicConfig.MaxIncomingStreams = DefaultMaxIncomingStreams
+	}
+	if !quicConfig.DisablePathMTUDiscovery && pmtud_fix.DisablePathMTUDiscovery {
+		logrus.Info("Path MTU Discovery is not yet supported on this platform")
 	}
 	// Auth
 	var authFunc core.ConnectFunc

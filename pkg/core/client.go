@@ -10,6 +10,7 @@ import (
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/lunixbochs/struc"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
+	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
@@ -47,6 +48,7 @@ type Client struct {
 func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
 	transport *transport.ClientTransport, sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
 	obfuscator obfs.Obfuscator) (*Client, error) {
+	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud_fix.DisablePathMTUDiscovery
 	c := &Client{
 		transport:         transport,
 		serverAddr:        serverAddr,

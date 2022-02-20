@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"github.com/oschwald/geoip2-golang"
+	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
 	"io/ioutil"
@@ -70,7 +71,7 @@ func client(config *clientConfig) {
 		InitialConnectionReceiveWindow: config.ReceiveWindow,
 		MaxConnectionReceiveWindow:     config.ReceiveWindow,
 		KeepAlive:                      true,
-		DisablePathMTUDiscovery:        true, // Ref: https://github.com/lucas-clemente/quic-go/issues/3327
+		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
 	}
 	if config.ReceiveWindowConn == 0 {
@@ -80,6 +81,9 @@ func client(config *clientConfig) {
 	if config.ReceiveWindow == 0 {
 		quicConfig.InitialConnectionReceiveWindow = DefaultConnectionReceiveWindow
 		quicConfig.MaxConnectionReceiveWindow = DefaultConnectionReceiveWindow
+	}
+	if !quicConfig.DisablePathMTUDiscovery && pmtud_fix.DisablePathMTUDiscovery {
+		logrus.Info("Path MTU Discovery is not yet supported on this platform")
 	}
 	// Auth
 	var auth []byte
