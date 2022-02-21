@@ -304,7 +304,8 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 	buf := make([]byte, 1024)
 	for {
 		if s.TCPTimeout != 0 {
-			_ = c.SetDeadline(time.Now().Add(s.TCPTimeout))
+			// Disable TCP timeout for UDP holder
+			_ = c.SetDeadline(time.Time{})
 		}
 		_, err := c.Read(buf)
 		if err != nil {
