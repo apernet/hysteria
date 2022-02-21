@@ -301,12 +301,12 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 	_, _ = socks5.NewReply(socks5.RepSuccess, atyp, addr, port).WriteTo(c)
 	// Let UDP server do its job, we hold the TCP connection here
 	go s.udpServer(udpConn, localRelayConn, hyUDP)
+	if s.TCPTimeout != 0 {
+		// Disable TCP timeout for UDP holder
+		_ = c.SetDeadline(time.Time{})
+	}
 	buf := make([]byte, 1024)
 	for {
-		if s.TCPTimeout != 0 {
-			// Disable TCP timeout for UDP holder
-			_ = c.SetDeadline(time.Time{})
-		}
 		_, err := c.Read(buf)
 		if err != nil {
 			closeErr = err
