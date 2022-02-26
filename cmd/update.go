@@ -20,11 +20,7 @@ type releaseInfo struct {
 
 func checkUpdate() {
 	info, err := fetchLatestRelease()
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"error": err,
-		}).Warn("Failed to check for updates")
-	} else if info.TagName != appVersion {
+	if err == nil && info.TagName != appVersion {
 		logrus.WithFields(logrus.Fields{
 			"version": info.TagName,
 			"url":     info.URL,
