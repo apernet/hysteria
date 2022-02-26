@@ -19,6 +19,7 @@ import (
 const udpBufferSize = 65535
 
 type serverClient struct {
+	V2              bool
 	CS              quic.Session
 	Transport       *transport.ServerTransport
 	Auth            []byte
@@ -39,12 +40,13 @@ type serverClient struct {
 	udpDefragger     defragger
 }
 
-func newServerClient(cs quic.Session, transport *transport.ServerTransport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
+func newServerClient(v2 bool, cs quic.Session, transport *transport.ServerTransport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
 	CTCPRequestFunc TCPRequestFunc, CTCPErrorFunc TCPErrorFunc,
 	CUDPRequestFunc UDPRequestFunc, CUDPErrorFunc UDPErrorFunc,
 	UpCounterVec, DownCounterVec *prometheus.CounterVec,
 	ConnGaugeVec *prometheus.GaugeVec) *serverClient {
 	sc := &serverClient{
+		V2:              v2,
 		CS:              cs,
 		Transport:       transport,
 		Auth:            auth,
@@ -121,9 +123,26 @@ func (c *serverClient) handleStream(stream quic.Stream) {
 
 func (c *serverClient) handleMessage(msg []byte) {
 	var udpMsg udpMessage
-	err := struc.Unpack(bytes.NewBuffer(msg), &udpMsg)
-	if err != nil {
-		return
+	if c.V2 {
+		var udpMsgV2 udpMessageV2
+		err := struc.Unpack(bytes.NewBuffer(msg), &udpMsgV2)
+		if err != nil {
+			return
+		}
+		udpMsg = udpMessage{
+			SessionID: udpMsgV2.SessionID,
+			HostLen:   udpMsgV2.HostLen,
+			Host:      udpMsgV2.Host,
+			Port:      udpMsgV2.Port,
+			FragCount: 1,
+			DataLen:   udpMsgV2.DataLen,
+			Data:      udpMsgV2.Data,
+		}
+	} else {
+		err := struc.Unpack(bytes.NewBuffer(msg), &udpMsg)
+		if err != nil {
+			return
+		}
 	}
 	dfMsg := c.udpDefragger.Feed(udpMsg)
 	if dfMsg == nil {
@@ -136,6 +155,7 @@ func (c *serverClient) handleMessage(msg []byte) {
 		// Session found, send the message
 		action, arg := acl.ActionDirect, ""
 		var ipAddr *net.IPAddr
+		var err error
 		if c.ACLEngine != nil {
 			action, arg, ipAddr, err = c.ACLEngine.ResolveAndMatch(dfMsg.Host)
 		} else {
@@ -303,26 +323,37 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 		for {
 			n, rAddr, err := conn.ReadFromUDP(buf)
 			if n > 0 {
-				msg := udpMessage{
-					SessionID: id,
-					Host:      rAddr.IP.String(),
-					Port:      uint16(rAddr.Port),
-					FragCount: 1,
-					Data:      buf[:n],
-				}
-				// try no frag first
 				var msgBuf bytes.Buffer
-				_ = struc.Pack(&msgBuf, &msg)
-				err = c.CS.SendMessage(msgBuf.Bytes())
-				if err != nil {
-					if errSize, ok := err.(quic.ErrMessageToLarge); ok {
-						// need to frag
-						msg.MsgID = uint16(rand.Intn(0xFFFF)) + 1 // msgID must be > 0 when fragCount > 1
-						fragMsgs := fragUDPMessage(msg, int(errSize))
-						for _, fragMsg := range fragMsgs {
-							msgBuf.Reset()
-							_ = struc.Pack(&msgBuf, &fragMsg)
-							_ = c.CS.SendMessage(msgBuf.Bytes())
+				if c.V2 {
+					msg := udpMessageV2{
+						SessionID: id,
+						Host:      rAddr.IP.String(),
+						Port:      uint16(rAddr.Port),
+						Data:      buf[:n],
+					}
+					_ = struc.Pack(&msgBuf, &msg)
+					_ = c.CS.SendMessage(msgBuf.Bytes())
+				} else {
+					msg := udpMessage{
+						SessionID: id,
+						Host:      rAddr.IP.String(),
+						Port:      uint16(rAddr.Port),
+						FragCount: 1,
+						Data:      buf[:n],
+					}
+					// try no frag first
+					_ = struc.Pack(&msgBuf, &msg)
+					err = c.CS.SendMessage(msgBuf.Bytes())
+					if err != nil {
+						if errSize, ok := err.(quic.ErrMessageToLarge); ok {
+							// need to frag
+							msg.MsgID = uint16(rand.Intn(0xFFFF)) + 1 // msgID must be > 0 when fragCount > 1
+							fragMsgs := fragUDPMessage(msg, int(errSize))
+							for _, fragMsg := range fragMsgs {
+								msgBuf.Reset()
+								_ = struc.Pack(&msgBuf, &fragMsg)
+								_ = c.CS.SendMessage(msgBuf.Bytes())
+							}
 						}
 					}
 				}

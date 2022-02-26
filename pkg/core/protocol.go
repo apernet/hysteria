@@ -5,8 +5,9 @@ import (
 )
 
 const (
-	protocolVersion = uint8(3)
-	protocolTimeout = 10 * time.Second
+	protocolVersion   = uint8(3)
+	protocolVersionV2 = uint8(2)
+	protocolTimeout   = 10 * time.Second
 
 	closeErrorCodeGeneric  = 0
 	closeErrorCodeProtocol = 1
@@ -63,4 +64,13 @@ func (m udpMessage) HeaderSize() int {
 
 func (m udpMessage) Size() int {
 	return m.HeaderSize() + len(m.Data)
+}
+
+type udpMessageV2 struct {
+	SessionID uint32
+	HostLen   uint16 `struc:"sizeof=Host"`
+	Host      string
+	Port      uint16
+	DataLen   uint16 `struc:"sizeof=Data"`
+	Data      []byte
 }
