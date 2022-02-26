@@ -74,4 +74,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.25.1-0.20220220071449-45d21d89d5d4
+replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.25.1-0.20220224051149-310bd1bfaf1f
