@@ -50,7 +50,7 @@ type udpMessage struct {
 	HostLen   uint16 `struc:"sizeof=Host"`
 	Host      string
 	Port      uint16
-	MsgID     uint16 // doesn't matter when not fragmented
+	MsgID     uint16 // doesn't matter when not fragmented, but must not be 0 when fragmented
 	FragID    uint8  // doesn't matter when not fragmented, starts at 0 when fragmented
 	FragCount uint8  // must be 1 when not fragmented
 	DataLen   uint16 `struc:"sizeof=Data"`

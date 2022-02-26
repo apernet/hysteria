@@ -13,6 +13,7 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
+	"math/rand"
 	"net"
 	"strconv"
 	"sync"
@@ -43,6 +44,7 @@ type Client struct {
 
 	udpSessionMutex sync.RWMutex
 	udpSessionMap   map[uint32]chan *udpMessage
+	udpDefragger    defragger
 }
 
 func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
@@ -137,11 +139,15 @@ func (c *Client) handleMessage(qs quic.Session) {
 		if err != nil {
 			continue
 		}
+		dfMsg := c.udpDefragger.Feed(udpMsg)
+		if dfMsg == nil {
+			continue
+		}
 		c.udpSessionMutex.RLock()
-		ch, ok := c.udpSessionMap[udpMsg.SessionID]
+		ch, ok := c.udpSessionMap[dfMsg.SessionID]
 		if ok {
 			select {
-			case ch <- &udpMsg:
+			case ch <- dfMsg:
 				// OK
 			default:
 				// Silently drop the message when the channel is full
@@ -353,14 +359,38 @@ func (c *quicPktConn) WriteTo(p []byte, addr string) error {
 	if err != nil {
 		return err
 	}
-	var msgBuf bytes.Buffer
-	_ = struc.Pack(&msgBuf, &udpMessage{
+	msg := udpMessage{
 		SessionID: c.UDPSessionID,
 		Host:      host,
 		Port:      port,
+		FragCount: 1,
 		Data:      p,
-	})
-	return c.Session.SendMessage(msgBuf.Bytes())
+	}
+	// try no frag first
+	var msgBuf bytes.Buffer
+	_ = struc.Pack(&msgBuf, &msg)
+	err = c.Session.SendMessage(msgBuf.Bytes())
+	if err != nil {
+		if errSize, ok := err.(quic.ErrMessageToLarge); ok {
+			// need to frag
+			msg.MsgID = uint16(rand.Intn(0xFFFF)) + 1 // msgID must be > 0 when fragCount > 1
+			fragMsgs := fragUDPMessage(msg, int(errSize))
+			for _, fragMsg := range fragMsgs {
+				msgBuf.Reset()
+				_ = struc.Pack(&msgBuf, &fragMsg)
+				err = c.Session.SendMessage(msgBuf.Bytes())
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		} else {
+			// some other error
+			return err
+		}
+	} else {
+		return nil
+	}
 }
 
 func (c *quicPktConn) Close() error {
