@@ -505,10 +505,10 @@ github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07/go.mod h1:kDXzergiv9cb
 github.com/tobyxdd/quic-go v0.25.1-0.20220224051149-310bd1bfaf1f h1:phddE/foYEnuZOgKfmfYVcnXBvV5cjhGrqBtSETqvQ0=
 github.com/tobyxdd/quic-go v0.25.1-0.20220224051149-310bd1bfaf1f/go.mod h1:YtzP8bxRVCBlO77yRanE264+fY/T2U9ZlW1AaHOsMOg=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
-github.com/txthinking/runnergroup v0.0.0-20210326110939-37fc67d0da7c h1:6WIrmZPMl2Q61vozy5MfJNfD6CAgivGFgqvXsrho8GM=
-github.com/txthinking/runnergroup v0.0.0-20210326110939-37fc67d0da7c/go.mod h1:CLUSJbazqETbaR+i0YAhXBICV9TrKH93pziccMhmhpM=
-github.com/txthinking/socks5 v0.0.0-20210326104807-61b5745ff346 h1:czf2yvkvrQA9CfHK3S0UaE+Sh8jYIgCWlSzYLJjMHJQ=
-github.com/txthinking/socks5 v0.0.0-20210326104807-61b5745ff346/go.mod h1:d3n8NJ6QMRb6I/WAlp4z5ZPAoaeqDmX5NgVZA0mhe+I=
+github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf h1:7PflaKRtU4np/epFxRXlFhlzLXZzKFrH5/I4so5Ove0=
+github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf/go.mod h1:CLUSJbazqETbaR+i0YAhXBICV9TrKH93pziccMhmhpM=
+github.com/txthinking/socks5 v0.0.0-20220212043548-414499347d4a h1:BOqgJ4jku0LHPDoR51RD8Mxmo0LHxCzJT/M9MemYdHo=
+github.com/txthinking/socks5 v0.0.0-20220212043548-414499347d4a/go.mod h1:7NloQcrxaZYKURWph5HLxVDlIwMHJXCPkeWPtpftsIg=
 github.com/txthinking/x v0.0.0-20210326105829-476fab902fbe h1:gMWxZxBFRAXqoGkwkYlPX2zvyyKNWJpxOxCrjqJkm5A=
 github.com/txthinking/x v0.0.0-20210326105829-476fab902fbe/go.mod h1:WgqbSEmUYSjEV3B1qmee/PpP2NYEz4bL9/+mF1ma+s4=
 github.com/viant/assertly v0.4.8/go.mod h1:aGifi++jvCrUaklKEKT0BU95igDNaqkvz+49uaYMPRU=

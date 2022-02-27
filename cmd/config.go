@@ -52,6 +52,11 @@ type serverConfig struct {
 	DisableMTUDiscovery bool   `json:"disable_mtu_discovery"`
 	IPv6Only            bool   `json:"ipv6_only"`
 	Resolver            string `json:"resolver"`
+	SOCKS5Outbound      struct {
+		Server   string `json:"server"`
+		User     string `json:"user"`
+		Password string `json:"password"`
+	} `json:"socks5_outbound"`
 }
 
 func (c *serverConfig) Check() error {
