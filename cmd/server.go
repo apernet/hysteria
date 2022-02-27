@@ -144,6 +144,17 @@ func server(config *serverConfig) {
 	if config.IPv6Only {
 		transport.DefaultServerTransport.IPv6Only = true
 	}
+	// SOCKS5 outbound
+	if config.SOCKS5Outbound.Server != "" {
+		ob, err := transport.NewSOCKS5Client(config.SOCKS5Outbound.Server,
+			config.SOCKS5Outbound.User, config.SOCKS5Outbound.Password, 10*time.Second)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to initialize SOCKS5 outbound")
+		}
+		transport.DefaultServerTransport.SOCKS5Client = ob
+	}
 	// ACL
 	var aclEngine *acl.Engine
 	if len(config.ACL) > 0 {

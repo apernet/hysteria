@@ -35,12 +35,12 @@ type serverClient struct {
 	ConnGauge              prometheus.Gauge
 
 	udpSessionMutex  sync.RWMutex
-	udpSessionMap    map[uint32]*net.UDPConn
+	udpSessionMap    map[uint32]transport.PUDPConn
 	nextUDPSessionID uint32
 	udpDefragger     defragger
 }
 
-func newServerClient(v2 bool, cs quic.Session, transport *transport.ServerTransport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
+func newServerClient(v2 bool, cs quic.Session, tr *transport.ServerTransport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
 	CTCPRequestFunc TCPRequestFunc, CTCPErrorFunc TCPErrorFunc,
 	CUDPRequestFunc UDPRequestFunc, CUDPErrorFunc UDPErrorFunc,
 	UpCounterVec, DownCounterVec *prometheus.CounterVec,
@@ -48,7 +48,7 @@ func newServerClient(v2 bool, cs quic.Session, transport *transport.ServerTransp
 	sc := &serverClient{
 		V2:              v2,
 		CS:              cs,
-		Transport:       transport,
+		Transport:       tr,
 		Auth:            auth,
 		ClientAddr:      cs.RemoteAddr(),
 		DisableUDP:      disableUDP,
@@ -57,7 +57,7 @@ func newServerClient(v2 bool, cs quic.Session, transport *transport.ServerTransp
 		CTCPErrorFunc:   CTCPErrorFunc,
 		CUDPRequestFunc: CUDPRequestFunc,
 		CUDPErrorFunc:   CUDPErrorFunc,
-		udpSessionMap:   make(map[uint32]*net.UDPConn),
+		udpSessionMap:   make(map[uint32]transport.PUDPConn),
 	}
 	if UpCounterVec != nil && DownCounterVec != nil && ConnGaugeVec != nil {
 		authB64 := base64.StdEncoding.EncodeToString(auth)
@@ -365,6 +365,7 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 				break
 			}
 		}
+		_ = stream.Close()
 	}()
 
 	// Hold the stream until it's closed by the client

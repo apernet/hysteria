@@ -13,8 +13,15 @@ import (
 )
 
 type ServerTransport struct {
-	Dialer   *net.Dialer
-	IPv6Only bool
+	Dialer       *net.Dialer
+	IPv6Only     bool
+	SOCKS5Client *SOCKS5Client
+}
+
+type PUDPConn interface {
+	ReadFromUDP([]byte) (int, *net.UDPAddr, error)
+	WriteToUDP([]byte, *net.UDPAddr) (int, error)
+	Close() error
 }
 
 var DefaultServerTransport = &ServerTransport{
@@ -93,13 +100,21 @@ func (ct *ServerTransport) ResolveIPAddr(address string) (*net.IPAddr, error) {
 }
 
 func (ct *ServerTransport) DialTCP(raddr *net.TCPAddr) (*net.TCPConn, error) {
-	conn, err := ct.Dialer.Dial("tcp", raddr.String())
-	if err != nil {
-		return nil, err
+	if ct.SOCKS5Client != nil {
+		return ct.SOCKS5Client.DialTCP(raddr)
+	} else {
+		conn, err := ct.Dialer.Dial("tcp", raddr.String())
+		if err != nil {
+			return nil, err
+		}
+		return conn.(*net.TCPConn), nil
 	}
-	return conn.(*net.TCPConn), nil
 }
 
-func (ct *ServerTransport) ListenUDP() (*net.UDPConn, error) {
-	return net.ListenUDP("udp", nil)
+func (ct *ServerTransport) ListenUDP() (PUDPConn, error) {
+	if ct.SOCKS5Client != nil {
+		return ct.SOCKS5Client.ListenUDP()
+	} else {
+		return net.ListenUDP("udp", nil)
+	}
 }
