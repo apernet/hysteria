@@ -87,20 +87,11 @@ func (c *SOCKS5Client) DialTCP(raddr *net.TCPAddr) (*net.TCPConn, error) {
 		_ = conn.Close()
 		return nil, err
 	}
-	var atyp byte
-	var addr, port []byte
-	if ip4 := raddr.IP.To4(); ip4 != nil {
-		atyp = socks5.ATYPIPv4
-		addr = ip4
-	} else if ip6 := raddr.IP.To16(); ip6 != nil {
-		atyp = socks5.ATYPIPv6
-		addr = ip6
-	} else {
+	atyp, addr, port, err := addrToSOCKS5Addr(raddr)
+	if err != nil {
 		_ = conn.Close()
-		return nil, errors.New("unsupported address type")
+		return nil, err
 	}
-	port = make([]byte, 2)
-	binary.BigEndian.PutUint16(port, uint16(raddr.Port))
 	r := socks5.NewRequest(socks5.CmdConnect, atyp, addr, port)
 	reply, err := c.request(conn, r)
 	if err != nil {
@@ -201,21 +192,12 @@ func (c *socks5UDPConn) ReadFromUDP(b []byte) (int, *net.UDPAddr, error) {
 }
 
 func (c *socks5UDPConn) WriteToUDP(b []byte, addr *net.UDPAddr) (int, error) {
-	var atyp byte
-	var dstAddr, dstPort []byte
-	if ip4 := addr.IP.To4(); ip4 != nil {
-		atyp = socks5.ATYPIPv4
-		dstAddr = ip4
-	} else if ip6 := addr.IP.To16(); ip6 != nil {
-		atyp = socks5.ATYPIPv6
-		dstAddr = ip6
-	} else {
-		return 0, errors.New("unsupported address type")
+	atyp, dstAddr, dstPort, err := addrToSOCKS5Addr(addr)
+	if err != nil {
+		return 0, err
 	}
-	dstPort = make([]byte, 2)
-	binary.BigEndian.PutUint16(dstPort, uint16(addr.Port))
 	d := socks5.NewDatagram(atyp, dstAddr, dstPort, b)
-	_, err := c.udpConn.Write(d.Bytes())
+	_, err = c.udpConn.Write(d.Bytes())
 	if err != nil {
 		return 0, err
 	}
@@ -229,6 +211,7 @@ func (c *socks5UDPConn) Close() error {
 }
 
 func socks5AddrToUDPAddr(atyp byte, addr []byte, port []byte) (*net.UDPAddr, error) {
+	iPort := int(binary.BigEndian.Uint16(port))
 	switch atyp {
 	case socks5.ATYPIPv4:
 		if len(addr) != 4 {
@@ -236,7 +219,7 @@ func socks5AddrToUDPAddr(atyp byte, addr []byte, port []byte) (*net.UDPAddr, err
 		}
 		return &net.UDPAddr{
 			IP:   addr,
-			Port: int(binary.BigEndian.Uint16(port)),
+			Port: iPort,
 		}, nil
 	case socks5.ATYPIPv6:
 		if len(addr) != 16 {
@@ -244,7 +227,7 @@ func socks5AddrToUDPAddr(atyp byte, addr []byte, port []byte) (*net.UDPAddr, err
 		}
 		return &net.UDPAddr{
 			IP:   addr,
-			Port: int(binary.BigEndian.Uint16(port)),
+			Port: iPort,
 		}, nil
 	case socks5.ATYPDomain:
 		if len(addr) == 0 {
@@ -256,10 +239,38 @@ func socks5AddrToUDPAddr(atyp byte, addr []byte, port []byte) (*net.UDPAddr, err
 		}
 		return &net.UDPAddr{
 			IP:   ipAddr.IP,
-			Port: int(binary.BigEndian.Uint16(port)),
+			Port: iPort,
 			Zone: ipAddr.Zone,
 		}, nil
 	default:
 		return nil, errors.New("unsupported address type")
 	}
+}
+
+func addrToSOCKS5Addr(addr net.Addr) (byte, []byte, []byte, error) {
+	var addrIP net.IP
+	var addrPort int
+	if tcpAddr, ok := addr.(*net.TCPAddr); ok {
+		addrIP = tcpAddr.IP
+		addrPort = tcpAddr.Port
+	} else if udpAddr, ok := addr.(*net.UDPAddr); ok {
+		addrIP = udpAddr.IP
+		addrPort = udpAddr.Port
+	} else {
+		return 0, nil, nil, errors.New("unsupported address type")
+	}
+	var atyp byte
+	var saddr, sport []byte
+	if ip4 := addrIP.To4(); ip4 != nil {
+		atyp = socks5.ATYPIPv4
+		saddr = addrIP
+	} else if ip6 := addrIP.To16(); ip6 != nil {
+		atyp = socks5.ATYPIPv6
+		saddr = ip6
+	} else {
+		return 0, nil, nil, errors.New("unsupported address type")
+	}
+	sport = make([]byte, 2)
+	binary.BigEndian.PutUint16(sport, uint16(addrPort))
+	return atyp, saddr, sport, nil
 }
