@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Fix server SOCKS5 outbound bug
+- Fix incorrect UDP fragmentation handling
+
 ## 1.0.0
 
 - Protocol v3: UDP fragmentation support
