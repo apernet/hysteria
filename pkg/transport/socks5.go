@@ -230,10 +230,10 @@ func socks5AddrToUDPAddr(atyp byte, addr []byte, port []byte) (*net.UDPAddr, err
 			Port: iPort,
 		}, nil
 	case socks5.ATYPDomain:
-		if len(addr) == 0 {
+		if len(addr) <= 1 {
 			return nil, errors.New("invalid domain address")
 		}
-		ipAddr, err := net.ResolveIPAddr("ip", string(addr))
+		ipAddr, err := net.ResolveIPAddr("ip", string(addr[1:]))
 		if err != nil {
 			return nil, err
 		}
@@ -263,7 +263,7 @@ func addrToSOCKS5Addr(addr net.Addr) (byte, []byte, []byte, error) {
 	var saddr, sport []byte
 	if ip4 := addrIP.To4(); ip4 != nil {
 		atyp = socks5.ATYPIPv4
-		saddr = addrIP
+		saddr = ip4
 	} else if ip6 := addrIP.To16(); ip6 != nil {
 		atyp = socks5.ATYPIPv6
 		saddr = ip6
