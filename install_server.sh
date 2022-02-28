@@ -234,15 +234,21 @@ install_hysteria() {
   # shellcheck disable=SC2153
   if [[ -z "$JSONS_PATH" ]] && [[ ! -d "$JSON_PATH" ]]; then
     install -d "$JSON_PATH"
-    echo -e '{\n"listen": ":36712",\n "acme": {\n"domains": [\n\n"your.domain.com"\n],\n"email": "hacker@gmail.com"\n},\n"obfs": "fuck me till the daylight",\n"up_mbps": 100,\n"down_mbps": 100\n}' | python -m json.tool > "${JSON_PATH}/config.json"
+    cat << EOF >> "${JSON_PATH}/config.json"
+{
+    "listen": ":36712",
+    "acme": {
+        "domains": [
+            "your.domain.com"
+        ],
+        "email": "hacker@gmail.com"
+    },
+    "obfs": "fuck me till the daylight",
+    "up_mbps": 100,
+    "down_mbps": 100
+}
+EOF
     CONFIG_NEW='1'
-  fi
-
-  # Install hysteria configuration file to $JSONS_PATH
-  if [[ -n "$JSONS_PATH" ]] && [[ ! -d "$JSONS_PATH" ]]; then
-    install -d "$JSONS_PATH"
-    echo -e '{\n"listen": ":36712",\n "acme": {\n"domains": [\n\n"your.domain.com"\n],\n"email": "hacker@gmail.com"\n},\n"obfs": "fuck me till the daylight",\n"up_mbps": 100,\n"down_mbps": 100\n}' | python -m json.tool > "${JSONS_PATH}/${BASE}.json" 
-    CONFDIR='1'
   fi
 }
 
@@ -398,7 +404,6 @@ main() {
     echo 'warn: Install Hysteria from a local file, but still need to make sure the network is available.'
     echo -n 'warn: Please make sure the file is valid because we cannot confirm it. (Press any key) ...'
     read -r
-    install_software 'python' 'python'
   else
     # Normal way
     install_software 'curl' 'curl'
@@ -412,7 +417,6 @@ main() {
         echo "removed: $TMP_DIRECTORY"
         exit 1
       fi
-      install_software 'python' 'python'
     elif [[ "$NUMBER" -eq '1' ]]; then
       echo "info: No new version. The current version of Hysteria is $CURRENT_VERSION ."
       exit 0
