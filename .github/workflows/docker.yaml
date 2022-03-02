@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@v2.4.0
+        uses: actions/checkout@v3
 
       - name: Get tag
         uses: olegtarasov/get-tag@v2
