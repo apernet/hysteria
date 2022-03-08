@@ -18,7 +18,7 @@ jobs:
     steps:
 
       - name: Check out
-        uses: actions/checkout@v2.4.0
+        uses: actions/checkout@v3
 
       - name: Get time
         uses: gerred/actions/current-time@master
