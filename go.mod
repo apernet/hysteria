@@ -7,7 +7,7 @@ require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
 	github.com/caddyserver/certmagic v0.15.4
 	github.com/coreos/go-iptables v0.6.0
-	github.com/elazarl/goproxy v0.0.0-20220115173737-adb46da277ac
+	github.com/elazarl/goproxy v0.0.0-20220317163658-f5c0d0953e10
 	github.com/elazarl/goproxy/ext v0.0.0-20220115173737-adb46da277ac
 	github.com/eycorsican/go-tun2socks v1.16.11
 	github.com/fsnotify/fsnotify v1.5.1

@@ -1,13 +1,15 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"github.com/tobyxdd/hysteria/pkg/transport"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/tobyxdd/hysteria/pkg/transport"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 
 	"github.com/elazarl/goproxy/ext/auth"
 
@@ -16,9 +18,13 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/core"
 )
 
+type Server struct {
+	HTTPServer *http.Server
+}
+
 func NewProxyHTTPServer(hyClient *core.Client, transport *transport.ClientTransport, idleTimeout time.Duration,
 	aclEngine *acl.Engine, newDialFunc func(reqAddr string, action acl.Action, arg string),
-	basicAuthFunc func(user, password string) bool) (*goproxy.ProxyHttpServer, error) {
+	basicAuthFunc func(user, password string) bool) (*Server, context.Context, error) {
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Logger = &nopLogger{}
 	proxy.NonproxyHandler = http.NotFoundHandler()
@@ -74,7 +80,32 @@ func NewProxyHTTPServer(hyClient *core.Client, transport *transport.ClientTransp
 	if basicAuthFunc != nil {
 		auth.ProxyBasic(proxy, "hysteria client", basicAuthFunc)
 	}
-	return proxy, nil
+	s := &Server{
+		HTTPServer: &http.Server{
+			Handler: proxy,
+		},
+	}
+	ctx := context.Background()
+	return s, ctx, nil
+}
+
+func (s *Server) Addr(addr string) {
+	s.HTTPServer.Addr = addr
+}
+
+func (s *Server) ListenAndServeTLS(certFile, keyFile string) error {
+	err := s.HTTPServer.ListenAndServeTLS(certFile, keyFile)
+	return err
+}
+
+func (s *Server) ListenAndServe() error {
+	err := s.HTTPServer.ListenAndServe()
+	return err
+}
+
+func (s *Server) Close(ctx context.Context) error {
+	err := s.HTTPServer.Shutdown(ctx)
+	return err
 }
 
 type nopLogger struct{}
