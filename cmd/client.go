@@ -97,6 +97,18 @@ func client(config *clientConfig) {
 	if len(config.Obfs) > 0 {
 		obfuscator = obfs.NewXPlusObfuscator([]byte(config.Obfs))
 	}
+	// Resolve preference
+	if len(config.ResolvePreference) > 0 {
+		pref, excl, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to parse the resolve preference")
+		}
+		transport.DefaultClientTransport.PrefEnabled = true
+		transport.DefaultClientTransport.PrefIPv6 = pref
+		transport.DefaultClientTransport.PrefExclusive = excl
+	}
 	// ACL
 	var aclEngine *acl.Engine
 	if len(config.ACL) > 0 {

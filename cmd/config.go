@@ -50,8 +50,8 @@ type serverConfig struct {
 	ReceiveWindowClient uint64 `json:"recv_window_client"`
 	MaxConnClient       int    `json:"max_conn_client"`
 	DisableMTUDiscovery bool   `json:"disable_mtu_discovery"`
-	IPv6Only            bool   `json:"ipv6_only"`
 	Resolver            string `json:"resolver"`
+	ResolvePreference   string `json:"resolve_preference"`
 	SOCKS5Outbound      struct {
 		Server   string `json:"server"`
 		User     string `json:"user"`
@@ -159,6 +159,7 @@ type clientConfig struct {
 	ReceiveWindow       uint64 `json:"recv_window"`
 	DisableMTUDiscovery bool   `json:"disable_mtu_discovery"`
 	Resolver            string `json:"resolver"`
+	ResolvePreference   string `json:"resolve_preference"`
 }
 
 func (c *clientConfig) Check() error {
