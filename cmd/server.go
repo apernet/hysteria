@@ -140,9 +140,17 @@ func server(config *serverConfig) {
 	if len(config.Obfs) > 0 {
 		obfuscator = obfs.NewXPlusObfuscator([]byte(config.Obfs))
 	}
-	// IPv6 only mode
-	if config.IPv6Only {
-		transport.DefaultServerTransport.IPv6Only = true
+	// Resolve preference
+	if len(config.ResolvePreference) > 0 {
+		pref, excl, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to parse the resolve preference")
+		}
+		transport.DefaultServerTransport.PrefEnabled = true
+		transport.DefaultServerTransport.PrefIPv6 = pref
+		transport.DefaultServerTransport.PrefExclusive = excl
 	}
 	// SOCKS5 outbound
 	if config.SOCKS5Outbound.Server != "" {

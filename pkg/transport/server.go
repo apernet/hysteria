@@ -13,9 +13,11 @@ import (
 )
 
 type ServerTransport struct {
-	Dialer       *net.Dialer
-	IPv6Only     bool
-	SOCKS5Client *SOCKS5Client
+	Dialer        *net.Dialer
+	SOCKS5Client  *SOCKS5Client
+	PrefEnabled   bool
+	PrefIPv6      bool
+	PrefExclusive bool
 }
 
 type PUDPConn interface {
@@ -28,7 +30,7 @@ var DefaultServerTransport = &ServerTransport{
 	Dialer: &net.Dialer{
 		Timeout: 8 * time.Second,
 	},
-	IPv6Only: false,
+	PrefEnabled: false,
 }
 
 func (st *ServerTransport) quicPacketConn(proto string, laddr string, obfs obfs.Obfuscator) (net.PacketConn, error) {
@@ -92,8 +94,8 @@ func (ct *ServerTransport) QUICListen(proto string, listen string, tlsConfig *tl
 }
 
 func (ct *ServerTransport) ResolveIPAddr(address string) (*net.IPAddr, error) {
-	if ct.IPv6Only {
-		return net.ResolveIPAddr("ip6", address)
+	if ct.PrefEnabled {
+		return resolveIPAddrWithPreference(address, ct.PrefIPv6, ct.PrefExclusive)
 	} else {
 		return net.ResolveIPAddr("ip", address)
 	}
