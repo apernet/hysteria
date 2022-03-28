@@ -52,6 +52,13 @@ jobs:
           package: cmd
           compress: false
 
+      - name: Generate hashes
+        run: |
+          cd dist
+          for f in $(find . -type f); do
+            sha256sum $f >> hashes.txt
+          done
+
       - name: Upload
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -72,3 +79,4 @@ jobs:
             ./dist/hysteria-linux-arm
             ./dist/hysteria-linux-arm64
             ./dist/hysteria-linux-mipsle
+            ./dist/hashes.txt

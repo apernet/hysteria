@@ -13,13 +13,17 @@ import (
 )
 
 type ClientTransport struct {
-	Dialer *net.Dialer
+	Dialer        *net.Dialer
+	PrefEnabled   bool
+	PrefIPv6      bool
+	PrefExclusive bool
 }
 
 var DefaultClientTransport = &ClientTransport{
 	Dialer: &net.Dialer{
 		Timeout: 8 * time.Second,
 	},
+	PrefEnabled: false,
 }
 
 func (ct *ClientTransport) quicPacketConn(proto string, server string, obfs obfs.Obfuscator) (net.PacketConn, error) {
@@ -80,7 +84,11 @@ func (ct *ClientTransport) QUICDial(proto string, server string, tlsConfig *tls.
 }
 
 func (ct *ClientTransport) ResolveIPAddr(address string) (*net.IPAddr, error) {
-	return net.ResolveIPAddr("ip", address)
+	if ct.PrefEnabled {
+		return resolveIPAddrWithPreference(address, ct.PrefIPv6, ct.PrefExclusive)
+	} else {
+		return net.ResolveIPAddr("ip", address)
+	}
 }
 
 func (ct *ClientTransport) DialTCP(raddr *net.TCPAddr) (*net.TCPConn, error) {

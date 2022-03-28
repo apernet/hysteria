@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- Added an option for DNS resolution preference `resolve_preference`
+
 ## 1.0.1
 
 - Fix server SOCKS5 outbound bug
