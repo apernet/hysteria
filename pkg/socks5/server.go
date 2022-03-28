@@ -4,17 +4,15 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
+	"time"
+
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
-	"strconv"
-)
-
-import (
 	"github.com/txthinking/socks5"
-	"net"
-	"time"
 )
 
 const udpBufferSize = 65535
@@ -71,6 +69,11 @@ func NewServer(hyClient *core.Client, transport *transport.ClientTransport, addr
 		UDPErrorFunc:     udpErrorFunc,
 	}
 	return s, nil
+}
+
+func (s *Server) Close() error {
+	err := s.tcpListener.Close()
+	return err
 }
 
 func (s *Server) negotiate(c *net.TCPConn) error {

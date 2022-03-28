@@ -4,16 +4,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"github.com/oschwald/geoip2-golang"
-	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
-	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/oschwald/geoip2-golang"
+	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
+	"github.com/yosuke-furukawa/json5/encoding/json5"
 
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
@@ -223,7 +223,7 @@ func client(config *clientConfig) {
 					return config.HTTP.User == user && config.HTTP.Password == password
 				}
 			}
-			proxy, err := hyHTTP.NewProxyHTTPServer(client, transport.DefaultClientTransport,
+			httpServer, _, err := hyHTTP.NewProxyHTTPServer(client, transport.DefaultClientTransport,
 				time.Duration(config.HTTP.Timeout)*time.Second, aclEngine,
 				func(reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
@@ -235,13 +235,15 @@ func client(config *clientConfig) {
 			if err != nil {
 				logrus.WithField("error", err).Fatal("Failed to initialize HTTP server")
 			}
+			httpServer.Addr(config.HTTP.Listen)
 			if config.HTTP.Cert != "" && config.HTTP.Key != "" {
 				logrus.WithField("addr", config.HTTP.Listen).Info("HTTPS server up and running")
-				errChan <- http.ListenAndServeTLS(config.HTTP.Listen, config.HTTP.Cert, config.HTTP.Key, proxy)
+				errChan <- httpServer.ListenAndServeTLS(config.HTTP.Cert, config.HTTP.Key)
 			} else {
 				logrus.WithField("addr", config.HTTP.Listen).Info("HTTP server up and running")
-				errChan <- http.ListenAndServe(config.HTTP.Listen, proxy)
+				errChan <- httpServer.ListenAndServe()
 			}
+
 		}()
 	}
 

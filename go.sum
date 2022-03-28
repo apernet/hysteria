@@ -121,6 +121,8 @@ github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/elazarl/goproxy v0.0.0-20220115173737-adb46da277ac h1:XDAn206aIqKPdF5YczuuJXSQPx+WOen0Pxbxp5Fq8Pg=
 github.com/elazarl/goproxy v0.0.0-20220115173737-adb46da277ac/go.mod h1:Ro8st/ElPeALwNFlcTpWmkr6IoMFfkjXAvTHpevnDsM=
+github.com/elazarl/goproxy v0.0.0-20220317163658-f5c0d0953e10 h1:Of53+wYn8Lg0PaYkxajjBWpyTGBXLUp/8qQcNX4QNEo=
+github.com/elazarl/goproxy v0.0.0-20220317163658-f5c0d0953e10/go.mod h1:Ro8st/ElPeALwNFlcTpWmkr6IoMFfkjXAvTHpevnDsM=
 github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2/go.mod h1:gNh8nYJoAm43RfaxurUnxr+N1PwuFV3ZMl/efxlIlY8=
 github.com/elazarl/goproxy/ext v0.0.0-20220115173737-adb46da277ac h1:9yrT5tmn9Zc0ytWPASlaPwQfQMQYnRf0RSDe1XvHw0Q=
 github.com/elazarl/goproxy/ext v0.0.0-20220115173737-adb46da277ac/go.mod h1:gNh8nYJoAm43RfaxurUnxr+N1PwuFV3ZMl/efxlIlY8=
