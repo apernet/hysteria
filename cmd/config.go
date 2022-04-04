@@ -3,13 +3,15 @@ package main
 import (
 	"errors"
 	"fmt"
-
 	"github.com/sirupsen/logrus"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
+	"regexp"
+	"strconv"
 )
 
 const (
-	mbpsToBps = 125000
+	mbpsToBps   = 125000
+	minSpeedBPS = 16384
 
 	DefaultStreamReceiveWindow     = 15728640 // 15 MB/s
 	DefaultConnectionReceiveWindow = 67108864 // 64 MB/s
@@ -19,6 +21,8 @@ const (
 
 	DefaultMMDBFilename = "GeoLite2-Country.mmdb"
 )
+
+var rateStringRegexp = regexp.MustCompile(`^(\d+)\s*([KMGT]?)([Bb])ps$`)
 
 type serverConfig struct {
 	Listen   string `json:"listen"`
@@ -34,7 +38,9 @@ type serverConfig struct {
 	CertFile string `json:"cert"`
 	KeyFile  string `json:"key"`
 	// Optional below
+	Up         string `json:"up"`
 	UpMbps     int    `json:"up_mbps"`
+	Down       string `json:"down"`
 	DownMbps   int    `json:"down_mbps"`
 	DisableUDP bool   `json:"disable_udp"`
 	ACL        string `json:"acl"`
@@ -59,6 +65,27 @@ type serverConfig struct {
 	} `json:"socks5_outbound"`
 }
 
+func (c *serverConfig) Speed() (uint64, uint64, error) {
+	var up, down uint64
+	if len(c.Up) > 0 {
+		up = stringToBps(c.Up)
+		if up == 0 {
+			return 0, 0, errors.New("invalid speed format")
+		}
+	} else {
+		up = uint64(c.UpMbps) * mbpsToBps
+	}
+	if len(c.Down) > 0 {
+		down = stringToBps(c.Down)
+		if down == 0 {
+			return 0, 0, errors.New("invalid speed format")
+		}
+	} else {
+		down = uint64(c.DownMbps) * mbpsToBps
+	}
+	return up, down, nil
+}
+
 func (c *serverConfig) Check() error {
 	if len(c.Listen) == 0 {
 		return errors.New("no listen address")
@@ -66,7 +93,7 @@ func (c *serverConfig) Check() error {
 	if len(c.ACME.Domains) == 0 && (len(c.CertFile) == 0 || len(c.KeyFile) == 0) {
 		return errors.New("ACME domain or TLS cert not provided")
 	}
-	if c.UpMbps < 0 || c.DownMbps < 0 {
+	if up, down, err := c.Speed(); err != nil || (up != 0 && up < minSpeedBPS) || (down != 0 && down < minSpeedBPS) {
 		return errors.New("invalid speed")
 	}
 	if (c.ReceiveWindowConn != 0 && c.ReceiveWindowConn < 65536) ||
@@ -105,7 +132,9 @@ func (r *Relay) Check() error {
 type clientConfig struct {
 	Server        string `json:"server"`
 	Protocol      string `json:"protocol"`
+	Up            string `json:"up"`
 	UpMbps        int    `json:"up_mbps"`
+	Down          string `json:"down"`
 	DownMbps      int    `json:"down_mbps"`
 	Retry         int    `json:"retry"`
 	RetryInterval int    `json:"retry_interval"`
@@ -162,6 +191,27 @@ type clientConfig struct {
 	ResolvePreference   string `json:"resolve_preference"`
 }
 
+func (c *clientConfig) Speed() (uint64, uint64, error) {
+	var up, down uint64
+	if len(c.Up) > 0 {
+		up = stringToBps(c.Up)
+		if up == 0 {
+			return 0, 0, errors.New("invalid speed format")
+		}
+	} else {
+		up = uint64(c.UpMbps) * mbpsToBps
+	}
+	if len(c.Down) > 0 {
+		down = stringToBps(c.Down)
+		if down == 0 {
+			return 0, 0, errors.New("invalid speed format")
+		}
+	} else {
+		down = uint64(c.DownMbps) * mbpsToBps
+	}
+	return up, down, nil
+}
+
 func (c *clientConfig) Check() error {
 	if len(c.SOCKS5.Listen) == 0 && len(c.HTTP.Listen) == 0 && len(c.TUN.Name) == 0 &&
 		len(c.TCPRelay.Listen) == 0 && len(c.UDPRelay.Listen) == 0 &&
@@ -209,7 +259,7 @@ func (c *clientConfig) Check() error {
 	if len(c.Server) == 0 {
 		return errors.New("no server address")
 	}
-	if c.UpMbps <= 0 || c.DownMbps <= 0 {
+	if up, down, err := c.Speed(); err != nil || up < minSpeedBPS || down < minSpeedBPS {
 		return errors.New("invalid speed")
 	}
 	if (c.ReceiveWindowConn != 0 && c.ReceiveWindowConn < 65536) ||
@@ -227,4 +277,34 @@ func (c *clientConfig) Check() error {
 
 func (c *clientConfig) String() string {
 	return fmt.Sprintf("%+v", *c)
+}
+
+func stringToBps(s string) uint64 {
+	if s == "" {
+		return 0
+	}
+	m := rateStringRegexp.FindStringSubmatch(s)
+	if m == nil {
+		return 0
+	}
+	var n uint64
+	switch m[2] {
+	case "K", "k":
+		n = 1 << 10
+	case "M":
+		n = 1 << 20
+	case "G":
+		n = 1 << 30
+	case "T":
+		n = 1 << 40
+	default:
+		n = 1
+	}
+	v, _ := strconv.ParseUint(m[1], 10, 64)
+	n = v * n
+	if m[3] == "b" {
+		// Bits, need to convert to bytes
+		n = n >> 3
+	}
+	return n
 }
