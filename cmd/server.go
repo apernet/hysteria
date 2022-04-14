@@ -166,7 +166,10 @@ func server(config *serverConfig) {
 	// ACL
 	var aclEngine *acl.Engine
 	if len(config.ACL) > 0 {
-		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultServerTransport.ResolveIPAddr,
+		aclEngine, err = acl.LoadFromFile(config.ACL, func(addr string) (*net.IPAddr, error) {
+			ipAddr, _, err := transport.DefaultServerTransport.ResolveIPAddr(addr)
+			return ipAddr, err
+		},
 			func() (*geoip2.Reader, error) {
 				if len(config.MMDB) > 0 {
 					return loadMMDBReader(config.MMDB)

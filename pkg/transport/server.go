@@ -8,7 +8,9 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/conns/udp"
 	"github.com/tobyxdd/hysteria/pkg/conns/wechat"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -20,10 +22,49 @@ type ServerTransport struct {
 	PrefExclusive bool
 }
 
+// AddrEx is like net.TCPAddr or net.UDPAddr, but with additional domain information for SOCKS5.
+// At least one of Domain and IPAddr must be non-empty.
+type AddrEx struct {
+	Domain string
+	IPAddr *net.IPAddr
+	Port   int
+}
+
+func (a *AddrEx) String() string {
+	if a == nil {
+		return "<nil>"
+	}
+	var ip string
+	if a.IPAddr != nil {
+		ip = a.IPAddr.String()
+	}
+	return net.JoinHostPort(ip, strconv.Itoa(a.Port))
+}
+
 type PUDPConn interface {
 	ReadFromUDP([]byte) (int, *net.UDPAddr, error)
-	WriteToUDP([]byte, *net.UDPAddr) (int, error)
+	WriteToUDP([]byte, *AddrEx) (int, error)
 	Close() error
+}
+
+type udpConnPUDPConn struct {
+	Conn *net.UDPConn
+}
+
+func (c *udpConnPUDPConn) ReadFromUDP(bytes []byte) (int, *net.UDPAddr, error) {
+	return c.Conn.ReadFromUDP(bytes)
+}
+
+func (c *udpConnPUDPConn) WriteToUDP(bytes []byte, ex *AddrEx) (int, error) {
+	return c.Conn.WriteToUDP(bytes, &net.UDPAddr{
+		IP:   ex.IPAddr.IP,
+		Port: ex.Port,
+		Zone: ex.IPAddr.Zone,
+	})
+}
+
+func (c *udpConnPUDPConn) Close() error {
+	return c.Conn.Close()
 }
 
 var DefaultServerTransport = &ServerTransport{
@@ -80,8 +121,8 @@ func (st *ServerTransport) quicPacketConn(proto string, laddr string, obfs obfs.
 	}
 }
 
-func (ct *ServerTransport) QUICListen(proto string, listen string, tlsConfig *tls.Config, quicConfig *quic.Config, obfs obfs.Obfuscator) (quic.Listener, error) {
-	pktConn, err := ct.quicPacketConn(proto, listen, obfs)
+func (st *ServerTransport) QUICListen(proto string, listen string, tlsConfig *tls.Config, quicConfig *quic.Config, obfs obfs.Obfuscator) (quic.Listener, error) {
+	pktConn, err := st.quicPacketConn(proto, listen, obfs)
 	if err != nil {
 		return nil, err
 	}
@@ -93,19 +134,25 @@ func (ct *ServerTransport) QUICListen(proto string, listen string, tlsConfig *tl
 	return l, nil
 }
 
-func (ct *ServerTransport) ResolveIPAddr(address string) (*net.IPAddr, error) {
-	if ct.PrefEnabled {
-		return resolveIPAddrWithPreference(address, ct.PrefIPv6, ct.PrefExclusive)
+func (st *ServerTransport) ResolveIPAddr(address string) (*net.IPAddr, bool, error) {
+	ip, zone := utils.ParseIPZone(address)
+	if ip != nil {
+		return &net.IPAddr{IP: ip, Zone: zone}, false, nil
+	}
+	if st.PrefEnabled {
+		ipAddr, err := resolveIPAddrWithPreference(address, st.PrefIPv6, st.PrefExclusive)
+		return ipAddr, true, err
 	} else {
-		return net.ResolveIPAddr("ip", address)
+		ipAddr, err := net.ResolveIPAddr("ip", address)
+		return ipAddr, true, err
 	}
 }
 
-func (ct *ServerTransport) DialTCP(raddr *net.TCPAddr) (*net.TCPConn, error) {
-	if ct.SOCKS5Client != nil {
-		return ct.SOCKS5Client.DialTCP(raddr)
+func (st *ServerTransport) DialTCP(raddr *AddrEx) (*net.TCPConn, error) {
+	if st.SOCKS5Client != nil {
+		return st.SOCKS5Client.DialTCP(raddr)
 	} else {
-		conn, err := ct.Dialer.Dial("tcp", raddr.String())
+		conn, err := st.Dialer.Dial("tcp", raddr.String())
 		if err != nil {
 			return nil, err
 		}
@@ -113,10 +160,20 @@ func (ct *ServerTransport) DialTCP(raddr *net.TCPAddr) (*net.TCPConn, error) {
 	}
 }
 
-func (ct *ServerTransport) ListenUDP() (PUDPConn, error) {
-	if ct.SOCKS5Client != nil {
-		return ct.SOCKS5Client.ListenUDP()
+func (st *ServerTransport) ListenUDP() (PUDPConn, error) {
+	if st.SOCKS5Client != nil {
+		return st.SOCKS5Client.ListenUDP()
 	} else {
-		return net.ListenUDP("udp", nil)
+		conn, err := net.ListenUDP("udp", nil)
+		if err != nil {
+			return nil, err
+		}
+		return &udpConnPUDPConn{
+			Conn: conn,
+		}, nil
 	}
+}
+
+func (st *ServerTransport) SOCKS5Enabled() bool {
+	return st.SOCKS5Client != nil
 }
