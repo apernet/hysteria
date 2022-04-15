@@ -289,7 +289,7 @@ func stringToBps(s string) uint64 {
 	}
 	var n uint64
 	switch m[2] {
-	case "K", "k":
+	case "K":
 		n = 1 << 10
 	case "M":
 		n = 1 << 20
