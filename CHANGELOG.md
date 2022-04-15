@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3
+
+- New string-based speed (up/down) options
+- Server SOCKS5 outbound domain pass-through
+- Linux s390x build
+- Updated quic-go to v0.27.0
+
 ## 1.0.2
 
 - Added an option for DNS resolution preference `resolve_preference`
