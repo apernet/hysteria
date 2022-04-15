@@ -96,7 +96,7 @@ func (s *Server) Close() error {
 	return s.listener.Close()
 }
 
-func (s *Server) handleClient(cs quic.Session) {
+func (s *Server) handleClient(cs quic.Connection) {
 	// Expect the client to create a control stream to send its own information
 	ctx, ctxCancel := context.WithTimeout(context.Background(), protocolTimeout)
 	stream, err := cs.AcceptStream(ctx)
@@ -125,7 +125,7 @@ func (s *Server) handleClient(cs quic.Session) {
 }
 
 // Auth & negotiate speed
-func (s *Server) handleControlStream(cs quic.Session, stream quic.Stream) ([]byte, bool, bool, error) {
+func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]byte, bool, bool, error) {
 	// Check version
 	vb := make([]byte, 1)
 	_, err := stream.Read(vb)

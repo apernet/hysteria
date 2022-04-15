@@ -38,7 +38,7 @@ type Client struct {
 	tlsConfig  *tls.Config
 	quicConfig *quic.Config
 
-	quicSession    quic.Session
+	quicSession    quic.Connection
 	reconnectMutex sync.Mutex
 	closed         bool
 
@@ -98,7 +98,7 @@ func (c *Client) connectToServer() error {
 	return nil
 }
 
-func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (bool, string, error) {
+func (c *Client) handleControlStream(qs quic.Connection, stream quic.Stream) (bool, string, error) {
 	// Send protocol version
 	_, err := stream.Write([]byte{protocolVersion})
 	if err != nil {
@@ -128,7 +128,7 @@ func (c *Client) handleControlStream(qs quic.Session, stream quic.Stream) (bool,
 	return sh.OK, sh.Message, nil
 }
 
-func (c *Client) handleMessage(qs quic.Session) {
+func (c *Client) handleMessage(qs quic.Connection) {
 	for {
 		msg, err := qs.ReceiveMessage()
 		if err != nil {
@@ -157,7 +157,7 @@ func (c *Client) handleMessage(qs quic.Session) {
 	}
 }
 
-func (c *Client) openStreamWithReconnect() (quic.Session, quic.Stream, error) {
+func (c *Client) openStreamWithReconnect() (quic.Connection, quic.Stream, error) {
 	c.reconnectMutex.Lock()
 	defer c.reconnectMutex.Unlock()
 	if c.closed {
@@ -326,7 +326,7 @@ type UDPConn interface {
 }
 
 type quicPktConn struct {
-	Session      quic.Session
+	Session      quic.Connection
 	Stream       quic.Stream
 	CloseFunc    func()
 	UDPSessionID uint32

@@ -66,7 +66,7 @@ func (ct *ClientTransport) quicPacketConn(proto string, server string, obfs obfs
 	}
 }
 
-func (ct *ClientTransport) QUICDial(proto string, server string, tlsConfig *tls.Config, quicConfig *quic.Config, obfs obfs.Obfuscator) (quic.Session, error) {
+func (ct *ClientTransport) QUICDial(proto string, server string, tlsConfig *tls.Config, quicConfig *quic.Config, obfs obfs.Obfuscator) (quic.Connection, error) {
 	serverUDPAddr, err := net.ResolveUDPAddr("udp", server)
 	if err != nil {
 		return nil, err

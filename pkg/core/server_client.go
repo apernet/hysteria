@@ -20,7 +20,7 @@ const udpBufferSize = 65535
 
 type serverClient struct {
 	V2              bool
-	CS              quic.Session
+	CS              quic.Connection
 	Transport       *transport.ServerTransport
 	Auth            []byte
 	ClientAddr      net.Addr
@@ -40,7 +40,7 @@ type serverClient struct {
 	udpDefragger     defragger
 }
 
-func newServerClient(v2 bool, cs quic.Session, tr *transport.ServerTransport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
+func newServerClient(v2 bool, cs quic.Connection, tr *transport.ServerTransport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
 	CTCPRequestFunc TCPRequestFunc, CTCPErrorFunc TCPErrorFunc,
 	CUDPRequestFunc UDPRequestFunc, CUDPErrorFunc UDPErrorFunc,
 	UpCounterVec, DownCounterVec *prometheus.CounterVec,

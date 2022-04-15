@@ -13,7 +13,7 @@ require (
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/google/gopacket v1.1.19
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/lucas-clemente/quic-go v0.25.0
+	github.com/lucas-clemente/quic-go v0.27.0
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/oschwald/geoip2-golang v1.7.0
 	github.com/prometheus/client_golang v1.12.1
@@ -33,11 +33,12 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.11 // indirect
+	github.com/kr/pretty v0.2.0 // indirect
 	github.com/libdns/libdns v0.2.1 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
-	github.com/marten-seemann/qtls-go1-16 v0.1.4 // indirect
-	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
-	github.com/marten-seemann/qtls-go1-18 v0.1.0-beta.1 // indirect
+	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
+	github.com/marten-seemann/qtls-go1-17 v0.1.1 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.1 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mholt/acmez v1.0.2 // indirect
 	github.com/miekg/dns v1.1.46 // indirect
@@ -76,4 +77,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
 
-replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.25.1-0.20220224051149-310bd1bfaf1f
+replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.27.1-0.20220414074155-271e5f3ac478
