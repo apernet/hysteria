@@ -79,5 +79,6 @@ jobs:
             ./dist/hysteria-linux-386
             ./dist/hysteria-linux-arm
             ./dist/hysteria-linux-arm64
+            ./dist/hysteria-linux-s390x
             ./dist/hysteria-linux-mipsle
             ./dist/hashes.txt
