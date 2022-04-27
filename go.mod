@@ -10,7 +10,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20220115173737-adb46da277ac
 	github.com/elazarl/goproxy/ext v0.0.0-20220115173737-adb46da277ac
 	github.com/eycorsican/go-tun2socks v1.16.11
-	github.com/fsnotify/fsnotify v1.5.3
+	github.com/fsnotify/fsnotify v1.5.4
 	github.com/google/gopacket v1.1.19
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/lucas-clemente/quic-go v0.27.0
