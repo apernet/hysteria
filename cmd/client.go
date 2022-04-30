@@ -275,7 +275,7 @@ func client(config *clientConfig) {
 							"src": addr.String(),
 							"dst": reqAddr,
 						}).Debugf("TUN %s closed for timeout", strings.ToUpper(addr.Network()))
-					} else if err.Error() == "deadline exceeded" && strings.HasPrefix(addr.Network(), "tcp") {
+					} else if nErr, ok := err.(net.Error); ok && nErr.Timeout() && strings.HasPrefix(addr.Network(), "tcp") {
 						logrus.WithFields(logrus.Fields{
 							"src": addr.String(),
 							"dst": reqAddr,
