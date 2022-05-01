@@ -35,9 +35,11 @@ func (s *Server) relayTCP(clientConn, relayConn net.Conn) {
 	}
 	relayConn.Close()
 	clientConn.Close()
-	if closeErr != nil && closeErr.Error() == "deadline exceeded" {
-		if clientConn, ok := clientConn.(tun2socks.TCPConn); ok {
-			clientConn.Abort()
+	if closeErr != nil {
+		if err, ok := closeErr.(net.Error); ok && err.Timeout() {
+			if clientConn, ok := clientConn.(tun2socks.TCPConn); ok {
+				clientConn.Abort()
+			}
 		}
 	}
 }
