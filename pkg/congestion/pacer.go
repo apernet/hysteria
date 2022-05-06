@@ -16,10 +16,10 @@ type pacer struct {
 	budgetAtLastSent congestion.ByteCount
 	maxDatagramSize  congestion.ByteCount
 	lastSentTime     time.Time
-	getBandwidth     func() congestion.ByteCount // in bytes/s
+	getBandwidth     func(time.Time) congestion.ByteCount // in bytes/s
 }
 
-func newPacer(getBandwidth func() congestion.ByteCount) *pacer {
+func newPacer(getBandwidth func(time.Time) congestion.ByteCount) *pacer {
 	p := &pacer{
 		budgetAtLastSent: maxBurstPackets * initMaxDatagramSize,
 		maxDatagramSize:  initMaxDatagramSize,
@@ -40,15 +40,15 @@ func (p *pacer) SentPacket(sendTime time.Time, size congestion.ByteCount) {
 
 func (p *pacer) Budget(now time.Time) congestion.ByteCount {
 	if p.lastSentTime.IsZero() {
-		return p.maxBurstSize()
+		return p.maxBurstSize(now)
 	}
-	budget := p.budgetAtLastSent + (p.getBandwidth()*congestion.ByteCount(now.Sub(p.lastSentTime).Nanoseconds()))/1e9
-	return minByteCount(p.maxBurstSize(), budget)
+	budget := p.budgetAtLastSent + (p.getBandwidth(now)*congestion.ByteCount(now.Sub(p.lastSentTime).Nanoseconds()))/1e9
+	return minByteCount(p.maxBurstSize(now), budget)
 }
 
-func (p *pacer) maxBurstSize() congestion.ByteCount {
+func (p *pacer) maxBurstSize(now time.Time) congestion.ByteCount {
 	return maxByteCount(
-		congestion.ByteCount((minPacingDelay+time.Millisecond).Nanoseconds())*p.getBandwidth()/1e9,
+		congestion.ByteCount((minPacingDelay+time.Millisecond).Nanoseconds())*p.getBandwidth(now)/1e9,
 		maxBurstPackets*p.maxDatagramSize,
 	)
 }
@@ -61,7 +61,8 @@ func (p *pacer) TimeUntilSend() time.Time {
 	}
 	return p.lastSentTime.Add(maxDuration(
 		minPacingDelay,
-		time.Duration(math.Ceil(float64(p.maxDatagramSize-p.budgetAtLastSent)*1e9/float64(p.getBandwidth())))*time.Nanosecond,
+		time.Duration(math.Ceil(float64(p.maxDatagramSize-p.budgetAtLastSent)*1e9/
+			float64(p.getBandwidth(time.Now()))))*time.Nanosecond,
 	))
 }
 

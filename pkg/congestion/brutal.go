@@ -33,8 +33,8 @@ func NewBrutalSender(bps congestion.ByteCount) *BrutalSender {
 		bps:             bps,
 		maxDatagramSize: initMaxDatagramSize,
 	}
-	bs.pacer = newPacer(func() congestion.ByteCount {
-		return congestion.ByteCount(float64(bs.bps) / bs.getAckRate())
+	bs.pacer = newPacer(func(now time.Time) congestion.ByteCount {
+		return congestion.ByteCount(float64(bs.bps) / bs.getAckRate(now))
 	})
 	return bs
 }
@@ -60,7 +60,7 @@ func (b *BrutalSender) GetCongestionWindow() congestion.ByteCount {
 	if rtt <= 0 {
 		return 10240
 	}
-	return congestion.ByteCount(float64(b.bps) * rtt.Seconds() * 1.5 / b.getAckRate())
+	return congestion.ByteCount(float64(b.bps) * rtt.Seconds() * 1.5 / b.getAckRate(time.Now()))
 }
 
 func (b *BrutalSender) OnPacketSent(sentTime time.Time, bytesInFlight congestion.ByteCount,
@@ -101,8 +101,7 @@ func (b *BrutalSender) SetMaxDatagramSize(size congestion.ByteCount) {
 	b.pacer.SetMaxDatagramSize(size)
 }
 
-func (b *BrutalSender) getAckRate() float64 {
-	now := time.Now()
+func (b *BrutalSender) getAckRate(now time.Time) float64 {
 	currentTimestamp := now.Unix()
 	minTimestamp := currentTimestamp - pktInfoSlotCount
 	var ackCount, lossCount uint64
