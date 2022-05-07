@@ -30,7 +30,7 @@ jobs:
           TIME: "${{ steps.current-time.outputs.time }}"
         with:
           xgo_version: latest
-          go_version: 1.17
+          go_version: 1.18
           dest: dist
           prefix: hysteria
           targets: linux/amd64,linux/386,linux/arm-5,linux/arm-7,linux/arm64,linux/s390x,linux/mipsle,darwin-10.12/amd64,darwin-10.12/arm64,windows-6.0/amd64,windows-6.0/386
