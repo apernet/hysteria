@@ -25,6 +25,22 @@ const (
 	ProtocolUDP
 )
 
+var protocolPortAliases = map[string]string{
+	"echo":     "*/7",
+	"ftp-data": "*/20",
+	"ftp":      "*/21",
+	"ssh":      "*/22",
+	"telnet":   "*/23",
+	"domain":   "*/53",
+	"dns":      "*/53",
+	"http":     "*/80",
+	"sftp":     "*/115",
+	"ntp":      "*/123",
+	"https":    "*/443",
+	"quic":     "udp/443",
+	"socks":    "*/1080",
+}
+
 type Entry struct {
 	Action    Action
 	ActionArg string
@@ -55,6 +71,9 @@ func (m *matcherBase) MatchProtocolPort(p Protocol, port uint16) bool {
 }
 
 func parseProtocolPort(s string) (Protocol, uint16, error) {
+	if protocolPortAliases[s] != "" {
+		s = protocolPortAliases[s]
+	}
 	if len(s) == 0 || s == "*" {
 		return ProtocolAll, 0, nil
 	}
