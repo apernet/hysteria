@@ -10,7 +10,7 @@ const (
 
 	pktInfoSlotCount = 4
 	minSampleCount   = 50
-	minAckRate       = 0.75
+	minAckRate       = 0.8
 )
 
 type BrutalSender struct {
