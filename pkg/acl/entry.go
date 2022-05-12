@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/oschwald/geoip2-golang"
 	"net"
+	"strconv"
 	"strings"
 )
 
 type Action byte
+type Protocol byte
 
 const (
 	ActionDirect = Action(iota)
@@ -17,78 +19,153 @@ const (
 	ActionHijack
 )
 
+const (
+	ProtocolAll = Protocol(iota)
+	ProtocolTCP
+	ProtocolUDP
+)
+
+var protocolPortAliases = map[string]string{
+	"echo":     "*/7",
+	"ftp-data": "*/20",
+	"ftp":      "*/21",
+	"ssh":      "*/22",
+	"telnet":   "*/23",
+	"domain":   "*/53",
+	"dns":      "*/53",
+	"http":     "*/80",
+	"sftp":     "*/115",
+	"ntp":      "*/123",
+	"https":    "*/443",
+	"quic":     "udp/443",
+	"socks":    "*/1080",
+}
+
 type Entry struct {
-	Net       *net.IPNet
-	Domain    string
-	Suffix    bool
-	Country   string
-	All       bool
 	Action    Action
 	ActionArg string
+	Matcher   Matcher
 }
 
-func (e Entry) MatchDomain(domain string) bool {
-	if e.All {
-		return true
-	}
-	if len(e.Domain) > 0 && len(domain) > 0 {
-		ld := strings.ToLower(domain)
-		if e.Suffix {
-			return e.Domain == ld || strings.HasSuffix(ld, "."+e.Domain)
-		} else {
-			return e.Domain == ld
-		}
-	}
-	return false
+type MatchRequest struct {
+	IP     net.IP
+	Domain string
+
+	Protocol Protocol
+	Port     uint16
+
+	DB *geoip2.Reader
 }
 
-func (e Entry) MatchIP(ip net.IP, db *geoip2.Reader) bool {
-	if e.All {
-		return true
+type Matcher interface {
+	Match(MatchRequest) bool
+}
+
+type matcherBase struct {
+	Protocol Protocol
+	Port     uint16 // 0 for all ports
+}
+
+func (m *matcherBase) MatchProtocolPort(p Protocol, port uint16) bool {
+	return (m.Protocol == ProtocolAll || m.Protocol == p) && (m.Port == 0 || m.Port == port)
+}
+
+func parseProtocolPort(s string) (Protocol, uint16, error) {
+	if protocolPortAliases[s] != "" {
+		s = protocolPortAliases[s]
 	}
-	if ip == nil {
+	if len(s) == 0 || s == "*" {
+		return ProtocolAll, 0, nil
+	}
+	parts := strings.Split(s, "/")
+	if len(parts) != 2 {
+		return ProtocolAll, 0, errors.New("invalid protocol/port syntax")
+	}
+	protocol := ProtocolAll
+	switch parts[0] {
+	case "tcp":
+		protocol = ProtocolTCP
+	case "udp":
+		protocol = ProtocolUDP
+	case "*":
+		protocol = ProtocolAll
+	default:
+		return ProtocolAll, 0, errors.New("invalid protocol")
+	}
+	if parts[1] == "*" {
+		return protocol, 0, nil
+	}
+	port, err := strconv.ParseUint(parts[1], 10, 16)
+	if err != nil {
+		return ProtocolAll, 0, errors.New("invalid port")
+	}
+	return protocol, uint16(port), nil
+}
+
+type netMatcher struct {
+	matcherBase
+	Net *net.IPNet
+}
+
+func (m *netMatcher) Match(r MatchRequest) bool {
+	if r.IP == nil {
 		return false
 	}
-	if e.Net != nil {
-		return e.Net.Contains(ip)
-	}
-	if len(e.Country) > 0 && db != nil {
-		country, err := db.Country(ip)
-		if err != nil {
-			return false
-		}
-		return country.Country.IsoCode == e.Country
-	}
-	return false
+	return m.Net.Contains(r.IP) && m.MatchProtocolPort(r.Protocol, r.Port)
 }
 
-// Format: action cond_type cond arg
-// Examples:
-// proxy domain-suffix google.com
-// block ip 8.8.8.8
-// hijack cidr 192.168.1.1/24 127.0.0.1
+type domainMatcher struct {
+	matcherBase
+	Domain string
+	Suffix bool
+}
+
+func (m *domainMatcher) Match(r MatchRequest) bool {
+	if len(r.Domain) == 0 {
+		return false
+	}
+	domain := strings.ToLower(r.Domain)
+	return (m.Domain == domain || (m.Suffix && strings.HasSuffix(domain, "."+m.Domain))) &&
+		m.MatchProtocolPort(r.Protocol, r.Port)
+}
+
+type countryMatcher struct {
+	matcherBase
+	Country string // ISO 3166-1 alpha-2 country code, upper case
+}
+
+func (m *countryMatcher) Match(r MatchRequest) bool {
+	if r.IP == nil || r.DB == nil {
+		return false
+	}
+	c, err := r.DB.Country(r.IP)
+	if err != nil {
+		return false
+	}
+	return c.Country.IsoCode == m.Country && m.MatchProtocolPort(r.Protocol, r.Port)
+}
+
+type allMatcher struct {
+	matcherBase
+}
+
+func (m *allMatcher) Match(r MatchRequest) bool {
+	return m.MatchProtocolPort(r.Protocol, r.Port)
+}
+
+func (e Entry) Match(r MatchRequest) bool {
+	return e.Matcher.Match(r)
+}
+
 func ParseEntry(s string) (Entry, error) {
 	fields := strings.Fields(s)
 	if len(fields) < 2 {
-		return Entry{}, fmt.Errorf("expecting at least 2 fields, got %d", len(fields))
+		return Entry{}, fmt.Errorf("expected at least 2 fields, got %d", len(fields))
 	}
-	args := fields[1:]
-	if len(args) == 1 {
-		// Make sure there are at least 2 args
-		args = append(args, "")
-	}
-	ipNet, domain, suffix, country, all, err := parseCond(args[0], args[1])
-	if err != nil {
-		return Entry{}, err
-	}
-	e := Entry{
-		Net:     ipNet,
-		Domain:  domain,
-		Suffix:  suffix,
-		Country: country,
-		All:     all,
-	}
-	switch strings.ToLower(fields[0]) {
+	e := Entry{}
+	action := fields[0]
+	conds := fields[1:]
+	switch strings.ToLower(action) {
 	case "direct":
 		e.Action = ActionDirect
 	case "proxy":
@@ -96,59 +173,159 @@ func ParseEntry(s string) (Entry, error) {
 	case "block":
 		e.Action = ActionBlock
 	case "hijack":
-		if len(args) < 3 {
-			return Entry{}, fmt.Errorf("no hijack destination for %s %s", args[0], args[1])
+		if len(conds) < 2 {
+			return Entry{}, fmt.Errorf("hijack requires at least 3 fields, got %d", len(fields))
 		}
 		e.Action = ActionHijack
-		e.ActionArg = args[2]
+		e.ActionArg = conds[len(conds)-1]
+		conds = conds[:len(conds)-1]
 	default:
 		return Entry{}, fmt.Errorf("invalid action %s", fields[0])
 	}
+	m, err := condsToMatcher(conds)
+	if err != nil {
+		return Entry{}, err
+	}
+	e.Matcher = m
 	return e, nil
 }
 
-func parseCond(typ, cond string) (*net.IPNet, string, bool, string, bool, error) {
+func condsToMatcher(conds []string) (Matcher, error) {
+	if len(conds) < 1 {
+		return nil, errors.New("no condition specified")
+	}
+	typ, args := conds[0], conds[1:]
 	switch strings.ToLower(typ) {
 	case "domain":
-		if len(cond) == 0 {
-			return nil, "", false, "", false, errors.New("empty domain")
+		// domain <domain> <optional: protocol/port>
+		if len(args) == 0 || len(args) > 2 {
+			return nil, fmt.Errorf("invalid number of arguments for domain: %d, expected 1 or 2", len(args))
 		}
-		return nil, strings.ToLower(cond), false, "", false, nil
+		mb := matcherBase{}
+		if len(args) == 2 {
+			protocol, port, err := parseProtocolPort(args[1])
+			if err != nil {
+				return nil, err
+			}
+			mb.Protocol = protocol
+			mb.Port = port
+		}
+		return &domainMatcher{
+			matcherBase: mb,
+			Domain:      args[0],
+			Suffix:      false,
+		}, nil
 	case "domain-suffix":
-		if len(cond) == 0 {
-			return nil, "", false, "", false, errors.New("empty domain suffix")
+		// domain-suffix <domain> <optional: protocol/port>
+		if len(args) == 0 || len(args) > 2 {
+			return nil, fmt.Errorf("invalid number of arguments for domain-suffix: %d, expected 1 or 2", len(args))
 		}
-		return nil, strings.ToLower(cond), true, "", false, nil
+		mb := matcherBase{}
+		if len(args) == 2 {
+			protocol, port, err := parseProtocolPort(args[1])
+			if err != nil {
+				return nil, err
+			}
+			mb.Protocol = protocol
+			mb.Port = port
+		}
+		return &domainMatcher{
+			matcherBase: mb,
+			Domain:      args[0],
+			Suffix:      true,
+		}, nil
 	case "cidr":
-		_, ipNet, err := net.ParseCIDR(cond)
+		// cidr <cidr> <optional: protocol/port>
+		if len(args) == 0 || len(args) > 2 {
+			return nil, fmt.Errorf("invalid number of arguments for cidr: %d, expected 1 or 2", len(args))
+		}
+		mb := matcherBase{}
+		if len(args) == 2 {
+			protocol, port, err := parseProtocolPort(args[1])
+			if err != nil {
+				return nil, err
+			}
+			mb.Protocol = protocol
+			mb.Port = port
+		}
+		_, ipNet, err := net.ParseCIDR(args[0])
 		if err != nil {
-			return nil, "", false, "", false, err
+			return nil, err
 		}
-		return ipNet, "", false, "", false, nil
+		return &netMatcher{
+			matcherBase: mb,
+			Net:         ipNet,
+		}, nil
 	case "ip":
-		ip := net.ParseIP(cond)
-		if ip == nil {
-			return nil, "", false, "", false, fmt.Errorf("invalid ip %s", cond)
+		// ip <ip> <optional: protocol/port>
+		if len(args) == 0 || len(args) > 2 {
+			return nil, fmt.Errorf("invalid number of arguments for ip: %d, expected 1 or 2", len(args))
 		}
+		mb := matcherBase{}
+		if len(args) == 2 {
+			protocol, port, err := parseProtocolPort(args[1])
+			if err != nil {
+				return nil, err
+			}
+			mb.Protocol = protocol
+			mb.Port = port
+		}
+		ip := net.ParseIP(args[0])
+		if ip == nil {
+			return nil, fmt.Errorf("invalid ip: %s", args[0])
+		}
+		var ipNet *net.IPNet
 		if ip.To4() != nil {
-			return &net.IPNet{
+			ipNet = &net.IPNet{
 				IP:   ip,
 				Mask: net.CIDRMask(32, 32),
-			}, "", false, "", false, nil
+			}
 		} else {
-			return &net.IPNet{
+			ipNet = &net.IPNet{
 				IP:   ip,
 				Mask: net.CIDRMask(128, 128),
-			}, "", false, "", false, nil
+			}
 		}
+		return &netMatcher{
+			matcherBase: mb,
+			Net:         ipNet,
+		}, nil
 	case "country":
-		if len(cond) == 0 {
-			return nil, "", false, "", false, errors.New("empty country")
+		// country <country> <optional: protocol/port>
+		if len(args) == 0 || len(args) > 2 {
+			return nil, fmt.Errorf("invalid number of arguments for country: %d, expected 1 or 2", len(args))
 		}
-		return nil, "", false, strings.ToUpper(cond), false, nil
+		mb := matcherBase{}
+		if len(args) == 2 {
+			protocol, port, err := parseProtocolPort(args[1])
+			if err != nil {
+				return nil, err
+			}
+			mb.Protocol = protocol
+			mb.Port = port
+		}
+		return &countryMatcher{
+			matcherBase: mb,
+			Country:     strings.ToUpper(args[0]),
+		}, nil
 	case "all":
-		return nil, "", false, "", true, nil
+		// all <optional: protocol/port>
+		if len(args) > 1 {
+			return nil, fmt.Errorf("invalid number of arguments for all: %d, expected 0 or 1", len(args))
+		}
+		mb := matcherBase{}
+		if len(args) == 1 {
+			protocol, port, err := parseProtocolPort(args[0])
+			if err != nil {
+				return nil, err
+			}
+			mb.Protocol = protocol
+			mb.Port = port
+		}
+		return &allMatcher{
+			matcherBase: mb,
+		}, nil
 	default:
-		return nil, "", false, "", false, fmt.Errorf("invalid condition type %s", typ)
+		return nil, fmt.Errorf("invalid condition type: %s", typ)
 	}
 }

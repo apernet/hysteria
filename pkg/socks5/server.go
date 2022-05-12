@@ -171,7 +171,7 @@ func (s *Server) handleTCP(c *net.TCPConn, r *socks5.Request) error {
 	var ipAddr *net.IPAddr
 	var resErr error
 	if s.ACLEngine != nil {
-		action, arg, _, ipAddr, resErr = s.ACLEngine.ResolveAndMatch(host)
+		action, arg, _, ipAddr, resErr = s.ACLEngine.ResolveAndMatch(host, port, false)
 		// Doesn't always matter if the resolution fails, as we may send it through HyClient
 	}
 	s.TCPRequestFunc(c.RemoteAddr(), addr, action, arg)
@@ -377,7 +377,7 @@ func (s *Server) udpServer(clientConn *net.UDPConn, localRelayConn *net.UDPConn,
 		var ipAddr *net.IPAddr
 		var resErr error
 		if s.ACLEngine != nil && localRelayConn != nil {
-			action, arg, _, ipAddr, resErr = s.ACLEngine.ResolveAndMatch(host)
+			action, arg, _, ipAddr, resErr = s.ACLEngine.ResolveAndMatch(host, port, true)
 			// Doesn't always matter if the resolution fails, as we may send it through HyClient
 		}
 		// Handle according to the action

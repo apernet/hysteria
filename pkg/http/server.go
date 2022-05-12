@@ -34,7 +34,7 @@ func NewProxyHTTPServer(hyClient *core.Client, transport *transport.ClientTransp
 			var ipAddr *net.IPAddr
 			var resErr error
 			if aclEngine != nil {
-				action, arg, _, ipAddr, resErr = aclEngine.ResolveAndMatch(host)
+				action, arg, _, ipAddr, resErr = aclEngine.ResolveAndMatch(host, port, false)
 				// Doesn't always matter if the resolution fails, as we may send it through HyClient
 			}
 			newDialFunc(addr, action, arg)
