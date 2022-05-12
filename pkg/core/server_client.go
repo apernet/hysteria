@@ -158,7 +158,7 @@ func (c *serverClient) handleMessage(msg []byte) {
 		var ipAddr *net.IPAddr
 		var err error
 		if c.ACLEngine != nil {
-			action, arg, isDomain, ipAddr, err = c.ACLEngine.ResolveAndMatch(dfMsg.Host)
+			action, arg, isDomain, ipAddr, err = c.ACLEngine.ResolveAndMatch(dfMsg.Host, dfMsg.Port, true)
 		} else {
 			ipAddr, isDomain, err = c.Transport.ResolveIPAddr(dfMsg.Host)
 		}
@@ -208,7 +208,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 	var ipAddr *net.IPAddr
 	var err error
 	if c.ACLEngine != nil {
-		action, arg, isDomain, ipAddr, err = c.ACLEngine.ResolveAndMatch(host)
+		action, arg, isDomain, ipAddr, err = c.ACLEngine.ResolveAndMatch(host, port, false)
 	} else {
 		ipAddr, isDomain, err = c.Transport.ResolveIPAddr(host)
 	}
