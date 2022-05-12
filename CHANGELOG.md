@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.4
+
+- ~10% CPU usage reduction
+- Improve performance when packet loss is high
+- New ACL syntax to support protocol/port
+
 ## 1.0.3
 
 - New string-based speed (up/down) options
