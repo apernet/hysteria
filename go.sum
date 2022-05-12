@@ -497,8 +497,8 @@ github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/subosito/gotenv v1.2.0 h1:Slr1R9HxAlEKefgq5jn9U+DnETlIUa6HfgEzj0g5d7s=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07/go.mod h1:kDXzergiv9cbyO7IOYJZWg1U88JhDg3PB6klq9Hg2pA=
-github.com/tobyxdd/quic-go v0.27.1-0.20220414074155-271e5f3ac478 h1:/6nptMH0dGAsaE4/ai70AyOmhRlPBy+lAcvw3x8T0m4=
-github.com/tobyxdd/quic-go v0.27.1-0.20220414074155-271e5f3ac478/go.mod h1:AzgQoPda7N+3IqMMMkywBKggIFo2KT6pfnlrQ2QieeI=
+github.com/tobyxdd/quic-go v0.27.1-0.20220512040129-ed2a645d9218 h1:0DEghzcIfYe+7HTuI+zEd/5M+5c/gcepjJWGdcPPIrc=
+github.com/tobyxdd/quic-go v0.27.1-0.20220512040129-ed2a645d9218/go.mod h1:AzgQoPda7N+3IqMMMkywBKggIFo2KT6pfnlrQ2QieeI=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
 github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf h1:7PflaKRtU4np/epFxRXlFhlzLXZzKFrH5/I4so5Ove0=
 github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf/go.mod h1:CLUSJbazqETbaR+i0YAhXBICV9TrKH93pziccMhmhpM=
