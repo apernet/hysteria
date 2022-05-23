@@ -6,6 +6,12 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"math/rand"
+	"net"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/lunixbochs/struc"
@@ -13,11 +19,6 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
-	"math/rand"
-	"net"
-	"strconv"
-	"sync"
-	"time"
 )
 
 var (
@@ -181,6 +182,20 @@ func (c *Client) openStreamWithReconnect() (quic.Connection, quic.Stream, error)
 	// We are not going to try again even if it still fails the second time
 	stream, err = c.quicSession.OpenStream()
 	return c.quicSession, &wrappedQUICStream{stream}, err
+}
+
+// Implement Pluggable Transport Client interface
+func (c *Client) Dial() (net.Conn, error) {
+	session, stream, err := c.openStreamWithReconnect()
+	if err != nil {
+		return nil, err
+	}
+
+	return &quicConn{
+		Orig:             stream,
+		PseudoLocalAddr:  session.LocalAddr(),
+		PseudoRemoteAddr: session.RemoteAddr(),
+	}, nil
 }
 
 func (c *Client) DialTCP(addr string) (net.Conn, error) {

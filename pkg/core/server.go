@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
+
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"
@@ -12,7 +14,6 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
 	"github.com/tobyxdd/hysteria/pkg/transport"
-	"net"
 )
 
 type ConnectFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
@@ -40,6 +41,11 @@ type Server struct {
 	connGaugeVec                 *prometheus.GaugeVec
 
 	listener quic.Listener
+}
+
+type TransportListener struct {
+	ql quic.Listener
+	s  *Server
 }
 
 func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *quic.Config, transport *transport.ServerTransport,
@@ -172,4 +178,80 @@ func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]
 		cs.SetCongestionControl(s.congestionFactory(serverSendBPS))
 	}
 	return ch.Auth, ok, vb[0] == protocolVersionV2, nil
+}
+
+// Implement Pluggable Transport Server interface
+func (tl *TransportListener) Listen() (net.Listener, error) {
+	return tl, nil
+}
+
+// Addr returns the listener's network address.
+func (tl *TransportListener) Addr() net.Addr {
+	return tl.ql.Addr()
+}
+
+// Close closes the listener.
+// Any blocked Accept operations will be unblocked and return errors.
+func (tl *TransportListener) Close() error {
+	return tl.ql.Close()
+}
+
+func (tl *TransportListener) Accept() (conn net.Conn, err error) {
+	for {
+		cs, err := tl.ql.Accept(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		go func() {
+			// Expect the client to create a control stream to send its own information
+			ctx, ctxCancel := context.WithTimeout(context.Background(), protocolTimeout)
+			stream, err := cs.AcceptStream(ctx)
+			ctxCancel()
+			if err != nil {
+				_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
+				return
+			}
+			// Handle the control stream
+			auth, ok, v2, err := tl.s.handleControlStream(cs, stream)
+			if err != nil {
+				_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
+				return
+			}
+			if !ok {
+				_ = cs.CloseWithError(closeErrorCodeAuth, "auth error")
+				return
+			}
+			// Start accepting streams and messages
+			sc := newServerClient(v2, cs, tl.s.transport, auth, tl.s.disableUDP, tl.s.aclEngine,
+				tl.s.tcpRequestFunc, tl.s.tcpErrorFunc, tl.s.udpRequestFunc, tl.s.udpErrorFunc,
+				tl.s.upCounterVec, tl.s.downCounterVec, tl.s.connGaugeVec)
+
+			if !sc.DisableUDP {
+				go func() {
+					for {
+						msg, err := sc.CS.ReceiveMessage()
+						if err != nil {
+							break
+						}
+						sc.handleMessage(msg)
+					}
+				}()
+			}
+			for {
+				stream, err := sc.CS.AcceptStream(context.Background())
+				if err != nil {
+					return
+				}
+
+				conn = &quicConn{
+					Orig:             stream,
+					PseudoLocalAddr:  cs.LocalAddr(),
+					PseudoRemoteAddr: cs.RemoteAddr(),
+				}
+
+				return
+			}
+		}()
+	}
+
 }
