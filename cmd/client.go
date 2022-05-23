@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
+	"github.com/tobyxdd/hysteria/pkg/tunconf"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
 	"io/ioutil"
@@ -287,6 +288,32 @@ func client(config *clientConfig) {
 							"dst":   reqAddr,
 						}).Infof("TUN %s error", strings.ToUpper(addr.Network()))
 					}
+				}
+			}
+			if config.TUN.Address != "" {
+				ip := net.ParseIP(config.TUN.Address)
+				if ip == nil {
+					logrus.WithField("address", config.TUN.Address).Fatal("Failed to parse TUN address")
+				}
+				ip = ip.To4()
+				if ip == nil {
+					logrus.WithField("address", config.TUN.Address).Fatal("Failed to parse TUN address as ipv4")
+				}
+				var mask net.IP
+				if config.TUN.Mask != "" {
+					mask = net.ParseIP(config.TUN.Mask)
+					if mask == nil {
+						logrus.WithField("mask", config.TUN.Mask).Fatal("Failed to parse TUN mask")
+					}
+					mask = mask.To4()
+					if mask == nil {
+						logrus.WithField("mask", config.TUN.Mask).Fatal("Failed to parse TUN mask as ipv4")
+					}
+				}
+
+				err = tunconf.SetAddress(config.TUN.Name, ip, mask)
+				if err != nil {
+					logrus.WithField("error", err).Fatal("Failed to set TUN address")
 				}
 			}
 			errChan <- tunServer.ListenAndServe()
