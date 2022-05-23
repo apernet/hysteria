@@ -15,6 +15,7 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
+	"github.com/tobyxdd/hysteria/pkg/sockopt"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
@@ -162,6 +163,33 @@ func server(config *serverConfig) {
 			}).Fatal("Failed to initialize SOCKS5 outbound")
 		}
 		transport.DefaultServerTransport.SOCKS5Client = ob
+	}
+	// socket settings
+	if config.SocketConfig.BindToDevice != "" {
+		iface, err := net.InterfaceByName(config.SocketConfig.BindToDevice)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to get bind_to_device")
+		}
+		transport.DefaultServerTransport.Intf = iface
+		sockopt.BindDialer(transport.DefaultServerTransport.Dialer, iface)
+	}
+	if config.SocketConfig.BindAddress != "" {
+		ip := net.ParseIP(config.SocketConfig.BindAddress)
+		if ip == nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to parse bind_address")
+		}
+		transport.DefaultServerTransport.Dialer.LocalAddr = &net.TCPAddr{
+			IP:   ip,
+			Port: 0,
+		}
+		transport.DefaultServerTransport.LocalAddrUDP = &net.UDPAddr{
+			IP:   ip,
+			Port: 0,
+		}
 	}
 	// ACL
 	var aclEngine *acl.Engine
