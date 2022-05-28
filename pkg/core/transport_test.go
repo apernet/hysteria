@@ -20,7 +20,7 @@ import (
 
 // Configs for testing
 const (
-	server_addr      = ":2345"
+	server_addr      = "localhost:2345"
 	protocol         = ""
 	certFile         = "../../hysteria.server.crt"
 	keyFile          = "../../hysteria.server.key"
@@ -28,6 +28,7 @@ const (
 	auth_str         = "da5438aaa690a5748eb59de8f7bedcb0"
 	client_up_mbps   = 20
 	client_down_mbps = 1000
+	server_name      = "www.0e6e852f62bbeb99.com"
 	test_data        = "Here we go!"
 	customCA         = "../../hysteria.ca.crt"
 )
@@ -69,6 +70,7 @@ func runServer(obfuscator *obfs.XPlusObfuscator) error {
 	var serverTlsConfig = &tls.Config{
 		Certificates: []tls.Certificate{cer},
 		MinVersion:   tls.VersionTLS13,
+		NextProtos:   []string{DefaultALPN},
 	}
 
 	// QUIC config
@@ -136,6 +138,7 @@ func runClient(obfuscator *obfs.XPlusObfuscator) error {
 		InsecureSkipVerify: false,
 		MinVersion:         tls.VersionTLS13,
 		NextProtos:         []string{DefaultALPN},
+		ServerName:         server_name,
 	}
 	bs, err := ioutil.ReadFile(customCA)
 	if err != nil {
@@ -172,6 +175,8 @@ func runClient(obfuscator *obfs.XPlusObfuscator) error {
 		return err
 	}
 
+	fmt.Println("Client up and running")
+
 	clientConn, err := client.Dial()
 
 	if err != nil {
@@ -179,7 +184,6 @@ func runClient(obfuscator *obfs.XPlusObfuscator) error {
 		return err
 	}
 
-	clientConn.Write([]byte(test_data))
 	//write data from clientConn for server to read
 	_, clientWriteErr := clientConn.Write([]byte(test_data))
 	return clientWriteErr
