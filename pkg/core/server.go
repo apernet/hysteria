@@ -43,9 +43,19 @@ type Server struct {
 	listener quic.Listener
 }
 
-type TransportListener struct {
-	ql quic.Listener
-	s  *Server
+type HysteriaTransport struct {
+	addr              string
+	protocol          string
+	tlsConfig         *tls.Config
+	quicConfig        *quic.Config
+	transport         *transport.ServerTransport
+	sendBPS           uint64
+	recvBPS           uint64
+	congestionFactory CongestionFactory
+	disableUDP        bool
+	obfuscator        obfs.Obfuscator
+	connectFunc       ConnectFunc
+	disconnectFunc    DisconnectFunc
 }
 
 func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *quic.Config, transport *transport.ServerTransport,
@@ -98,6 +108,8 @@ func (s *Server) Serve() error {
 	}
 }
 
+// Close closes the listener.
+// Any blocked Accept operations will be unblocked and return errors.
 func (s *Server) Close() error {
 	return s.listener.Close()
 }
@@ -181,24 +193,33 @@ func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]
 }
 
 // Implement Pluggable Transport Server interface
-func (tl *TransportListener) Listen() (net.Listener, error) {
-	return tl, nil
+func (t *HysteriaTransport) Listen() (net.Listener, error) {
+	listener, err := t.transport.QUICListen(t.protocol, t.addr, t.tlsConfig, t.quicConfig, t.obfuscator)
+	if err != nil {
+		return nil, err
+	}
+	s := &Server{
+		listener:          listener,
+		transport:         t.transport,
+		sendBPS:           t.sendBPS,
+		recvBPS:           t.recvBPS,
+		congestionFactory: t.congestionFactory,
+		disableUDP:        t.disableUDP,
+		connectFunc:       t.connectFunc,
+		disconnectFunc:    t.disconnectFunc,
+	}
+
+	return s, nil
 }
 
 // Addr returns the listener's network address.
-func (tl *TransportListener) Addr() net.Addr {
-	return tl.ql.Addr()
+func (s *Server) Addr() net.Addr {
+	return s.listener.Addr()
 }
 
-// Close closes the listener.
-// Any blocked Accept operations will be unblocked and return errors.
-func (tl *TransportListener) Close() error {
-	return tl.ql.Close()
-}
-
-func (tl *TransportListener) Accept() (conn net.Conn, err error) {
+func (s *Server) Accept() (conn net.Conn, err error) {
 	for {
-		cs, err := tl.ql.Accept(context.Background())
+		cs, err := s.listener.Accept(context.Background())
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +233,7 @@ func (tl *TransportListener) Accept() (conn net.Conn, err error) {
 				return
 			}
 			// Handle the control stream
-			auth, ok, v2, err := tl.s.handleControlStream(cs, stream)
+			auth, ok, v2, err := s.handleControlStream(cs, stream)
 			if err != nil {
 				_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
 				return
@@ -222,9 +243,9 @@ func (tl *TransportListener) Accept() (conn net.Conn, err error) {
 				return
 			}
 			// Start accepting streams and messages
-			sc := newServerClient(v2, cs, tl.s.transport, auth, tl.s.disableUDP, tl.s.aclEngine,
-				tl.s.tcpRequestFunc, tl.s.tcpErrorFunc, tl.s.udpRequestFunc, tl.s.udpErrorFunc,
-				tl.s.upCounterVec, tl.s.downCounterVec, tl.s.connGaugeVec)
+			sc := newServerClient(v2, cs, s.transport, auth, s.disableUDP, s.aclEngine,
+				s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc,
+				s.upCounterVec, s.downCounterVec, s.connGaugeVec)
 
 			if !sc.DisableUDP {
 				go func() {
@@ -253,5 +274,4 @@ func (tl *TransportListener) Accept() (conn net.Conn, err error) {
 			}
 		}()
 	}
-
 }
