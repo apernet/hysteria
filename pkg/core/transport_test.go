@@ -80,7 +80,7 @@ func runServer(obfuscator *obfs.XPlusObfuscator) error {
 		MaxConnectionReceiveWindow:     DefaultConnectionReceiveWindow,
 		MaxIncomingStreams:             DefaultMaxIncomingStreams, // Client doesn't need this
 		KeepAlive:                      true,
-		DisablePathMTUDiscovery:        true, // @TODO: not sure what does this mean yet
+		DisablePathMTUDiscovery:        false,
 		EnableDatagrams:                true,
 	}
 
@@ -196,7 +196,9 @@ func runClient(obfuscator *obfs.XPlusObfuscator) error {
 	}
 
 	//write data from clientConn for server to read
-	_, clientWriteErr := clientConn.Write([]byte(test_data))
+	n, clientWriteErr := clientConn.Write([]byte(test_data))
+	fmt.Println("Wrote: ", n)
+	time.Sleep(time.Second * 20)
 	return clientWriteErr
 }
 
