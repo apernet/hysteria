@@ -3,6 +3,7 @@ package core
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -23,12 +24,13 @@ const (
 	protocol         = ""
 	certFile         = "../../hysteria.server.crt"
 	keyFile          = "../../hysteria.server.key"
-	obfs_str         = "f561508f56ed"
-	auth_str         = "da5438aaa690a5748eb59de8f7bedcb0"
+	obfs_str         = "c561508f56ed"
+	auth_str         = "ga5438aaa690a5748eb59de8f7bedcb0"
 	client_up_mbps   = 20
 	client_down_mbps = 1000
 	server_name      = "www.0e6e852f62bbeb99.com"
-	test_data        = "Here we go!"
+	test_request     = "Here we go!"
+	test_response    = "You got it."
 	customCA         = "../../hysteria.ca.crt"
 )
 
@@ -125,21 +127,30 @@ func runServer(obfuscator *obfs.XPlusObfuscator) error {
 
 	fmt.Println("Server up and running")
 
-	for {
-		serverConn, err := l.Accept()
-		serverBuffer := make([]byte, len(test_data))
-		_, err = serverConn.Read(serverBuffer)
+	serverConn, err := l.Accept()
+	defer serverConn.Close()
 
-		if err != nil {
-			return err
-		}
-
-		s := string(serverBuffer)
-		if s == test_data {
-			serverConn.Close()
-			return nil
-		}
+	if err != nil {
+		return err
 	}
+
+	serverBuffer := make([]byte, len(test_request))
+	serverConn.SetReadDeadline(time.Now().Add(time.Second * 20))
+	_, err = serverConn.Read(serverBuffer)
+
+	if err != nil {
+		return err
+	}
+
+	s := string(serverBuffer)
+	if s == test_request {
+		serverConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+		serverConn.Write([]byte(test_response))
+		serverConn.Close()
+		return nil
+	}
+
+	return errors.New("Something is wrong")
 }
 
 // Simulate a client
@@ -173,7 +184,7 @@ func runClient(obfuscator *obfs.XPlusObfuscator) error {
 		InitialConnectionReceiveWindow: DefaultConnectionReceiveWindow,
 		MaxConnectionReceiveWindow:     DefaultConnectionReceiveWindow,
 		KeepAlive:                      true,
-		DisablePathMTUDiscovery:        true, // @TODO: not sure what does this mean yet
+		DisablePathMTUDiscovery:        false,
 		EnableDatagrams:                true,
 	}
 
@@ -187,19 +198,26 @@ func runClient(obfuscator *obfs.XPlusObfuscator) error {
 	}
 
 	fmt.Println("Client up and running")
-
 	clientConn, err := client.Dial()
+	defer clientConn.Close()
 
 	if err != nil {
 		fmt.Println("Failed to connect to the server")
 		return err
 	}
 
-	//write data from clientConn for server to read
-	n, clientWriteErr := clientConn.Write([]byte(test_data))
-	fmt.Println("Wrote: ", n)
-	time.Sleep(time.Second * 20)
-	return clientWriteErr
+	// write data from clientConn for server to read
+	clientConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+	_, err = clientConn.Write([]byte(test_request))
+	clientBuffer := make([]byte, len(test_response))
+	clientConn.SetReadDeadline(time.Now().Add(time.Second * 10))
+	_, err = clientConn.Read(clientBuffer)
+	s := string(clientBuffer)
+	if s == test_response {
+		return nil
+	}
+
+	return err
 }
 
 // Below are default functions copied from cmd/server.go or cmd/client.go

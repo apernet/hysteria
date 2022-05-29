@@ -217,61 +217,36 @@ func (s *Server) Addr() net.Addr {
 	return s.listener.Addr()
 }
 
-func (s *Server) Accept() (conn net.Conn, err error) {
-	for {
-		cs, err := s.listener.Accept(context.Background())
-		if err != nil {
-			return nil, err
-		}
-		go func() {
-			// Expect the client to create a control stream to send its own information
-			ctx, ctxCancel := context.WithTimeout(context.Background(), protocolTimeout)
-			stream, err := cs.AcceptStream(ctx)
-			ctxCancel()
-			if err != nil {
-				_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
-				return
-			}
-			// Handle the control stream
-			auth, ok, v2, err := s.handleControlStream(cs, stream)
-			if err != nil {
-				_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
-				return
-			}
-			if !ok {
-				_ = cs.CloseWithError(closeErrorCodeAuth, "auth error")
-				return
-			}
-			// Start accepting streams and messages
-			sc := newServerClient(v2, cs, s.transport, auth, s.disableUDP, s.aclEngine,
-				s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc,
-				s.upCounterVec, s.downCounterVec, s.connGaugeVec)
-
-			if !sc.DisableUDP {
-				go func() {
-					for {
-						msg, err := sc.CS.ReceiveMessage()
-						if err != nil {
-							break
-						}
-						sc.handleMessage(msg)
-					}
-				}()
-			}
-			for {
-				stream, err := sc.CS.AcceptStream(context.Background())
-				if err != nil {
-					return
-				}
-
-				conn = &quicConn{
-					Orig:             stream,
-					PseudoLocalAddr:  cs.LocalAddr(),
-					PseudoRemoteAddr: cs.RemoteAddr(),
-				}
-
-				return
-			}
-		}()
+func (s *Server) Accept() (net.Conn, error) {
+	cs, err := s.listener.Accept(context.Background())
+	if err != nil {
+		return nil, err
 	}
+	// Expect the client to create a control stream to send its own information
+	ctx, ctxCancel := context.WithTimeout(context.Background(), protocolTimeout)
+	stream, err := cs.AcceptStream(ctx)
+	ctxCancel()
+	if err != nil {
+		_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
+		return nil, err
+	}
+	// Handle the control stream
+	_, ok, _, err := s.handleControlStream(cs, stream)
+	if err != nil {
+		_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
+		return nil, err
+	}
+	if !ok {
+		_ = cs.CloseWithError(closeErrorCodeAuth, "auth error")
+		return nil, err
+	}
+
+	// Start accepting streams
+	conn := &quicConn{
+		Orig:             stream,
+		PseudoLocalAddr:  cs.LocalAddr(),
+		PseudoRemoteAddr: cs.RemoteAddr(),
+	}
+
+	return conn, nil
 }
