@@ -243,19 +243,17 @@ func (s *Server) Accept() (net.Conn, error) {
 	// Close the control stream
 	stream.Close()
 
-	for {
-		// Start accepting data streams
-		stream, err = cs.AcceptStream(context.Background())
-		if err != nil {
-			return nil, err
-		}
-
-		conn := &quicConn{
-			Orig:             stream,
-			PseudoLocalAddr:  cs.LocalAddr(),
-			PseudoRemoteAddr: cs.RemoteAddr(),
-		}
-
-		return conn, nil
+	// Accept the next stream
+	stream, err = cs.AcceptStream(context.Background())
+	if err != nil {
+		return nil, err
 	}
+
+	conn := &quicConn{
+		Orig:             stream,
+		PseudoLocalAddr:  cs.LocalAddr(),
+		PseudoRemoteAddr: cs.RemoteAddr(),
+	}
+
+	return conn, nil
 }

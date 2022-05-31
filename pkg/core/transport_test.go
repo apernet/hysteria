@@ -52,7 +52,6 @@ func TestE2E(t *testing.T) {
 
 	go runServer(obfuscator)
 
-	time.Sleep(time.Second * 5)
 	err := runClient(obfuscator)
 	if err != nil {
 		t.Fail()
@@ -134,8 +133,9 @@ func runServer(obfuscator *obfs.XPlusObfuscator) error {
 		return err
 	}
 
+	time.Sleep(time.Second * 2)
 	serverBuffer := make([]byte, len(test_request))
-	serverConn.SetReadDeadline(time.Now().Add(time.Second * 20))
+	fmt.Println("Server starts reading from connection")
 	_, err = serverConn.Read(serverBuffer)
 
 	if err != nil {
@@ -144,10 +144,10 @@ func runServer(obfuscator *obfs.XPlusObfuscator) error {
 
 	s := string(serverBuffer)
 	if s == test_request {
-		serverConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
-		serverConn.Write([]byte(test_response))
-		serverConn.Close()
-		return nil
+		fmt.Println("Server received the expected data from the client")
+		_, err = serverConn.Write([]byte(test_response))
+		fmt.Println("Server sent the response to the client")
+		return err
 	}
 
 	return errors.New("Something is wrong")
@@ -197,8 +197,8 @@ func runClient(obfuscator *obfs.XPlusObfuscator) error {
 		return err
 	}
 
-	fmt.Println("Client up and running")
 	clientConn, err := client.Dial()
+	fmt.Println("Client up and running")
 	defer clientConn.Close()
 
 	if err != nil {
@@ -207,13 +207,20 @@ func runClient(obfuscator *obfs.XPlusObfuscator) error {
 	}
 
 	// write data from clientConn for server to read
-	clientConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+	time.Sleep(time.Second * 2)
 	_, err = clientConn.Write([]byte(test_request))
+	if err != nil {
+		return err
+	}
+	fmt.Println("Client sent the data to the server")
+
+	time.Sleep(time.Second * 5)
 	clientBuffer := make([]byte, len(test_response))
-	clientConn.SetReadDeadline(time.Now().Add(time.Second * 10))
+	fmt.Println("Client starts reading from connection")
 	_, err = clientConn.Read(clientBuffer)
 	s := string(clientBuffer)
 	if s == test_response {
+		fmt.Println("Client received the expected response from the server")
 		return nil
 	}
 
