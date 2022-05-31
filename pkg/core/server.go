@@ -240,13 +240,22 @@ func (s *Server) Accept() (net.Conn, error) {
 		_ = cs.CloseWithError(closeErrorCodeAuth, "auth error")
 		return nil, err
 	}
+	// Close the control stream
+	stream.Close()
 
-	// Start accepting streams
-	conn := &quicConn{
-		Orig:             stream,
-		PseudoLocalAddr:  cs.LocalAddr(),
-		PseudoRemoteAddr: cs.RemoteAddr(),
+	for {
+		// Start accepting data streams
+		stream, err = cs.AcceptStream(context.Background())
+		if err != nil {
+			return nil, err
+		}
+
+		conn := &quicConn{
+			Orig:             stream,
+			PseudoLocalAddr:  cs.LocalAddr(),
+			PseudoRemoteAddr: cs.RemoteAddr(),
+		}
+
+		return conn, nil
 	}
-
-	return conn, nil
 }
