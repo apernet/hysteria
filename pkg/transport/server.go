@@ -21,8 +21,8 @@ type ServerTransport struct {
 	PrefEnabled   bool
 	PrefIPv6      bool
 	PrefExclusive bool
-	LocalAddrUDP  *net.UDPAddr
-	Intf          *net.Interface
+	LocalUDPAddr  *net.UDPAddr
+	LocalUDPIntf  *net.Interface
 }
 
 // AddrEx is like net.TCPAddr or net.UDPAddr, but with additional domain information for SOCKS5.
@@ -167,12 +167,12 @@ func (st *ServerTransport) ListenUDP() (PUDPConn, error) {
 	if st.SOCKS5Client != nil {
 		return st.SOCKS5Client.ListenUDP()
 	} else {
-		conn, err := net.ListenUDP("udp", st.LocalAddrUDP)
+		conn, err := net.ListenUDP("udp", st.LocalUDPAddr)
 		if err != nil {
 			return nil, err
 		}
-		if st.Intf != nil {
-			err = sockopt.BindUDPConn("udp", conn, st.Intf)
+		if st.LocalUDPIntf != nil {
+			err = sockopt.BindUDPConn("udp", conn, st.LocalUDPIntf)
 			if err != nil {
 				conn.Close()
 				return nil, err

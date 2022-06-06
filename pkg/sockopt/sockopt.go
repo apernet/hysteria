@@ -5,7 +5,7 @@ import (
 	"syscall"
 )
 
-//https://github.com/v2fly/v2ray-core/blob/4e247840821f3dd326722d4db02ee3c237074fc2/transport/internet/config.pb.go#L420-L426
+// https://github.com/v2fly/v2ray-core/blob/4e247840821f3dd326722d4db02ee3c237074fc2/transport/internet/config.pb.go#L420-L426
 
 func BindDialer(d *net.Dialer, intf *net.Interface) {
 	d.Control = func(network, address string, c syscall.RawConn) error {

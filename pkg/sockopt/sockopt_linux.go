@@ -8,9 +8,15 @@ import (
 )
 
 func bindRawConn(network string, c syscall.RawConn, bindIface *net.Interface) error {
-	return c.Control(func(fd uintptr) {
+	var err1, err2 error
+	err1 = c.Control(func(fd uintptr) {
 		if bindIface != nil {
-			unix.BindToDevice(int(fd), bindIface.Name)
+			err2 = unix.BindToDevice(int(fd), bindIface.Name)
 		}
 	})
+	if err1 != nil {
+		return err1
+	} else {
+		return err2
+	}
 }
