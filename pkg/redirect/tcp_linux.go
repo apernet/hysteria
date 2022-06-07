@@ -8,12 +8,6 @@ import (
 	"net"
 	"syscall"
 	"time"
-	"unsafe"
-)
-
-const (
-	SO_ORIGINAL_DST      = 80
-	IP6T_SO_ORIGINAL_DST = 80
 )
 
 type TCPRedirect struct {
@@ -74,33 +68,15 @@ func (r *TCPRedirect) ListenAndServe() error {
 	}
 }
 
-type sockAddr struct {
-	family uint16
-	port   [2]byte  // big endian regardless of host byte order
-	data   [24]byte // check sockaddr_in or sockaddr_in6 for more information
-}
-
 func getDestAddr(conn *net.TCPConn) (*net.TCPAddr, error) {
 	rc, err := conn.SyscallConn()
 	if err != nil {
 		return nil, err
 	}
-	var addr sockAddr
-	addrSize := uint32(unsafe.Sizeof(addr))
+	var addr *sockAddr
 	var err2 error
 	err = rc.Control(func(fd uintptr) {
-		// try IPv6 first
-		_, _, err := syscall.Syscall6(syscall.SYS_GETSOCKOPT, fd, syscall.SOL_IPV6, IP6T_SO_ORIGINAL_DST,
-			uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&addrSize)), 0)
-		if err != 0 {
-			// try IPv4
-			_, _, err = syscall.Syscall6(syscall.SYS_GETSOCKOPT, fd, syscall.SOL_IP, SO_ORIGINAL_DST,
-				uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&addrSize)), 0)
-			if err != 0 {
-				// failed
-				err2 = err
-			}
-		}
+		addr, err2 = getOrigDst(fd)
 	})
 	if err != nil {
 		return nil, err
