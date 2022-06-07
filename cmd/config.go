@@ -175,6 +175,10 @@ type clientConfig struct {
 		Listen  string `json:"listen"`
 		Timeout int    `json:"timeout"`
 	} `json:"tproxy_udp"`
+	TCPRedirect struct {
+		Listen  string `json:"listen"`
+		Timeout int    `json:"timeout"`
+	} `json:"redirect_tcp"`
 	ACL                 string `json:"acl"`
 	MMDB                string `json:"mmdb"`
 	Obfs                string `json:"obfs"`
@@ -216,7 +220,8 @@ func (c *clientConfig) Check() error {
 	if len(c.SOCKS5.Listen) == 0 && len(c.HTTP.Listen) == 0 && len(c.TUN.Name) == 0 &&
 		len(c.TCPRelay.Listen) == 0 && len(c.UDPRelay.Listen) == 0 &&
 		len(c.TCPRelays) == 0 && len(c.UDPRelays) == 0 &&
-		len(c.TCPTProxy.Listen) == 0 && len(c.UDPTProxy.Listen) == 0 {
+		len(c.TCPTProxy.Listen) == 0 && len(c.UDPTProxy.Listen) == 0 &&
+		len(c.TCPRedirect.Listen) == 0 {
 		return errors.New("please enable at least one mode")
 	}
 	if c.SOCKS5.Timeout != 0 && c.SOCKS5.Timeout <= 4 {
@@ -255,6 +260,9 @@ func (c *clientConfig) Check() error {
 	}
 	if c.UDPTProxy.Timeout != 0 && c.UDPTProxy.Timeout <= 4 {
 		return errors.New("invalid UDP TProxy timeout")
+	}
+	if c.TCPRedirect.Timeout != 0 && c.TCPRedirect.Timeout <= 4 {
+		return errors.New("invalid TCP Redirect timeout")
 	}
 	if len(c.Server) == 0 {
 		return errors.New("no server address")
