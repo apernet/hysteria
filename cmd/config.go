@@ -63,6 +63,10 @@ type serverConfig struct {
 		User     string `json:"user"`
 		Password string `json:"password"`
 	} `json:"socks5_outbound"`
+	BindOutbound struct {
+		Address string `json:"address"`
+		Device  string `json:"device"`
+	} `json:"bind_outbound"`
 }
 
 func (c *serverConfig) Speed() (uint64, uint64, error) {

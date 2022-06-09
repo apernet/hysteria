@@ -22,6 +22,7 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/txthinking/socks5 v0.0.0-20220212043548-414499347d4a
 	github.com/yosuke-furukawa/json5 v0.1.1
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
 )
 
 require (
