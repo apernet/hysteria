@@ -15,6 +15,7 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/core"
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
+	"github.com/tobyxdd/hysteria/pkg/sockopt"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
@@ -162,6 +163,27 @@ func server(config *serverConfig) {
 			}).Fatal("Failed to initialize SOCKS5 outbound")
 		}
 		transport.DefaultServerTransport.SOCKS5Client = ob
+	}
+	// Bind outbound
+	if config.BindOutbound.Device != "" {
+		iface, err := net.InterfaceByName(config.BindOutbound.Device)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to find the interface")
+		}
+		transport.DefaultServerTransport.LocalUDPIntf = iface
+		sockopt.BindDialer(transport.DefaultServerTransport.Dialer, iface)
+	}
+	if config.BindOutbound.Address != "" {
+		ip := net.ParseIP(config.BindOutbound.Address)
+		if ip == nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to parse the address")
+		}
+		transport.DefaultServerTransport.Dialer.LocalAddr = &net.TCPAddr{IP: ip}
+		transport.DefaultServerTransport.LocalUDPAddr = &net.UDPAddr{IP: ip}
 	}
 	// ACL
 	var aclEngine *acl.Engine
