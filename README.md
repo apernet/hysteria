@@ -24,7 +24,8 @@ congested public Wi-Fi, connecting from China to servers abroad) powered by a cu
 - SOCKS5 proxy (TCP & UDP)
 - HTTP/HTTPS proxy
 - TCP/UDP relay
-- TCP/UDP TPROXY (Linux only)
+- TCP/UDP TPROXY (Linux)
+- TCP REDIRECT (Linux)
 - TUN (TAP on Windows)
 - Still growing...
 
@@ -38,6 +39,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 - HTTP/HTTPS 代理
 - TCP/UDP 转发
 - TCP/UDP TPROXY 透明代理 (Linux)
+- TCP REDIRECT 透明代理 (Linux)
 - TUN (Windows 下为 TAP)
 - 仍在增加中...
 
