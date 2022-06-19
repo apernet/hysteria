@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
+	"github.com/tobyxdd/hysteria/pkg/redirect"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"io"
 	"io/ioutil"
@@ -431,6 +432,38 @@ func client(config *clientConfig) {
 				logrus.WithField("error", err).Fatal("Failed to initialize UDP TProxy")
 			}
 			logrus.WithField("addr", config.UDPTProxy.Listen).Info("UDP TProxy up and running")
+			errChan <- rl.ListenAndServe()
+		}()
+	}
+
+	if len(config.TCPRedirect.Listen) > 0 {
+		go func() {
+			rl, err := redirect.NewTCPRedirect(client, config.TCPRedirect.Listen,
+				time.Duration(config.TCPRedirect.Timeout)*time.Second,
+				func(addr, reqAddr net.Addr) {
+					logrus.WithFields(logrus.Fields{
+						"src": addr.String(),
+						"dst": reqAddr.String(),
+					}).Debug("TCP Redirect request")
+				},
+				func(addr, reqAddr net.Addr, err error) {
+					if err != io.EOF {
+						logrus.WithFields(logrus.Fields{
+							"error": err,
+							"src":   addr.String(),
+							"dst":   reqAddr.String(),
+						}).Info("TCP Redirect error")
+					} else {
+						logrus.WithFields(logrus.Fields{
+							"src": addr.String(),
+							"dst": reqAddr.String(),
+						}).Debug("TCP Redirect EOF")
+					}
+				})
+			if err != nil {
+				logrus.WithField("error", err).Fatal("Failed to initialize TCP Redirect")
+			}
+			logrus.WithField("addr", config.TCPRedirect.Listen).Info("TCP Redirect up and running")
 			errChan <- rl.ListenAndServe()
 		}()
 	}

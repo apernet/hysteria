@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.5
+
+- `bind_outbound` server option for binding outbound connections to a specific address or interface
+- TCP Redirect mode (for Linux)
+
 ## 1.0.4
 
 - ~10% CPU usage reduction
