@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
@@ -49,17 +48,18 @@ const (
 func TestE2E(t *testing.T) {
 	// Server and Client share the same obfuscator
 	obfuscator := obfs.NewXPlusObfuscator([]byte(obfs_str))
+	signal := make(chan struct{})
 
-	go runServer(obfuscator)
+	go runServer(obfuscator, signal)
 
-	err := runClient(obfuscator)
+	err := runClient(obfuscator, signal)
 	if err != nil {
 		t.Fail()
 	}
 }
 
 // Simulate a server
-func runServer(obfuscator *obfs.XPlusObfuscator) error {
+func runServer(obfuscator *obfs.XPlusObfuscator, signal chan struct{}) error {
 	// Load TLS server config
 	cer, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
@@ -124,7 +124,9 @@ func runServer(obfuscator *obfs.XPlusObfuscator) error {
 		fmt.Println("Failed to initialize server")
 	}
 
+	serverBuffer := make([]byte, len(test_request))
 	fmt.Println("Server up and running")
+	signal <- struct{}{}
 
 	serverConn, err := l.Accept()
 	defer serverConn.Close()
@@ -133,8 +135,6 @@ func runServer(obfuscator *obfs.XPlusObfuscator) error {
 		return err
 	}
 
-	time.Sleep(time.Second * 2)
-	serverBuffer := make([]byte, len(test_request))
 	fmt.Println("Server starts reading from connection")
 	_, err = serverConn.Read(serverBuffer)
 
@@ -145,6 +145,7 @@ func runServer(obfuscator *obfs.XPlusObfuscator) error {
 	s := string(serverBuffer)
 	if s == test_request {
 		fmt.Println("Server received the expected data from the client")
+		signal <- struct{}{}
 		_, err = serverConn.Write([]byte(test_response))
 		fmt.Println("Server sent the response to the client")
 		return err
@@ -154,7 +155,7 @@ func runServer(obfuscator *obfs.XPlusObfuscator) error {
 }
 
 // Simulate a client
-func runClient(obfuscator *obfs.XPlusObfuscator) error {
+func runClient(obfuscator *obfs.XPlusObfuscator, signal chan struct{}) error {
 	// Load TLS client config
 	var clientTlsConfig = &tls.Config{
 		InsecureSkipVerify: false,
@@ -188,6 +189,7 @@ func runClient(obfuscator *obfs.XPlusObfuscator) error {
 		EnableDatagrams:                true,
 	}
 
+	<-signal
 	client, err := NewClient(server_addr, protocol, []byte(auth_str), clientTlsConfig, quicConfig,
 		transport.DefaultClientTransport, client_up_mbps, client_down_mbps,
 		congestionFactory, obfuscator)
@@ -207,14 +209,13 @@ func runClient(obfuscator *obfs.XPlusObfuscator) error {
 	}
 
 	// write data from clientConn for server to read
-	time.Sleep(time.Second * 2)
 	_, err = clientConn.Write([]byte(test_request))
 	if err != nil {
 		return err
 	}
 	fmt.Println("Client sent the data to the server")
 
-	time.Sleep(time.Second * 5)
+	<-signal
 	clientBuffer := make([]byte, len(test_response))
 	fmt.Println("Client starts reading from connection")
 	_, err = clientConn.Read(clientBuffer)
