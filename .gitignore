@@ -182,3 +182,5 @@ $RECYCLE.BIN/
 cmd/relay/*.json
 hy_linux
 .vscode
+
+/build/
