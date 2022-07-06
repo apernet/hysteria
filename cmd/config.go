@@ -7,6 +7,7 @@ import (
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 const (
@@ -20,6 +21,8 @@ const (
 	DefaultALPN = "hysteria"
 
 	DefaultMMDBFilename = "GeoLite2-Country.mmdb"
+
+	KeepAlivePeriod = 10 * time.Second
 )
 
 var rateStringRegexp = regexp.MustCompile(`^(\d+)\s*([KMGT]?)([Bb])ps$`)
