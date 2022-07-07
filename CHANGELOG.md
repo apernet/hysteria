@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0
+
+- Super major CPU performance improvements (~30% to several times faster, depending on the circumstances) by optimizing several data structures in quic-go (changes upstreamed)
+
 ## 1.0.5
 
 - `bind_outbound` server option for binding outbound connections to a specific address or interface
