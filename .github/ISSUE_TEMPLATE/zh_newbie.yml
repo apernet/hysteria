@@ -3,6 +3,7 @@ description: "不会用？连不上？请选这个。"
 title: "[请求帮助] "
 body:
   - type: markdown
+    id: header
     attributes:
       value: |
         在创建 Issue 之前， 请花几分钟阅读一下我们 Wiki 上的
