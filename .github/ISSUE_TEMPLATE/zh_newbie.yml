@@ -6,25 +6,19 @@ body:
     id: header
     attributes:
       value: |
-        在创建 Issue 之前， 请花几分钟阅读一下我们 Wiki 上的
-        [配置指南](https://github.com/HyNetwork/hysteria/wiki/%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8)，
-        最新的配置参数在
-        [高级用法](https://github.com/HyNetwork/hysteria/wiki/%E9%AB%98%E7%BA%A7%E7%94%A8%E6%B3%95)
-        里有详细的说明。
+        在创建 Issue 之前， 请花几分钟阅读一下我们 Wiki 上的 [配置指南](https://github.com/HyNetwork/hysteria/wiki/%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8)，
 
-        您可能遇到的绝大部分问题都能在
-        [常见问题](https://github.com/HyNetwork/hysteria/wiki/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98)
-        中找到解决方案。
+        最新的配置参数在 [高级用法](https://github.com/HyNetwork/hysteria/wiki/%E9%AB%98%E7%BA%A7%E7%94%A8%E6%B3%95) 里有详细的说明。
 
-        任何已有解决方案的 Issue 都会被直接关闭， 感谢理解。
+        您可能遇到的绝大部分问题都能在 [常见问题](https://github.com/HyNetwork/hysteria/wiki/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98) 中找到解决方案。
 
-        请考虑 [加入 Hysteria 的 Telegram 群组](https://t.me/hysteria_github)
-        来寻求即时的社区帮助。
+        任何已有解决方案的 Issue 将会被直接关闭， 感谢理解。
 
-        也请搜索一下已有 Issue， 看看是否已被解决。
+        请考虑 [加入 Hysteria 的 Telegram 群组](https://t.me/hysteria_github) 来寻求即时的社区帮助。
 
-        请尽可能详细地填写下面这个表单来帮助我们检查并复现您遇到的问题， 
-        请记住我们不会预测魔法， 只有当我们复现了您遇到的问题， 我们才知道该如何帮助你解决它。
+        也请搜索一下已有 Issue， 看看是否能找到现成的解决方案。
+
+        请尽可能详细地填写下面这个表单来帮助我们检查并复现您遇到的问题， 请记住我们不会预测魔法， 只有复现了您遇到的问题， 我们才知道该如何帮助你解决它。
   - type: textarea
     id: detail
     attributes:
@@ -93,8 +87,7 @@ body:
       label: "客户端安装信息"
       description: |
         请填写你使用的客户端版本（在客户端执行 `hysteria --version`， 并把输出贴在这里）。
-        如果你使用第三方客户端（包括但不限于 Clash、 Passwall、 SagerNet），
-        请贴上它们的版本， 或者到这些第三方客户端的社群寻求帮助。
+        如果你使用第三方客户端（包括但不限于 Clash、 Passwall、 SagerNet）， 请贴上它们的版本， 或者到这些第三方客户端的社群寻求帮助。
       placeholder: |
         hysteria version v1.x.x 2006-01-02T08:04:05Z 0123456789abcdef0123456789abcdef01234567
     validations:
