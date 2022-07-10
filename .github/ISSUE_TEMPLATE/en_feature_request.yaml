@@ -1,0 +1,44 @@
+name: "[en] Feature Request"
+description: "Want features or behavior changes? Choose this and discuss here!"
+title: "[Feature Request] "
+body:
+  - type: markdown
+    id: header
+    attributes:
+      value: |
+        Before creating this issue, please take a look at [Advanced Usage](https://github.com/HyNetwork/hysteria/wiki/Advanced-Usage) in our Wiki, all the features of hysteria are documented there.
+        
+        If you have any good idea to improve hysteria, you can [join our Telegram group] to share and discuss your idea with our community.
+        
+        Also, please search the existing issues to check if this feature has been requested by others in the past.
+        
+        If you have the ability to implement this feature, a Pull Request is welcome.
+  - type: textarea
+    id: detail
+    attributes:
+      label: "Feature Details"
+      description: |
+        Please describe what would you like to have added or changed here.
+    validations:
+      required: true
+  - type: textarea
+    id: necessary
+    attributes:
+      label: "The necessity of this feature"
+      description: |
+        Why is this feature a useful, necessary, and/or important addition to hysteria itself?
+    validations:
+      required: true
+  - type: textarea
+    id: alternative
+    attributes:
+      label: "Available alternative"
+      description: |
+        As hysteria doesn't support this feature, are there any alternatives you are using to achieve the same purpose?
+  - type: textarea
+    id: other-info
+    attributes:
+      label: "Additional informations"
+      description: |
+        Please link to any relevant issues, pull requests, or other discussions.
+

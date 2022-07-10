@@ -1,0 +1,135 @@
+name: "[en] Help me!"
+description: "Connect failed? Client crashed? Choose this to get help!"
+title: "[Help me] "
+body:
+  - type: markdown
+    id: header
+    attributes:
+      value: |
+        Before creating this issue, please take a look at [Quick Start Guide](https://github.com/HyNetwork/hysteria/wiki/Quick-Start) in our Wiki.
+
+        The latest configuration options and their docs can be found in [Advanced Usage](https://github.com/HyNetwork/hysteria/wiki/Advanced-Usage).
+
+        You can find solutions to most known problems in [Common Problems](https://github.com/HyNetwork/hysteria/wiki/Common-Problems). Any issue with solution list there will be closed imminently.
+
+        You can [join our Telegram group](https://t.me/hysteria_github) for instant community support.
+
+        Please search the existing issues to check if your question has been already answered.
+
+        Please fill out the following form as detailed as you can. This can help us check and reproduce your problem. Please note we cannot use any divination magic, reproducing your problem is the only way to find a solution to it.
+  - type: textarea
+    id: detail
+    attributes:
+      label: "Details"
+      description: |
+        Please describe the problem you encountered in detail.
+        If you want to use hysteria in an unusual way, please specify it here.
+    validations:
+      required: true
+  - type: input
+    id: server-install-info
+    attributes:
+      label: "Server-side hysteria or scripts information"
+      description: |
+        Fill the version of server-side hysteria here (the output of command `hysteria --version`).
+        If you used a script to install and config hysteria on your server, please paste the command that you executed here (such as `curl https://xxx | sh -`)
+
+        If you are using a VPN provider, please consult the VPN provider for setup guide first.
+      placeholder: |
+        hysteria version v1.x.x 2006-01-02t08:04:05z 0123456789abcdef0123456789abcdef01234567
+    validations:
+      required: true
+  - type: textarea
+    id: server-provider-info
+    attributes:
+      label: "VPS information"
+      description: |
+        Please fill in the provider and specification of the VPS you are using to run the hysteria server here.
+        If you are using a VPN provider, please fill in the homepage URL of the VPN provider.
+      placeholder: |
+        TurtleShell, Chuncheon, ARM, 1 Core, 512MB RAM
+    validations:
+      required: true
+  - type: textarea
+    id: server-config-info
+    attributes:
+      label: "Server-side configuration"
+      description: |
+        Please paste the server-side config.json you are using here.
+        If you are using a script that doesn't require any configuration, please specify `N/A`.
+      placeholder: |
+        {
+          "listen": ":36712",
+          "acme": {
+            "domains": [
+              "your.domain.com"
+            ],
+            "email": "hacker@gmail.com"
+          },
+          "obfs": "fuck me till the daylight",
+          "up_mbps": 100,
+          "down_mbps": 100
+        }
+    validations:
+      required: true
+  - type: textarea
+    id: server-log
+    attributes:
+      label: "Server-side logs"
+      description: |
+        Please paste the server-side hysteria output here, a screenshot is acceptable but plaintext would be much better.
+    validations:
+      required: true
+  - type: input
+    id: client-install-info
+    attributes:
+      label: "Client-side hysteria information"
+      description: |
+        Fill the version of client-side hysteria here (the output of command `hysteria --version`).
+        If you are using any third-party clients (such as Clash, Passwall, or SagerNet), please paste their version instead. You can also find help in their community.
+      placeholder: |
+        hysteria version v1.x.x 2006-01-02T08:04:05Z 0123456789abcdef0123456789abcdef01234567
+    validations:
+      required: true
+  - type: textarea
+    id: client-config-info
+    attributes:
+      label: "Client-side configuration"
+      description: |
+        Please paste the client-side configure you are using here.
+        You can remove any sensitive information (such as server address, obfuscation password, or authentic password) in the config before posting it here, but this also means it would be your own duty to make sure you have configured them correctly.
+        If you are using a third-party client, you can paste or upload a screenshot of their configuration instead.
+      placeholder: |
+        {
+          "server": "example.com:36712",
+          "obfs": "fuck me till the daylight",
+          "up_mbps": 10,
+          "down_mbps": 50,
+          "socks5": {
+            "listen": "127.0.0.1:1080"
+          },
+          "http": {
+            "listen": "127.0.0.1:8080"
+          }
+        }
+    validations:
+      required: true
+  - type: input
+    id: client-environment
+    attributes:
+      label: "Client-side environment (operating system)"
+      description: |
+        Please fill in the OS you are using to run the hysteria client.
+      placeholder: |
+        Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: client-log
+    attributes:
+      label: "Client-side logs"
+      description: |
+        Please paste the client-side hysteria output here, a screenshot is acceptable but plaintext would be much better.
+    validations:
+      required: true
+
