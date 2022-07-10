@@ -1,7 +1,6 @@
 name: "[zh] 请求帮助"
 description: "不会用？连不上？请选这个。"
 title: "[请求帮助] "
-label: ["newbie"]
 body:
   - type: markdown
     attributes:
@@ -32,8 +31,8 @@ body:
       description: |
         请描述你遇到的问题。 
         如果你的需求和通常的用法有所不同， 也请在这里说明。
-      validations:
-        required: true
+    validations:
+      required: true
   - type: input
     id: server-install-info
     attributes:
@@ -44,8 +43,8 @@ body:
         如果你使用机场， 请优先联系机场售后以获取使用帮助。
       placeholder: |
         hysteria version v1.x.x 2006-01-02t08:04:05z 0123456789abcdef0123456789abcdef01234567
-      validations:
-        required: true
+    validations:
+      required: true
   - type: textarea
     id: server-provider-info
     attributes:
@@ -55,8 +54,8 @@ body:
         如果你使用机场， 请填写机场网址。
       placeholder: |
         TurtleShell 春川机房 ARM 单核 512MB内存
-      validations:
-        required: true
+    validations:
+      required: true
   - type: textarea
     id: server-config-info
     attributes:
@@ -77,16 +76,16 @@ body:
           "up_mbps": 100,
           "down_mbps": 100
         }
-      validations:
-        required: true
+    validations:
+      required: true
   - type: textarea
     id: server-log
     attributes:
       label: "服务端日志"
       description: |
         请把你的服务端日志贴在这里， 可以是截图但是请尽可能提供纯文本。
-      validations:
-        required: true
+    validations:
+      required: true
   - type: input
     id: client-install-info
     attributes:
@@ -97,8 +96,8 @@ body:
         请贴上它们的版本， 或者到这些第三方客户端的社群寻求帮助。
       placeholder: |
         hysteria version v1.x.x 2006-01-02T08:04:05Z 0123456789abcdef0123456789abcdef01234567
-      validations:
-        required: true
+    validations:
+      required: true
   - type: textarea
     id: client-config-info
     attributes:
@@ -121,8 +120,8 @@ body:
             "listen": "127.0.0.1:8080"
           }
         }
-      validations:
-        required: true
+    validations:
+      required: true
   - type: input
     id: client-environment
     attributes:
@@ -131,14 +130,14 @@ body:
         请填写客户端使用的操作系统的名称和版本。
       placeholder: |
         Windows 11
-      validations:
-        required: true
+    validations:
+      required: true
   - type: textarea
     id: client-log
     attributes:
       label: "客户端日志"
       description: |
         请把你的客户端日志贴在这里， 可以是截图但是请尽可能提供纯文本。
-      validations:
-        required: true
+    validations:
+      required: true
 
