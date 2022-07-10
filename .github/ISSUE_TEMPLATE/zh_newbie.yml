@@ -26,7 +26,7 @@ body:
         请尽可能详细地填写下面这个表单来帮助我们检查并复现您遇到的问题， 
         请记住我们不会预测魔法， 只有当我们复现了您遇到的问题， 我们才知道该如何帮助你解决它。
   - type: textarea
-    attributes: detail
+    id: detail
     attributes:
       label: "问题详情"
       description: |
