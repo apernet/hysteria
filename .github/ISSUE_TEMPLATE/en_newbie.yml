@@ -16,7 +16,7 @@ body:
 
         Please search the existing issues to check if your question has been already answered.
 
-        Please fill out the following form as detailed as you can. This can help us check and reproduce your problem. Please note we cannot use any divination magic, reproducing your problem is the only way to find a solution to it.
+        Please fill out the following form as detailed as you can. This can help us check and reproduce your problem. Please note we cannot use any divination magic, reproducing the issue is the only way to find a solution.
   - type: textarea
     id: detail
     attributes:
@@ -120,6 +120,7 @@ body:
       label: "Client-side environment (operating system)"
       description: |
         Please fill in the OS you are using to run the hysteria client.
+        If you are running hysteria client on the OpenWRT, please fill in the version of OpenWRT (as well as any plugins you are using, e.g. Passwall) instead.
       placeholder: |
         Windows 11
     validations:
