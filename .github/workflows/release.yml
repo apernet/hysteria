@@ -27,7 +27,7 @@ jobs:
         id: current-time
 
       - name: Build (tun)
-        uses: crazy-max/ghaction-xgo@v2.0.0
+        uses: crazy-max/ghaction-xgo@v2.1.0
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
         with:
