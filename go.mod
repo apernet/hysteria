@@ -17,12 +17,12 @@ require (
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/oschwald/geoip2-golang v1.7.0
 	github.com/prometheus/client_golang v1.12.2
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/txthinking/socks5 v0.0.0-20220212043548-414499347d4a
 	github.com/yosuke-furukawa/json5 v0.1.1
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
 )
 
 require (
