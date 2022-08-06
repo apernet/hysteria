@@ -48,7 +48,7 @@ jobs:
           name: hysteria
           dest: dist
           ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
-          platforms: 'linux/amd64, linux/386, linux/arm, linux/arm64, linux/s390x, linux/mipsle'
+          platforms: 'linux/amd64, linux/386, linux/arm, linux/arm64, linux/s390x, linux/mipsle, freebsd/amd64, freebsd/386, freebsd/arm, freebsd/arm64'
           package: cmd
           compress: false
 
@@ -81,4 +81,8 @@ jobs:
             ./dist/hysteria-linux-arm64
             ./dist/hysteria-linux-s390x
             ./dist/hysteria-linux-mipsle
+            ./dist/hysteria-freebsd-amd64
+            ./dist/hysteria-freebsd-386
+            ./dist/hysteria-freebsd-arm
+            ./dist/hysteria-freebsd-arm64
             ./dist/hashes.txt
