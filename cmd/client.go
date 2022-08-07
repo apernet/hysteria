@@ -35,7 +35,12 @@ func client(config *clientConfig) {
 	logrus.WithField("config", config.String()).Info("Client configuration loaded")
 	// Resolver
 	if len(config.Resolver) > 0 {
-		setResolver(config.Resolver)
+		err := setResolver(config.Resolver)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to set resolver")
+		}
 	}
 	// TLS
 	tlsConfig := &tls.Config{
@@ -100,15 +105,13 @@ func client(config *clientConfig) {
 	}
 	// Resolve preference
 	if len(config.ResolvePreference) > 0 {
-		pref, excl, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
+		pref, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
 			}).Fatal("Failed to parse the resolve preference")
 		}
-		transport.DefaultClientTransport.PrefEnabled = true
-		transport.DefaultClientTransport.PrefIPv6 = pref
-		transport.DefaultClientTransport.PrefExclusive = excl
+		transport.DefaultClientTransport.ResolvePreference = pref
 	}
 	// ACL
 	var aclEngine *acl.Engine
