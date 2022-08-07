@@ -10,13 +10,12 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20220115173737-adb46da277ac
 	github.com/elazarl/goproxy/ext v0.0.0-20220115173737-adb46da277ac
 	github.com/eycorsican/go-tun2socks v1.16.11
-	github.com/folbricht/routedns v0.1.5
+	github.com/folbricht/routedns v0.1.6-0.20220806202012-361f5b35b4c3
 	github.com/fsnotify/fsnotify v1.5.4
 	github.com/google/gopacket v1.1.19
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/lucas-clemente/quic-go v0.28.1
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
-	github.com/miekg/dns v1.1.48
 	github.com/oschwald/geoip2-golang v1.7.0
 	github.com/prometheus/client_golang v1.12.2
 	github.com/sirupsen/logrus v1.9.0
@@ -47,6 +46,7 @@ require (
 	github.com/marten-seemann/qtls-go1-19 v0.1.0-beta.1 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mholt/acmez v1.0.4 // indirect
+	github.com/miekg/dns v1.1.48 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
@@ -88,5 +88,3 @@ require (
 )
 
 replace github.com/lucas-clemente/quic-go => github.com/tobyxdd/quic-go v0.28.2-0.20220806194731-5be744e08984
-
-replace github.com/folbricht/routedns => github.com/HyNetwork/routedns v0.0.0-20220806195331-5c7c876064d7
