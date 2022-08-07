@@ -28,7 +28,12 @@ func server(config *serverConfig) {
 	logrus.WithField("config", config.String()).Info("Server configuration loaded")
 	// Resolver
 	if len(config.Resolver) > 0 {
-		setResolver(config.Resolver)
+		err := setResolver(config.Resolver)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to set resolver")
+		}
 	}
 	// Load TLS config
 	var tlsConfig *tls.Config
@@ -143,15 +148,13 @@ func server(config *serverConfig) {
 	}
 	// Resolve preference
 	if len(config.ResolvePreference) > 0 {
-		pref, excl, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
+		pref, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"error": err,
 			}).Fatal("Failed to parse the resolve preference")
 		}
-		transport.DefaultServerTransport.PrefEnabled = true
-		transport.DefaultServerTransport.PrefIPv6 = pref
-		transport.DefaultServerTransport.PrefExclusive = excl
+		transport.DefaultServerTransport.ResolvePreference = pref
 	}
 	// SOCKS5 outbound
 	if config.SOCKS5Outbound.Server != "" {
