@@ -1,45 +1,44 @@
-//go:build cgo
-// +build cgo
-
 package tun
 
 import (
-	tun2socks "github.com/eycorsican/go-tun2socks/core"
 	"github.com/tobyxdd/hysteria/pkg/utils"
+	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 	"net"
 )
 
-func (s *Server) Handle(conn net.Conn, target *net.TCPAddr) error {
-	if s.RequestFunc != nil {
-		s.RequestFunc(conn.LocalAddr(), target.String())
-	}
-	var closeErr error
-	defer func() {
-		if s.ErrorFunc != nil && closeErr != nil {
-			s.ErrorFunc(conn.LocalAddr(), target.String(), closeErr)
-		}
-	}()
-	rc, err := s.HyClient.DialTCP(target.String())
-	if err != nil {
-		closeErr = err
-		return err
-	}
-	go s.relayTCP(conn, rc)
-	return nil
+func (s *Server) HandleTCP(localConn adapter.TCPConn) {
+	go s.handleTCPConn(localConn)
 }
 
-func (s *Server) relayTCP(clientConn, relayConn net.Conn) {
-	closeErr := utils.PipePairWithTimeout(relayConn, clientConn, s.Timeout)
-	if s.ErrorFunc != nil {
-		s.ErrorFunc(clientConn.LocalAddr(), relayConn.RemoteAddr().String(), closeErr)
+func (s *Server) handleTCPConn(localConn adapter.TCPConn) {
+	defer localConn.Close()
+
+	id := localConn.ID()
+	remoteAddr := net.TCPAddr{
+		IP:   net.IP(id.LocalAddress),
+		Port: int(id.LocalPort),
 	}
-	relayConn.Close()
-	clientConn.Close()
-	if closeErr != nil {
-		if err, ok := closeErr.(net.Error); ok && err.Timeout() {
-			if clientConn, ok := clientConn.(tun2socks.TCPConn); ok {
-				clientConn.Abort()
-			}
+	localAddr := net.TCPAddr{
+		IP:   net.IP(id.RemoteAddress),
+		Port: int(id.RemotePort),
+	}
+
+	if s.RequestFunc != nil {
+		s.RequestFunc(&localAddr, remoteAddr.String())
+	}
+
+	var err error
+	defer func() {
+		if s.ErrorFunc != nil && err != nil {
+			s.ErrorFunc(&localAddr, remoteAddr.String(), err)
 		}
+	}()
+
+	rc, err := s.HyClient.DialTCP(remoteAddr.String())
+	if err != nil {
+		return
 	}
+	defer rc.Close()
+
+	err = utils.PipePairWithTimeout(localConn, rc, s.Timeout)
 }

@@ -254,7 +254,7 @@ func client(config *clientConfig) {
 				timeout = 300 * time.Second
 			}
 			tunServer, err := tun.NewServer(client, time.Duration(config.TUN.Timeout)*time.Second,
-				config.TUN.Name, config.TUN.Address, config.TUN.Gateway, config.TUN.Mask, config.TUN.DNS, config.TUN.Persist)
+				config.TUN.Name, config.TUN.MTU)
 			if err != nil {
 				logrus.WithField("error", err).Fatal("Failed to initialize TUN server")
 			}
@@ -290,6 +290,7 @@ func client(config *clientConfig) {
 					}
 				}
 			}
+			logrus.WithField("interface", config.TUN.Name).Info("TUN is up and running")
 			errChan <- tunServer.ListenAndServe()
 		}()
 	}
