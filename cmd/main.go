@@ -57,7 +57,7 @@ var rootCmd = &cobra.Command{
 				FieldsOrder: []string{
 					"version", "url",
 					"config", "file", "mode",
-					"addr", "src", "dst", "session", "action",
+					"addr", "src", "dst", "session", "action", "interface",
 					"retry", "interval",
 					"code", "msg", "error",
 				},

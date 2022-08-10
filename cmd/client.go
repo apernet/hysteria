@@ -290,7 +290,7 @@ func client(config *clientConfig) {
 					}
 				}
 			}
-			logrus.WithField("interface", config.TUN.Name).Info("TUN is up and running")
+			logrus.WithField("interface", config.TUN.Name).Info("TUN up and running")
 			errChan <- tunServer.ListenAndServe()
 		}()
 	}
