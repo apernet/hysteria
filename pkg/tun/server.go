@@ -112,7 +112,7 @@ func (s *Server) ListenAndServe() error {
 		LinkEndpoint:     dev,
 		TransportHandler: s,
 		PrintFunc: func(format string, v ...interface{}) {
-			logrus.Warnf(format, v...)
+			logrus.Infof(format, v...)
 		},
 		Options: nil,
 	}
