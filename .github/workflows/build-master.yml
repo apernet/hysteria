@@ -28,6 +28,7 @@ jobs:
         uses: crazy-max/ghaction-xgo@v2.1.0
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
+          GOFLAGS: "-tags=gpl"
         with:
           xgo_version: latest
           go_version: 1.18

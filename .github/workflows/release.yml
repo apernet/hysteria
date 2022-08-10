@@ -26,29 +26,17 @@ jobs:
         uses: gerred/actions/current-time@master
         id: current-time
 
-      - name: Build (tun)
-        uses: crazy-max/ghaction-xgo@v2.1.0
-        env:
-          TIME: "${{ steps.current-time.outputs.time }}"
-        with:
-          xgo_version: latest
-          go_version: 1.18
-          dest: dist
-          prefix: hysteria-tun
-          targets: linux/amd64,linux/386,linux/arm-5,linux/arm-7,linux/arm64,linux/s390x,linux/mipsle,darwin-10.12/amd64,darwin-10.12/arm64,windows-6.0/amd64,windows-6.0/386
-          ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
-          pkg: cmd
-
-      - name: Build (notun)
+      - name: Build
         uses: tobyxdd/go-cross-build@6f4e7852e615d5499d1e223cd5e6e7569915b023
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
+          GOFLAGS: "-tags=gpl"
           CGO_ENABLED: "0"
         with:
           name: hysteria
           dest: dist
           ldflags: -w -s -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ env.TIME }}
-          platforms: 'linux/amd64, linux/386, linux/arm, linux/arm64, linux/s390x, linux/mipsle, freebsd/amd64, freebsd/386, freebsd/arm, freebsd/arm64'
+          platforms: 'darwin/amd64, darwin/arm64, windows/amd64, windows/386, linux/amd64, linux/386, linux/arm, linux/arm64, linux/s390x, linux/mipsle, freebsd/amd64, freebsd/386, freebsd/arm, freebsd/arm64'
           package: cmd
           compress: false
 
@@ -56,7 +44,7 @@ jobs:
         run: |
           cd dist
           for f in $(find . -type f); do
-            sha256sum $f >> hashes.txt
+            sha256sum $f | sudo tee -a hashes.txt
           done
 
       - name: Upload
@@ -64,17 +52,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            ./dist/hysteria-tun-linux-amd64
-            ./dist/hysteria-tun-linux-386
-            ./dist/hysteria-tun-linux-arm-5
-            ./dist/hysteria-tun-linux-arm-7
-            ./dist/hysteria-tun-linux-arm64
-            ./dist/hysteria-tun-linux-s390x
-            ./dist/hysteria-tun-linux-mipsle
-            ./dist/hysteria-tun-darwin-10.12-amd64
-            ./dist/hysteria-tun-darwin-10.12-arm64
-            ./dist/hysteria-tun-windows-6.0-amd64.exe
-            ./dist/hysteria-tun-windows-6.0-386.exe
+            ./dist/hysteria-darwin-amd64
+            ./dist/hysteria-darwin-arm64
+            ./dist/hysteria-windows-amd64.exe
+            ./dist/hysteria-windows-386.exe
             ./dist/hysteria-linux-amd64
             ./dist/hysteria-linux-386
             ./dist/hysteria-linux-arm
