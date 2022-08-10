@@ -1,3 +1,6 @@
+//go:build gpl
+// +build gpl
+
 package tun
 
 import (
