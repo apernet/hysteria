@@ -1,58 +1,93 @@
 package transport
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
+	"time"
+)
+
+type ResolvePreference int
+
+const (
+	ResolvePreferenceDefault = ResolvePreference(iota)
+	ResolvePreferenceIPv4
+	ResolvePreferenceIPv6
+	ResolvePreferenceIPv4OrIPv6
+	ResolvePreferenceIPv6OrIPv4
+
+	ResolveTimeout = 8 * time.Second
 )
 
 var (
 	errNoIPv4Addr = errors.New("no IPv4 address")
 	errNoIPv6Addr = errors.New("no IPv6 address")
+	errNoAddr     = errors.New("no address")
 )
 
-func resolveIPAddrWithPreference(address string, preferIPv6 bool, exclusive bool) (*net.IPAddr, error) {
-	ips, err := net.LookupIP(address)
+func resolveIPAddrWithPreference(host string, pref ResolvePreference) (*net.IPAddr, error) {
+	if pref == ResolvePreferenceDefault {
+		return net.ResolveIPAddr("ip", host)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), ResolveTimeout)
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	cancel()
 	if err != nil {
 		return nil, err
 	}
-	if preferIPv6 {
-		for _, ip := range ips {
-			if ip.To4() == nil {
-				return &net.IPAddr{IP: ip}, nil
-			}
-		}
-		if exclusive {
-			return nil, errNoIPv6Addr
+	var ip4, ip6 *net.IPAddr
+	for _, ip := range ips {
+		if ip.IP.To4() != nil {
+			ip4 = &ip
 		} else {
-			return &net.IPAddr{IP: ips[0]}, nil
-		}
-	} else {
-		// prefer IPv4
-		for _, ip := range ips {
-			if ip.To4() != nil {
-				return &net.IPAddr{IP: ip}, nil
-			}
-		}
-		if exclusive {
-			return nil, errNoIPv4Addr
-		} else {
-			return &net.IPAddr{IP: ips[0]}, nil
+			ip6 = &ip
 		}
 	}
+	switch pref {
+	case ResolvePreferenceIPv4:
+		if ip4 == nil {
+			return nil, errNoIPv4Addr
+		}
+		return ip4, nil
+	case ResolvePreferenceIPv6:
+		if ip6 == nil {
+			return nil, errNoIPv6Addr
+		}
+		return ip6, nil
+	case ResolvePreferenceIPv4OrIPv6:
+		if ip4 == nil {
+			if ip6 == nil {
+				return nil, errNoAddr
+			} else {
+				return ip6, nil
+			}
+		}
+		return ip4, nil
+	case ResolvePreferenceIPv6OrIPv4:
+		if ip6 == nil {
+			if ip4 == nil {
+				return nil, errNoAddr
+			} else {
+				return ip4, nil
+			}
+		}
+		return ip6, nil
+	}
+	return nil, errNoAddr
 }
 
-func ResolvePreferenceFromString(preference string) (bool, bool, error) {
+func ResolvePreferenceFromString(preference string) (ResolvePreference, error) {
 	switch preference {
 	case "4":
-		return false, true, nil
+		return ResolvePreferenceIPv4, nil
 	case "6":
-		return true, true, nil
+		return ResolvePreferenceIPv6, nil
 	case "46":
-		return false, false, nil
+		return ResolvePreferenceIPv4OrIPv6, nil
 	case "64":
-		return true, false, nil
+		return ResolvePreferenceIPv6OrIPv4, nil
 	default:
-		return false, false, fmt.Errorf("%s is not a valid preference", preference)
+		return ResolvePreferenceDefault, fmt.Errorf("invalid preference: %s", preference)
 	}
 }

@@ -16,13 +16,11 @@ import (
 )
 
 type ServerTransport struct {
-	Dialer        *net.Dialer
-	SOCKS5Client  *SOCKS5Client
-	PrefEnabled   bool
-	PrefIPv6      bool
-	PrefExclusive bool
-	LocalUDPAddr  *net.UDPAddr
-	LocalUDPIntf  *net.Interface
+	Dialer            *net.Dialer
+	SOCKS5Client      *SOCKS5Client
+	ResolvePreference ResolvePreference
+	LocalUDPAddr      *net.UDPAddr
+	LocalUDPIntf      *net.Interface
 }
 
 // AddrEx is like net.TCPAddr or net.UDPAddr, but with additional domain information for SOCKS5.
@@ -74,7 +72,7 @@ var DefaultServerTransport = &ServerTransport{
 	Dialer: &net.Dialer{
 		Timeout: 8 * time.Second,
 	},
-	PrefEnabled: false,
+	ResolvePreference: ResolvePreferenceDefault,
 }
 
 func (st *ServerTransport) quicPacketConn(proto string, laddr string, obfs obfs.Obfuscator) (net.PacketConn, error) {
@@ -142,13 +140,8 @@ func (st *ServerTransport) ResolveIPAddr(address string) (*net.IPAddr, bool, err
 	if ip != nil {
 		return &net.IPAddr{IP: ip, Zone: zone}, false, nil
 	}
-	if st.PrefEnabled {
-		ipAddr, err := resolveIPAddrWithPreference(address, st.PrefIPv6, st.PrefExclusive)
-		return ipAddr, true, err
-	} else {
-		ipAddr, err := net.ResolveIPAddr("ip", address)
-		return ipAddr, true, err
-	}
+	ipAddr, err := resolveIPAddrWithPreference(address, st.ResolvePreference)
+	return ipAddr, true, err
 }
 
 func (st *ServerTransport) DialTCP(raddr *AddrEx) (*net.TCPConn, error) {
