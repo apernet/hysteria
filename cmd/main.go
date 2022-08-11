@@ -57,12 +57,18 @@ var rootCmd = &cobra.Command{
 				FieldsOrder: []string{
 					"version", "url",
 					"config", "file", "mode",
-					"addr", "src", "dst", "session", "action",
+					"addr", "src", "dst", "session", "action", "interface",
 					"retry", "interval",
 					"code", "msg", "error",
 				},
 				TimestampFormat: viper.GetString("log-timestamp"),
 			})
+		}
+
+		// license
+		if viper.GetBool("license") {
+			fmt.Printf("%s\n", license)
+			os.Exit(0)
 		}
 
 		// check update
@@ -154,6 +160,7 @@ func init() {
 	rootCmd.PersistentFlags().String("log-timestamp", time.RFC3339, "log timestamp format")
 	rootCmd.PersistentFlags().String("log-format", "txt", "log output format(txt/json)")
 	rootCmd.PersistentFlags().Bool("no-check", false, "disable update check")
+	rootCmd.PersistentFlags().Bool("license", false, "show license and exit")
 
 	// add to root cmd
 	rootCmd.AddCommand(clientCmd, serverCmd, completionCmd)
@@ -165,6 +172,7 @@ func init() {
 	_ = viper.BindPFlag("log-timestamp", rootCmd.PersistentFlags().Lookup("log-timestamp"))
 	_ = viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format"))
 	_ = viper.BindPFlag("no-check", rootCmd.PersistentFlags().Lookup("no-check"))
+	_ = viper.BindPFlag("license", rootCmd.PersistentFlags().Lookup("license"))
 
 	// bind env
 	_ = viper.BindEnv("config", "HYSTERIA_CONFIG")

@@ -13,7 +13,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
@@ -28,7 +27,6 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/socks5"
 	"github.com/tobyxdd/hysteria/pkg/tproxy"
 	"github.com/tobyxdd/hysteria/pkg/transport"
-	"github.com/tobyxdd/hysteria/pkg/tun"
 )
 
 func client(config *clientConfig) {
@@ -251,50 +249,7 @@ func client(config *clientConfig) {
 	}
 
 	if len(config.TUN.Name) != 0 {
-		go func() {
-			timeout := time.Duration(config.TUN.Timeout) * time.Second
-			if timeout == 0 {
-				timeout = 300 * time.Second
-			}
-			tunServer, err := tun.NewServer(client, time.Duration(config.TUN.Timeout)*time.Second,
-				config.TUN.Name, config.TUN.Address, config.TUN.Gateway, config.TUN.Mask, config.TUN.DNS, config.TUN.Persist)
-			if err != nil {
-				logrus.WithField("error", err).Fatal("Failed to initialize TUN server")
-			}
-			tunServer.RequestFunc = func(addr net.Addr, reqAddr string) {
-				logrus.WithFields(logrus.Fields{
-					"src": addr.String(),
-					"dst": reqAddr,
-				}).Debugf("TUN %s request", strings.ToUpper(addr.Network()))
-			}
-			tunServer.ErrorFunc = func(addr net.Addr, reqAddr string, err error) {
-				if err != nil {
-					if err == io.EOF {
-						logrus.WithFields(logrus.Fields{
-							"src": addr.String(),
-							"dst": reqAddr,
-						}).Debugf("TUN %s EOF", strings.ToUpper(addr.Network()))
-					} else if err == core.ErrClosed && strings.HasPrefix(addr.Network(), "udp") {
-						logrus.WithFields(logrus.Fields{
-							"src": addr.String(),
-							"dst": reqAddr,
-						}).Debugf("TUN %s closed for timeout", strings.ToUpper(addr.Network()))
-					} else if nErr, ok := err.(net.Error); ok && nErr.Timeout() && strings.HasPrefix(addr.Network(), "tcp") {
-						logrus.WithFields(logrus.Fields{
-							"src": addr.String(),
-							"dst": reqAddr,
-						}).Debugf("TUN %s closed for timeout", strings.ToUpper(addr.Network()))
-					} else {
-						logrus.WithFields(logrus.Fields{
-							"error": err,
-							"src":   addr.String(),
-							"dst":   reqAddr,
-						}).Infof("TUN %s error", strings.ToUpper(addr.Network()))
-					}
-				}
-			}
-			errChan <- tunServer.ListenAndServe()
-		}()
+		go startTUN(config, client, errChan)
 	}
 
 	if len(config.TCPRelay.Listen) > 0 {

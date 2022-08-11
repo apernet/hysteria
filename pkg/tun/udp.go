@@ -1,114 +1,113 @@
-//go:build cgo
-// +build cgo
+//go:build gpl
+// +build gpl
 
 package tun
 
 import (
-	"errors"
-	tun2socks "github.com/eycorsican/go-tun2socks/core"
+	"fmt"
 	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 	"net"
 	"strconv"
-	"sync/atomic"
 	"time"
 )
 
 const udpBufferSize = 65535
 
-type udpConnInfo struct {
-	hyConn core.UDPConn
-	target string
-	expire atomic.Value
+func (s *Server) HandleUDP(conn adapter.UDPConn) {
+	go s.handleUDPConn(conn)
 }
 
-func (s *Server) fetchUDPInput(conn tun2socks.UDPConn, ci *udpConnInfo) {
-	defer func() {
-		s.closeUDPConn(conn)
-	}()
+func (s *Server) handleUDPConn(conn adapter.UDPConn) {
+	defer conn.Close()
 
-	if s.Timeout > 0 {
-		go func() {
-			for {
-				life := ci.expire.Load().(time.Time).Sub(time.Now())
-				if life < 0 {
-					s.closeUDPConn(conn)
-					break
-				} else {
-					time.Sleep(life)
-				}
-			}
-		}()
+	id := conn.ID()
+	remoteAddr := net.UDPAddr{
+		IP:   net.IP(id.LocalAddress),
+		Port: int(id.LocalPort),
+	}
+	localAddr := net.UDPAddr{
+		IP:   net.IP(id.RemoteAddress),
+		Port: int(id.RemotePort),
+	}
+
+	if s.RequestFunc != nil {
+		s.RequestFunc(&localAddr, remoteAddr.String())
 	}
 
 	var err error
-
-	for {
-		var bs []byte
-		var from string
-		bs, from, err = ci.hyConn.ReadFrom()
-		if err != nil {
-			break
-		}
-		ci.expire.Store(time.Now().Add(s.Timeout))
-		udpAddr, _ := net.ResolveUDPAddr("udp", from)
-		_, err = conn.WriteFrom(bs, udpAddr)
-		if err != nil {
-			break
-		}
-	}
-
-	if s.ErrorFunc != nil {
-		s.ErrorFunc(conn.LocalAddr(), ci.target, err)
-	}
-}
-
-func (s *Server) Connect(conn tun2socks.UDPConn, target *net.UDPAddr) error {
-	if s.RequestFunc != nil {
-		s.RequestFunc(conn.LocalAddr(), target.String())
-	}
-	var hyConn core.UDPConn
-	var closeErr error
 	defer func() {
-		if s.ErrorFunc != nil && closeErr != nil {
-			s.ErrorFunc(conn.LocalAddr(), target.String(), closeErr)
+		if s.ErrorFunc != nil && err != nil {
+			s.ErrorFunc(&localAddr, remoteAddr.String(), err)
 		}
 	}()
-	hyConn, closeErr = s.HyClient.DialUDP()
-	if closeErr != nil {
-		return closeErr
+
+	rc, err := s.HyClient.DialUDP()
+	if err != nil {
+		return
 	}
-	ci := udpConnInfo{
-		hyConn: hyConn,
-		target: net.JoinHostPort(target.IP.String(), strconv.Itoa(target.Port)),
-	}
-	ci.expire.Store(time.Now().Add(s.Timeout))
-	s.udpConnMapLock.Lock()
-	s.udpConnMap[conn] = &ci
-	s.udpConnMapLock.Unlock()
-	go s.fetchUDPInput(conn, &ci)
-	return nil
+	defer rc.Close()
+
+	err = s.relayUDP(conn, rc, &remoteAddr, s.Timeout)
 }
 
-func (s *Server) ReceiveTo(conn tun2socks.UDPConn, data []byte, addr *net.UDPAddr) error {
-	s.udpConnMapLock.RLock()
-	ci, ok := s.udpConnMap[conn]
-	s.udpConnMapLock.RUnlock()
-	if !ok {
-		err := errors.New("previous connection closed for timeout")
-		s.ErrorFunc(conn.LocalAddr(), addr.String(), err)
-		return err
-	}
-	ci.expire.Store(time.Now().Add(s.Timeout))
-	_ = ci.hyConn.WriteTo(data, addr.String())
-	return nil
-}
+func (s *Server) relayUDP(lc adapter.UDPConn, rc core.UDPConn, to *net.UDPAddr, timeout time.Duration) (err error) {
+	errChan := make(chan error, 2)
+	// local => remote
+	go func() {
+		buf := make([]byte, udpBufferSize)
+		for {
+			if timeout != 0 {
+				_ = lc.SetDeadline(time.Now().Add(timeout))
+				n, err := lc.Read(buf)
+				if n > 0 {
+					err = rc.WriteTo(buf[:n], to.String())
+					if err != nil {
+						errChan <- err
+						return
+					}
+				}
+				if err != nil {
+					errChan <- err
+					return
+				}
+			}
+		}
+	}()
+	// remote => local
+	go func() {
+		for {
+			pkt, addr, err := rc.ReadFrom()
+			if err != nil {
+				errChan <- err
+				return
+			}
+			if pkt != nil {
+				host, portStr, err := net.SplitHostPort(addr)
+				if err != nil {
+					errChan <- err
+					return
+				}
+				port, err := strconv.Atoi(portStr)
+				if err != nil {
+					errChan <- fmt.Errorf("cannot parse as port: %s", portStr)
+					return
+				}
 
-func (s *Server) closeUDPConn(conn tun2socks.UDPConn) {
-	conn.Close()
-	s.udpConnMapLock.Lock()
-	defer s.udpConnMapLock.Unlock()
-	if c, ok := s.udpConnMap[conn]; ok {
-		c.hyConn.Close()
-		delete(s.udpConnMap, conn)
-	}
+				// adapter.UDPConn doesn't support WriteFrom() yet,
+				// so we check the src address and behavior like a symmetric NAT
+				if !to.IP.Equal(net.ParseIP(host)) || to.Port != port {
+					// drop the packet silently
+					continue
+				}
+
+				_, err = lc.Write(pkt)
+				if err != nil {
+					errChan <- err
+					return
+				}
+			}
+		}
+	}()
+	return <-errChan
 }
