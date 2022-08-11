@@ -32,5 +32,5 @@ SOFTWARE.
 `
 
 func startTUN(config *clientConfig, client *core.Client, errChan chan error) {
-	logrus.Fatalln("TUN mode is only available in the GPL build, please rebuild hysteria with -tags gpl")
+	logrus.Fatalln("TUN mode is only available in GPL builds. Please rebuild hysteria with -tags gpl")
 }
