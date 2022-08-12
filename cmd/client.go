@@ -175,38 +175,38 @@ func client(config *clientConfig) {
 				func(addr net.Addr, reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
 						"action": actionToString(action, arg),
-						"src":    addr.String(),
-						"dst":    reqAddr,
+						"src":    defaultIPMasker.Mask(addr.String()),
+						"dst":    defaultIPMasker.Mask(reqAddr),
 					}).Debug("SOCKS5 TCP request")
 				},
 				func(addr net.Addr, reqAddr string, err error) {
 					if err != io.EOF {
 						logrus.WithFields(logrus.Fields{
 							"error": err,
-							"src":   addr.String(),
-							"dst":   reqAddr,
+							"src":   defaultIPMasker.Mask(addr.String()),
+							"dst":   defaultIPMasker.Mask(reqAddr),
 						}).Info("SOCKS5 TCP error")
 					} else {
 						logrus.WithFields(logrus.Fields{
-							"src": addr.String(),
-							"dst": reqAddr,
+							"src": defaultIPMasker.Mask(addr.String()),
+							"dst": defaultIPMasker.Mask(reqAddr),
 						}).Debug("SOCKS5 TCP EOF")
 					}
 				},
 				func(addr net.Addr) {
 					logrus.WithFields(logrus.Fields{
-						"src": addr.String(),
+						"src": defaultIPMasker.Mask(addr.String()),
 					}).Debug("SOCKS5 UDP associate")
 				},
 				func(addr net.Addr, err error) {
 					if err != io.EOF {
 						logrus.WithFields(logrus.Fields{
 							"error": err,
-							"src":   addr.String(),
+							"src":   defaultIPMasker.Mask(addr.String()),
 						}).Info("SOCKS5 UDP error")
 					} else {
 						logrus.WithFields(logrus.Fields{
-							"src": addr.String(),
+							"src": defaultIPMasker.Mask(addr.String()),
 						}).Debug("SOCKS5 UDP EOF")
 					}
 				})
@@ -231,7 +231,7 @@ func client(config *clientConfig) {
 				func(reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
 						"action": actionToString(action, arg),
-						"dst":    reqAddr,
+						"dst":    defaultIPMasker.Mask(reqAddr),
 					}).Debug("HTTP request")
 				},
 				authFunc)
@@ -267,18 +267,18 @@ func client(config *clientConfig) {
 					time.Duration(tcpr.Timeout)*time.Second,
 					func(addr net.Addr) {
 						logrus.WithFields(logrus.Fields{
-							"src": addr.String(),
+							"src": defaultIPMasker.Mask(addr.String()),
 						}).Debug("TCP relay request")
 					},
 					func(addr net.Addr, err error) {
 						if err != io.EOF {
 							logrus.WithFields(logrus.Fields{
 								"error": err,
-								"src":   addr.String(),
+								"src":   defaultIPMasker.Mask(addr.String()),
 							}).Info("TCP relay error")
 						} else {
 							logrus.WithFields(logrus.Fields{
-								"src": addr.String(),
+								"src": defaultIPMasker.Mask(addr.String()),
 							}).Debug("TCP relay EOF")
 						}
 					})
@@ -306,18 +306,18 @@ func client(config *clientConfig) {
 					time.Duration(udpr.Timeout)*time.Second,
 					func(addr net.Addr) {
 						logrus.WithFields(logrus.Fields{
-							"src": addr.String(),
+							"src": defaultIPMasker.Mask(addr.String()),
 						}).Debug("UDP relay request")
 					},
 					func(addr net.Addr, err error) {
 						if err != relay.ErrTimeout {
 							logrus.WithFields(logrus.Fields{
 								"error": err,
-								"src":   addr.String(),
+								"src":   defaultIPMasker.Mask(addr.String()),
 							}).Info("UDP relay error")
 						} else {
 							logrus.WithFields(logrus.Fields{
-								"src": addr.String(),
+								"src": defaultIPMasker.Mask(addr.String()),
 							}).Debug("UDP relay session closed")
 						}
 					})
@@ -336,21 +336,21 @@ func client(config *clientConfig) {
 				time.Duration(config.TCPTProxy.Timeout)*time.Second,
 				func(addr, reqAddr net.Addr) {
 					logrus.WithFields(logrus.Fields{
-						"src": addr.String(),
-						"dst": reqAddr.String(),
+						"src": defaultIPMasker.Mask(addr.String()),
+						"dst": defaultIPMasker.Mask(reqAddr.String()),
 					}).Debug("TCP TProxy request")
 				},
 				func(addr, reqAddr net.Addr, err error) {
 					if err != io.EOF {
 						logrus.WithFields(logrus.Fields{
 							"error": err,
-							"src":   addr.String(),
-							"dst":   reqAddr.String(),
+							"src":   defaultIPMasker.Mask(addr.String()),
+							"dst":   defaultIPMasker.Mask(reqAddr.String()),
 						}).Info("TCP TProxy error")
 					} else {
 						logrus.WithFields(logrus.Fields{
-							"src": addr.String(),
-							"dst": reqAddr.String(),
+							"src": defaultIPMasker.Mask(addr.String()),
+							"dst": defaultIPMasker.Mask(reqAddr.String()),
 						}).Debug("TCP TProxy EOF")
 					}
 				})
@@ -368,21 +368,21 @@ func client(config *clientConfig) {
 				time.Duration(config.UDPTProxy.Timeout)*time.Second,
 				func(addr, reqAddr net.Addr) {
 					logrus.WithFields(logrus.Fields{
-						"src": addr.String(),
-						"dst": reqAddr.String(),
+						"src": defaultIPMasker.Mask(addr.String()),
+						"dst": defaultIPMasker.Mask(reqAddr.String()),
 					}).Debug("UDP TProxy request")
 				},
 				func(addr, reqAddr net.Addr, err error) {
 					if !errors.Is(err, os.ErrDeadlineExceeded) {
 						logrus.WithFields(logrus.Fields{
 							"error": err,
-							"src":   addr.String(),
-							"dst":   reqAddr.String(),
+							"src":   defaultIPMasker.Mask(addr.String()),
+							"dst":   defaultIPMasker.Mask(reqAddr.String()),
 						}).Info("UDP TProxy error")
 					} else {
 						logrus.WithFields(logrus.Fields{
-							"src": addr.String(),
-							"dst": reqAddr.String(),
+							"src": defaultIPMasker.Mask(addr.String()),
+							"dst": defaultIPMasker.Mask(reqAddr.String()),
 						}).Debug("UDP TProxy session closed")
 					}
 				})
@@ -400,21 +400,21 @@ func client(config *clientConfig) {
 				time.Duration(config.TCPRedirect.Timeout)*time.Second,
 				func(addr, reqAddr net.Addr) {
 					logrus.WithFields(logrus.Fields{
-						"src": addr.String(),
-						"dst": reqAddr.String(),
+						"src": defaultIPMasker.Mask(addr.String()),
+						"dst": defaultIPMasker.Mask(reqAddr.String()),
 					}).Debug("TCP Redirect request")
 				},
 				func(addr, reqAddr net.Addr, err error) {
 					if err != io.EOF {
 						logrus.WithFields(logrus.Fields{
 							"error": err,
-							"src":   addr.String(),
-							"dst":   reqAddr.String(),
+							"src":   defaultIPMasker.Mask(addr.String()),
+							"dst":   defaultIPMasker.Mask(reqAddr.String()),
 						}).Info("TCP Redirect error")
 					} else {
 						logrus.WithFields(logrus.Fields{
-							"src": addr.String(),
-							"dst": reqAddr.String(),
+							"src": defaultIPMasker.Mask(addr.String()),
+							"dst": defaultIPMasker.Mask(reqAddr.String()),
 						}).Debug("TCP Redirect EOF")
 					}
 				})

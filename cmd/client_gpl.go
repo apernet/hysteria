@@ -42,32 +42,32 @@ func startTUN(config *clientConfig, client *core.Client, errChan chan error) {
 	}
 	tunServer.RequestFunc = func(addr net.Addr, reqAddr string) {
 		logrus.WithFields(logrus.Fields{
-			"src": addr.String(),
-			"dst": reqAddr,
+			"src": defaultIPMasker.Mask(addr.String()),
+			"dst": defaultIPMasker.Mask(reqAddr),
 		}).Debugf("TUN %s request", strings.ToUpper(addr.Network()))
 	}
 	tunServer.ErrorFunc = func(addr net.Addr, reqAddr string, err error) {
 		if err != nil {
 			if err == io.EOF {
 				logrus.WithFields(logrus.Fields{
-					"src": addr.String(),
-					"dst": reqAddr,
+					"src": defaultIPMasker.Mask(addr.String()),
+					"dst": defaultIPMasker.Mask(reqAddr),
 				}).Debugf("TUN %s EOF", strings.ToUpper(addr.Network()))
 			} else if err == core.ErrClosed && strings.HasPrefix(addr.Network(), "udp") {
 				logrus.WithFields(logrus.Fields{
-					"src": addr.String(),
-					"dst": reqAddr,
+					"src": defaultIPMasker.Mask(addr.String()),
+					"dst": defaultIPMasker.Mask(reqAddr),
 				}).Debugf("TUN %s closed for timeout", strings.ToUpper(addr.Network()))
 			} else if nErr, ok := err.(net.Error); ok && nErr.Timeout() && strings.HasPrefix(addr.Network(), "tcp") {
 				logrus.WithFields(logrus.Fields{
-					"src": addr.String(),
-					"dst": reqAddr,
+					"src": defaultIPMasker.Mask(addr.String()),
+					"dst": defaultIPMasker.Mask(reqAddr),
 				}).Debugf("TUN %s closed for timeout", strings.ToUpper(addr.Network()))
 			} else {
 				logrus.WithFields(logrus.Fields{
 					"error": err,
-					"src":   addr.String(),
-					"dst":   reqAddr,
+					"src":   defaultIPMasker.Mask(addr.String()),
+					"dst":   defaultIPMasker.Mask(reqAddr),
 				}).Infof("TUN %s error", strings.ToUpper(addr.Network()))
 			}
 		}
