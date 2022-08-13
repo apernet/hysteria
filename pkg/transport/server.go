@@ -3,6 +3,10 @@ package transport
 import (
 	"crypto/tls"
 	"fmt"
+	"net"
+	"strconv"
+	"time"
+
 	"github.com/lucas-clemente/quic-go"
 	"github.com/tobyxdd/hysteria/pkg/conns/faketcp"
 	"github.com/tobyxdd/hysteria/pkg/conns/udp"
@@ -10,9 +14,6 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"github.com/tobyxdd/hysteria/pkg/sockopt"
 	"github.com/tobyxdd/hysteria/pkg/utils"
-	"net"
-	"strconv"
-	"time"
 )
 
 type ServerTransport struct {

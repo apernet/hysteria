@@ -3,11 +3,12 @@ package redirect
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/tobyxdd/hysteria/pkg/core"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"syscall"
 	"time"
+
+	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 )
 
 type TCPRedirect struct {
@@ -21,7 +22,8 @@ type TCPRedirect struct {
 
 func NewTCPRedirect(hyClient *core.Client, listen string, timeout time.Duration,
 	connFunc func(addr, reqAddr net.Addr),
-	errorFunc func(addr, reqAddr net.Addr, err error)) (*TCPRedirect, error) {
+	errorFunc func(addr, reqAddr net.Addr, err error),
+) (*TCPRedirect, error) {
 	tAddr, err := net.ResolveTCPAddr("tcp", listen)
 	if err != nil {
 		return nil, err

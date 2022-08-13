@@ -5,6 +5,13 @@ package tun
 
 import (
 	"fmt"
+	"net"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"github.com/tobyxdd/hysteria/pkg/core"
 	t2score "github.com/xjasonlyu/tun2socks/v2/core"
@@ -13,12 +20,6 @@ import (
 	"github.com/xjasonlyu/tun2socks/v2/core/device/fdbased"
 	"github.com/xjasonlyu/tun2socks/v2/core/device/tun"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
-	"net"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
-	"time"
 )
 
 var _ adapter.TransportHandler = (*Server)(nil)

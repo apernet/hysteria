@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"crypto/tls"
+
 	"github.com/caddyserver/certmagic"
 )
 
 func acmeTLSConfig(domains []string, email string, disableHTTP bool, disableTLSALPN bool,
-	altHTTPPort int, altTLSALPNPort int) (*tls.Config, error) {
+	altHTTPPort int, altTLSALPNPort int,
+) (*tls.Config, error) {
 	certmagic.DefaultACME.Agreed = true
 	certmagic.DefaultACME.Email = email
 	certmagic.DefaultACME.DisableHTTPChallenge = disableHTTP

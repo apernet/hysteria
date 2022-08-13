@@ -1,12 +1,13 @@
 package main
 
 import (
-	"github.com/oschwald/geoip2-golang"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"io"
 	"net/http"
 	"os"
+
+	"github.com/oschwald/geoip2-golang"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 func downloadMMDB(filename string) error {

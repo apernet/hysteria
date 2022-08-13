@@ -3,11 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/yosuke-furukawa/json5/encoding/json5"
 )
 
 const (

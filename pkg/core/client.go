@@ -6,6 +6,12 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"math/rand"
+	"net"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/lunixbochs/struc"
@@ -13,16 +19,9 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
-	"math/rand"
-	"net"
-	"strconv"
-	"sync"
-	"time"
 )
 
-var (
-	ErrClosed = errors.New("closed")
-)
+var ErrClosed = errors.New("closed")
 
 type CongestionFactory func(refBPS uint64) congestion.CongestionControl
 
@@ -49,7 +48,8 @@ type Client struct {
 
 func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
 	transport *transport.ClientTransport, sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
-	obfuscator obfs.Obfuscator) (*Client, error) {
+	obfuscator obfs.Obfuscator,
+) (*Client, error) {
 	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud_fix.DisablePathMTUDiscovery
 	c := &Client{
 		transport:         transport,

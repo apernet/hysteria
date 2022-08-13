@@ -2,10 +2,11 @@ package main
 
 import (
 	"errors"
-	rdns "github.com/folbricht/routedns"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"strings"
+
+	rdns "github.com/folbricht/routedns"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 )
 
 var errInvalidSyntax = errors.New("invalid syntax")

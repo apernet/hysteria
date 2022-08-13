@@ -2,12 +2,13 @@ package acl
 
 import (
 	"bufio"
-	lru "github.com/hashicorp/golang-lru"
-	"github.com/oschwald/geoip2-golang"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"os"
 	"strings"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/oschwald/geoip2-golang"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 )
 
 const entryCacheSize = 1024

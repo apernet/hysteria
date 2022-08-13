@@ -3,6 +3,11 @@ package main
 import (
 	"crypto/tls"
 	"errors"
+	"io"
+	"net"
+	"net/http"
+	"time"
+
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/oschwald/geoip2-golang"
@@ -18,10 +23,6 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/sockopt"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
-	"io"
-	"net"
-	"net/http"
-	"time"
 )
 
 func server(config *serverConfig) {

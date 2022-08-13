@@ -4,9 +4,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/txthinking/socks5"
 	"net"
 	"time"
+
+	"github.com/txthinking/socks5"
 )
 
 type SOCKS5Client struct {

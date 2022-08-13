@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
+
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"
@@ -12,15 +14,16 @@ import (
 	"github.com/tobyxdd/hysteria/pkg/obfs"
 	"github.com/tobyxdd/hysteria/pkg/pmtud_fix"
 	"github.com/tobyxdd/hysteria/pkg/transport"
-	"net"
 )
 
-type ConnectFunc func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
-type DisconnectFunc func(addr net.Addr, auth []byte, err error)
-type TCPRequestFunc func(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string)
-type TCPErrorFunc func(addr net.Addr, auth []byte, reqAddr string, err error)
-type UDPRequestFunc func(addr net.Addr, auth []byte, sessionID uint32)
-type UDPErrorFunc func(addr net.Addr, auth []byte, sessionID uint32, err error)
+type (
+	ConnectFunc    func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
+	DisconnectFunc func(addr net.Addr, auth []byte, err error)
+	TCPRequestFunc func(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string)
+	TCPErrorFunc   func(addr net.Addr, auth []byte, reqAddr string, err error)
+	UDPRequestFunc func(addr net.Addr, auth []byte, sessionID uint32)
+	UDPErrorFunc   func(addr net.Addr, auth []byte, sessionID uint32, err error)
+)
 
 type Server struct {
 	transport         *transport.ServerTransport
@@ -46,7 +49,8 @@ func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *
 	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
 	obfuscator obfs.Obfuscator, connectFunc ConnectFunc, disconnectFunc DisconnectFunc,
 	tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
-	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry) (*Server, error) {
+	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry,
+) (*Server, error) {
 	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud_fix.DisablePathMTUDiscovery
 	listener, err := transport.QUICListen(protocol, addr, tlsConfig, quicConfig, obfuscator)
 	if err != nil {

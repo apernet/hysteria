@@ -4,13 +4,14 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
-	"github.com/tobyxdd/hysteria/pkg/core"
-	"github.com/tobyxdd/hysteria/pkg/tun"
 	"io"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/tun"
 )
 
 const license = `Hysteria is a feature-packed proxy & relay utility optimized for lossy, unstable connections.

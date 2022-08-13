@@ -1,11 +1,12 @@
 package auth
 
 import (
-	"github.com/sirupsen/logrus"
 	"net"
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 type CmdAuthProvider struct {

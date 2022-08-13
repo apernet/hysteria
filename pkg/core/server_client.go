@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"math/rand"
+	"net"
+	"strconv"
+	"sync"
+
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tobyxdd/hysteria/pkg/acl"
 	"github.com/tobyxdd/hysteria/pkg/transport"
 	"github.com/tobyxdd/hysteria/pkg/utils"
-	"math/rand"
-	"net"
-	"strconv"
-	"sync"
 )
 
 const udpBufferSize = 65535
@@ -44,7 +45,8 @@ func newServerClient(v2 bool, cs quic.Connection, tr *transport.ServerTransport,
 	CTCPRequestFunc TCPRequestFunc, CTCPErrorFunc TCPErrorFunc,
 	CUDPRequestFunc UDPRequestFunc, CUDPErrorFunc UDPErrorFunc,
 	UpCounterVec, DownCounterVec *prometheus.CounterVec,
-	ConnGaugeVec *prometheus.GaugeVec) *serverClient {
+	ConnGaugeVec *prometheus.GaugeVec,
+) *serverClient {
 	sc := &serverClient{
 		V2:              v2,
 		CS:              cs,

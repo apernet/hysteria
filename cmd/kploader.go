@@ -2,9 +2,10 @@ package main
 
 import (
 	"crypto/tls"
+	"sync"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
-	"sync"
 )
 
 type keypairLoader struct {

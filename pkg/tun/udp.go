@@ -5,11 +5,12 @@ package tun
 
 import (
 	"fmt"
-	"github.com/tobyxdd/hysteria/pkg/core"
-	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 )
 
 const udpBufferSize = 65535

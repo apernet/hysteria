@@ -1,10 +1,11 @@
 package relay
 
 import (
-	"github.com/tobyxdd/hysteria/pkg/core"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 	"net"
 	"time"
+
+	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/tobyxdd/hysteria/pkg/utils"
 )
 
 type TCPRelay struct {
@@ -18,7 +19,8 @@ type TCPRelay struct {
 }
 
 func NewTCPRelay(hyClient *core.Client, listen, remote string, timeout time.Duration,
-	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error)) (*TCPRelay, error) {
+	connFunc func(addr net.Addr), errorFunc func(addr net.Addr, err error),
+) (*TCPRelay, error) {
 	tAddr, err := net.ResolveTCPAddr("tcp", listen)
 	if err != nil {
 		return nil, err

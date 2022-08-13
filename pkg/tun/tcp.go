@@ -4,9 +4,10 @@
 package tun
 
 import (
+	"net"
+
 	"github.com/tobyxdd/hysteria/pkg/utils"
 	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
-	"net"
 )
 
 func (s *Server) HandleTCP(localConn adapter.TCPConn) {

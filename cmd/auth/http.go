@@ -3,10 +3,11 @@ package auth
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net"
 	"net/http"
+
+	"github.com/sirupsen/logrus"
 )
 
 type HTTPAuthProvider struct {

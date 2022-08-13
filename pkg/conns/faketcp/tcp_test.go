@@ -11,12 +11,14 @@ import (
 	"testing"
 )
 
-//const testPortStream = "127.0.0.1:3456"
-//const testPortPacket = "127.0.0.1:3457"
+// const testPortStream = "127.0.0.1:3456"
+// const testPortPacket = "127.0.0.1:3457"
 
-const testPortStream = "127.0.0.1:3456"
-const portServerPacket = "[::]:3457"
-const portRemotePacket = "127.0.0.1:3457"
+const (
+	testPortStream   = "127.0.0.1:3456"
+	portServerPacket = "[::]:3457"
+	portRemotePacket = "127.0.0.1:3457"
+)
 
 func init() {
 	startTCPServer()
@@ -70,7 +72,7 @@ func startTCPRawServer() *TCPConn {
 				log.Println("server readfrom:", err)
 				return
 			}
-			//echo
+			// echo
 			n, err = conn.WriteTo(buf[:n], addr)
 			if err != nil {
 				log.Println("server writeTo:", err)

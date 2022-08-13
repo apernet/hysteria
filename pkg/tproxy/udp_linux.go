@@ -1,10 +1,11 @@
 package tproxy
 
 import (
-	"github.com/LiamHaworth/go-tproxy"
-	"github.com/tobyxdd/hysteria/pkg/core"
 	"net"
 	"time"
+
+	"github.com/LiamHaworth/go-tproxy"
+	"github.com/tobyxdd/hysteria/pkg/core"
 )
 
 const udpBufferSize = 65535
@@ -20,7 +21,8 @@ type UDPTProxy struct {
 
 func NewUDPTProxy(hyClient *core.Client, listen string, timeout time.Duration,
 	connFunc func(addr, reqAddr net.Addr),
-	errorFunc func(addr, reqAddr net.Addr, err error)) (*UDPTProxy, error) {
+	errorFunc func(addr, reqAddr net.Addr, err error),
+) (*UDPTProxy, error) {
 	uAddr, err := net.ResolveUDPAddr("udp", listen)
 	if err != nil {
 		return nil, err
