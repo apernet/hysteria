@@ -37,11 +37,15 @@ func resolveIPAddrWithPreference(host string, pref ResolvePreference) (*net.IPAd
 		return nil, err
 	}
 	var ip4, ip6 *net.IPAddr
-	for _, ip := range ips {
+	for i := range ips {
+		ip := &ips[i]
 		if ip.IP.To4() != nil {
-			ip4 = &ip
+			ip4 = ip
 		} else {
-			ip6 = &ip
+			ip6 = ip
+		}
+		if ip4 != nil && ip6 != nil {
+			break
 		}
 	}
 	switch pref {
