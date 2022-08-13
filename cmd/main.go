@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"os"
 	"regexp"
 	"strings"
@@ -69,6 +70,16 @@ var rootCmd = &cobra.Command{
 		if viper.GetBool("license") {
 			fmt.Printf("%s\n", license)
 			os.Exit(0)
+		}
+
+		// ip mask config
+		v4m := viper.GetUint("log-ipv4-mask")
+		if v4m > 0 && v4m < 32 {
+			defaultIPMasker.IPv4Mask = net.CIDRMask(int(v4m), 32)
+		}
+		v6m := viper.GetUint("log-ipv6-mask")
+		if v6m > 0 && v6m < 128 {
+			defaultIPMasker.IPv6Mask = net.CIDRMask(int(v6m), 128)
 		}
 
 		// check update
@@ -158,7 +169,9 @@ func init() {
 	rootCmd.PersistentFlags().String("mmdb-url", "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb", "mmdb download url")
 	rootCmd.PersistentFlags().String("log-level", "debug", "log level")
 	rootCmd.PersistentFlags().String("log-timestamp", time.RFC3339, "log timestamp format")
-	rootCmd.PersistentFlags().String("log-format", "txt", "log output format(txt/json)")
+	rootCmd.PersistentFlags().String("log-format", "txt", "log output format (txt/json)")
+	rootCmd.PersistentFlags().Uint("log-ipv4-mask", 0, "mask IPv4 addresses in log using a CIDR mask")
+	rootCmd.PersistentFlags().Uint("log-ipv6-mask", 0, "mask IPv6 addresses in log using a CIDR mask")
 	rootCmd.PersistentFlags().Bool("no-check", false, "disable update check")
 	rootCmd.PersistentFlags().Bool("license", false, "show license and exit")
 
@@ -171,6 +184,8 @@ func init() {
 	_ = viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level"))
 	_ = viper.BindPFlag("log-timestamp", rootCmd.PersistentFlags().Lookup("log-timestamp"))
 	_ = viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format"))
+	_ = viper.BindPFlag("log-ipv4-mask", rootCmd.PersistentFlags().Lookup("log-ipv4-mask"))
+	_ = viper.BindPFlag("log-ipv6-mask", rootCmd.PersistentFlags().Lookup("log-ipv6-mask"))
 	_ = viper.BindPFlag("no-check", rootCmd.PersistentFlags().Lookup("no-check"))
 	_ = viper.BindPFlag("license", rootCmd.PersistentFlags().Lookup("license"))
 
@@ -180,6 +195,8 @@ func init() {
 	_ = viper.BindEnv("log-level", "HYSTERIA_LOG_LEVEL", "LOGGING_LEVEL")
 	_ = viper.BindEnv("log-timestamp", "HYSTERIA_LOG_TIMESTAMP", "LOGGING_TIMESTAMP_FORMAT")
 	_ = viper.BindEnv("log-format", "HYSTERIA_LOG_FORMAT", "LOGGING_FORMATTER")
+	_ = viper.BindEnv("log-ipv4-mask", "HYSTERIA_LOG_IPV4_MASK", "LOGGING_IPV4_MASK")
+	_ = viper.BindEnv("log-ipv6-mask", "HYSTERIA_LOG_IPV6_MASK", "LOGGING_IPV6_MASK")
 	_ = viper.BindEnv("no-check", "HYSTERIA_NO_CHECK", "HYSTERIA_NO_CHECK_UPDATE")
 	viper.AutomaticEnv()
 }

@@ -131,12 +131,12 @@ func server(config *serverConfig) {
 		ok, msg := authFunc(addr, auth, sSend, sRecv)
 		if !ok {
 			logrus.WithFields(logrus.Fields{
-				"src": addr,
+				"src": defaultIPMasker.Mask(addr.String()),
 				"msg": msg,
 			}).Info("Authentication failed, client rejected")
 		} else {
 			logrus.WithFields(logrus.Fields{
-				"src": addr,
+				"src": defaultIPMasker.Mask(addr.String()),
 			}).Info("Client connected")
 		}
 		return ok, msg
@@ -287,15 +287,15 @@ func externalAuthFunc(rawMsg json5.RawMessage) (core.ConnectFunc, error) {
 
 func disconnectFunc(addr net.Addr, auth []byte, err error) {
 	logrus.WithFields(logrus.Fields{
-		"src":   addr,
+		"src":   defaultIPMasker.Mask(addr.String()),
 		"error": err,
 	}).Info("Client disconnected")
 }
 
 func tcpRequestFunc(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string) {
 	logrus.WithFields(logrus.Fields{
-		"src":    addr.String(),
-		"dst":    reqAddr,
+		"src":    defaultIPMasker.Mask(addr.String()),
+		"dst":    defaultIPMasker.Mask(reqAddr),
 		"action": actionToString(action, arg),
 	}).Debug("TCP request")
 }
@@ -303,21 +303,21 @@ func tcpRequestFunc(addr net.Addr, auth []byte, reqAddr string, action acl.Actio
 func tcpErrorFunc(addr net.Addr, auth []byte, reqAddr string, err error) {
 	if err != io.EOF {
 		logrus.WithFields(logrus.Fields{
-			"src":   addr.String(),
-			"dst":   reqAddr,
+			"src":   defaultIPMasker.Mask(addr.String()),
+			"dst":   defaultIPMasker.Mask(reqAddr),
 			"error": err,
 		}).Info("TCP error")
 	} else {
 		logrus.WithFields(logrus.Fields{
-			"src": addr.String(),
-			"dst": reqAddr,
+			"src": defaultIPMasker.Mask(addr.String()),
+			"dst": defaultIPMasker.Mask(reqAddr),
 		}).Debug("TCP EOF")
 	}
 }
 
 func udpRequestFunc(addr net.Addr, auth []byte, sessionID uint32) {
 	logrus.WithFields(logrus.Fields{
-		"src":     addr.String(),
+		"src":     defaultIPMasker.Mask(addr.String()),
 		"session": sessionID,
 	}).Debug("UDP request")
 }
@@ -325,13 +325,13 @@ func udpRequestFunc(addr net.Addr, auth []byte, sessionID uint32) {
 func udpErrorFunc(addr net.Addr, auth []byte, sessionID uint32, err error) {
 	if err != io.EOF {
 		logrus.WithFields(logrus.Fields{
-			"src":     addr.String(),
+			"src":     defaultIPMasker.Mask(addr.String()),
 			"session": sessionID,
 			"error":   err,
 		}).Info("UDP error")
 	} else {
 		logrus.WithFields(logrus.Fields{
-			"src":     addr.String(),
+			"src":     defaultIPMasker.Mask(addr.String()),
 			"session": sessionID,
 		}).Debug("UDP EOF")
 	}
