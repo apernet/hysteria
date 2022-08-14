@@ -183,6 +183,20 @@ func (c *Client) openStreamWithReconnect() (quic.Connection, quic.Stream, error)
 	return c.quicSession, &wrappedQUICStream{stream}, err
 }
 
+// Implement Pluggable Transport Client interface
+func (c *Client) Dial() (net.Conn, error) {
+	session, stream, err := c.openStreamWithReconnect()
+	if err != nil {
+		return nil, err
+	}
+
+	return &quicConn{
+		Orig:             stream,
+		PseudoLocalAddr:  session.LocalAddr(),
+		PseudoRemoteAddr: session.RemoteAddr(),
+	}, nil
+}
+
 func (c *Client) DialTCP(addr string) (net.Conn, error) {
 	host, port, err := utils.SplitHostPort(addr)
 	if err != nil {
