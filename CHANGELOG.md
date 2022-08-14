@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0
+
+- Reworked TUN mode
+- DoT/DoH/DoQ support for resolver
+- IP masking (anonymization)
+- FreeBSD builds
+
 ## 1.1.0
 
 - Super major CPU performance improvements (~30% to several times faster, depending on the circumstances) by optimizing several data structures in quic-go (changes upstreamed)
