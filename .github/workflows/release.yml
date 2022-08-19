@@ -27,7 +27,7 @@ jobs:
         id: current-time
 
       - name: Build
-        uses: tobyxdd/go-cross-build@d00fc41eb205f57dd90f6e5af4613e21c7ebe73f
+        uses: tobyxdd/go-cross-build@3d5409b1f31e99ed87651195a29f5aefea23e77c
         env:
           TIME: "${{ steps.current-time.outputs.time }}"
           GOFLAGS: "-tags=gpl"
