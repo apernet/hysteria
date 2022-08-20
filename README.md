@@ -6,9 +6,9 @@
 
 [2]: LICENSE.md
 
-[3]: https://img.shields.io/github/v/release/tobyxdd/hysteria?style=flat-square
+[3]: https://img.shields.io/github/v/release/HyNetwork/hysteria?style=flat-square
 
-[4]: https://github.com/tobyxdd/hysteria/releases
+[4]: https://github.com/HyNetwork/hysteria/releases
 
 [5]: https://img.shields.io/badge/chat-Telegram-blue?style=flat-square
 

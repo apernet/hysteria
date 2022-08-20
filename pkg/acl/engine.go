@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/HyNetwork/hysteria/pkg/utils"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/geoip2-golang"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 )
 
 const entryCacheSize = 1024

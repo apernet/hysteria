@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tobyxdd/hysteria/pkg/obfs"
+	"github.com/HyNetwork/hysteria/pkg/obfs"
 )
 
 const udpBufferSize = 65535

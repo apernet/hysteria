@@ -6,11 +6,11 @@ import (
 	"net"
 	"time"
 
+	"github.com/HyNetwork/hysteria/pkg/conns/faketcp"
+	"github.com/HyNetwork/hysteria/pkg/conns/udp"
+	"github.com/HyNetwork/hysteria/pkg/conns/wechat"
+	"github.com/HyNetwork/hysteria/pkg/obfs"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/tobyxdd/hysteria/pkg/conns/faketcp"
-	"github.com/tobyxdd/hysteria/pkg/conns/udp"
-	"github.com/tobyxdd/hysteria/pkg/conns/wechat"
-	"github.com/tobyxdd/hysteria/pkg/obfs"
 )
 
 type ClientTransport struct {

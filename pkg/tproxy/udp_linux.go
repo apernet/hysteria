@@ -4,8 +4,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/HyNetwork/hysteria/pkg/core"
 	"github.com/LiamHaworth/go-tproxy"
-	"github.com/tobyxdd/hysteria/pkg/core"
 )
 
 const udpBufferSize = 65535

@@ -4,9 +4,9 @@ import (
 	"net"
 	"time"
 
+	"github.com/HyNetwork/hysteria/pkg/core"
+	"github.com/HyNetwork/hysteria/pkg/utils"
 	"github.com/LiamHaworth/go-tproxy"
-	"github.com/tobyxdd/hysteria/pkg/core"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 )
 
 type TCPTProxy struct {

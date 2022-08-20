@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/HyNetwork/hysteria/pkg/core"
 	"github.com/sirupsen/logrus"
-	"github.com/tobyxdd/hysteria/pkg/core"
 	t2score "github.com/xjasonlyu/tun2socks/v2/core"
 	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 	"github.com/xjasonlyu/tun2socks/v2/core/device"

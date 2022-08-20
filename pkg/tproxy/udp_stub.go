@@ -8,7 +8,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/tobyxdd/hysteria/pkg/core"
+	"github.com/HyNetwork/hysteria/pkg/core"
 )
 
 var ErrTimeout = errors.New("inactivity timeout")

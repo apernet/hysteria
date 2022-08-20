@@ -4,8 +4,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/tobyxdd/hysteria/pkg/core"
-	"github.com/tobyxdd/hysteria/pkg/utils"
+	"github.com/HyNetwork/hysteria/pkg/core"
+	"github.com/HyNetwork/hysteria/pkg/utils"
 )
 
 type TCPRelay struct {

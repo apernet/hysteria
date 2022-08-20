@@ -7,14 +7,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tobyxdd/hysteria/pkg/transport"
-	"github.com/tobyxdd/hysteria/pkg/utils"
+	"github.com/HyNetwork/hysteria/pkg/transport"
+	"github.com/HyNetwork/hysteria/pkg/utils"
 
 	"github.com/elazarl/goproxy/ext/auth"
 
+	"github.com/HyNetwork/hysteria/pkg/acl"
+	"github.com/HyNetwork/hysteria/pkg/core"
 	"github.com/elazarl/goproxy"
-	"github.com/tobyxdd/hysteria/pkg/acl"
-	"github.com/tobyxdd/hysteria/pkg/core"
 )
 
 func NewProxyHTTPServer(hyClient *core.Client, transport *transport.ClientTransport, idleTimeout time.Duration,

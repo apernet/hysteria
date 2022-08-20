@@ -5,8 +5,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/HyNetwork/hysteria/pkg/utils"
 	rdns "github.com/folbricht/routedns"
-	"github.com/tobyxdd/hysteria/pkg/utils"
 )
 
 var errInvalidSyntax = errors.New("invalid syntax")

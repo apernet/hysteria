@@ -4,8 +4,8 @@
 package main
 
 import (
+	"github.com/HyNetwork/hysteria/pkg/core"
 	"github.com/sirupsen/logrus"
-	"github.com/tobyxdd/hysteria/pkg/core"
 )
 
 const license = `The MIT License (MIT)
