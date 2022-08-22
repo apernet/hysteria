@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"net"
+	"net/url"
 	"strings"
 
 	"github.com/HyNetwork/hysteria/pkg/utils"
@@ -49,22 +50,41 @@ func setResolver(dns string) error {
 		r = client
 	} else if strings.HasPrefix(dns, "https://") {
 		// DoH resolver
-		client, err := rdns.NewDoHClient("doh", dns, rdns.DoHClientOptions{})
-		if err != nil {
+		if dohURL, err := url.Parse(dns); err != nil {
 			return err
+		} else {
+			// Need to set bootstrap address to avoid loopback DNS lookup
+			dohIPAddr, err := net.ResolveIPAddr("ip", dohURL.Hostname())
+			if err != nil {
+				return err
+			}
+			client, err := rdns.NewDoHClient("doh", dns, rdns.DoHClientOptions{
+				BootstrapAddr: dohIPAddr.String(),
+			})
+			if err != nil {
+				return err
+			}
+			r = client
 		}
-		r = client
 	} else if strings.HasPrefix(dns, "tls://") {
 		// DoT resolver
 		dns = strings.TrimPrefix(dns, "tls://")
 		if dns == "" {
 			return errInvalidSyntax
 		}
-		if _, _, err := utils.SplitHostPort(dns); err != nil {
-			// Append the default DoT port
+		dotHost, _, err := utils.SplitHostPort(dns)
+		if err != nil {
+			// Append the default DNS port
 			dns = net.JoinHostPort(dns, "853")
 		}
-		client, err := rdns.NewDoTClient("dot", dns, rdns.DoTClientOptions{})
+		// Need to set bootstrap address to avoid loopback DNS lookup
+		dotIPAddr, err := net.ResolveIPAddr("ip", dotHost)
+		if err != nil {
+			return err
+		}
+		client, err := rdns.NewDoTClient("dot", dns, rdns.DoTClientOptions{
+			BootstrapAddr: dotIPAddr.String(),
+		})
 		if err != nil {
 			return err
 		}
@@ -75,7 +95,19 @@ func setResolver(dns string) error {
 		if dns == "" {
 			return errInvalidSyntax
 		}
-		client, err := rdns.NewDoQClient("doq", dns, rdns.DoQClientOptions{})
+		doqHost, _, err := utils.SplitHostPort(dns)
+		if err != nil {
+			// Append the default DNS port
+			dns = net.JoinHostPort(dns, "853")
+		}
+		// Need to set bootstrap address to avoid loopback DNS lookup
+		doqIPAddr, err := net.ResolveIPAddr("ip", doqHost)
+		if err != nil {
+			return err
+		}
+		client, err := rdns.NewDoQClient("doq", dns, rdns.DoQClientOptions{
+			BootstrapAddr: doqIPAddr.String(),
+		})
 		if err != nil {
 			return err
 		}
