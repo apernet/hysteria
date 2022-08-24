@@ -5,6 +5,7 @@ package tun
 
 import (
 	"fmt"
+	"github.com/xjasonlyu/tun2socks/v2/core/option"
 	"net"
 	"os"
 	"os/signal"
@@ -43,10 +44,13 @@ const (
 )
 
 type DeviceInfo struct {
-	Type int
-	Fd   int
-	Name string
-	MTU  uint32
+	Type                     int
+	Fd                       int
+	Name                     string
+	MTU                      uint32
+	TCPSendBufferSize        int
+	TCPReceiveBufferSize     int
+	TCPModerateReceiveBuffer bool
 }
 
 func (d *DeviceInfo) Open() (dev device.Device, err error) {
@@ -61,7 +65,8 @@ func (d *DeviceInfo) Open() (dev device.Device, err error) {
 	return
 }
 
-func NewServerWithTunFd(hyClient *core.Client, timeout time.Duration, tunFd int, mtu uint32) (*Server, error) {
+func NewServerWithTunFd(hyClient *core.Client, timeout time.Duration, tunFd int, mtu uint32,
+	tcpSendBufferSize, tcpReceiveBufferSize int, tcpModerateReceiveBuffer bool) (*Server, error) {
 	if mtu == 0 {
 		mtu = MTU
 	}
@@ -69,15 +74,19 @@ func NewServerWithTunFd(hyClient *core.Client, timeout time.Duration, tunFd int,
 		HyClient: hyClient,
 		Timeout:  timeout,
 		DeviceInfo: DeviceInfo{
-			Type: DeviceTypeFd,
-			Fd:   tunFd,
-			MTU:  mtu,
+			Type:                     DeviceTypeFd,
+			Fd:                       tunFd,
+			MTU:                      mtu,
+			TCPSendBufferSize:        tcpSendBufferSize,
+			TCPReceiveBufferSize:     tcpReceiveBufferSize,
+			TCPModerateReceiveBuffer: tcpModerateReceiveBuffer,
 		},
 	}
 	return s, nil
 }
 
-func NewServer(hyClient *core.Client, timeout time.Duration, name string, mtu uint32) (*Server, error) {
+func NewServer(hyClient *core.Client, timeout time.Duration, name string, mtu uint32,
+	tcpSendBufferSize, tcpReceiveBufferSize int, tcpModerateReceiveBuffer bool) (*Server, error) {
 	if mtu == 0 {
 		mtu = MTU
 	}
@@ -85,9 +94,12 @@ func NewServer(hyClient *core.Client, timeout time.Duration, name string, mtu ui
 		HyClient: hyClient,
 		Timeout:  timeout,
 		DeviceInfo: DeviceInfo{
-			Type: DeviceTypeName,
-			Name: name,
-			MTU:  mtu,
+			Type:                     DeviceTypeName,
+			Name:                     name,
+			MTU:                      mtu,
+			TCPSendBufferSize:        tcpSendBufferSize,
+			TCPReceiveBufferSize:     tcpReceiveBufferSize,
+			TCPModerateReceiveBuffer: tcpModerateReceiveBuffer,
 		},
 	}
 	return s, nil
@@ -112,13 +124,24 @@ func (s *Server) ListenAndServe() error {
 		return err
 	}
 
+	var opts []option.Option
+	if s.DeviceInfo.TCPSendBufferSize > 0 {
+		opts = append(opts, option.WithTCPSendBufferSize(s.DeviceInfo.TCPSendBufferSize))
+	}
+	if s.DeviceInfo.TCPReceiveBufferSize > 0 {
+		opts = append(opts, option.WithTCPReceiveBufferSize(s.DeviceInfo.TCPReceiveBufferSize))
+	}
+	if s.DeviceInfo.TCPModerateReceiveBuffer {
+		opts = append(opts, option.WithTCPModerateReceiveBuffer(s.DeviceInfo.TCPModerateReceiveBuffer))
+	}
+
 	t2sconf := t2score.Config{
 		LinkEndpoint:     dev,
 		TransportHandler: s,
 		PrintFunc: func(format string, v ...interface{}) {
 			logrus.Infof(format, v...)
 		},
-		Options: nil,
+		Options: opts,
 	}
 
 	st, err = t2score.CreateStack(&t2sconf)

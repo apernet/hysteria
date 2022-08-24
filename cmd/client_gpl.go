@@ -4,6 +4,8 @@
 package main
 
 import (
+	"github.com/docker/go-units"
+	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 	"io"
 	"net"
 	"strings"
@@ -36,8 +38,43 @@ func startTUN(config *clientConfig, client *core.Client, errChan chan error) {
 	if timeout == 0 {
 		timeout = 300 * time.Second
 	}
+
+	var err error
+	var tcpSendBufferSize, tcpReceiveBufferSize int64
+
+	if config.TUN.TCPSendBufferSize != "" {
+		tcpSendBufferSize, err = units.RAMInBytes(config.TUN.TCPSendBufferSize)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"err":        err,
+				"tcp-sndbuf": config.TUN.TCPSendBufferSize,
+			}).Fatal("Failed to parse tcp-sndbuf in the TUN config")
+		}
+		if (tcpSendBufferSize != 0 && tcpSendBufferSize < tcp.MinBufferSize) || tcpSendBufferSize > tcp.MaxBufferSize {
+			logrus.WithFields(logrus.Fields{
+				"tcp-sndbuf": config.TUN.TCPSendBufferSize,
+			}).Fatal("Invalid tcp-sndbuf in the TUN config")
+		}
+	}
+	if config.TUN.TCPReceiveBufferSize != "" {
+		tcpReceiveBufferSize, err = units.RAMInBytes(config.TUN.TCPReceiveBufferSize)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"err":        err,
+				"tcp-rcvbuf": config.TUN.TCPReceiveBufferSize,
+			}).Fatal("Failed to parse tcp-rcvbuf in the TUN config")
+		}
+		if (tcpReceiveBufferSize != 0 && tcpReceiveBufferSize < tcp.MinBufferSize) || tcpReceiveBufferSize > tcp.MaxBufferSize {
+			logrus.WithFields(logrus.Fields{
+				"err":        err,
+				"tcp-rcvbuf": config.TUN.TCPReceiveBufferSize,
+			}).Fatal("Invalid tcp-rcvbuf in the TUN config")
+		}
+	}
+
 	tunServer, err := tun.NewServer(client, time.Duration(config.TUN.Timeout)*time.Second,
-		config.TUN.Name, config.TUN.MTU)
+		config.TUN.Name, config.TUN.MTU,
+		int(tcpSendBufferSize), int(tcpReceiveBufferSize), config.TUN.TCPModerateReceiveBuffer)
 	if err != nil {
 		logrus.WithField("error", err).Fatal("Failed to initialize TUN server")
 	}
