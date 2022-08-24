@@ -228,14 +228,19 @@ func client(config *clientConfig) {
 				}
 			}
 			proxy, err := hyHTTP.NewProxyHTTPServer(client, transport.DefaultClientTransport,
-				time.Duration(config.HTTP.Timeout)*time.Second, aclEngine,
+				time.Duration(config.HTTP.Timeout)*time.Second, aclEngine, authFunc,
 				func(reqAddr string, action acl.Action, arg string) {
 					logrus.WithFields(logrus.Fields{
 						"action": actionToString(action, arg),
 						"dst":    defaultIPMasker.Mask(reqAddr),
 					}).Debug("HTTP request")
 				},
-				authFunc)
+				func(reqAddr string, err error) {
+					logrus.WithFields(logrus.Fields{
+						"error": err,
+						"dst":   defaultIPMasker.Mask(reqAddr),
+					}).Info("HTTP error")
+				})
 			if err != nil {
 				logrus.WithField("error", err).Fatal("Failed to initialize HTTP server")
 			}

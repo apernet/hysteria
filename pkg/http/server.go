@@ -18,8 +18,10 @@ import (
 )
 
 func NewProxyHTTPServer(hyClient *core.Client, transport *transport.ClientTransport, idleTimeout time.Duration,
-	aclEngine *acl.Engine, newDialFunc func(reqAddr string, action acl.Action, arg string),
+	aclEngine *acl.Engine,
 	basicAuthFunc func(user, password string) bool,
+	newDialFunc func(reqAddr string, action acl.Action, arg string),
+	proxyErrorFunc func(reqAddr string, err error),
 ) (*goproxy.ProxyHttpServer, error) {
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Logger = &nopLogger{}
@@ -46,27 +48,44 @@ func NewProxyHTTPServer(hyClient *core.Client, transport *transport.ClientTransp
 				if resErr != nil {
 					return nil, resErr
 				}
-				return transport.DialTCP(&net.TCPAddr{
+				conn, err := transport.DialTCP(&net.TCPAddr{
 					IP:   ipAddr.IP,
 					Port: int(port),
 					Zone: ipAddr.Zone,
 				})
+				if err != nil {
+					proxyErrorFunc(addr, err)
+				}
+				return conn, err
 			case acl.ActionProxy:
-				return hyClient.DialTCP(addr)
+				conn, err := hyClient.DialTCP(addr)
+				if err != nil {
+					proxyErrorFunc(addr, err)
+				}
+				return conn, err
 			case acl.ActionBlock:
-				return nil, errors.New("blocked by ACL")
+				err := errors.New("blocked by ACL")
+				proxyErrorFunc(addr, err)
+				return nil, err
 			case acl.ActionHijack:
 				hijackIPAddr, err := transport.ResolveIPAddr(arg)
 				if err != nil {
+					proxyErrorFunc(addr, err)
 					return nil, err
 				}
-				return transport.DialTCP(&net.TCPAddr{
+				conn, err := transport.DialTCP(&net.TCPAddr{
 					IP:   hijackIPAddr.IP,
 					Port: int(port),
 					Zone: hijackIPAddr.Zone,
 				})
+				if err != nil {
+					proxyErrorFunc(addr, err)
+				}
+				return conn, err
 			default:
-				return nil, fmt.Errorf("unknown action %d", action)
+				err := fmt.Errorf("unknown action %d", action)
+				proxyErrorFunc(addr, err)
+				return nil, err
 			}
 		},
 		IdleConnTimeout: idleTimeout,
