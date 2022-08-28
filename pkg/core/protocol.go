@@ -27,8 +27,8 @@ type clientHello struct {
 
 const (
 	serverHelloStatusFailed  = uint8(0)
-	serverHelloStatusOK      = uint8(1)
-	serverHelloStatusTCPOnly = uint8(2)
+	serverHelloStatusTCPOnly = uint8(1)
+	serverHelloStatusOK      = uint8(2)
 )
 
 type serverHello struct {
