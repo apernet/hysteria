@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
+	"math"
 	"math/rand"
 	"net"
 	"strconv"
@@ -108,18 +110,25 @@ func (c *serverClient) handleStream(stream quic.Stream) {
 	if err != nil {
 		return
 	}
-	if !req.UDP {
+	switch req.Type {
+	case clientRequestTypeTCP:
 		// TCP connection
 		c.handleTCP(stream, req.Host, req.Port)
-	} else if !c.DisableUDP {
-		// UDP connection
-		c.handleUDP(stream)
-	} else {
-		// UDP disabled
-		_ = struc.Pack(stream, &serverResponse{
-			OK:      false,
-			Message: "UDP disabled",
-		})
+	case clientRequestTypeUDPLegacy:
+		if !c.DisableUDP {
+			// UDP connection
+			c.handleUDPLegacy(stream)
+		} else {
+			// UDP disabled
+			_ = struc.Pack(stream, &serverResponse{
+				OK:      false,
+				Message: "UDP disabled",
+			})
+		}
+	case clientRequestTypeUDPControl:
+		if !c.DisableUDP {
+			c.handleUDPControlStream(stream)
+		}
 	}
 }
 
@@ -153,6 +162,10 @@ func (c *serverClient) handleMessage(msg []byte) {
 	c.udpSessionMutex.RLock()
 	conn, ok := c.udpSessionMap[dfMsg.SessionID]
 	c.udpSessionMutex.RUnlock()
+	if !ok {
+		conn = c.handleUDPSessionCreate(udpMsg)
+		ok = conn != nil
+	}
 	if ok {
 		// Session found, send the message
 		action, arg := acl.ActionDirect, ""
@@ -304,7 +317,32 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 	c.CTCPErrorFunc(c.ClientAddr, c.Auth, addrStr, err)
 }
 
-func (c *serverClient) handleUDP(stream quic.Stream) {
+func (c *serverClient) handleUDPSessionCreate(udpMsg udpMessage) transport.PUDPConn {
+	conn, err := c.Transport.ListenUDP()
+	if err != nil {
+		c.CUDPErrorFunc(c.ClientAddr, c.Auth, udpMsg.SessionID, err)
+		return nil
+	}
+
+	c.udpSessionMutex.Lock()
+	if origConn, ok := c.udpSessionMap[udpMsg.SessionID]; ok {
+		_ = origConn.Close()
+	}
+	c.udpSessionMap[udpMsg.SessionID] = conn
+	// effect same as udpMsg.SessionID >= c.nextUDPSessionID, but allows wrapping around
+	if udpMsg.SessionID-c.nextUDPSessionID < math.MaxUint32/2 {
+		c.nextUDPSessionID = udpMsg.SessionID + 1
+	}
+	c.udpSessionMutex.Unlock()
+
+	c.CUDPRequestFunc(c.ClientAddr, c.Auth, udpMsg.SessionID)
+
+	go c.reverseRelayUDP(udpMsg.SessionID, conn)
+
+	return conn
+}
+
+func (c *serverClient) handleUDPLegacy(stream quic.Stream) {
 	// Like in SOCKS5, the stream here is only used to maintain the UDP session. No need to read anything from it
 	conn, err := c.Transport.ListenUDP()
 	if err != nil {
@@ -320,6 +358,9 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 	var id uint32
 	c.udpSessionMutex.Lock()
 	id = c.nextUDPSessionID
+	if origConn, ok := c.udpSessionMap[id]; ok {
+		_ = origConn.Close()
+	}
 	c.udpSessionMap[id] = conn
 	c.nextUDPSessionID += 1
 	c.udpSessionMutex.Unlock()
@@ -335,52 +376,7 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 
 	// Receive UDP packets, send them to the client
 	go func() {
-		buf := make([]byte, udpBufferSize)
-		for {
-			n, rAddr, err := conn.ReadFromUDP(buf)
-			if n > 0 {
-				var msgBuf bytes.Buffer
-				if c.V2 {
-					msg := udpMessageV2{
-						SessionID: id,
-						Host:      rAddr.IP.String(),
-						Port:      uint16(rAddr.Port),
-						Data:      buf[:n],
-					}
-					_ = struc.Pack(&msgBuf, &msg)
-					_ = c.CS.SendMessage(msgBuf.Bytes())
-				} else {
-					msg := udpMessage{
-						SessionID: id,
-						Host:      rAddr.IP.String(),
-						Port:      uint16(rAddr.Port),
-						FragCount: 1,
-						Data:      buf[:n],
-					}
-					// try no frag first
-					_ = struc.Pack(&msgBuf, &msg)
-					sendErr := c.CS.SendMessage(msgBuf.Bytes())
-					if sendErr != nil {
-						if errSize, ok := sendErr.(quic.ErrMessageToLarge); ok {
-							// need to frag
-							msg.MsgID = uint16(rand.Intn(0xFFFF)) + 1 // msgID must be > 0 when fragCount > 1
-							fragMsgs := fragUDPMessage(msg, int(errSize))
-							for _, fragMsg := range fragMsgs {
-								msgBuf.Reset()
-								_ = struc.Pack(&msgBuf, &fragMsg)
-								_ = c.CS.SendMessage(msgBuf.Bytes())
-							}
-						}
-					}
-				}
-				if c.DownCounter != nil {
-					c.DownCounter.Add(float64(n))
-				}
-			}
-			if err != nil {
-				break
-			}
-		}
+		c.reverseRelayUDP(id, conn)
 		_ = stream.Close()
 	}()
 
@@ -397,5 +393,85 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 	// Remove the session
 	c.udpSessionMutex.Lock()
 	delete(c.udpSessionMap, id)
+	c.udpSessionMutex.Unlock()
+}
+
+func (c *serverClient) reverseRelayUDP(sessionID uint32, conn transport.PUDPConn) {
+	buf := make([]byte, udpBufferSize)
+	for {
+		n, rAddr, err := conn.ReadFromUDP(buf)
+		if n > 0 {
+			var msgBuf bytes.Buffer
+			if c.V2 {
+				msg := udpMessageV2{
+					SessionID: sessionID,
+					Host:      rAddr.IP.String(),
+					Port:      uint16(rAddr.Port),
+					Data:      buf[:n],
+				}
+				_ = struc.Pack(&msgBuf, &msg)
+				_ = c.CS.SendMessage(msgBuf.Bytes())
+			} else {
+				msg := udpMessage{
+					SessionID: sessionID,
+					Host:      rAddr.IP.String(),
+					Port:      uint16(rAddr.Port),
+					FragCount: 1,
+					Data:      buf[:n],
+				}
+				// try no frag first
+				_ = struc.Pack(&msgBuf, &msg)
+				sendErr := c.CS.SendMessage(msgBuf.Bytes())
+				if sendErr != nil {
+					if errSize, ok := sendErr.(quic.ErrMessageToLarge); ok {
+						// need to frag
+						msg.MsgID = uint16(rand.Intn(0xFFFF)) + 1 // msgID must be > 0 when fragCount > 1
+						fragMsgs := fragUDPMessage(msg, int(errSize))
+						for _, fragMsg := range fragMsgs {
+							msgBuf.Reset()
+							_ = struc.Pack(&msgBuf, &fragMsg)
+							_ = c.CS.SendMessage(msgBuf.Bytes())
+						}
+					}
+				}
+			}
+			if c.DownCounter != nil {
+				c.DownCounter.Add(float64(n))
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+}
+
+func (c *serverClient) handleUDPControlStream(stream quic.Stream) {
+	for {
+		var request udpControlRequest
+		err := struc.Unpack(stream, &request)
+		if err != nil {
+			break
+		}
+		switch request.Operation {
+		case udpControlRequestOperationReleaseSession:
+			c.udpSessionMutex.Lock()
+			conn, ok := c.udpSessionMap[request.SessionID]
+			if ok {
+				_ = conn.Close()
+				delete(c.udpSessionMap, request.SessionID)
+			}
+			c.udpSessionMutex.Unlock()
+			if ok {
+				c.CUDPErrorFunc(c.ClientAddr, c.Auth, request.SessionID, errors.New("UDP session released by client"))
+			}
+		}
+	}
+	// Clear all udp session if the control stream is closed
+	c.udpSessionMutex.Lock()
+	for sid, conn := range c.udpSessionMap {
+		_ = conn.Close()
+		delete(c.udpSessionMap, sid)
+		c.CUDPErrorFunc(c.ClientAddr, c.Auth, sid, errors.New("UDP session released for control stream closed"))
+	}
 	c.udpSessionMutex.Unlock()
 }

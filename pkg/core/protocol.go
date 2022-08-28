@@ -25,15 +25,27 @@ type clientHello struct {
 	Auth    []byte
 }
 
+const (
+	serverHelloStatusFailed  = uint8(0)
+	serverHelloStatusOK      = uint8(1)
+	serverHelloStatusTCPOnly = uint8(2)
+)
+
 type serverHello struct {
-	OK         bool
+	Status     uint8
 	Rate       transmissionRate
 	MessageLen uint16 `struc:"sizeof=Message"`
 	Message    string
 }
 
+const (
+	clientRequestTypeTCP        = uint8(0)
+	clientRequestTypeUDPLegacy  = uint8(1)
+	clientRequestTypeUDPControl = uint8(2)
+)
+
 type clientRequest struct {
-	UDP     bool
+	Type    uint8
 	HostLen uint16 `struc:"sizeof=Host"`
 	Host    string
 	Port    uint16
@@ -71,6 +83,17 @@ type udpMessageV2 struct {
 	HostLen   uint16 `struc:"sizeof=Host"`
 	Host      string
 	Port      uint16
+	DataLen   uint16 `struc:"sizeof=Data"`
+	Data      []byte
+}
+
+const (
+	udpControlRequestOperationReleaseSession = uint8(1)
+)
+
+type udpControlRequest struct {
+	SessionID uint32
+	Operation uint8
 	DataLen   uint16 `struc:"sizeof=Data"`
 	Data      []byte
 }

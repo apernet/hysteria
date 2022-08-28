@@ -41,9 +41,14 @@ type Client struct {
 	reconnectMutex sync.Mutex
 	closed         bool
 
-	udpSessionMutex sync.RWMutex
-	udpSessionMap   map[uint32]chan *udpMessage
-	udpDefragger    defragger
+	udpDisabled      bool
+	udpSessionMutex  sync.RWMutex
+	udpSessionMap    map[uint32]chan *udpMessage
+	nextUDPSessionID uint32
+	udpDefragger     defragger
+
+	udpControlStreamMux sync.Mutex
+	udpControlStream    quic.Stream
 }
 
 func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
@@ -121,11 +126,13 @@ func (c *Client) handleControlStream(qs quic.Connection, stream quic.Stream) (bo
 	if err != nil {
 		return false, "", err
 	}
+	ok := sh.Status != serverHelloStatusFailed
+	c.udpDisabled = sh.Status == serverHelloStatusTCPOnly
 	// Set the congestion accordingly
-	if sh.OK && c.congestionFactory != nil {
+	if ok && c.congestionFactory != nil {
 		qs.SetCongestionControl(c.congestionFactory(sh.Rate.RecvBPS))
 	}
-	return sh.OK, sh.Message, nil
+	return ok, sh.Message, nil
 }
 
 func (c *Client) handleMessage(qs quic.Connection) {
@@ -194,7 +201,7 @@ func (c *Client) DialTCP(addr string) (net.Conn, error) {
 	}
 	// Send request
 	err = struc.Pack(stream, &clientRequest{
-		UDP:  false,
+		Type: clientRequestTypeTCP,
 		Host: host,
 		Port: port,
 	})
@@ -220,62 +227,91 @@ func (c *Client) DialTCP(addr string) (net.Conn, error) {
 	}, nil
 }
 
-func (c *Client) DialUDP() (UDPConn, error) {
-	session, stream, err := c.openStreamWithReconnect()
+func (c *Client) obtainsUDPControlStream() (quic.Stream, error) {
+	c.udpControlStreamMux.Lock()
+	defer c.udpControlStreamMux.Unlock()
+
+	if c.udpControlStream != nil {
+		return c.udpControlStream, nil
+	}
+
+	_, stream, err := c.openStreamWithReconnect()
 	if err != nil {
 		return nil, err
 	}
-	// Send request
+
 	err = struc.Pack(stream, &clientRequest{
-		UDP: true,
+		Type: clientRequestTypeUDPControl,
 	})
 	if err != nil {
 		_ = stream.Close()
 		return nil, err
 	}
-	// Read response
-	var sr serverResponse
-	err = struc.Unpack(stream, &sr)
-	if err != nil {
-		_ = stream.Close()
-		return nil, err
-	}
-	if !sr.OK {
-		_ = stream.Close()
-		return nil, fmt.Errorf("connection rejected: %s", sr.Message)
+
+	c.udpControlStream = stream
+	return stream, err
+}
+
+func (c *Client) DialUDP() (UDPConn, error) {
+	if c.udpDisabled {
+		return nil, errors.New("UDP is disabled by server side")
 	}
 
 	// Create a session in the map
 	c.udpSessionMutex.Lock()
+	sessionID := c.nextUDPSessionID
+	c.nextUDPSessionID++
 	nCh := make(chan *udpMessage, 1024)
 	// Store the current session map for CloseFunc below
 	// to ensures that we are adding and removing sessions on the same map,
 	// as reconnecting will reassign the map
 	sessionMap := c.udpSessionMap
-	sessionMap[sr.UDPSessionID] = nCh
+	sessionMap[sessionID] = nCh
 	c.udpSessionMutex.Unlock()
 
 	pktConn := &quicPktConn{
-		Session: session,
-		Stream:  stream,
+		Session: c.quicSession,
 		CloseFunc: func() {
 			c.udpSessionMutex.Lock()
-			if ch, ok := sessionMap[sr.UDPSessionID]; ok {
+			if ch, ok := sessionMap[sessionID]; ok {
 				close(ch)
-				delete(sessionMap, sr.UDPSessionID)
+				delete(sessionMap, sessionID)
 			}
 			c.udpSessionMutex.Unlock()
+
+			// tell server to release this session
+			go func() {
+				udpControlStream, err := c.obtainsUDPControlStream()
+				if err != nil {
+					return
+				}
+
+				c.udpControlStreamMux.Lock()
+				defer c.udpControlStreamMux.Unlock()
+
+				err = struc.Pack(udpControlStream, &udpControlRequest{
+					SessionID: sessionID,
+					Operation: udpControlRequestOperationReleaseSession,
+				})
+				if err != nil {
+					return
+				}
+			}()
 		},
-		UDPSessionID: sr.UDPSessionID,
+		UDPSessionID: sessionID,
 		MsgCh:        nCh,
 	}
-	go pktConn.Hold()
 	return pktConn, nil
 }
 
 func (c *Client) Close() error {
 	c.reconnectMutex.Lock()
 	defer c.reconnectMutex.Unlock()
+	c.udpControlStreamMux.Lock()
+	if c.udpControlStream != nil {
+		_ = c.udpControlStream.Close()
+	}
+	c.udpControlStreamMux.Unlock()
 	err := c.quicSession.CloseWithError(closeErrorCodeGeneric, "")
 	c.closed = true
 	return err
@@ -327,22 +363,9 @@ type UDPConn interface {
 
 type quicPktConn struct {
 	Session      quic.Connection
-	Stream       quic.Stream
 	CloseFunc    func()
 	UDPSessionID uint32
 	MsgCh        <-chan *udpMessage
-}
-
-func (c *quicPktConn) Hold() {
-	// Hold the stream until it's closed
-	buf := make([]byte, 1024)
-	for {
-		_, err := c.Stream.Read(buf)
-		if err != nil {
-			break
-		}
-	}
-	_ = c.Close()
 }
 
 func (c *quicPktConn) ReadFrom() ([]byte, string, error) {
@@ -395,5 +418,5 @@ func (c *quicPktConn) WriteTo(p []byte, addr string) error {
 
 func (c *quicPktConn) Close() error {
 	c.CloseFunc()
-	return c.Stream.Close()
+	return nil
 }

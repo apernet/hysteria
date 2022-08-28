@@ -159,9 +159,16 @@ func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]
 	}
 	// Auth
 	ok, msg := s.connectFunc(cs.RemoteAddr(), ch.Auth, serverSendBPS, serverRecvBPS)
+	status := serverHelloStatusFailed
+	if ok {
+		status = serverHelloStatusOK
+		if s.disableUDP {
+			status = serverHelloStatusTCPOnly
+		}
+	}
 	// Response
 	err = struc.Pack(stream, &serverHello{
-		OK: ok,
+		Status: status,
 		Rate: transmissionRate{
 			SendBPS: serverSendBPS,
 			RecvBPS: serverRecvBPS,
