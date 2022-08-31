@@ -75,9 +75,14 @@ func client(config *clientConfig) {
 		MaxStreamReceiveWindow:         config.ReceiveWindowConn,
 		InitialConnectionReceiveWindow: config.ReceiveWindow,
 		MaxConnectionReceiveWindow:     config.ReceiveWindow,
-		KeepAlivePeriod:                KeepAlivePeriod,
+		HandshakeIdleTimeout:           time.Duration(config.QUICSettings.HandshakeIdleTimeout) * time.Second,
+		MaxIdleTimeout:                 time.Duration(config.QUICSettings.MaxIdleTimeout) * time.Second,
 		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
+	}
+	quicConfig.KeepAlivePeriod = quicConfig.MaxIdleTimeout / 2
+	if quicConfig.KeepAlivePeriod == 0 || quicConfig.KeepAlivePeriod > KeepAlivePeriod {
+		quicConfig.KeepAlivePeriod = KeepAlivePeriod
 	}
 	if config.ReceiveWindowConn == 0 {
 		quicConfig.InitialStreamReceiveWindow = DefaultStreamReceiveWindow
@@ -141,7 +146,17 @@ func client(config *clientConfig) {
 			transport.DefaultClientTransport, up, down,
 			func(refBPS uint64) congestion.CongestionControl {
 				return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
-			}, obfuscator)
+			}, obfuscator, func(err error) {
+				if config.QUICSettings.DisableAutoReconnect {
+					logrus.WithFields(logrus.Fields{
+						"error": err,
+					}).Fatal("QUIC connection lost, exiting...")
+				} else {
+					logrus.WithFields(logrus.Fields{
+						"error": err,
+					}).Info("QUIC connection lost, reconnecting...")
+				}
+			})
 		if err != nil {
 			logrus.WithField("error", err).Error("Failed to initialize client")
 			if try <= config.Retry || config.Retry < 0 {

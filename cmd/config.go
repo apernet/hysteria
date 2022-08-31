@@ -147,6 +147,11 @@ type clientConfig struct {
 	Retry         int    `json:"retry"`
 	RetryInterval int    `json:"retry_interval"`
 	// Optional below
+	QUICSettings struct {
+		DisableAutoReconnect bool `json:"disable_auto_reconnect"`
+		HandshakeIdleTimeout int  `json:"handshake_idle_timeout"`
+		MaxIdleTimeout       int  `json:"max_idle_timeout"`
+	} `json:"quic_settings"`
 	SOCKS5 struct {
 		Listen     string `json:"listen"`
 		Timeout    int    `json:"timeout"`

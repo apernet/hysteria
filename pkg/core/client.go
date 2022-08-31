@@ -44,11 +44,13 @@ type Client struct {
 	udpSessionMutex sync.RWMutex
 	udpSessionMap   map[uint32]chan *udpMessage
 	udpDefragger    defragger
+
+	quicReconnectFunc func(err error)
 }
 
 func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
 	transport *transport.ClientTransport, sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
-	obfuscator obfs.Obfuscator,
+	obfuscator obfs.Obfuscator, quicReconnectFunc func(err error),
 ) (*Client, error) {
 	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud_fix.DisablePathMTUDiscovery
 	c := &Client{
@@ -62,6 +64,7 @@ func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.C
 		obfuscator:        obfuscator,
 		tlsConfig:         tlsConfig,
 		quicConfig:        quicConfig,
+		quicReconnectFunc: quicReconnectFunc,
 	}
 	if err := c.connectToServer(); err != nil {
 		return nil, err
@@ -173,6 +176,7 @@ func (c *Client) openStreamWithReconnect() (quic.Connection, quic.Stream, error)
 		// Temporary error, just return
 		return nil, nil, err
 	}
+	c.quicReconnectFunc(err)
 	// Permanent error, need to reconnect
 	if err := c.connectToServer(); err != nil {
 		// Still error, oops
