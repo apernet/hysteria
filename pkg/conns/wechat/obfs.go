@@ -25,10 +25,13 @@ type ObfsWeChatUDPConn struct {
 	sn         uint32
 }
 
-func NewObfsWeChatUDPConn(orig *net.UDPConn, obfs obfs.Obfuscator) *ObfsWeChatUDPConn {
+func NewObfsWeChatUDPConn(orig *net.UDPConn, obfs_ obfs.Obfuscator) *ObfsWeChatUDPConn {
+	if obfs_ == nil {
+		obfs_ = obfs.NewDummyObfuscator()
+	}
 	return &ObfsWeChatUDPConn{
 		orig:     orig,
-		obfs:     obfs,
+		obfs:     obfs_,
 		readBuf:  make([]byte, udpBufferSize),
 		writeBuf: make([]byte, udpBufferSize),
 		sn:       rand.Uint32() & 0xFFFF,

@@ -101,12 +101,8 @@ func (st *ServerTransport) quicPacketConn(proto string, laddr string, obfs obfs.
 		if err != nil {
 			return nil, err
 		}
-		if obfs != nil {
-			oc := wechat.NewObfsWeChatUDPConn(conn, obfs)
-			return oc, nil
-		} else {
-			return conn, nil
-		}
+		oc := wechat.NewObfsWeChatUDPConn(conn, obfs)
+		return oc, nil
 	} else if proto == "faketcp" {
 		conn, err := faketcp.Listen("tcp", laddr)
 		if err != nil {

@@ -42,12 +42,8 @@ func (ct *ClientTransport) quicPacketConn(proto string, server string, obfs obfs
 		if err != nil {
 			return nil, err
 		}
-		if obfs != nil {
-			oc := wechat.NewObfsWeChatUDPConn(conn, obfs)
-			return oc, nil
-		} else {
-			return conn, nil
-		}
+		oc := wechat.NewObfsWeChatUDPConn(conn, obfs)
+		return oc, nil
 	} else if proto == "faketcp" {
 		var conn *faketcp.TCPConn
 		conn, err := faketcp.Dial("tcp", server)
