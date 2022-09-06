@@ -5,8 +5,9 @@ go 1.17
 require (
 	github.com/LiamHaworth/go-tproxy v0.0.0-20190726054950-ef7efd7f24ed
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
-	github.com/caddyserver/certmagic v0.16.3
+	github.com/caddyserver/certmagic v0.17.1
 	github.com/coreos/go-iptables v0.6.0
+	github.com/docker/go-units v0.4.0
 	github.com/elazarl/goproxy v0.0.0-20220115173737-adb46da277ac
 	github.com/elazarl/goproxy/ext v0.0.0-20220115173737-adb46da277ac
 	github.com/folbricht/routedns v0.1.6-0.20220806202012-361f5b35b4c3
@@ -32,7 +33,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
-	github.com/docker/go-units v0.4.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
