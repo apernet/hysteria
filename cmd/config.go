@@ -166,9 +166,9 @@ type clientConfig struct {
 		Name                     string `json:"name"`
 		Timeout                  int    `json:"timeout"`
 		MTU                      uint32 `json:"mtu"`
-		TCPSendBufferSize        string `json:"tcp-sndbuf"`
-		TCPReceiveBufferSize     string `json:"tcp-rcvbuf"`
-		TCPModerateReceiveBuffer bool   `json:"tcp-auto-tuning"`
+		TCPSendBufferSize        string `json:"tcp_sndbuf"`
+		TCPReceiveBufferSize     string `json:"tcp_rcvbuf"`
+		TCPModerateReceiveBuffer bool   `json:"tcp_autotuning"`
 	} `json:"tun"`
 	TCPRelays []Relay `json:"relay_tcps"`
 	TCPRelay  Relay   `json:"relay_tcp"` // deprecated, but we still support it for backward compatibility
