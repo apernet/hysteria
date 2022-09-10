@@ -7,13 +7,10 @@ func NewDummyObfuscator() *DummyObfuscator {
 }
 
 func (x *DummyObfuscator) Deobfuscate(in []byte, out []byte) int {
-	pLen := len(in)
-	if pLen <= 0 || len(out) < pLen {
-		// Invalid
+	if len(out) < len(in) {
 		return 0
 	}
-	copy(out, in)
-	return pLen
+	return copy(out, in)
 }
 
 func (x *DummyObfuscator) Obfuscate(in []byte, out []byte) int {
