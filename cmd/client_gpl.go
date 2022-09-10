@@ -4,12 +4,13 @@
 package main
 
 import (
-	"github.com/docker/go-units"
-	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 	"io"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/docker/go-units"
+	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 
 	"github.com/HyNetwork/hysteria/pkg/core"
 	"github.com/HyNetwork/hysteria/pkg/tun"

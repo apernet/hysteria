@@ -5,13 +5,14 @@ package tun
 
 import (
 	"fmt"
-	"github.com/xjasonlyu/tun2socks/v2/core/option"
 	"net"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/xjasonlyu/tun2socks/v2/core/option"
 
 	"github.com/HyNetwork/hysteria/pkg/core"
 	"github.com/sirupsen/logrus"
@@ -66,7 +67,8 @@ func (d *DeviceInfo) Open() (dev device.Device, err error) {
 }
 
 func NewServerWithTunFd(hyClient *core.Client, timeout time.Duration, tunFd int, mtu uint32,
-	tcpSendBufferSize, tcpReceiveBufferSize int, tcpModerateReceiveBuffer bool) (*Server, error) {
+	tcpSendBufferSize, tcpReceiveBufferSize int, tcpModerateReceiveBuffer bool,
+) (*Server, error) {
 	if mtu == 0 {
 		mtu = MTU
 	}
@@ -86,7 +88,8 @@ func NewServerWithTunFd(hyClient *core.Client, timeout time.Duration, tunFd int,
 }
 
 func NewServer(hyClient *core.Client, timeout time.Duration, name string, mtu uint32,
-	tcpSendBufferSize, tcpReceiveBufferSize int, tcpModerateReceiveBuffer bool) (*Server, error) {
+	tcpSendBufferSize, tcpReceiveBufferSize int, tcpModerateReceiveBuffer bool,
+) (*Server, error) {
 	if mtu == 0 {
 		mtu = MTU
 	}

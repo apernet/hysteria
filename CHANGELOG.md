@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+
+- Fix a bug that caused DNS failure when using domain names in the "resolver" option
+- Fix a bug where errors in HTTP proxy mode were not logged
+- Fix a bug where WeChat protocol was not working properly when obfuscation was not enabled
+- New TCP buffer options for tun mode (`tcp_sndbuf`, `tcp_rcvbuf`, `tcp_autotuning`)
+
 ## 1.2.0
 
 - Reworked TUN mode
