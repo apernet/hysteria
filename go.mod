@@ -7,7 +7,7 @@ require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
 	github.com/caddyserver/certmagic v0.17.1
 	github.com/coreos/go-iptables v0.6.0
-	github.com/docker/go-units v0.4.0
+	github.com/docker/go-units v0.5.0
 	github.com/elazarl/goproxy v0.0.0-20220115173737-adb46da277ac
 	github.com/elazarl/goproxy/ext v0.0.0-20220115173737-adb46da277ac
 	github.com/folbricht/routedns v0.1.6-0.20220806202012-361f5b35b4c3
