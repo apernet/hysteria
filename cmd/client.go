@@ -75,14 +75,14 @@ func client(config *clientConfig) {
 		MaxStreamReceiveWindow:         config.ReceiveWindowConn,
 		InitialConnectionReceiveWindow: config.ReceiveWindow,
 		MaxConnectionReceiveWindow:     config.ReceiveWindow,
-		HandshakeIdleTimeout:           time.Duration(config.QUICSettings.HandshakeIdleTimeout) * time.Second,
-		MaxIdleTimeout:                 time.Duration(config.QUICSettings.MaxIdleTimeout) * time.Second,
+		HandshakeIdleTimeout:           time.Duration(config.Connectivity.HandshakeIdleTimeout) * time.Second,
+		MaxIdleTimeout:                 time.Duration(config.Connectivity.MaxIdleTimeout) * time.Second,
 		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
 	}
 	quicConfig.KeepAlivePeriod = quicConfig.MaxIdleTimeout / 2
-	if quicConfig.KeepAlivePeriod == 0 || quicConfig.KeepAlivePeriod > KeepAlivePeriod {
-		quicConfig.KeepAlivePeriod = KeepAlivePeriod
+	if quicConfig.KeepAlivePeriod == 0 {
+		quicConfig.KeepAlivePeriod = DefaultKeepAlivePeriod
 	}
 	if config.ReceiveWindowConn == 0 {
 		quicConfig.InitialStreamReceiveWindow = DefaultStreamReceiveWindow
@@ -147,14 +147,16 @@ func client(config *clientConfig) {
 			func(refBPS uint64) congestion.CongestionControl {
 				return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
 			}, obfuscator, func(err error) {
-				if config.QUICSettings.DisableAutoReconnect {
+				if config.Connectivity.DisableAutoReconnect {
 					logrus.WithFields(logrus.Fields{
+						"addr":  config.Server,
 						"error": err,
-					}).Fatal("QUIC connection lost, exiting...")
+					}).Fatal("Connection to server lost, exiting...")
 				} else {
 					logrus.WithFields(logrus.Fields{
+						"addr":  config.Server,
 						"error": err,
-					}).Info("QUIC connection lost, reconnecting...")
+					}).Info("Connection to server lost, reconnecting...")
 				}
 			})
 		if err != nil {

@@ -23,7 +23,7 @@ const (
 
 	DefaultMMDBFilename = "GeoLite2-Country.mmdb"
 
-	KeepAlivePeriod = 10 * time.Second
+	DefaultKeepAlivePeriod = 10 * time.Second
 )
 
 var rateStringRegexp = regexp.MustCompile(`^(\d+)\s*([KMGT]?)([Bb])ps$`)
@@ -147,11 +147,11 @@ type clientConfig struct {
 	Retry         int    `json:"retry"`
 	RetryInterval int    `json:"retry_interval"`
 	// Optional below
-	QUICSettings struct {
+	Connectivity struct {
 		DisableAutoReconnect bool `json:"disable_auto_reconnect"`
 		HandshakeIdleTimeout int  `json:"handshake_idle_timeout"`
 		MaxIdleTimeout       int  `json:"max_idle_timeout"`
-	} `json:"quic_settings"`
+	} `json:"connectivity"`
 	SOCKS5 struct {
 		Listen     string `json:"listen"`
 		Timeout    int    `json:"timeout"`
@@ -235,6 +235,12 @@ func (c *clientConfig) Check() error {
 		len(c.TCPTProxy.Listen) == 0 && len(c.UDPTProxy.Listen) == 0 &&
 		len(c.TCPRedirect.Listen) == 0 {
 		return errors.New("please enable at least one mode")
+	}
+	if c.Connectivity.HandshakeIdleTimeout != 0 && c.Connectivity.HandshakeIdleTimeout <= 2 {
+		return errors.New("invalid handshake idle timeout")
+	}
+	if c.Connectivity.MaxIdleTimeout != 0 && c.Connectivity.MaxIdleTimeout <= 4 {
+		return errors.New("invalid max idle timeout")
 	}
 	if c.SOCKS5.Timeout != 0 && c.SOCKS5.Timeout <= 4 {
 		return errors.New("invalid SOCKS5 timeout")
