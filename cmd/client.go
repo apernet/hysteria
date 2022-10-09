@@ -75,9 +75,14 @@ func client(config *clientConfig) {
 		MaxStreamReceiveWindow:         config.ReceiveWindowConn,
 		InitialConnectionReceiveWindow: config.ReceiveWindow,
 		MaxConnectionReceiveWindow:     config.ReceiveWindow,
-		KeepAlivePeriod:                KeepAlivePeriod,
+		HandshakeIdleTimeout:           time.Duration(config.Connectivity.HandshakeIdleTimeout) * time.Second,
+		MaxIdleTimeout:                 time.Duration(config.Connectivity.MaxIdleTimeout) * time.Second,
 		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
+	}
+	quicConfig.KeepAlivePeriod = quicConfig.MaxIdleTimeout / 2
+	if quicConfig.KeepAlivePeriod == 0 {
+		quicConfig.KeepAlivePeriod = DefaultKeepAlivePeriod
 	}
 	if config.ReceiveWindowConn == 0 {
 		quicConfig.InitialStreamReceiveWindow = DefaultStreamReceiveWindow
@@ -141,7 +146,19 @@ func client(config *clientConfig) {
 			transport.DefaultClientTransport, up, down,
 			func(refBPS uint64) congestion.CongestionControl {
 				return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
-			}, obfuscator)
+			}, obfuscator, func(err error) {
+				if config.Connectivity.DisableAutoReconnect {
+					logrus.WithFields(logrus.Fields{
+						"addr":  config.Server,
+						"error": err,
+					}).Fatal("Connection to server lost, exiting...")
+				} else {
+					logrus.WithFields(logrus.Fields{
+						"addr":  config.Server,
+						"error": err,
+					}).Info("Connection to server lost, reconnecting...")
+				}
+			})
 		if err != nil {
 			logrus.WithField("error", err).Error("Failed to initialize client")
 			if try <= config.Retry || config.Retry < 0 {
