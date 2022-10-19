@@ -1,44 +1,42 @@
 name: "[en] Feature Request"
-description: "Want features or behavior changes? Choose this and discuss here!"
+description: "Request to add a new feature, or improvement to an existing feature."
 title: "[Feature Request] "
 body:
   - type: markdown
     id: header
     attributes:
       value: |
-        Before creating this issue, please take a look at [Advanced Usage](https://github.com/HyNetwork/hysteria/wiki/Advanced-Usage) in our Wiki, all the features of hysteria are documented there.
+        Before creating an issue, please take a look at [Advanced Usage](https://github.com/HyNetwork/hysteria/wiki/Advanced-Usage) & existing issues to make sure it does not exist or has already been proposed.
         
-        If you have any good idea to improve hysteria, you can [join our Telegram group] to share and discuss your idea with our community.
+        You can also join our Telegram group or use Discussion to share your ideas with the community.
         
-        Also, please search the existing issues to check if this feature has been requested by others in the past.
-        
-        If you have the ability to implement this feature, a Pull Request is welcome.
+        If you have the skills to implement the features you want, Pull Requests are more than welcomed :)
   - type: textarea
     id: detail
     attributes:
-      label: "Feature Details"
+      label: "Details"
       description: |
-        Please describe what would you like to have added or changed here.
+        Describe what you want to add or change.
     validations:
       required: true
   - type: textarea
     id: necessary
     attributes:
-      label: "The necessity of this feature"
+      label: "Value"
       description: |
-        Why is this feature a useful, necessary, and/or important addition to hysteria itself?
+        What is the value added?
     validations:
       required: true
   - type: textarea
     id: alternative
     attributes:
-      label: "Available alternative"
+      label: "Available alternatives"
       description: |
-        As hysteria doesn't support this feature, are there any alternatives you are using to achieve the same purpose?
+        Are there other projects that have implemented this feature that we can refer to?
   - type: textarea
     id: other-info
     attributes:
-      label: "Additional informations"
+      label: "Additional information"
       description: |
-        Please link to any relevant issues, pull requests, or other discussions.
+        Links to any relevant issues, pull requests, or discussions.
 
