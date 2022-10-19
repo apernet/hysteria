@@ -138,16 +138,16 @@ func (r *Relay) Check() error {
 }
 
 type clientConfig struct {
-	Server        string `json:"server"`
-	Protocol      string `json:"protocol"`
-	Up            string `json:"up"`
-	UpMbps        int    `json:"up_mbps"`
-	Down          string `json:"down"`
-	DownMbps      int    `json:"down_mbps"`
-	Retry         int    `json:"retry"`
-	RetryInterval int    `json:"retry_interval"`
+	Server   string `json:"server"`
+	Protocol string `json:"protocol"`
+	Up       string `json:"up"`
+	UpMbps   int    `json:"up_mbps"`
+	Down     string `json:"down"`
+	DownMbps int    `json:"down_mbps"`
 	// Optional below
-	Connectivity struct {
+	Retry         int `json:"retry"`
+	RetryInterval int `json:"retry_interval"`
+	Connectivity  struct {
 		DisableAutoReconnect bool `json:"disable_auto_reconnect"`
 		HandshakeIdleTimeout int  `json:"handshake_idle_timeout"`
 		MaxIdleTimeout       int  `json:"max_idle_timeout"`
