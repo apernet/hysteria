@@ -23,7 +23,8 @@ const (
 
 	DefaultMMDBFilename = "GeoLite2-Country.mmdb"
 
-	DefaultKeepAlivePeriod = 10 * time.Second
+	DefaultMaxIdleTimeout  = 20 * time.Second
+	DefaultKeepAlivePeriod = 8 * time.Second
 )
 
 var rateStringRegexp = regexp.MustCompile(`^(\d+)\s*([KMGT]?)([Bb])ps$`)
@@ -42,15 +43,16 @@ type serverConfig struct {
 	CertFile string `json:"cert"`
 	KeyFile  string `json:"key"`
 	// Optional below
-	Up         string `json:"up"`
-	UpMbps     int    `json:"up_mbps"`
-	Down       string `json:"down"`
-	DownMbps   int    `json:"down_mbps"`
-	DisableUDP bool   `json:"disable_udp"`
-	ACL        string `json:"acl"`
-	MMDB       string `json:"mmdb"`
-	Obfs       string `json:"obfs"`
-	Auth       struct {
+	Up          string `json:"up"`
+	UpMbps      int    `json:"up_mbps"`
+	Down        string `json:"down"`
+	DownMbps    int    `json:"down_mbps"`
+	IdleTimeout int    `json:"idle_timeout"`
+	DisableUDP  bool   `json:"disable_udp"`
+	ACL         string `json:"acl"`
+	MMDB        string `json:"mmdb"`
+	Obfs        string `json:"obfs"`
+	Auth        struct {
 		Mode   string           `json:"mode"`
 		Config json5.RawMessage `json:"config"`
 	} `json:"auth"`
@@ -104,6 +106,9 @@ func (c *serverConfig) Check() error {
 	if up, down, err := c.Speed(); err != nil || (up != 0 && up < minSpeedBPS) || (down != 0 && down < minSpeedBPS) {
 		return errors.New("invalid speed")
 	}
+	if c.IdleTimeout != 0 && c.IdleTimeout < 4 {
+		return errors.New("invalid idle timeout")
+	}
 	if (c.ReceiveWindowConn != 0 && c.ReceiveWindowConn < 65536) ||
 		(c.ReceiveWindowClient != 0 && c.ReceiveWindowClient < 65536) {
 		return errors.New("invalid receive window size")
@@ -145,14 +150,12 @@ type clientConfig struct {
 	Down     string `json:"down"`
 	DownMbps int    `json:"down_mbps"`
 	// Optional below
-	Retry         int `json:"retry"`
-	RetryInterval int `json:"retry_interval"`
-	Connectivity  struct {
-		DisableAutoReconnect bool `json:"disable_auto_reconnect"`
-		HandshakeIdleTimeout int  `json:"handshake_idle_timeout"`
-		MaxIdleTimeout       int  `json:"max_idle_timeout"`
-	} `json:"connectivity"`
-	SOCKS5 struct {
+	Retry            int  `json:"retry"`
+	RetryInterval    int  `json:"retry_interval"`
+	QuitOnDisconnect bool `json:"quit_on_disconnect"`
+	HandshakeTimeout int  `json:"handshake_timeout"`
+	IdleTimeout      int  `json:"idle_timeout"`
+	SOCKS5           struct {
 		Listen     string `json:"listen"`
 		Timeout    int    `json:"timeout"`
 		DisableUDP bool   `json:"disable_udp"`
@@ -236,11 +239,11 @@ func (c *clientConfig) Check() error {
 		len(c.TCPRedirect.Listen) == 0 {
 		return errors.New("please enable at least one mode")
 	}
-	if c.Connectivity.HandshakeIdleTimeout != 0 && c.Connectivity.HandshakeIdleTimeout < 2 {
-		return errors.New("invalid handshake idle timeout")
+	if c.HandshakeTimeout != 0 && c.HandshakeTimeout < 2 {
+		return errors.New("invalid handshake timeout")
 	}
-	if c.Connectivity.MaxIdleTimeout != 0 && c.Connectivity.MaxIdleTimeout < 4 {
-		return errors.New("invalid max idle timeout")
+	if c.IdleTimeout != 0 && c.IdleTimeout < 4 {
+		return errors.New("invalid idle timeout")
 	}
 	if c.SOCKS5.Timeout != 0 && c.SOCKS5.Timeout < 4 {
 		return errors.New("invalid SOCKS5 timeout")

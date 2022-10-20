@@ -77,9 +77,15 @@ func server(config *serverConfig) {
 		InitialConnectionReceiveWindow: config.ReceiveWindowClient,
 		MaxConnectionReceiveWindow:     config.ReceiveWindowClient,
 		MaxIncomingStreams:             int64(config.MaxConnClient),
-		KeepAlivePeriod:                DefaultKeepAlivePeriod,
 		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
+	}
+	if config.IdleTimeout == 0 {
+		quicConfig.MaxIdleTimeout = DefaultMaxIdleTimeout
+		quicConfig.KeepAlivePeriod = DefaultKeepAlivePeriod
+	} else {
+		quicConfig.MaxIdleTimeout = time.Duration(config.IdleTimeout) * time.Second
+		quicConfig.KeepAlivePeriod = quicConfig.MaxIdleTimeout * 2 / 5
 	}
 	if config.ReceiveWindowConn == 0 {
 		quicConfig.InitialStreamReceiveWindow = DefaultStreamReceiveWindow
