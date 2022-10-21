@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/HyNetwork/hysteria/pkg/congestion"
+
 	"github.com/HyNetwork/hysteria/pkg/acl"
 	"github.com/HyNetwork/hysteria/pkg/obfs"
 	"github.com/HyNetwork/hysteria/pkg/pmtud_fix"
@@ -26,11 +28,10 @@ type (
 )
 
 type Server struct {
-	transport         *transport.ServerTransport
-	sendBPS, recvBPS  uint64
-	congestionFactory CongestionFactory
-	disableUDP        bool
-	aclEngine         *acl.Engine
+	transport        *transport.ServerTransport
+	sendBPS, recvBPS uint64
+	disableUDP       bool
+	aclEngine        *acl.Engine
 
 	connectFunc    ConnectFunc
 	disconnectFunc DisconnectFunc
@@ -46,7 +47,7 @@ type Server struct {
 }
 
 func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *quic.Config, transport *transport.ServerTransport,
-	sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory, disableUDP bool, aclEngine *acl.Engine,
+	sendBPS uint64, recvBPS uint64, disableUDP bool, aclEngine *acl.Engine,
 	obfuscator obfs.Obfuscator, connectFunc ConnectFunc, disconnectFunc DisconnectFunc,
 	tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry,
@@ -57,19 +58,18 @@ func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *
 		return nil, err
 	}
 	s := &Server{
-		listener:          listener,
-		transport:         transport,
-		sendBPS:           sendBPS,
-		recvBPS:           recvBPS,
-		congestionFactory: congestionFactory,
-		disableUDP:        disableUDP,
-		aclEngine:         aclEngine,
-		connectFunc:       connectFunc,
-		disconnectFunc:    disconnectFunc,
-		tcpRequestFunc:    tcpRequestFunc,
-		tcpErrorFunc:      tcpErrorFunc,
-		udpRequestFunc:    udpRequestFunc,
-		udpErrorFunc:      udpErrorFunc,
+		listener:       listener,
+		transport:      transport,
+		sendBPS:        sendBPS,
+		recvBPS:        recvBPS,
+		disableUDP:     disableUDP,
+		aclEngine:      aclEngine,
+		connectFunc:    connectFunc,
+		disconnectFunc: disconnectFunc,
+		tcpRequestFunc: tcpRequestFunc,
+		tcpErrorFunc:   tcpErrorFunc,
+		udpRequestFunc: udpRequestFunc,
+		udpErrorFunc:   udpErrorFunc,
 	}
 	if promRegistry != nil {
 		s.upCounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -172,8 +172,8 @@ func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]
 		return nil, false, false, err
 	}
 	// Set the congestion accordingly
-	if ok && s.congestionFactory != nil {
-		cs.SetCongestionControl(s.congestionFactory(serverSendBPS))
+	if ok {
+		cs.SetCongestionControl(congestion.NewBrutalSender(serverSendBPS))
 	}
 	return ch.Auth, ok, vb[0] == protocolVersionV2, nil
 }

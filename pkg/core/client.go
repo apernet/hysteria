@@ -12,27 +12,25 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HyNetwork/hysteria/pkg/congestion"
+
 	"github.com/HyNetwork/hysteria/pkg/obfs"
 	"github.com/HyNetwork/hysteria/pkg/pmtud_fix"
 	"github.com/HyNetwork/hysteria/pkg/transport"
 	"github.com/HyNetwork/hysteria/pkg/utils"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/lunixbochs/struc"
 )
 
 var ErrClosed = errors.New("closed")
 
-type CongestionFactory func(refBPS uint64) congestion.CongestionControl
-
 type Client struct {
-	transport         *transport.ClientTransport
-	serverAddr        string
-	protocol          string
-	sendBPS, recvBPS  uint64
-	auth              []byte
-	congestionFactory CongestionFactory
-	obfuscator        obfs.Obfuscator
+	transport        *transport.ClientTransport
+	serverAddr       string
+	protocol         string
+	sendBPS, recvBPS uint64
+	auth             []byte
+	obfuscator       obfs.Obfuscator
 
 	tlsConfig  *tls.Config
 	quicConfig *quic.Config
@@ -49,8 +47,8 @@ type Client struct {
 }
 
 func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
-	transport *transport.ClientTransport, sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
-	obfuscator obfs.Obfuscator, quicReconnectFunc func(err error),
+	transport *transport.ClientTransport, sendBPS uint64, recvBPS uint64, obfuscator obfs.Obfuscator,
+	quicReconnectFunc func(err error),
 ) (*Client, error) {
 	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud_fix.DisablePathMTUDiscovery
 	c := &Client{
@@ -60,7 +58,6 @@ func NewClient(serverAddr string, protocol string, auth []byte, tlsConfig *tls.C
 		sendBPS:           sendBPS,
 		recvBPS:           recvBPS,
 		auth:              auth,
-		congestionFactory: congestionFactory,
 		obfuscator:        obfuscator,
 		tlsConfig:         tlsConfig,
 		quicConfig:        quicConfig,
@@ -125,8 +122,8 @@ func (c *Client) handleControlStream(qs quic.Connection, stream quic.Stream) (bo
 		return false, "", err
 	}
 	// Set the congestion accordingly
-	if sh.OK && c.congestionFactory != nil {
-		qs.SetCongestionControl(c.congestionFactory(sh.Rate.RecvBPS))
+	if sh.OK {
+		qs.SetCongestionControl(congestion.NewBrutalSender(sh.Rate.RecvBPS))
 	}
 	return sh.OK, sh.Message, nil
 }

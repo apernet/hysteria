@@ -30,9 +30,9 @@ type pktInfo struct {
 	LossCount uint64
 }
 
-func NewBrutalSender(bps congestion.ByteCount) *BrutalSender {
+func NewBrutalSender(bps uint64) *BrutalSender {
 	bs := &BrutalSender{
-		bps:             bps,
+		bps:             congestion.ByteCount(bps),
 		maxDatagramSize: initMaxDatagramSize,
 		ackRate:         1,
 	}

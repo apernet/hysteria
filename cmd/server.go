@@ -10,14 +10,12 @@ import (
 
 	"github.com/HyNetwork/hysteria/cmd/auth"
 	"github.com/HyNetwork/hysteria/pkg/acl"
-	hyCongestion "github.com/HyNetwork/hysteria/pkg/congestion"
 	"github.com/HyNetwork/hysteria/pkg/core"
 	"github.com/HyNetwork/hysteria/pkg/obfs"
 	"github.com/HyNetwork/hysteria/pkg/pmtud_fix"
 	"github.com/HyNetwork/hysteria/pkg/sockopt"
 	"github.com/HyNetwork/hysteria/pkg/transport"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -224,10 +222,7 @@ func server(config *serverConfig) {
 	}
 	up, down, _ := config.Speed()
 	server, err := core.NewServer(config.Listen, config.Protocol, tlsConfig, quicConfig, transport.DefaultServerTransport,
-		up, down,
-		func(refBPS uint64) congestion.CongestionControl {
-			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
-		}, config.DisableUDP, aclEngine, obfuscator, connectFunc, disconnectFunc,
+		up, down, config.DisableUDP, aclEngine, obfuscator, connectFunc, disconnectFunc,
 		tcpRequestFunc, tcpErrorFunc, udpRequestFunc, udpErrorFunc, promReg)
 	if err != nil {
 		logrus.WithField("error", err).Fatal("Failed to initialize server")

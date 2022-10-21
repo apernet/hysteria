@@ -17,7 +17,6 @@ import (
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 
 	"github.com/HyNetwork/hysteria/pkg/acl"
-	hyCongestion "github.com/HyNetwork/hysteria/pkg/congestion"
 	"github.com/HyNetwork/hysteria/pkg/core"
 	hyHTTP "github.com/HyNetwork/hysteria/pkg/http"
 	"github.com/HyNetwork/hysteria/pkg/obfs"
@@ -26,7 +25,6 @@ import (
 	"github.com/HyNetwork/hysteria/pkg/tproxy"
 	"github.com/HyNetwork/hysteria/pkg/transport"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/sirupsen/logrus"
 )
 
@@ -145,10 +143,8 @@ func client(config *clientConfig) {
 	for {
 		try += 1
 		c, err := core.NewClient(config.Server, config.Protocol, auth, tlsConfig, quicConfig,
-			transport.DefaultClientTransport, up, down,
-			func(refBPS uint64) congestion.CongestionControl {
-				return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
-			}, obfuscator, func(err error) {
+			transport.DefaultClientTransport, up, down, obfuscator,
+			func(err error) {
 				if config.QuitOnDisconnect {
 					logrus.WithFields(logrus.Fields{
 						"addr":  config.Server,
