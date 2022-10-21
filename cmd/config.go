@@ -23,8 +23,9 @@ const (
 
 	DefaultMMDBFilename = "GeoLite2-Country.mmdb"
 
-	DefaultMaxIdleTimeout  = 20 * time.Second
-	DefaultKeepAlivePeriod = 8 * time.Second
+	ServerMaxIdleTimeout         = 60 * time.Second
+	DefaultClientMaxIdleTimeout  = 20 * time.Second
+	DefaultClientKeepAlivePeriod = 8 * time.Second
 )
 
 var rateStringRegexp = regexp.MustCompile(`^(\d+)\s*([KMGT]?)([Bb])ps$`)
@@ -43,16 +44,15 @@ type serverConfig struct {
 	CertFile string `json:"cert"`
 	KeyFile  string `json:"key"`
 	// Optional below
-	Up          string `json:"up"`
-	UpMbps      int    `json:"up_mbps"`
-	Down        string `json:"down"`
-	DownMbps    int    `json:"down_mbps"`
-	IdleTimeout int    `json:"idle_timeout"`
-	DisableUDP  bool   `json:"disable_udp"`
-	ACL         string `json:"acl"`
-	MMDB        string `json:"mmdb"`
-	Obfs        string `json:"obfs"`
-	Auth        struct {
+	Up         string `json:"up"`
+	UpMbps     int    `json:"up_mbps"`
+	Down       string `json:"down"`
+	DownMbps   int    `json:"down_mbps"`
+	DisableUDP bool   `json:"disable_udp"`
+	ACL        string `json:"acl"`
+	MMDB       string `json:"mmdb"`
+	Obfs       string `json:"obfs"`
+	Auth       struct {
 		Mode   string           `json:"mode"`
 		Config json5.RawMessage `json:"config"`
 	} `json:"auth"`
@@ -105,9 +105,6 @@ func (c *serverConfig) Check() error {
 	}
 	if up, down, err := c.Speed(); err != nil || (up != 0 && up < minSpeedBPS) || (down != 0 && down < minSpeedBPS) {
 		return errors.New("invalid speed")
-	}
-	if c.IdleTimeout != 0 && c.IdleTimeout < 4 {
-		return errors.New("invalid idle timeout")
 	}
 	if (c.ReceiveWindowConn != 0 && c.ReceiveWindowConn < 65536) ||
 		(c.ReceiveWindowClient != 0 && c.ReceiveWindowClient < 65536) {

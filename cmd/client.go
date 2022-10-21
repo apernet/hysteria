@@ -80,8 +80,8 @@ func client(config *clientConfig) {
 		EnableDatagrams:                true,
 	}
 	if config.IdleTimeout == 0 {
-		quicConfig.MaxIdleTimeout = DefaultMaxIdleTimeout
-		quicConfig.KeepAlivePeriod = DefaultKeepAlivePeriod
+		quicConfig.MaxIdleTimeout = DefaultClientMaxIdleTimeout
+		quicConfig.KeepAlivePeriod = DefaultClientKeepAlivePeriod
 	} else {
 		quicConfig.MaxIdleTimeout = time.Duration(config.IdleTimeout) * time.Second
 		quicConfig.KeepAlivePeriod = quicConfig.MaxIdleTimeout * 2 / 5
