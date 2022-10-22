@@ -20,7 +20,7 @@ import (
 const udpBufferSize = 65535
 
 type serverClient struct {
-	CS              quic.Connection
+	CC              quic.Connection
 	Transport       *transport.ServerTransport
 	Auth            []byte
 	ClientAddr      net.Addr
@@ -40,17 +40,17 @@ type serverClient struct {
 	udpDefragger     defragger
 }
 
-func newServerClient(cs quic.Connection, tr *transport.ServerTransport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
+func newServerClient(cc quic.Connection, tr *transport.ServerTransport, auth []byte, disableUDP bool, ACLEngine *acl.Engine,
 	CTCPRequestFunc TCPRequestFunc, CTCPErrorFunc TCPErrorFunc,
 	CUDPRequestFunc UDPRequestFunc, CUDPErrorFunc UDPErrorFunc,
 	UpCounterVec, DownCounterVec *prometheus.CounterVec,
 	ConnGaugeVec *prometheus.GaugeVec,
 ) *serverClient {
 	sc := &serverClient{
-		CS:              cs,
+		CC:              cc,
 		Transport:       tr,
 		Auth:            auth,
-		ClientAddr:      cs.RemoteAddr(),
+		ClientAddr:      cc.RemoteAddr(),
 		DisableUDP:      disableUDP,
 		ACLEngine:       ACLEngine,
 		CTCPRequestFunc: CTCPRequestFunc,
@@ -72,7 +72,7 @@ func (c *serverClient) Run() error {
 	if !c.DisableUDP {
 		go func() {
 			for {
-				msg, err := c.CS.ReceiveMessage()
+				msg, err := c.CC.ReceiveMessage()
 				if err != nil {
 					break
 				}
@@ -81,7 +81,7 @@ func (c *serverClient) Run() error {
 		}()
 	}
 	for {
-		stream, err := c.CS.AcceptStream(context.Background())
+		stream, err := c.CC.AcceptStream(context.Background())
 		if err != nil {
 			return err
 		}
@@ -330,7 +330,7 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 				}
 				// try no frag first
 				_ = struc.Pack(&msgBuf, &msg)
-				sendErr := c.CS.SendMessage(msgBuf.Bytes())
+				sendErr := c.CC.SendMessage(msgBuf.Bytes())
 				if sendErr != nil {
 					if errSize, ok := sendErr.(quic.ErrMessageToLarge); ok {
 						// need to frag
@@ -339,7 +339,7 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 						for _, fragMsg := range fragMsgs {
 							msgBuf.Reset()
 							_ = struc.Pack(&msgBuf, &fragMsg)
-							_ = c.CS.SendMessage(msgBuf.Bytes())
+							_ = c.CC.SendMessage(msgBuf.Bytes())
 						}
 					}
 				}

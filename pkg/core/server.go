@@ -97,11 +97,11 @@ func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
 
 func (s *Server) Serve() error {
 	for {
-		cs, err := s.listener.Accept(context.Background())
+		cc, err := s.listener.Accept(context.Background())
 		if err != nil {
 			return err
 		}
-		go s.handleClient(cs)
+		go s.handleClient(cc)
 	}
 }
 
@@ -111,36 +111,36 @@ func (s *Server) Close() error {
 	return err
 }
 
-func (s *Server) handleClient(cs quic.Connection) {
+func (s *Server) handleClient(cc quic.Connection) {
 	// Expect the client to create a control stream to send its own information
 	ctx, ctxCancel := context.WithTimeout(context.Background(), protocolTimeout)
-	stream, err := cs.AcceptStream(ctx)
+	stream, err := cc.AcceptStream(ctx)
 	ctxCancel()
 	if err != nil {
-		_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
+		_ = cc.CloseWithError(closeErrorCodeProtocol, "protocol error")
 		return
 	}
 	// Handle the control stream
-	auth, ok, err := s.handleControlStream(cs, stream)
+	auth, ok, err := s.handleControlStream(cc, stream)
 	if err != nil {
-		_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
+		_ = cc.CloseWithError(closeErrorCodeProtocol, "protocol error")
 		return
 	}
 	if !ok {
-		_ = cs.CloseWithError(closeErrorCodeAuth, "auth error")
+		_ = cc.CloseWithError(closeErrorCodeAuth, "auth error")
 		return
 	}
 	// Start accepting streams and messages
-	sc := newServerClient(cs, s.transport, auth, s.disableUDP, s.aclEngine,
+	sc := newServerClient(cc, s.transport, auth, s.disableUDP, s.aclEngine,
 		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc,
 		s.upCounterVec, s.downCounterVec, s.connGaugeVec)
 	err = sc.Run()
-	_ = cs.CloseWithError(closeErrorCodeGeneric, "")
-	s.disconnectFunc(cs.RemoteAddr(), auth, err)
+	_ = cc.CloseWithError(closeErrorCodeGeneric, "")
+	s.disconnectFunc(cc.RemoteAddr(), auth, err)
 }
 
 // Auth & negotiate speed
-func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]byte, bool, error) {
+func (s *Server) handleControlStream(cc quic.Connection, stream quic.Stream) ([]byte, bool, error) {
 	// Check version
 	vb := make([]byte, 1)
 	_, err := stream.Read(vb)
@@ -168,7 +168,7 @@ func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]
 		serverRecvBPS = s.recvBPS
 	}
 	// Auth
-	ok, msg := s.connectFunc(cs.RemoteAddr(), ch.Auth, serverSendBPS, serverRecvBPS)
+	ok, msg := s.connectFunc(cc.RemoteAddr(), ch.Auth, serverSendBPS, serverRecvBPS)
 	// Response
 	err = struc.Pack(stream, &serverHello{
 		OK: ok,
@@ -183,7 +183,7 @@ func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]
 	}
 	// Set the congestion accordingly
 	if ok {
-		cs.SetCongestionControl(congestion.NewBrutalSender(serverSendBPS))
+		cc.SetCongestionControl(congestion.NewBrutalSender(serverSendBPS))
 	}
 	return ch.Auth, ok, nil
 }
