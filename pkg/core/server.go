@@ -121,7 +121,7 @@ func (s *Server) handleClient(cs quic.Connection) {
 		return
 	}
 	// Handle the control stream
-	auth, ok, v2, err := s.handleControlStream(cs, stream)
+	auth, ok, err := s.handleControlStream(cs, stream)
 	if err != nil {
 		_ = cs.CloseWithError(closeErrorCodeProtocol, "protocol error")
 		return
@@ -131,7 +131,7 @@ func (s *Server) handleClient(cs quic.Connection) {
 		return
 	}
 	// Start accepting streams and messages
-	sc := newServerClient(v2, cs, s.transport, auth, s.disableUDP, s.aclEngine,
+	sc := newServerClient(cs, s.transport, auth, s.disableUDP, s.aclEngine,
 		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc,
 		s.upCounterVec, s.downCounterVec, s.connGaugeVec)
 	err = sc.Run()
@@ -140,26 +140,25 @@ func (s *Server) handleClient(cs quic.Connection) {
 }
 
 // Auth & negotiate speed
-func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]byte, bool, bool, error) {
+func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]byte, bool, error) {
 	// Check version
 	vb := make([]byte, 1)
 	_, err := stream.Read(vb)
 	if err != nil {
-		return nil, false, false, err
+		return nil, false, err
 	}
-	if vb[0] != protocolVersion && vb[0] != protocolVersionV2 {
-		return nil, false, false, fmt.Errorf("unsupported protocol version %d, expecting %d/%d",
-			vb[0], protocolVersionV2, protocolVersion)
+	if vb[0] != protocolVersion {
+		return nil, false, fmt.Errorf("unsupported protocol version %d, expecting %d", vb[0], protocolVersion)
 	}
 	// Parse client hello
 	var ch clientHello
 	err = struc.Unpack(stream, &ch)
 	if err != nil {
-		return nil, false, false, err
+		return nil, false, err
 	}
 	// Speed
 	if ch.Rate.SendBPS == 0 || ch.Rate.RecvBPS == 0 {
-		return nil, false, false, errors.New("invalid rate from client")
+		return nil, false, errors.New("invalid rate from client")
 	}
 	serverSendBPS, serverRecvBPS := ch.Rate.RecvBPS, ch.Rate.SendBPS
 	if s.sendBPS > 0 && serverSendBPS > s.sendBPS {
@@ -180,11 +179,11 @@ func (s *Server) handleControlStream(cs quic.Connection, stream quic.Stream) ([]
 		Message: msg,
 	})
 	if err != nil {
-		return nil, false, false, err
+		return nil, false, err
 	}
 	// Set the congestion accordingly
 	if ok {
 		cs.SetCongestionControl(congestion.NewBrutalSender(serverSendBPS))
 	}
-	return ch.Auth, ok, vb[0] == protocolVersionV2, nil
+	return ch.Auth, ok, nil
 }
