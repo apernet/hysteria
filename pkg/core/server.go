@@ -117,17 +117,17 @@ func (s *Server) handleClient(cc quic.Connection) {
 	stream, err := cc.AcceptStream(ctx)
 	ctxCancel()
 	if err != nil {
-		_ = cc.CloseWithError(closeErrorCodeProtocol, "protocol error")
+		_ = closeErrorProtocol.Send(cc)
 		return
 	}
 	// Handle the control stream
 	auth, ok, err := s.handleControlStream(cc, stream)
 	if err != nil {
-		_ = cc.CloseWithError(closeErrorCodeProtocol, "protocol error")
+		_ = closeErrorProtocol.Send(cc)
 		return
 	}
 	if !ok {
-		_ = cc.CloseWithError(closeErrorCodeAuth, "auth error")
+		_ = closeErrorAuth.Send(cc)
 		return
 	}
 	// Start accepting streams and messages
@@ -135,7 +135,7 @@ func (s *Server) handleClient(cc quic.Connection) {
 		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc,
 		s.upCounterVec, s.downCounterVec, s.connGaugeVec)
 	err = sc.Run()
-	_ = cc.CloseWithError(closeErrorCodeGeneric, "")
+	_ = closeErrorGeneric.Send(cc)
 	s.disconnectFunc(cc.RemoteAddr(), auth, err)
 }
 

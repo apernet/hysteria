@@ -2,15 +2,28 @@ package core
 
 import (
 	"time"
+
+	"github.com/lucas-clemente/quic-go"
 )
 
 const (
 	protocolVersion = uint8(3)
 	protocolTimeout = 10 * time.Second
+)
 
-	closeErrorCodeGeneric  = 0
-	closeErrorCodeProtocol = 1
-	closeErrorCodeAuth     = 2
+type closeError struct {
+	Code quic.ApplicationErrorCode
+	Msg  string
+}
+
+func (e closeError) Send(c quic.Connection) error {
+	return c.CloseWithError(e.Code, e.Msg)
+}
+
+var (
+	closeErrorGeneric  = closeError{0, ""}
+	closeErrorProtocol = closeError{1, "protocol error"}
+	closeErrorAuth     = closeError{2, "auth error"}
 )
 
 type transmissionRate struct {

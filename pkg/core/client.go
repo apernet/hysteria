@@ -94,18 +94,18 @@ func (c *Client) connect() error {
 	stream, err := quicConn.OpenStreamSync(ctx)
 	ctxCancel()
 	if err != nil {
-		_ = quicConn.CloseWithError(closeErrorCodeProtocol, "protocol error")
+		_ = closeErrorProtocol.Send(quicConn)
 		_ = pktConn.Close()
 		return err
 	}
 	ok, msg, err := c.handleControlStream(quicConn, stream)
 	if err != nil {
-		_ = quicConn.CloseWithError(closeErrorCodeProtocol, "protocol error")
+		_ = closeErrorProtocol.Send(quicConn)
 		_ = pktConn.Close()
 		return err
 	}
 	if !ok {
-		_ = quicConn.CloseWithError(closeErrorCodeAuth, "auth error")
+		_ = closeErrorAuth.Send(quicConn)
 		_ = pktConn.Close()
 		return fmt.Errorf("auth error: %s", msg)
 	}
@@ -296,7 +296,7 @@ func (c *Client) DialUDP() (UDPConn, error) {
 func (c *Client) Close() error {
 	c.reconnectMutex.Lock()
 	defer c.reconnectMutex.Unlock()
-	err := c.quicConn.CloseWithError(closeErrorCodeGeneric, "")
+	err := closeErrorGeneric.Send(c.quicConn)
 	_ = c.pktConn.Close()
 	c.closed = true
 	return err
