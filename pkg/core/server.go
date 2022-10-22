@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/HyNetwork/hysteria/pkg/transport/pktconns"
+
 	"github.com/HyNetwork/hysteria/pkg/congestion"
 
 	"github.com/HyNetwork/hysteria/pkg/acl"
-	"github.com/HyNetwork/hysteria/pkg/obfs"
 	"github.com/HyNetwork/hysteria/pkg/pmtud_fix"
 	"github.com/HyNetwork/hysteria/pkg/transport"
 	"github.com/lucas-clemente/quic-go"
@@ -43,21 +44,29 @@ type Server struct {
 	upCounterVec, downCounterVec *prometheus.CounterVec
 	connGaugeVec                 *prometheus.GaugeVec
 
+	pktConn  net.PacketConn
 	listener quic.Listener
 }
 
-func NewServer(addr string, protocol string, tlsConfig *tls.Config, quicConfig *quic.Config, transport *transport.ServerTransport,
+func NewServer(addr string, tlsConfig *tls.Config, quicConfig *quic.Config,
+	pktConnFunc pktconns.ServerPacketConnFunc, transport *transport.ServerTransport,
 	sendBPS uint64, recvBPS uint64, disableUDP bool, aclEngine *acl.Engine,
-	obfuscator obfs.Obfuscator, connectFunc ConnectFunc, disconnectFunc DisconnectFunc,
+	connectFunc ConnectFunc, disconnectFunc DisconnectFunc,
 	tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry,
 ) (*Server, error) {
 	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud_fix.DisablePathMTUDiscovery
-	listener, err := transport.QUICListen(protocol, addr, tlsConfig, quicConfig, obfuscator)
+	pktConn, err := pktConnFunc(addr)
 	if err != nil {
 		return nil, err
 	}
+	listener, err := quic.Listen(pktConn, tlsConfig, quicConfig)
+	if err != nil {
+		_ = pktConn.Close()
+		return nil, err
+	}
 	s := &Server{
+		pktConn:        pktConn,
 		listener:       listener,
 		transport:      transport,
 		sendBPS:        sendBPS,
@@ -97,7 +106,9 @@ func (s *Server) Serve() error {
 }
 
 func (s *Server) Close() error {
-	return s.listener.Close()
+	err := s.listener.Close()
+	_ = s.pktConn.Close()
+	return err
 }
 
 func (s *Server) handleClient(cs quic.Connection) {

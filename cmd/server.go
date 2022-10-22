@@ -8,10 +8,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/HyNetwork/hysteria/pkg/transport/pktconns"
+
 	"github.com/HyNetwork/hysteria/cmd/auth"
 	"github.com/HyNetwork/hysteria/pkg/acl"
 	"github.com/HyNetwork/hysteria/pkg/core"
-	"github.com/HyNetwork/hysteria/pkg/obfs"
 	"github.com/HyNetwork/hysteria/pkg/pmtud_fix"
 	"github.com/HyNetwork/hysteria/pkg/sockopt"
 	"github.com/HyNetwork/hysteria/pkg/transport"
@@ -22,6 +23,14 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 )
+
+var serverPacketConnFuncFactoryMap = map[string]pktconns.ServerPacketConnFuncFactory{
+	"":             pktconns.NewServerUDPConnFunc,
+	"udp":          pktconns.NewServerUDPConnFunc,
+	"wechat":       pktconns.NewServerWeChatConnFunc,
+	"wechat-video": pktconns.NewServerWeChatConnFunc,
+	"faketcp":      pktconns.NewServerFakeTCPConnFunc,
+}
 
 func server(config *serverConfig) {
 	logrus.WithField("config", config.String()).Info("Server configuration loaded")
@@ -141,11 +150,12 @@ func server(config *serverConfig) {
 		}
 		return ok, msg
 	}
-	// Obfuscator
-	var obfuscator obfs.Obfuscator
-	if len(config.Obfs) > 0 {
-		obfuscator = obfs.NewXPlusObfuscator([]byte(config.Obfs))
+	// Packet conn
+	pktConnFuncFactory := serverPacketConnFuncFactoryMap[config.Protocol]
+	if pktConnFuncFactory == nil {
+		logrus.WithField("protocol", config.Protocol).Fatal("Unsupported protocol")
 	}
+	pktConnFunc := pktConnFuncFactory(config.Obfs)
 	// Resolve preference
 	if len(config.ResolvePreference) > 0 {
 		pref, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
@@ -221,9 +231,9 @@ func server(config *serverConfig) {
 		}()
 	}
 	up, down, _ := config.Speed()
-	server, err := core.NewServer(config.Listen, config.Protocol, tlsConfig, quicConfig, transport.DefaultServerTransport,
-		up, down, config.DisableUDP, aclEngine, obfuscator, connectFunc, disconnectFunc,
-		tcpRequestFunc, tcpErrorFunc, udpRequestFunc, udpErrorFunc, promReg)
+	server, err := core.NewServer(config.Listen, tlsConfig, quicConfig, pktConnFunc,
+		transport.DefaultServerTransport, up, down, config.DisableUDP, aclEngine,
+		connectFunc, disconnectFunc, tcpRequestFunc, tcpErrorFunc, udpRequestFunc, udpErrorFunc, promReg)
 	if err != nil {
 		logrus.WithField("error", err).Fatal("Failed to initialize server")
 	}

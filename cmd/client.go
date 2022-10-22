@@ -11,6 +11,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/HyNetwork/hysteria/pkg/transport/pktconns"
+
 	"github.com/HyNetwork/hysteria/pkg/pmtud_fix"
 	"github.com/HyNetwork/hysteria/pkg/redirect"
 	"github.com/oschwald/geoip2-golang"
@@ -19,7 +21,6 @@ import (
 	"github.com/HyNetwork/hysteria/pkg/acl"
 	"github.com/HyNetwork/hysteria/pkg/core"
 	hyHTTP "github.com/HyNetwork/hysteria/pkg/http"
-	"github.com/HyNetwork/hysteria/pkg/obfs"
 	"github.com/HyNetwork/hysteria/pkg/relay"
 	"github.com/HyNetwork/hysteria/pkg/socks5"
 	"github.com/HyNetwork/hysteria/pkg/tproxy"
@@ -27,6 +28,14 @@ import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/sirupsen/logrus"
 )
+
+var clientPacketConnFuncFactoryMap = map[string]pktconns.ClientPacketConnFuncFactory{
+	"":             pktconns.NewClientUDPConnFunc,
+	"udp":          pktconns.NewClientUDPConnFunc,
+	"wechat":       pktconns.NewClientWeChatConnFunc,
+	"wechat-video": pktconns.NewClientWeChatConnFunc,
+	"faketcp":      pktconns.NewClientFakeTCPConnFunc,
+}
 
 func client(config *clientConfig) {
 	logrus.WithField("config", config.String()).Info("Client configuration loaded")
@@ -102,11 +111,14 @@ func client(config *clientConfig) {
 	} else {
 		auth = []byte(config.AuthString)
 	}
-	// Obfuscator
-	var obfuscator obfs.Obfuscator
-	if len(config.Obfs) > 0 {
-		obfuscator = obfs.NewXPlusObfuscator([]byte(config.Obfs))
+	// Packet conn
+	pktConnFuncFactory := clientPacketConnFuncFactoryMap[config.Protocol]
+	if pktConnFuncFactory == nil {
+		logrus.WithFields(logrus.Fields{
+			"protocol": config.Protocol,
+		}).Fatal("Unsupported protocol")
 	}
+	pktConnFunc := pktConnFuncFactory(config.Obfs)
 	// Resolve preference
 	if len(config.ResolvePreference) > 0 {
 		pref, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
@@ -142,8 +154,7 @@ func client(config *clientConfig) {
 	up, down, _ := config.Speed()
 	for {
 		try += 1
-		c, err := core.NewClient(config.Server, config.Protocol, auth, tlsConfig, quicConfig,
-			transport.DefaultClientTransport, up, down, obfuscator,
+		c, err := core.NewClient(config.Server, auth, tlsConfig, quicConfig, pktConnFunc, up, down,
 			func(err error) {
 				if config.QuitOnDisconnect {
 					logrus.WithFields(logrus.Fields{
@@ -154,7 +165,7 @@ func client(config *clientConfig) {
 					logrus.WithFields(logrus.Fields{
 						"addr":  config.Server,
 						"error": err,
-					}).Info("Connection to server lost, reconnecting...")
+					}).Error("Connection to server lost, reconnecting...")
 				}
 			})
 		if err != nil {

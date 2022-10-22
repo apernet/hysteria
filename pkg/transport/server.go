@@ -1,19 +1,12 @@
 package transport
 
 import (
-	"crypto/tls"
-	"fmt"
 	"net"
 	"strconv"
 	"time"
 
-	"github.com/HyNetwork/hysteria/pkg/conns/faketcp"
-	"github.com/HyNetwork/hysteria/pkg/conns/udp"
-	"github.com/HyNetwork/hysteria/pkg/conns/wechat"
-	obfsPkg "github.com/HyNetwork/hysteria/pkg/obfs"
 	"github.com/HyNetwork/hysteria/pkg/sockopt"
 	"github.com/HyNetwork/hysteria/pkg/utils"
-	"github.com/lucas-clemente/quic-go"
 )
 
 type ServerTransport struct {
@@ -74,64 +67,6 @@ var DefaultServerTransport = &ServerTransport{
 		Timeout: 8 * time.Second,
 	},
 	ResolvePreference: ResolvePreferenceDefault,
-}
-
-func (st *ServerTransport) quicPacketConn(proto string, laddr string, obfs obfsPkg.Obfuscator) (net.PacketConn, error) {
-	if len(proto) == 0 || proto == "udp" {
-		laddrU, err := net.ResolveUDPAddr("udp", laddr)
-		if err != nil {
-			return nil, err
-		}
-		conn, err := net.ListenUDP("udp", laddrU)
-		if err != nil {
-			return nil, err
-		}
-		if obfs != nil {
-			oc := udp.NewObfsUDPConn(conn, obfs)
-			return oc, nil
-		} else {
-			return conn, nil
-		}
-	} else if proto == "wechat-video" {
-		laddrU, err := net.ResolveUDPAddr("udp", laddr)
-		if err != nil {
-			return nil, err
-		}
-		conn, err := net.ListenUDP("udp", laddrU)
-		if err != nil {
-			return nil, err
-		}
-		if obfs == nil {
-			obfs = obfsPkg.NewDummyObfuscator()
-		}
-		return wechat.NewObfsWeChatUDPConn(conn, obfs), nil
-	} else if proto == "faketcp" {
-		conn, err := faketcp.Listen("tcp", laddr)
-		if err != nil {
-			return nil, err
-		}
-		if obfs != nil {
-			oc := faketcp.NewObfsFakeTCPConn(conn, obfs)
-			return oc, nil
-		} else {
-			return conn, nil
-		}
-	} else {
-		return nil, fmt.Errorf("unsupported protocol: %s", proto)
-	}
-}
-
-func (st *ServerTransport) QUICListen(proto string, listen string, tlsConfig *tls.Config, quicConfig *quic.Config, obfs obfsPkg.Obfuscator) (quic.Listener, error) {
-	pktConn, err := st.quicPacketConn(proto, listen, obfs)
-	if err != nil {
-		return nil, err
-	}
-	l, err := quic.Listen(pktConn, tlsConfig, quicConfig)
-	if err != nil {
-		_ = pktConn.Close()
-		return nil, err
-	}
-	return l, nil
 }
 
 func (st *ServerTransport) ResolveIPAddr(address string) (*net.IPAddr, bool, error) {

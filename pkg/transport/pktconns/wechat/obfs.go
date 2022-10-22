@@ -9,12 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/HyNetwork/hysteria/pkg/obfs"
+	"github.com/HyNetwork/hysteria/pkg/transport/pktconns/obfs"
 )
 
 const udpBufferSize = 65535
 
-type ObfsWeChatUDPConn struct {
+// ObfsWeChatUDPPacketConn is still a UDP packet conn, but it adds WeChat video call header to each packet.
+// Obfs in this case can be nil
+type ObfsWeChatUDPPacketConn struct {
 	orig *net.UDPConn
 	obfs obfs.Obfuscator
 
@@ -25,8 +27,8 @@ type ObfsWeChatUDPConn struct {
 	sn         uint32
 }
 
-func NewObfsWeChatUDPConn(orig *net.UDPConn, obfs obfs.Obfuscator) *ObfsWeChatUDPConn {
-	return &ObfsWeChatUDPConn{
+func NewObfsWeChatUDPConn(orig *net.UDPConn, obfs obfs.Obfuscator) *ObfsWeChatUDPPacketConn {
+	return &ObfsWeChatUDPPacketConn{
 		orig:     orig,
 		obfs:     obfs,
 		readBuf:  make([]byte, udpBufferSize),
@@ -35,7 +37,7 @@ func NewObfsWeChatUDPConn(orig *net.UDPConn, obfs obfs.Obfuscator) *ObfsWeChatUD
 	}
 }
 
-func (c *ObfsWeChatUDPConn) ReadFrom(p []byte) (int, net.Addr, error) {
+func (c *ObfsWeChatUDPPacketConn) ReadFrom(p []byte) (int, net.Addr, error) {
 	for {
 		c.readMutex.Lock()
 		n, addr, err := c.orig.ReadFrom(c.readBuf)
@@ -43,7 +45,12 @@ func (c *ObfsWeChatUDPConn) ReadFrom(p []byte) (int, net.Addr, error) {
 			c.readMutex.Unlock()
 			return 0, addr, err
 		}
-		newN := c.obfs.Deobfuscate(c.readBuf[13:n], p)
+		var newN int
+		if c.obfs != nil {
+			newN = c.obfs.Deobfuscate(c.readBuf[13:n], p)
+		} else {
+			newN = copy(p, c.readBuf[13:n])
+		}
 		c.readMutex.Unlock()
 		if newN > 0 {
 			// Valid packet
@@ -55,7 +62,7 @@ func (c *ObfsWeChatUDPConn) ReadFrom(p []byte) (int, net.Addr, error) {
 	}
 }
 
-func (c *ObfsWeChatUDPConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+func (c *ObfsWeChatUDPPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	c.writeMutex.Lock()
 	c.writeBuf[0] = 0xa1
 	c.writeBuf[1] = 0x08
@@ -68,7 +75,12 @@ func (c *ObfsWeChatUDPConn) WriteTo(p []byte, addr net.Addr) (n int, err error) 
 	c.writeBuf[10] = 0x30
 	c.writeBuf[11] = 0x22
 	c.writeBuf[12] = 0x30
-	bn := c.obfs.Obfuscate(p, c.writeBuf[13:])
+	var bn int
+	if c.obfs != nil {
+		bn = c.obfs.Obfuscate(p, c.writeBuf[13:])
+	} else {
+		bn = copy(c.writeBuf[13:], p)
+	}
 	_, err = c.orig.WriteTo(c.writeBuf[:13+bn], addr)
 	c.writeMutex.Unlock()
 	if err != nil {
@@ -78,38 +90,38 @@ func (c *ObfsWeChatUDPConn) WriteTo(p []byte, addr net.Addr) (n int, err error) 
 	}
 }
 
-func (c *ObfsWeChatUDPConn) Close() error {
+func (c *ObfsWeChatUDPPacketConn) Close() error {
 	return c.orig.Close()
 }
 
-func (c *ObfsWeChatUDPConn) LocalAddr() net.Addr {
+func (c *ObfsWeChatUDPPacketConn) LocalAddr() net.Addr {
 	return c.orig.LocalAddr()
 }
 
-func (c *ObfsWeChatUDPConn) SetDeadline(t time.Time) error {
+func (c *ObfsWeChatUDPPacketConn) SetDeadline(t time.Time) error {
 	return c.orig.SetDeadline(t)
 }
 
-func (c *ObfsWeChatUDPConn) SetReadDeadline(t time.Time) error {
+func (c *ObfsWeChatUDPPacketConn) SetReadDeadline(t time.Time) error {
 	return c.orig.SetReadDeadline(t)
 }
 
-func (c *ObfsWeChatUDPConn) SetWriteDeadline(t time.Time) error {
+func (c *ObfsWeChatUDPPacketConn) SetWriteDeadline(t time.Time) error {
 	return c.orig.SetWriteDeadline(t)
 }
 
-func (c *ObfsWeChatUDPConn) SetReadBuffer(bytes int) error {
+func (c *ObfsWeChatUDPPacketConn) SetReadBuffer(bytes int) error {
 	return c.orig.SetReadBuffer(bytes)
 }
 
-func (c *ObfsWeChatUDPConn) SetWriteBuffer(bytes int) error {
+func (c *ObfsWeChatUDPPacketConn) SetWriteBuffer(bytes int) error {
 	return c.orig.SetWriteBuffer(bytes)
 }
 
-func (c *ObfsWeChatUDPConn) SyscallConn() (syscall.RawConn, error) {
+func (c *ObfsWeChatUDPPacketConn) SyscallConn() (syscall.RawConn, error) {
 	return c.orig.SyscallConn()
 }
 
-func (c *ObfsWeChatUDPConn) File() (f *os.File, err error) {
+func (c *ObfsWeChatUDPPacketConn) File() (f *os.File, err error) {
 	return c.orig.File()
 }
