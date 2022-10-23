@@ -1,7 +1,7 @@
 //go:build linux || windows
 // +build linux windows
 
-package pmtud_fix
+package pmtud
 
 const (
 	DisablePathMTUDiscovery = false

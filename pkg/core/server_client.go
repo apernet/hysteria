@@ -35,7 +35,7 @@ type serverClient struct {
 	ConnGauge              prometheus.Gauge
 
 	udpSessionMutex  sync.RWMutex
-	udpSessionMap    map[uint32]transport.PUDPConn
+	udpSessionMap    map[uint32]transport.STPacketConn
 	nextUDPSessionID uint32
 	udpDefragger     defragger
 }
@@ -57,7 +57,7 @@ func newServerClient(cc quic.Connection, tr *transport.ServerTransport, auth []b
 		CTCPErrorFunc:   CTCPErrorFunc,
 		CUDPRequestFunc: CUDPRequestFunc,
 		CUDPErrorFunc:   CUDPErrorFunc,
-		udpSessionMap:   make(map[uint32]transport.PUDPConn),
+		udpSessionMap:   make(map[uint32]transport.STPacketConn),
 	}
 	if UpCounterVec != nil && DownCounterVec != nil && ConnGaugeVec != nil {
 		authB64 := base64.StdEncoding.EncodeToString(auth)
@@ -145,7 +145,7 @@ func (c *serverClient) handleMessage(msg []byte) {
 		} else {
 			ipAddr, isDomain, err = c.Transport.ResolveIPAddr(dfMsg.Host)
 		}
-		if err != nil && !(isDomain && c.Transport.SOCKS5Enabled()) { // Special case for domain requests + SOCKS5 outbound
+		if err != nil && !(isDomain && c.Transport.ProxyEnabled()) { // Special case for domain requests + SOCKS5 outbound
 			return
 		}
 		switch action {
@@ -157,7 +157,7 @@ func (c *serverClient) handleMessage(msg []byte) {
 			if isDomain {
 				addrEx.Domain = dfMsg.Host
 			}
-			_, _ = conn.WriteToUDP(dfMsg.Data, addrEx)
+			_, _ = conn.WriteTo(dfMsg.Data, addrEx)
 			if c.UpCounter != nil {
 				c.UpCounter.Add(float64(len(dfMsg.Data)))
 			}
@@ -165,7 +165,7 @@ func (c *serverClient) handleMessage(msg []byte) {
 			// Do nothing
 		case acl.ActionHijack:
 			hijackIPAddr, isDomain, err := c.Transport.ResolveIPAddr(arg)
-			if err == nil || (isDomain && c.Transport.SOCKS5Enabled()) { // Special case for domain requests + SOCKS5 outbound
+			if err == nil || (isDomain && c.Transport.ProxyEnabled()) { // Special case for domain requests + SOCKS5 outbound
 				addrEx := &transport.AddrEx{
 					IPAddr: hijackIPAddr,
 					Port:   int(dfMsg.Port),
@@ -173,7 +173,7 @@ func (c *serverClient) handleMessage(msg []byte) {
 				if isDomain {
 					addrEx.Domain = arg
 				}
-				_, _ = conn.WriteToUDP(dfMsg.Data, addrEx)
+				_, _ = conn.WriteTo(dfMsg.Data, addrEx)
 				if c.UpCounter != nil {
 					c.UpCounter.Add(float64(len(dfMsg.Data)))
 				}
@@ -195,7 +195,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 	} else {
 		ipAddr, isDomain, err = c.Transport.ResolveIPAddr(host)
 	}
-	if err != nil && !(isDomain && c.Transport.SOCKS5Enabled()) { // Special case for domain requests + SOCKS5 outbound
+	if err != nil && !(isDomain && c.Transport.ProxyEnabled()) { // Special case for domain requests + SOCKS5 outbound
 		_ = struc.Pack(stream, &serverResponse{
 			OK:      false,
 			Message: "host resolution failure",
@@ -232,7 +232,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 		return
 	case acl.ActionHijack:
 		hijackIPAddr, isDomain, err := c.Transport.ResolveIPAddr(arg)
-		if err != nil && !(isDomain && c.Transport.SOCKS5Enabled()) { // Special case for domain requests + SOCKS5 outbound
+		if err != nil && !(isDomain && c.Transport.ProxyEnabled()) { // Special case for domain requests + SOCKS5 outbound
 			_ = struc.Pack(stream, &serverResponse{
 				OK:      false,
 				Message: err.Error(),
@@ -318,7 +318,7 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 	go func() {
 		buf := make([]byte, udpBufferSize)
 		for {
-			n, rAddr, err := conn.ReadFromUDP(buf)
+			n, rAddr, err := conn.ReadFrom(buf)
 			if n > 0 {
 				var msgBuf bytes.Buffer
 				msg := udpMessage{

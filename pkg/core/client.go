@@ -16,7 +16,7 @@ import (
 
 	"github.com/HyNetwork/hysteria/pkg/congestion"
 
-	"github.com/HyNetwork/hysteria/pkg/pmtud_fix"
+	"github.com/HyNetwork/hysteria/pkg/pmtud"
 	"github.com/HyNetwork/hysteria/pkg/utils"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
@@ -49,7 +49,7 @@ type Client struct {
 func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
 	pktConnFunc pktconns.ClientPacketConnFunc, sendBPS uint64, recvBPS uint64, quicReconnectFunc func(err error),
 ) (*Client, error) {
-	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud_fix.DisablePathMTUDiscovery
+	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud.DisablePathMTUDiscovery
 	c := &Client{
 		serverAddr:        serverAddr,
 		sendBPS:           sendBPS,

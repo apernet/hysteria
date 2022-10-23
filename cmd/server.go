@@ -13,7 +13,7 @@ import (
 	"github.com/HyNetwork/hysteria/cmd/auth"
 	"github.com/HyNetwork/hysteria/pkg/acl"
 	"github.com/HyNetwork/hysteria/pkg/core"
-	"github.com/HyNetwork/hysteria/pkg/pmtud_fix"
+	"github.com/HyNetwork/hysteria/pkg/pmtud"
 	"github.com/HyNetwork/hysteria/pkg/sockopt"
 	"github.com/HyNetwork/hysteria/pkg/transport"
 	"github.com/lucas-clemente/quic-go"
@@ -100,7 +100,7 @@ func server(config *serverConfig) {
 	if quicConfig.MaxIncomingStreams == 0 {
 		quicConfig.MaxIncomingStreams = DefaultMaxIncomingStreams
 	}
-	if !quicConfig.DisablePathMTUDiscovery && pmtud_fix.DisablePathMTUDiscovery {
+	if !quicConfig.DisablePathMTUDiscovery && pmtud.DisablePathMTUDiscovery {
 		logrus.Info("Path MTU Discovery is not yet supported on this platform")
 	}
 	// Auth
@@ -150,12 +150,6 @@ func server(config *serverConfig) {
 		}
 		return ok, msg
 	}
-	// Packet conn
-	pktConnFuncFactory := serverPacketConnFuncFactoryMap[config.Protocol]
-	if pktConnFuncFactory == nil {
-		logrus.WithField("protocol", config.Protocol).Fatal("Unsupported protocol")
-	}
-	pktConnFunc := pktConnFuncFactory(config.Obfs)
 	// Resolve preference
 	if len(config.ResolvePreference) > 0 {
 		pref, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
@@ -220,7 +214,7 @@ func server(config *serverConfig) {
 		}
 		aclEngine.DefaultAction = acl.ActionDirect
 	}
-	// Server
+	// Prometheus
 	var promReg *prometheus.Registry
 	if len(config.PrometheusListen) > 0 {
 		promReg = prometheus.NewRegistry()
@@ -230,8 +224,22 @@ func server(config *serverConfig) {
 			logrus.WithField("error", err).Fatal("Prometheus HTTP server error")
 		}()
 	}
+	// Packet conn
+	pktConnFuncFactory := serverPacketConnFuncFactoryMap[config.Protocol]
+	if pktConnFuncFactory == nil {
+		logrus.WithField("protocol", config.Protocol).Fatal("Unsupported protocol")
+	}
+	pktConnFunc := pktConnFuncFactory(config.Obfs)
+	pktConn, err := pktConnFunc(config.Listen)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"error": err,
+			"addr":  config.Listen,
+		}).Fatal("Failed to listen on the UDP address")
+	}
+	// Server
 	up, down, _ := config.Speed()
-	server, err := core.NewServer(config.Listen, tlsConfig, quicConfig, pktConnFunc,
+	server, err := core.NewServer(tlsConfig, quicConfig, pktConn,
 		transport.DefaultServerTransport, up, down, config.DisableUDP, aclEngine,
 		connectFunc, disconnectFunc, tcpRequestFunc, tcpErrorFunc, udpRequestFunc, udpErrorFunc, promReg)
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 
 	"github.com/HyNetwork/hysteria/pkg/transport/pktconns"
 
-	"github.com/HyNetwork/hysteria/pkg/pmtud_fix"
+	"github.com/HyNetwork/hysteria/pkg/pmtud"
 	"github.com/HyNetwork/hysteria/pkg/redirect"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
@@ -101,7 +101,7 @@ func client(config *clientConfig) {
 		quicConfig.InitialConnectionReceiveWindow = DefaultConnectionReceiveWindow
 		quicConfig.MaxConnectionReceiveWindow = DefaultConnectionReceiveWindow
 	}
-	if !quicConfig.DisablePathMTUDiscovery && pmtud_fix.DisablePathMTUDiscovery {
+	if !quicConfig.DisablePathMTUDiscovery && pmtud.DisablePathMTUDiscovery {
 		logrus.Info("Path MTU Discovery is not yet supported on this platform")
 	}
 	// Auth

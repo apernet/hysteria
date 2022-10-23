@@ -111,7 +111,7 @@ func (c *SOCKS5Client) DialTCP(raddr *AddrEx) (*net.TCPConn, error) {
 	return conn, nil
 }
 
-func (c *SOCKS5Client) ListenUDP() (*socks5UDPConn, error) {
+func (c *SOCKS5Client) ListenUDP() (STPacketConn, error) {
 	conn, err := net.DialTCP("tcp", nil, c.ServerTCPAddr)
 	if err != nil {
 		return nil, err
@@ -175,7 +175,7 @@ func (c *socks5UDPConn) hold() {
 	_ = c.udpConn.Close()
 }
 
-func (c *socks5UDPConn) ReadFromUDP(b []byte) (int, *net.UDPAddr, error) {
+func (c *socks5UDPConn) ReadFrom(b []byte) (int, *net.UDPAddr, error) {
 	n, err := c.udpConn.Read(b)
 	if err != nil {
 		return 0, nil, err
@@ -192,7 +192,7 @@ func (c *socks5UDPConn) ReadFromUDP(b []byte) (int, *net.UDPAddr, error) {
 	return n, addr, nil
 }
 
-func (c *socks5UDPConn) WriteToUDP(b []byte, addr *AddrEx) (int, error) {
+func (c *socks5UDPConn) WriteTo(b []byte, addr *AddrEx) (int, error) {
 	atyp, dstAddr, dstPort, err := addrExToSOCKS5Addr(addr)
 	if err != nil {
 		return 0, err
