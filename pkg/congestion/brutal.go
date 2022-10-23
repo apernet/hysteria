@@ -59,7 +59,7 @@ func (b *BrutalSender) CanSend(bytesInFlight congestion.ByteCount) bool {
 }
 
 func (b *BrutalSender) GetCongestionWindow() congestion.ByteCount {
-	rtt := maxDuration(b.rttStats.LatestRTT(), b.rttStats.SmoothedRTT())
+	rtt := b.rttStats.SmoothedRTT()
 	if rtt <= 0 {
 		return 10240
 	}
