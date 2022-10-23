@@ -11,35 +11,35 @@ const (
 	protocolTimeout = 10 * time.Second
 )
 
-type closeError struct {
+type qError struct {
 	Code quic.ApplicationErrorCode
 	Msg  string
 }
 
-func (e closeError) Send(c quic.Connection) error {
+func (e qError) Send(c quic.Connection) error {
 	return c.CloseWithError(e.Code, e.Msg)
 }
 
 var (
-	closeErrorGeneric  = closeError{0, ""}
-	closeErrorProtocol = closeError{1, "protocol error"}
-	closeErrorAuth     = closeError{2, "auth error"}
+	qErrorGeneric  = qError{0, ""}
+	qErrorProtocol = qError{1, "protocol error"}
+	qErrorAuth     = qError{2, "auth error"}
 )
 
-type transmissionRate struct {
+type maxRate struct {
 	SendBPS uint64
 	RecvBPS uint64
 }
 
 type clientHello struct {
-	Rate    transmissionRate
+	Rate    maxRate
 	AuthLen uint16 `struc:"sizeof=Auth"`
 	Auth    []byte
 }
 
 type serverHello struct {
 	OK         bool
-	Rate       transmissionRate
+	Rate       maxRate
 	MessageLen uint16 `struc:"sizeof=Message"`
 	Message    string
 }

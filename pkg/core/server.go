@@ -117,17 +117,17 @@ func (s *Server) handleClient(cc quic.Connection) {
 	stream, err := cc.AcceptStream(ctx)
 	ctxCancel()
 	if err != nil {
-		_ = closeErrorProtocol.Send(cc)
+		_ = qErrorProtocol.Send(cc)
 		return
 	}
 	// Handle the control stream
 	auth, ok, err := s.handleControlStream(cc, stream)
 	if err != nil {
-		_ = closeErrorProtocol.Send(cc)
+		_ = qErrorProtocol.Send(cc)
 		return
 	}
 	if !ok {
-		_ = closeErrorAuth.Send(cc)
+		_ = qErrorAuth.Send(cc)
 		return
 	}
 	// Start accepting streams and messages
@@ -135,7 +135,7 @@ func (s *Server) handleClient(cc quic.Connection) {
 		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc,
 		s.upCounterVec, s.downCounterVec, s.connGaugeVec)
 	err = sc.Run()
-	_ = closeErrorGeneric.Send(cc)
+	_ = qErrorGeneric.Send(cc)
 	s.disconnectFunc(cc.RemoteAddr(), auth, err)
 }
 
@@ -172,7 +172,7 @@ func (s *Server) handleControlStream(cc quic.Connection, stream quic.Stream) ([]
 	// Response
 	err = struc.Pack(stream, &serverHello{
 		OK: ok,
-		Rate: transmissionRate{
+		Rate: maxRate{
 			SendBPS: serverSendBPS,
 			RecvBPS: serverRecvBPS,
 		},
