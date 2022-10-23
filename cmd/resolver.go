@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"errors"
 	"net"
 	"net/url"
@@ -84,6 +85,7 @@ func setResolver(dns string) error {
 		}
 		client, err := rdns.NewDoTClient("dot", dns, rdns.DoTClientOptions{
 			BootstrapAddr: dotIPAddr.String(),
+			TLSConfig:     new(tls.Config),
 		})
 		if err != nil {
 			return err
