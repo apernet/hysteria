@@ -46,7 +46,7 @@ func NewUDPRelay(hyClient *core.Client, listen, remote string, timeout time.Dura
 }
 
 type connEntry struct {
-	HyConn   core.UDPConn
+	HyConn   core.HyUDPConn
 	Deadline atomic.Value
 }
 
@@ -56,7 +56,7 @@ func (r *UDPRelay) ListenAndServe() error {
 		return err
 	}
 	defer conn.Close()
-	// src <-> HyClient UDPConn
+	// src <-> HyClient HyUDPConn
 	connMap := make(map[string]*connEntry)
 	var connMapMutex sync.RWMutex
 	// Read loop

@@ -233,14 +233,14 @@ func (c *Client) DialTCP(addr string) (net.Conn, error) {
 		_ = stream.Close()
 		return nil, fmt.Errorf("connection rejected: %s", sr.Message)
 	}
-	return &quicConn{
+	return &hyTCPConn{
 		Orig:             stream,
 		PseudoLocalAddr:  session.LocalAddr(),
 		PseudoRemoteAddr: session.RemoteAddr(),
 	}, nil
 }
 
-func (c *Client) DialUDP() (UDPConn, error) {
+func (c *Client) DialUDP() (HyUDPConn, error) {
 	session, stream, err := c.openStreamWithReconnect()
 	if err != nil {
 		return nil, err
@@ -275,7 +275,7 @@ func (c *Client) DialUDP() (UDPConn, error) {
 	sessionMap[sr.UDPSessionID] = nCh
 	c.udpSessionMutex.Unlock()
 
-	pktConn := &quicPktConn{
+	pktConn := &hyUDPConn{
 		Session: session,
 		Stream:  stream,
 		CloseFunc: func() {
@@ -302,51 +302,52 @@ func (c *Client) Close() error {
 	return err
 }
 
-type quicConn struct {
+// hyTCPConn wraps a QUIC stream and implements net.Conn returned by Client.DialTCP
+type hyTCPConn struct {
 	Orig             quic.Stream
 	PseudoLocalAddr  net.Addr
 	PseudoRemoteAddr net.Addr
 }
 
-func (w *quicConn) Read(b []byte) (n int, err error) {
+func (w *hyTCPConn) Read(b []byte) (n int, err error) {
 	return w.Orig.Read(b)
 }
 
-func (w *quicConn) Write(b []byte) (n int, err error) {
+func (w *hyTCPConn) Write(b []byte) (n int, err error) {
 	return w.Orig.Write(b)
 }
 
-func (w *quicConn) Close() error {
+func (w *hyTCPConn) Close() error {
 	return w.Orig.Close()
 }
 
-func (w *quicConn) LocalAddr() net.Addr {
+func (w *hyTCPConn) LocalAddr() net.Addr {
 	return w.PseudoLocalAddr
 }
 
-func (w *quicConn) RemoteAddr() net.Addr {
+func (w *hyTCPConn) RemoteAddr() net.Addr {
 	return w.PseudoRemoteAddr
 }
 
-func (w *quicConn) SetDeadline(t time.Time) error {
+func (w *hyTCPConn) SetDeadline(t time.Time) error {
 	return w.Orig.SetDeadline(t)
 }
 
-func (w *quicConn) SetReadDeadline(t time.Time) error {
+func (w *hyTCPConn) SetReadDeadline(t time.Time) error {
 	return w.Orig.SetReadDeadline(t)
 }
 
-func (w *quicConn) SetWriteDeadline(t time.Time) error {
+func (w *hyTCPConn) SetWriteDeadline(t time.Time) error {
 	return w.Orig.SetWriteDeadline(t)
 }
 
-type UDPConn interface {
+type HyUDPConn interface {
 	ReadFrom() ([]byte, string, error)
 	WriteTo([]byte, string) error
 	Close() error
 }
 
-type quicPktConn struct {
+type hyUDPConn struct {
 	Session      quic.Connection
 	Stream       quic.Stream
 	CloseFunc    func()
@@ -354,7 +355,7 @@ type quicPktConn struct {
 	MsgCh        <-chan *udpMessage
 }
 
-func (c *quicPktConn) Hold() {
+func (c *hyUDPConn) Hold() {
 	// Hold the stream until it's closed
 	buf := make([]byte, 1024)
 	for {
@@ -366,7 +367,7 @@ func (c *quicPktConn) Hold() {
 	_ = c.Close()
 }
 
-func (c *quicPktConn) ReadFrom() ([]byte, string, error) {
+func (c *hyUDPConn) ReadFrom() ([]byte, string, error) {
 	msg := <-c.MsgCh
 	if msg == nil {
 		// Closed
@@ -375,7 +376,7 @@ func (c *quicPktConn) ReadFrom() ([]byte, string, error) {
 	return msg.Data, net.JoinHostPort(msg.Host, strconv.Itoa(int(msg.Port))), nil
 }
 
-func (c *quicPktConn) WriteTo(p []byte, addr string) error {
+func (c *hyUDPConn) WriteTo(p []byte, addr string) error {
 	host, port, err := utils.SplitHostPort(addr)
 	if err != nil {
 		return err
@@ -414,7 +415,7 @@ func (c *quicPktConn) WriteTo(p []byte, addr string) error {
 	}
 }
 
-func (c *quicPktConn) Close() error {
+func (c *hyUDPConn) Close() error {
 	c.CloseFunc()
 	return c.Stream.Close()
 }

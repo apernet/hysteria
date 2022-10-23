@@ -52,7 +52,7 @@ func (s *Server) handleUDPConn(conn adapter.UDPConn) {
 	err = s.relayUDP(conn, rc, &remoteAddr, s.Timeout)
 }
 
-func (s *Server) relayUDP(lc adapter.UDPConn, rc core.UDPConn, to *net.UDPAddr, timeout time.Duration) (err error) {
+func (s *Server) relayUDP(lc adapter.UDPConn, rc core.HyUDPConn, to *net.UDPAddr, timeout time.Duration) (err error) {
 	errChan := make(chan error, 2)
 	// local => remote
 	go func() {
