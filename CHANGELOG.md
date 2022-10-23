@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.2
+
+- Fix a bug where the client would crash for IPv6 UDP requests in TProxy mode.
+- Fix a bug where the client did not release old UDP sockets when reconnecting.
+- Fix a bug where using DoT (DNS over TLS) as resolver would cause the client/server to crash.
+- Add `quit_on_disconnect`, `handshake_timeout`, `idle_timeout` options to client config.
+- Drop server's legacy protocol (v2) support.
+- Updated quic-go to v0.30.0, small performance improvements.
+
 ## 1.2.1
 
 - Fix a bug that caused DNS failure when using domain names in the "resolver" option
