@@ -89,7 +89,7 @@ func (c *serverClient) Run() error {
 			c.ConnGauge.Inc()
 		}
 		go func() {
-			stream := &wrappedQUICStream{stream}
+			stream := &qStream{stream}
 			c.handleStream(stream)
 			_ = stream.Close()
 			if c.ConnGauge != nil {
