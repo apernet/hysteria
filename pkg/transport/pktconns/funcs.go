@@ -10,7 +10,7 @@ import (
 )
 
 type (
-	ClientPacketConnFunc func(server string) (net.PacketConn, error)
+	ClientPacketConnFunc func(server string) (net.PacketConn, net.Addr, error)
 	ServerPacketConnFunc func(listen string) (net.PacketConn, error)
 )
 
@@ -21,55 +21,81 @@ type (
 
 func NewClientUDPConnFunc(obfsPassword string) ClientPacketConnFunc {
 	if obfsPassword == "" {
-		return func(server string) (net.PacketConn, error) {
-			return net.ListenUDP("udp", nil)
+		return func(server string) (net.PacketConn, net.Addr, error) {
+			sAddr, err := net.ResolveUDPAddr("udp", server)
+			if err != nil {
+				return nil, nil, err
+			}
+			udpConn, err := net.ListenUDP("udp", nil)
+			return udpConn, sAddr, err
 		}
 	} else {
-		return func(server string) (net.PacketConn, error) {
-			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
+		return func(server string) (net.PacketConn, net.Addr, error) {
+			sAddr, err := net.ResolveUDPAddr("udp", server)
+			if err != nil {
+				return nil, nil, err
+			}
 			udpConn, err := net.ListenUDP("udp", nil)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			return udp.NewObfsUDPConn(udpConn, ob), nil
+			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
+			return udp.NewObfsUDPConn(udpConn, ob), sAddr, nil
 		}
 	}
 }
 
 func NewClientWeChatConnFunc(obfsPassword string) ClientPacketConnFunc {
 	if obfsPassword == "" {
-		return func(server string) (net.PacketConn, error) {
+		return func(server string) (net.PacketConn, net.Addr, error) {
+			sAddr, err := net.ResolveUDPAddr("udp", server)
+			if err != nil {
+				return nil, nil, err
+			}
 			udpConn, err := net.ListenUDP("udp", nil)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			return wechat.NewObfsWeChatUDPConn(udpConn, nil), nil
+			return wechat.NewObfsWeChatUDPConn(udpConn, nil), sAddr, nil
 		}
 	} else {
-		return func(server string) (net.PacketConn, error) {
-			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
+		return func(server string) (net.PacketConn, net.Addr, error) {
+			sAddr, err := net.ResolveUDPAddr("udp", server)
+			if err != nil {
+				return nil, nil, err
+			}
 			udpConn, err := net.ListenUDP("udp", nil)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			return wechat.NewObfsWeChatUDPConn(udpConn, ob), nil
+			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
+			return wechat.NewObfsWeChatUDPConn(udpConn, ob), sAddr, nil
 		}
 	}
 }
 
 func NewClientFakeTCPConnFunc(obfsPassword string) ClientPacketConnFunc {
 	if obfsPassword == "" {
-		return func(server string) (net.PacketConn, error) {
-			return faketcp.Dial("tcp", server)
+		return func(server string) (net.PacketConn, net.Addr, error) {
+			sAddr, err := net.ResolveTCPAddr("tcp", server)
+			if err != nil {
+				return nil, nil, err
+			}
+			fTCPConn, err := faketcp.Dial("tcp", server)
+			return fTCPConn, sAddr, err
 		}
 	} else {
-		return func(server string) (net.PacketConn, error) {
-			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
-			fakeTCPConn, err := faketcp.Dial("tcp", server)
+		return func(server string) (net.PacketConn, net.Addr, error) {
+			sAddr, err := net.ResolveTCPAddr("tcp", server)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			return faketcp.NewObfsFakeTCPConn(fakeTCPConn, ob), nil
+			fTCPConn, err := faketcp.Dial("tcp", server)
+			if err != nil {
+				return nil, nil, err
+			}
+			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
+			return faketcp.NewObfsFakeTCPConn(fTCPConn, ob), sAddr, nil
 		}
 	}
 }
