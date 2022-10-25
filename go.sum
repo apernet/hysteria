@@ -40,6 +40,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/HyNetwork/go-tproxy v0.0.0-20220916084518-d32f8ab1e8e9 h1:IjfWjVoopwRM2mEiLvbQkTKpKCSXwTpyk1UzrUxRQvU=
 github.com/HyNetwork/go-tproxy v0.0.0-20220916084518-d32f8ab1e8e9/go.mod h1:u7+cv3PYlgsz2jDM/qi/zl17zi03OO78Bhe5nlLOrVc=
+github.com/HyNetwork/go-tproxy v0.0.0-20221025153553-ed04a2935f88 h1:gZbrSMb8ojmSGxC0C4L3gFwgYFf1xvAnU2gCyDmsbSA=
+github.com/HyNetwork/go-tproxy v0.0.0-20221025153553-ed04a2935f88/go.mod h1:u7+cv3PYlgsz2jDM/qi/zl17zi03OO78Bhe5nlLOrVc=
 github.com/HyNetwork/quic-go v0.30.1-0.20221023055600-93b146ab9c48 h1:hD9qhTJBazHCi5j/L3/meAM6rAYnkGILI/9SRjgISac=
 github.com/HyNetwork/quic-go v0.30.1-0.20221023055600-93b146ab9c48/go.mod h1:ssOrRsOmdxa768Wr78vnh2B8JozgLsMzG/g+0qEC7uk=
 github.com/RackSec/srslog v0.0.0-20180709174129-a4725f04ec91 h1:vX+gnvBc56EbWYrmlhYbFYRaeikAke1GL84N4BEYOFE=

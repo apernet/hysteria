@@ -91,4 +91,4 @@ require (
 
 replace github.com/lucas-clemente/quic-go => github.com/HyNetwork/quic-go v0.30.1-0.20221023055600-93b146ab9c48
 
-replace github.com/LiamHaworth/go-tproxy => github.com/HyNetwork/go-tproxy v0.0.0-20220916084518-d32f8ab1e8e9
+replace github.com/LiamHaworth/go-tproxy => github.com/HyNetwork/go-tproxy v0.0.0-20221025153553-ed04a2935f88
