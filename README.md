@@ -67,3 +67,11 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境（如卫星网络�
 ----------
 
 ![Bench](docs/bench/bench.png)
+
+----------
+
+**Donations are greatly appreciated!** Contact me if you would like your name listed as a sponsor.
+
+**欢迎大佬捐赠！** 如希望挂名请在捐赠后联系我。
+
+Monero: `8ASufSipkvzDUge4dLnr9ZSFXpVn8M2Sea5G79DL5rFncnaKEAwqag8Xptpp8MSvpHiNtKxQgYtho3eDzW2nak4PJA84oBa`
