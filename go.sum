@@ -74,12 +74,10 @@ github.com/BurntSushi/toml v1.1.0/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbi
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/Dreamacro/go-shadowsocks2 v0.1.7/go.mod h1:8p5G4cAj5ZlXwUR+Ww63gfSikr8kvw8uw3TDwLAJpUc=
-github.com/HyNetwork/go-tproxy v0.0.0-20220916084518-d32f8ab1e8e9 h1:IjfWjVoopwRM2mEiLvbQkTKpKCSXwTpyk1UzrUxRQvU=
-github.com/HyNetwork/go-tproxy v0.0.0-20220916084518-d32f8ab1e8e9/go.mod h1:u7+cv3PYlgsz2jDM/qi/zl17zi03OO78Bhe5nlLOrVc=
 github.com/HyNetwork/go-tproxy v0.0.0-20221025153553-ed04a2935f88 h1:gZbrSMb8ojmSGxC0C4L3gFwgYFf1xvAnU2gCyDmsbSA=
 github.com/HyNetwork/go-tproxy v0.0.0-20221025153553-ed04a2935f88/go.mod h1:u7+cv3PYlgsz2jDM/qi/zl17zi03OO78Bhe5nlLOrVc=
-github.com/HyNetwork/quic-go v0.30.1-0.20221023055600-93b146ab9c48 h1:hD9qhTJBazHCi5j/L3/meAM6rAYnkGILI/9SRjgISac=
-github.com/HyNetwork/quic-go v0.30.1-0.20221023055600-93b146ab9c48/go.mod h1:ssOrRsOmdxa768Wr78vnh2B8JozgLsMzG/g+0qEC7uk=
+github.com/HyNetwork/quic-go v0.30.1-0.20221031062428-2bee5c4b1bf8 h1:r9GrPFoBINn+vKK91P8TGg+Z1N7yhZtK68Kpkg4rdyQ=
+github.com/HyNetwork/quic-go v0.30.1-0.20221031062428-2bee5c4b1bf8/go.mod h1:ssOrRsOmdxa768Wr78vnh2B8JozgLsMzG/g+0qEC7uk=
 github.com/Microsoft/go-winio v0.4.16-0.20201130162521-d1ffc52c7331/go.mod h1:XB6nPKklQyQ7GC9LdcBEcBl8PF76WugXOPRXwdLnMv0=
 github.com/Microsoft/go-winio v0.5.1/go.mod h1:JPGBdM1cNvN/6ISo+n8V5iA4v8pBzdOpzfwIujj1a84=
 github.com/Microsoft/hcsshim v0.8.14/go.mod h1:NtVKoYxQuTLx6gEq0L96c9Ju4JbRJ4nY2ow3VK6a9Lg=
@@ -334,7 +332,6 @@ github.com/google/pprof v0.0.0-20201203190320-1bf35d6f28c2/go.mod h1:kpwsk12EmLe
 github.com/google/pprof v0.0.0-20201218002935-b9804c9f04c2/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
 github.com/google/pprof v0.0.0-20210122040257-d980be63207e/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
 github.com/google/pprof v0.0.0-20210226084205-cbba55b83ad5/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
-github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 h1:yAJXTCF9TqKcTiHJAE8dj7HMvPfh66eeA2JYW7eFpSE=
 github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
 github.com/google/pprof v0.0.0-20210601050228-01bbb1931b22/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
 github.com/google/pprof v0.0.0-20210609004039-a478d1d731e9/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
