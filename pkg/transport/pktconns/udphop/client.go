@@ -112,25 +112,30 @@ func (c *ObfsUDPHopClientPacketConn) hopRoutine() {
 func (c *ObfsUDPHopClientPacketConn) hop() {
 	c.connMutex.Lock()
 	defer c.connMutex.Unlock()
+	newConn, err := net.ListenUDP("udp", nil)
+	if err != nil {
+		log.Printf("udphop: failed to listen on %s: %v", newConn.LocalAddr(), err)
+		return
+	}
+	// Close prevConn,
+	// prevConn <- currentConn
+	// currentConn <- newConn
+	// update addrIndex
+	//
+	// We need to keep receiving packets from the previous connection,
+	// because otherwise there will be packet loss due to the time gap
+	// between we hop to a new port and the server acknowledges this change.
 	if c.prevConn != nil {
 		_ = c.prevConn.Close() // recvRoutine will exit on error
 	}
-	// We need to keep receiving packets from the previous connection,
-	// or there will be packet loss because there might be packets
-	// still in flight sent to the old port.
 	c.prevConn = c.currentConn
-	c.addrIndex = rand.Intn(len(c.serverAddrs))
-	conn, err := net.ListenUDP("udp", nil)
-	if err != nil {
-		log.Printf("udphop: failed to listen on %s: %v", conn.LocalAddr(), err)
-		return
-	}
 	if c.obfs != nil {
-		c.currentConn = udp.NewObfsUDPConn(conn, c.obfs)
+		c.currentConn = udp.NewObfsUDPConn(newConn, c.obfs)
 	} else {
-		c.currentConn = conn
+		c.currentConn = newConn
 	}
 	go c.recvRoutine(c.currentConn)
+	c.addrIndex = rand.Intn(len(c.serverAddrs))
 	log.Printf("udphop: hopping to %s", c.serverAddrs[c.addrIndex])
 }
 
