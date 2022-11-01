@@ -23,7 +23,6 @@ type serverClient struct {
 	CC              quic.Connection
 	Transport       *transport.ServerTransport
 	Auth            []byte
-	ClientAddr      net.Addr
 	DisableUDP      bool
 	ACLEngine       *acl.Engine
 	CTCPRequestFunc TCPRequestFunc
@@ -50,7 +49,6 @@ func newServerClient(cc quic.Connection, tr *transport.ServerTransport, auth []b
 		CC:              cc,
 		Transport:       tr,
 		Auth:            auth,
-		ClientAddr:      cc.RemoteAddr(),
 		DisableUDP:      disableUDP,
 		ACLEngine:       ACLEngine,
 		CTCPRequestFunc: CTCPRequestFunc,
@@ -66,6 +64,12 @@ func newServerClient(cc quic.Connection, tr *transport.ServerTransport, auth []b
 		sc.ConnGauge = ConnGaugeVec.WithLabelValues(authB64)
 	}
 	return sc
+}
+
+func (c *serverClient) ClientAddr() net.Addr {
+	// quic.Connection's remote address may change since we have connection migration now,
+	// so logs need to dynamically get the remote address every time.
+	return c.CC.RemoteAddr()
 }
 
 func (c *serverClient) Run() error {
@@ -200,10 +204,10 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 			OK:      false,
 			Message: "host resolution failure",
 		})
-		c.CTCPErrorFunc(c.ClientAddr, c.Auth, addrStr, err)
+		c.CTCPErrorFunc(c.ClientAddr(), c.Auth, addrStr, err)
 		return
 	}
-	c.CTCPRequestFunc(c.ClientAddr, c.Auth, addrStr, action, arg)
+	c.CTCPRequestFunc(c.ClientAddr(), c.Auth, addrStr, action, arg)
 
 	var conn net.Conn // Connection to be piped
 	switch action {
@@ -221,7 +225,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 				OK:      false,
 				Message: err.Error(),
 			})
-			c.CTCPErrorFunc(c.ClientAddr, c.Auth, addrStr, err)
+			c.CTCPErrorFunc(c.ClientAddr(), c.Auth, addrStr, err)
 			return
 		}
 	case acl.ActionBlock:
@@ -237,7 +241,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 				OK:      false,
 				Message: err.Error(),
 			})
-			c.CTCPErrorFunc(c.ClientAddr, c.Auth, addrStr, err)
+			c.CTCPErrorFunc(c.ClientAddr(), c.Auth, addrStr, err)
 			return
 		}
 		addrEx := &transport.AddrEx{
@@ -253,7 +257,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 				OK:      false,
 				Message: err.Error(),
 			})
-			c.CTCPErrorFunc(c.ClientAddr, c.Auth, addrStr, err)
+			c.CTCPErrorFunc(c.ClientAddr(), c.Auth, addrStr, err)
 			return
 		}
 	default:
@@ -282,7 +286,7 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 	} else {
 		err = utils.Pipe2Way(stream, conn, nil)
 	}
-	c.CTCPErrorFunc(c.ClientAddr, c.Auth, addrStr, err)
+	c.CTCPErrorFunc(c.ClientAddr(), c.Auth, addrStr, err)
 }
 
 func (c *serverClient) handleUDP(stream quic.Stream) {
@@ -293,7 +297,7 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 			OK:      false,
 			Message: "UDP initialization failed",
 		})
-		c.CUDPErrorFunc(c.ClientAddr, c.Auth, 0, err)
+		c.CUDPErrorFunc(c.ClientAddr(), c.Auth, 0, err)
 		return
 	}
 	defer conn.Close()
@@ -312,7 +316,7 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 	if err != nil {
 		return
 	}
-	c.CUDPRequestFunc(c.ClientAddr, c.Auth, id)
+	c.CUDPRequestFunc(c.ClientAddr(), c.Auth, id)
 
 	// Receive UDP packets, send them to the client
 	go func() {
@@ -362,7 +366,7 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 			break
 		}
 	}
-	c.CUDPErrorFunc(c.ClientAddr, c.Auth, id, err)
+	c.CUDPErrorFunc(c.ClientAddr(), c.Auth, id, err)
 
 	// Remove the session
 	c.udpSessionMutex.Lock()
