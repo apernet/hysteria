@@ -3,6 +3,8 @@ package pktconns
 import (
 	"net"
 
+	"github.com/HyNetwork/hysteria/pkg/transport/pktconns/udphop"
+
 	"github.com/HyNetwork/hysteria/pkg/transport/pktconns/faketcp"
 	"github.com/HyNetwork/hysteria/pkg/transport/pktconns/obfs"
 	"github.com/HyNetwork/hysteria/pkg/transport/pktconns/udp"
@@ -41,6 +43,19 @@ func NewClientUDPConnFunc(obfsPassword string) ClientPacketConnFunc {
 			}
 			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
 			return udp.NewObfsUDPConn(udpConn, ob), sAddr, nil
+		}
+	}
+}
+
+func NewClientUDPHopConnFunc(obfsPassword string) ClientPacketConnFunc {
+	if obfsPassword == "" {
+		return func(server string) (net.PacketConn, net.Addr, error) {
+			return udphop.NewObfsUDPHopClientPacketConn(server, nil)
+		}
+	} else {
+		return func(server string) (net.PacketConn, net.Addr, error) {
+			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
+			return udphop.NewObfsUDPHopClientPacketConn(server, ob)
 		}
 	}
 }
@@ -121,6 +136,19 @@ func NewServerUDPConnFunc(obfsPassword string) ServerPacketConnFunc {
 				return nil, err
 			}
 			return udp.NewObfsUDPConn(udpConn, ob), nil
+		}
+	}
+}
+
+func NewServerUDPHopConnFunc(obfsPassword string) ServerPacketConnFunc {
+	if obfsPassword == "" {
+		return func(listen string) (net.PacketConn, error) {
+			return udphop.NewObfsUDPHopServerPacketConn(listen, nil)
+		}
+	} else {
+		return func(listen string) (net.PacketConn, error) {
+			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
+			return udphop.NewObfsUDPHopServerPacketConn(listen, ob)
 		}
 	}
 }
