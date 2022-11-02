@@ -30,6 +30,7 @@ type ObfsUDPHopClientPacketConn struct {
 
 	recvQueue chan *udpPacket
 	closeChan chan struct{}
+	closed    bool
 
 	bufPool sync.Pool
 }
@@ -112,6 +113,9 @@ func (c *ObfsUDPHopClientPacketConn) hopRoutine() {
 func (c *ObfsUDPHopClientPacketConn) hop() {
 	c.connMutex.Lock()
 	defer c.connMutex.Unlock()
+	if c.closed {
+		return
+	}
 	newConn, err := net.ListenUDP("udp", nil)
 	if err != nil {
 		log.Printf("udphop: failed to listen on %s: %v", newConn.LocalAddr(), err)
@@ -175,11 +179,18 @@ func (c *ObfsUDPHopClientPacketConn) WriteTo(b []byte, addr net.Addr) (int, erro
 func (c *ObfsUDPHopClientPacketConn) Close() error {
 	c.connMutex.Lock()
 	defer c.connMutex.Unlock()
+	if c.closed {
+		return nil
+	}
+	// Close prevConn and currentConn
+	// Close closeChan to unblock ReadFrom & hopRoutine
+	// Set closed flag to true to prevent double close
 	if c.prevConn != nil {
 		_ = c.prevConn.Close()
 	}
 	err := c.currentConn.Close()
 	close(c.closeChan)
+	c.closed = true
 	return err
 }
 
