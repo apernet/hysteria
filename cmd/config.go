@@ -309,10 +309,10 @@ func (c *clientConfig) Check() error {
 		return errors.New("invalid receive window size")
 	}
 	if len(c.TCPRelay.Listen) > 0 {
-		logrus.Warn("'relay_tcp' is deprecated, please use 'relay_tcps' instead")
+		logrus.Warn("'relay_tcp' is deprecated, consider using 'relay_tcps' instead")
 	}
 	if len(c.UDPRelay.Listen) > 0 {
-		logrus.Warn("config 'relay_udp' is deprecated, please use 'relay_udps' instead")
+		logrus.Warn("'relay_udp' is deprecated, consider using 'relay_udps' instead")
 	}
 	return nil
 }
