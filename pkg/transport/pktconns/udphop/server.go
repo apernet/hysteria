@@ -109,12 +109,13 @@ func (c *ObfsUDPHopServerPacketConn) recvRoutine(i int, conn net.PacketConn) {
 			log.Printf("udphop: routine %d read error: %v", i, err)
 			return
 		}
+		// Update addrMap
+		c.addrMapMutex.Lock()
+		c.addrMap[addr.String()] = addrMapEntry{i, time.Now()}
+		c.addrMapMutex.Unlock()
 		select {
 		case c.recvQueue <- &udpPacket{buf, n, addr}:
-			// Update addrMap
-			c.addrMapMutex.Lock()
-			c.addrMap[addr.String()] = addrMapEntry{i, time.Now()}
-			c.addrMapMutex.Unlock()
+			// Packet sent to queue
 		default:
 			log.Printf("udphop: recv queue full, dropping packet from %s", addr)
 			c.bufPool.Put(buf)
