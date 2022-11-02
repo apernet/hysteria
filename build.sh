@@ -11,12 +11,25 @@ if ! [ -x "$(command -v go)" ]; then
     exit 1
 fi
 
+if ! [ -x "$(command -v git)" ]; then
+    echo 'Error: git is not installed.' >&2
+    exit 1
+fi
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo 'Error: not in a git repository.' >&2
+    exit 1
+fi
+
 ldflags="-s -w -X 'main.appDate=$(date -u '+%F %T')'"
 if [ -n "$HY_APP_VERSION" ]; then
     ldflags="$ldflags -X 'main.appVersion=$HY_APP_VERSION'"
+else
+    ldflags="$ldflags -X 'main.appVersion=$(git describe --tags --always)'"
 fi
 if [ -n "$HY_APP_COMMIT" ]; then
     ldflags="$ldflags -X 'main.appCommit=$HY_APP_COMMIT'"
+else
+    ldflags="$ldflags -X 'main.appCommit=$(git rev-parse HEAD)'"
 fi
 
 if [ -z "$HY_APP_PLATFORMS" ]; then

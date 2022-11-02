@@ -10,12 +10,27 @@ if (!(Get-Command go -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
+if (!(Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "Error: git is not installed." -ForegroundColor Red
+    exit 1
+}
+if (!(git rev-parse --is-inside-work-tree 2>$null)) {
+    Write-Host "Error: not in a git repository." -ForegroundColor Red
+    exit 1
+}
+
 $ldflags = "-s -w -X 'main.appDate=$(Get-Date -Format "yyyy-MM-dd HH:mm:ss")'"
 if ($env:HY_APP_VERSION) {
     $ldflags += " -X 'main.appVersion=$($env:HY_APP_VERSION)'"
 }
+else {
+    $ldflags += " -X 'main.appVersion=$(git describe --tags --always)'"
+}
 if ($env:HY_APP_COMMIT) {
     $ldflags += " -X 'main.appCommit=$($env:HY_APP_COMMIT)'"
+}
+else {
+    $ldflags += " -X 'main.appCommit=$(git rev-parse HEAD)'"
 }
 
 if ($env:HY_APP_PLATFORMS) {
