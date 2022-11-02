@@ -1,11 +1,30 @@
-# Hysteria local build script for Windows (PowerShell)
+# Hysteria build script for Windows (PowerShell)
 
-$platforms = @("windows/amd64", "linux/amd64", "darwin/amd64")
-$ldflags = "-s -w"
+# Environment variable options:
+#   - HY_APP_VERSION: App version
+#   - HY_APP_COMMIT: App commit hash
+#   - HY_APP_PLATFORMS: Platforms to build for (e.g. "windows/amd64,linux/amd64,darwin/amd64")
 
 if (!(Get-Command go -ErrorAction SilentlyContinue)) {
     Write-Host "Error: go is not installed." -ForegroundColor Red
     exit 1
+}
+
+$ldflags = "-s -w -X 'main.appDate=$(Get-Date -Format "yyyy-MM-dd HH:mm:ss")'"
+if ($env:HY_APP_VERSION) {
+    $ldflags += " -X 'main.appVersion=$($env:HY_APP_VERSION)'"
+}
+if ($env:HY_APP_COMMIT) {
+    $ldflags += " -X 'main.appCommit=$($env:HY_APP_COMMIT)'"
+}
+
+if ($env:HY_APP_PLATFORMS) {
+    $platforms = $env:HY_APP_PLATFORMS.Split(",")
+}
+else {
+    $goos = go env GOOS
+    $goarch = go env GOARCH
+    $platforms = @("$goos/$goarch")
 }
 
 if (Test-Path build) {
@@ -23,7 +42,11 @@ foreach ($platform in $platforms) {
     if ($env:GOOS -eq "windows") {
         $output = "$output.exe"
     }
-    go build -o $output -ldflags $ldflags ./cmd/
+    go build -o $output -tags=gpl -ldflags $ldflags -trimpath ./cmd/
+    if ($LastExitCode -ne 0) {
+        Write-Host "Error: failed to build $env:GOOS/$env:GOARCH" -ForegroundColor Red
+        exit 1
+    }
 }
 
 Write-Host "Build complete." -ForegroundColor Green

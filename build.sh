@@ -1,15 +1,28 @@
 #!/bin/bash
 
-# Hysteria local build script for Linux
-
-# Change these to whatever you want
-platforms=("windows/amd64" "linux/amd64" "darwin/amd64")
-ldflags="-s -w"
+# Hysteria build script for Linux
+# Environment variable options:
+#   - HY_APP_VERSION: App version
+#   - HY_APP_COMMIT: App commit hash
+#   - HY_APP_PLATFORMS: Platforms to build for (e.g. "windows/amd64,linux/amd64,darwin/amd64")
 
 if ! [ -x "$(command -v go)" ]; then
     echo 'Error: go is not installed.' >&2
     exit 1
 fi
+
+ldflags="-s -w -X 'main.appDate=$(date -u '+%F %T')'"
+if [ -n "$HY_APP_VERSION" ]; then
+    ldflags="$ldflags -X 'main.appVersion=$HY_APP_VERSION'"
+fi
+if [ -n "$HY_APP_COMMIT" ]; then
+    ldflags="$ldflags -X 'main.appCommit=$HY_APP_COMMIT'"
+fi
+
+if [ -z "$HY_APP_PLATFORMS" ]; then
+    HY_APP_PLATFORMS="$(go env GOOS)/$(go env GOARCH)"
+fi
+platforms=(${HY_APP_PLATFORMS//,/ })
 
 mkdir -p build
 rm -rf build/*
@@ -24,7 +37,11 @@ for platform in "${platforms[@]}"; do
     if [ $GOOS = "windows" ]; then
         output="$output.exe"
     fi
-    env GOOS=$GOOS GOARCH=$GOARCH go build -o $output -ldflags "$ldflags" ./cmd/
+    env GOOS=$GOOS GOARCH=$GOARCH go build -o $output -tags=gpl -ldflags "$ldflags" -trimpath ./cmd/
+    if [ $? -ne 0 ]; then
+        echo "Error: failed to build $GOOS/$GOARCH"
+        exit 1
+    fi
 done
 
 echo "Build complete."
