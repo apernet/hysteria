@@ -33,6 +33,7 @@ var serverPacketConnFuncFactoryMap = map[string]pktconns.ServerPacketConnFuncFac
 
 func server(config *serverConfig) {
 	logrus.WithField("config", config.String()).Info("Server configuration loaded")
+	config.Fill() // Fill default values
 	// Resolver
 	if len(config.Resolver) > 0 {
 		err := setResolver(config.Resolver)
@@ -54,6 +55,7 @@ func server(config *serverConfig) {
 				"error": err,
 			}).Fatal("Failed to get a certificate with ACME")
 		}
+		tc.NextProtos = []string{config.ALPN}
 		tc.MinVersion = tls.VersionTLS13
 		tlsConfig = tc
 	} else {
@@ -68,13 +70,9 @@ func server(config *serverConfig) {
 		}
 		tlsConfig = &tls.Config{
 			GetCertificate: kpl.GetCertificateFunc(),
+			NextProtos:     []string{config.ALPN},
 			MinVersion:     tls.VersionTLS13,
 		}
-	}
-	if config.ALPN != "" {
-		tlsConfig.NextProtos = []string{config.ALPN}
-	} else {
-		tlsConfig.NextProtos = []string{DefaultALPN}
 	}
 	// QUIC config
 	quicConfig := &quic.Config{
@@ -83,21 +81,10 @@ func server(config *serverConfig) {
 		InitialConnectionReceiveWindow: config.ReceiveWindowClient,
 		MaxConnectionReceiveWindow:     config.ReceiveWindowClient,
 		MaxIncomingStreams:             int64(config.MaxConnClient),
-		MaxIdleTimeout:                 ServerMaxIdleTimeout,
+		MaxIdleTimeout:                 ServerMaxIdleTimeoutSec * time.Second,
 		KeepAlivePeriod:                0, // Keep alive should solely be client's responsibility
 		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
-	}
-	if config.ReceiveWindowConn == 0 {
-		quicConfig.InitialStreamReceiveWindow = DefaultStreamReceiveWindow
-		quicConfig.MaxStreamReceiveWindow = DefaultStreamReceiveWindow
-	}
-	if config.ReceiveWindowClient == 0 {
-		quicConfig.InitialConnectionReceiveWindow = DefaultConnectionReceiveWindow
-		quicConfig.MaxConnectionReceiveWindow = DefaultConnectionReceiveWindow
-	}
-	if quicConfig.MaxIncomingStreams == 0 {
-		quicConfig.MaxIncomingStreams = DefaultMaxIncomingStreams
 	}
 	if !quicConfig.DisablePathMTUDiscovery && pmtud.DisablePathMTUDiscovery {
 		logrus.Info("Path MTU Discovery is not yet supported on this platform")
@@ -108,8 +95,8 @@ func server(config *serverConfig) {
 	switch authMode := config.Auth.Mode; authMode {
 	case "", "none":
 		if len(config.Obfs) == 0 {
-			logrus.Warn("No authentication or obfuscation enabled. " +
-				"Your server could be accessed by anyone! Are you sure this is what you intended?")
+			logrus.Warn("Neither authentication nor obfuscation is turned on. " +
+				"Your server could be used by anyone! Are you sure this is what you want?")
 		}
 		authFunc = func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
 			return true, "Welcome"
@@ -199,11 +186,7 @@ func server(config *serverConfig) {
 			return ipAddr, err
 		},
 			func() (*geoip2.Reader, error) {
-				if len(config.MMDB) > 0 {
-					return loadMMDBReader(config.MMDB)
-				} else {
-					return loadMMDBReader(DefaultMMDBFilename)
-				}
+				return loadMMDBReader(config.MMDB)
 			})
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
