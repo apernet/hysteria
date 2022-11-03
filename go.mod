@@ -17,7 +17,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.30.0
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/oschwald/geoip2-golang v1.8.0
-	github.com/prometheus/client_golang v1.13.0
+	github.com/prometheus/client_golang v1.13.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.13.0
