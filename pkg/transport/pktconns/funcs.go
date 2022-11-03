@@ -2,6 +2,7 @@ package pktconns
 
 import (
 	"net"
+	"strings"
 
 	"github.com/HyNetwork/hysteria/pkg/transport/pktconns/udphop"
 
@@ -24,6 +25,9 @@ type (
 func NewClientUDPConnFunc(obfsPassword string) ClientPacketConnFunc {
 	if obfsPassword == "" {
 		return func(server string) (net.PacketConn, net.Addr, error) {
+			if isAddrPortHopping(server) {
+				return udphop.NewObfsUDPHopClientPacketConn(server, nil)
+			}
 			sAddr, err := net.ResolveUDPAddr("udp", server)
 			if err != nil {
 				return nil, nil, err
@@ -33,6 +37,10 @@ func NewClientUDPConnFunc(obfsPassword string) ClientPacketConnFunc {
 		}
 	} else {
 		return func(server string) (net.PacketConn, net.Addr, error) {
+			if isAddrPortHopping(server) {
+				ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
+				return udphop.NewObfsUDPHopClientPacketConn(server, ob)
+			}
 			sAddr, err := net.ResolveUDPAddr("udp", server)
 			if err != nil {
 				return nil, nil, err
@@ -43,19 +51,6 @@ func NewClientUDPConnFunc(obfsPassword string) ClientPacketConnFunc {
 			}
 			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
 			return udp.NewObfsUDPConn(udpConn, ob), sAddr, nil
-		}
-	}
-}
-
-func NewClientUDPHopConnFunc(obfsPassword string) ClientPacketConnFunc {
-	if obfsPassword == "" {
-		return func(server string) (net.PacketConn, net.Addr, error) {
-			return udphop.NewObfsUDPHopClientPacketConn(server, nil)
-		}
-	} else {
-		return func(server string) (net.PacketConn, net.Addr, error) {
-			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
-			return udphop.NewObfsUDPHopClientPacketConn(server, ob)
 		}
 	}
 }
@@ -118,6 +113,9 @@ func NewClientFakeTCPConnFunc(obfsPassword string) ClientPacketConnFunc {
 func NewServerUDPConnFunc(obfsPassword string) ServerPacketConnFunc {
 	if obfsPassword == "" {
 		return func(listen string) (net.PacketConn, error) {
+			if isAddrPortHopping(listen) {
+				return udphop.NewObfsUDPHopServerPacketConn(listen, nil)
+			}
 			laddrU, err := net.ResolveUDPAddr("udp", listen)
 			if err != nil {
 				return nil, err
@@ -126,6 +124,10 @@ func NewServerUDPConnFunc(obfsPassword string) ServerPacketConnFunc {
 		}
 	} else {
 		return func(listen string) (net.PacketConn, error) {
+			if isAddrPortHopping(listen) {
+				ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
+				return udphop.NewObfsUDPHopServerPacketConn(listen, ob)
+			}
 			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
 			laddrU, err := net.ResolveUDPAddr("udp", listen)
 			if err != nil {
@@ -136,19 +138,6 @@ func NewServerUDPConnFunc(obfsPassword string) ServerPacketConnFunc {
 				return nil, err
 			}
 			return udp.NewObfsUDPConn(udpConn, ob), nil
-		}
-	}
-}
-
-func NewServerUDPHopConnFunc(obfsPassword string) ServerPacketConnFunc {
-	if obfsPassword == "" {
-		return func(listen string) (net.PacketConn, error) {
-			return udphop.NewObfsUDPHopServerPacketConn(listen, nil)
-		}
-	} else {
-		return func(listen string) (net.PacketConn, error) {
-			ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
-			return udphop.NewObfsUDPHopServerPacketConn(listen, ob)
 		}
 	}
 }
@@ -197,4 +186,9 @@ func NewServerFakeTCPConnFunc(obfsPassword string) ServerPacketConnFunc {
 			return faketcp.NewObfsFakeTCPConn(fakeTCPListener, ob), nil
 		}
 	}
+}
+
+func isAddrPortHopping(addr string) bool {
+	_, portStr, err := net.SplitHostPort(addr)
+	return err == nil && strings.Contains(portStr, ",")
 }

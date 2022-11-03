@@ -26,7 +26,6 @@ import (
 var serverPacketConnFuncFactoryMap = map[string]pktconns.ServerPacketConnFuncFactory{
 	"":             pktconns.NewServerUDPConnFunc,
 	"udp":          pktconns.NewServerUDPConnFunc,
-	"udp-hop":      pktconns.NewServerUDPHopConnFunc,
 	"wechat":       pktconns.NewServerWeChatConnFunc,
 	"wechat-video": pktconns.NewServerWeChatConnFunc,
 	"faketcp":      pktconns.NewServerFakeTCPConnFunc,
