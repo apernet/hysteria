@@ -8,7 +8,7 @@ import (
 
 const (
 	packetQueueSize = 1024
-	udpBufferSize   = 2048
+	udpBufferSize   = 4096
 )
 
 // parseAddr parses the listen address and returns the host and ports.

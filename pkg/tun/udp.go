@@ -13,7 +13,7 @@ import (
 	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 )
 
-const udpBufferSize = 65535
+const udpBufferSize = 4096
 
 func (s *Server) HandleUDP(conn adapter.UDPConn) {
 	go s.handleUDPConn(conn)

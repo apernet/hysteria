@@ -12,7 +12,7 @@ import (
 	"github.com/HyNetwork/hysteria/pkg/transport/pktconns/obfs"
 )
 
-const udpBufferSize = 65535
+const udpBufferSize = 4096
 
 // ObfsWeChatUDPPacketConn is still a UDP packet conn, but it adds WeChat video call header to each packet.
 // Obfs in this case can be nil

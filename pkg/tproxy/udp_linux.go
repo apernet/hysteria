@@ -8,7 +8,7 @@ import (
 	"github.com/LiamHaworth/go-tproxy"
 )
 
-const udpBufferSize = 65535
+const udpBufferSize = 4096
 
 type UDPTProxy struct {
 	HyClient   *core.Client

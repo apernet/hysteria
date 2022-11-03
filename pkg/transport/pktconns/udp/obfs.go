@@ -10,7 +10,7 @@ import (
 	"github.com/HyNetwork/hysteria/pkg/transport/pktconns/obfs"
 )
 
-const udpBufferSize = 65535
+const udpBufferSize = 4096
 
 type ObfsUDPPacketConn struct {
 	orig *net.UDPConn
