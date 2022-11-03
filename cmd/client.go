@@ -40,6 +40,7 @@ var clientPacketConnFuncFactoryMap = map[string]pktconns.ClientPacketConnFuncFac
 
 func client(config *clientConfig) {
 	logrus.WithField("config", config.String()).Info("Client configuration loaded")
+	config.Fill() // Fill default values
 	// Resolver
 	if len(config.Resolver) > 0 {
 		err := setResolver(config.Resolver)
@@ -51,14 +52,10 @@ func client(config *clientConfig) {
 	}
 	// TLS
 	tlsConfig := &tls.Config{
+		NextProtos:         []string{config.ALPN},
 		ServerName:         config.ServerName,
 		InsecureSkipVerify: config.Insecure,
 		MinVersion:         tls.VersionTLS13,
-	}
-	if config.ALPN != "" {
-		tlsConfig.NextProtos = []string{config.ALPN}
-	} else {
-		tlsConfig.NextProtos = []string{DefaultALPN}
 	}
 	// Load CA
 	if len(config.CustomCA) > 0 {
@@ -84,23 +81,10 @@ func client(config *clientConfig) {
 		InitialConnectionReceiveWindow: config.ReceiveWindow,
 		MaxConnectionReceiveWindow:     config.ReceiveWindow,
 		HandshakeIdleTimeout:           time.Duration(config.HandshakeTimeout) * time.Second,
+		MaxIdleTimeout:                 time.Duration(config.IdleTimeout) * time.Second,
+		KeepAlivePeriod:                time.Duration(config.IdleTimeout) * time.Second * 2 / 5,
 		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
-	}
-	if config.IdleTimeout == 0 {
-		quicConfig.MaxIdleTimeout = DefaultClientMaxIdleTimeout
-		quicConfig.KeepAlivePeriod = DefaultClientKeepAlivePeriod
-	} else {
-		quicConfig.MaxIdleTimeout = time.Duration(config.IdleTimeout) * time.Second
-		quicConfig.KeepAlivePeriod = quicConfig.MaxIdleTimeout * 2 / 5
-	}
-	if config.ReceiveWindowConn == 0 {
-		quicConfig.InitialStreamReceiveWindow = DefaultStreamReceiveWindow
-		quicConfig.MaxStreamReceiveWindow = DefaultStreamReceiveWindow
-	}
-	if config.ReceiveWindow == 0 {
-		quicConfig.InitialConnectionReceiveWindow = DefaultConnectionReceiveWindow
-		quicConfig.MaxConnectionReceiveWindow = DefaultConnectionReceiveWindow
 	}
 	if !quicConfig.DisablePathMTUDiscovery && pmtud.DisablePathMTUDiscovery {
 		logrus.Info("Path MTU Discovery is not yet supported on this platform")
@@ -136,11 +120,7 @@ func client(config *clientConfig) {
 		var err error
 		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultClientTransport.ResolveIPAddr,
 			func() (*geoip2.Reader, error) {
-				if len(config.MMDB) > 0 {
-					return loadMMDBReader(config.MMDB)
-				} else {
-					return loadMMDBReader(DefaultMMDBFilename)
-				}
+				return loadMMDBReader(config.MMDB)
 			})
 		if err != nil {
 			logrus.WithFields(logrus.Fields{

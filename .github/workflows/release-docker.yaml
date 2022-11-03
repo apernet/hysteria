@@ -16,8 +16,8 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Get tag
-        uses: olegtarasov/get-tag@v2
-        id: tagName
+        id: get_tag
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -38,7 +38,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: tobyxdd/hysteria:latest,tobyxdd/hysteria:${{ env.GIT_TAG_NAME }}
+          tags: tobyxdd/hysteria:latest,tobyxdd/hysteria:${{ steps.get_tag.outputs.tag }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
