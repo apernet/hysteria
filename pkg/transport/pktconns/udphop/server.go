@@ -12,8 +12,6 @@ import (
 )
 
 const (
-	packetQueueSize = 1024
-	udpBufferSize   = 2048
 	addrMapEntryTTL = time.Minute
 )
 
@@ -32,27 +30,9 @@ type ObfsUDPHopServerPacketConn struct {
 	bufPool sync.Pool
 }
 
-type udpPacket struct {
-	buf  []byte
-	n    int
-	addr net.Addr
-}
-
 type addrMapEntry struct {
 	index int
 	last  time.Time
-}
-
-type udpHopAddr struct {
-	listen string
-}
-
-func (a *udpHopAddr) Network() string {
-	return "udp-hop"
-}
-
-func (a *udpHopAddr) String() string {
-	return a.listen
 }
 
 func NewObfsUDPHopServerPacketConn(listen string, obfs obfs.Obfuscator) (*ObfsUDPHopServerPacketConn, error) {

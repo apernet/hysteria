@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+const (
+	packetQueueSize = 1024
+	udpBufferSize   = 2048
+)
+
 // parseAddr parses the listen address and returns the host and ports.
 // Format: "host:port1,port2,port3,..."
 func parseAddr(addr string) (host string, ports []uint16, err error) {
@@ -26,4 +31,22 @@ func parseAddr(addr string) (host string, ports []uint16, err error) {
 		ports[i] = uint16(port)
 	}
 	return
+}
+
+type udpHopAddr struct {
+	listen string
+}
+
+func (a *udpHopAddr) Network() string {
+	return "udp-hop"
+}
+
+func (a *udpHopAddr) String() string {
+	return a.listen
+}
+
+type udpPacket struct {
+	buf  []byte
+	n    int
+	addr net.Addr
 }
