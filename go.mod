@@ -55,7 +55,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
-	github.com/pion/dtls/v2 v2.1.3 // indirect
+	github.com/pion/dtls/v2 v2.1.5 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/transport v0.13.0 // indirect
 	github.com/pion/udp v0.1.1 // indirect
