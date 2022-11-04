@@ -102,7 +102,7 @@ func client(config *clientConfig) {
 			"protocol": config.Protocol,
 		}).Fatal("Unsupported protocol")
 	}
-	pktConnFunc := pktConnFuncFactory(config.Obfs)
+	pktConnFunc := pktConnFuncFactory(config.Obfs, time.Duration(config.HopInterval)*time.Second)
 	// Resolve preference
 	if len(config.ResolvePreference) > 0 {
 		pref, err := transport.ResolvePreferenceFromString(config.ResolvePreference)

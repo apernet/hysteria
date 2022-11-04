@@ -14,15 +14,14 @@ import (
 
 const (
 	packetQueueSize = 1024
-
-	portHoppingInterval = 30 * time.Second
 )
 
 // ObfsUDPHopClientPacketConn is the UDP port-hopping packet connection for client side.
-// It hops to a different local & server port every once in a while (portHoppingInterval).
+// It hops to a different local & server port every once in a while.
 type ObfsUDPHopClientPacketConn struct {
 	serverAddr  net.Addr // Combined udpHopAddr
 	serverAddrs []net.Addr
+	hopInterval time.Duration
 
 	obfs obfs.Obfuscator
 
@@ -54,7 +53,7 @@ type udpPacket struct {
 	addr net.Addr
 }
 
-func NewObfsUDPHopClientPacketConn(server string, obfs obfs.Obfuscator) (*ObfsUDPHopClientPacketConn, net.Addr, error) {
+func NewObfsUDPHopClientPacketConn(server string, hopInterval time.Duration, obfs obfs.Obfuscator) (*ObfsUDPHopClientPacketConn, net.Addr, error) {
 	host, ports, err := parseAddr(server)
 	if err != nil {
 		return nil, nil, err
@@ -76,6 +75,7 @@ func NewObfsUDPHopClientPacketConn(server string, obfs obfs.Obfuscator) (*ObfsUD
 	conn := &ObfsUDPHopClientPacketConn{
 		serverAddr:  &hopAddr,
 		serverAddrs: serverAddrs,
+		hopInterval: hopInterval,
 		obfs:        obfs,
 		addrIndex:   rand.Intn(len(serverAddrs)),
 		recvQueue:   make(chan *udpPacket, packetQueueSize),
@@ -118,7 +118,7 @@ func (c *ObfsUDPHopClientPacketConn) recvRoutine(conn net.PacketConn) {
 }
 
 func (c *ObfsUDPHopClientPacketConn) hopRoutine() {
-	ticker := time.NewTicker(portHoppingInterval)
+	ticker := time.NewTicker(c.hopInterval)
 	defer ticker.Stop()
 	for {
 		select {
