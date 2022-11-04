@@ -1,7 +1,6 @@
 package udp
 
 import (
-	"log"
 	"math/rand"
 	"net"
 	"strconv"
@@ -69,7 +68,6 @@ func NewObfsUDPHopClientPacketConn(server string, hopInterval time.Duration, obf
 			IP:   ip.IP,
 			Port: int(port),
 		}
-		log.Printf("udphop: server address %s", serverAddrs[i])
 	}
 	hopAddr := udpHopAddr(server)
 	conn := &ObfsUDPHopClientPacketConn{
@@ -105,13 +103,12 @@ func (c *ObfsUDPHopClientPacketConn) recvRoutine(conn net.PacketConn) {
 		buf := c.bufPool.Get().([]byte)
 		n, addr, err := conn.ReadFrom(buf)
 		if err != nil {
-			log.Printf("udphop: read error (local %s): %v", conn.LocalAddr(), err)
 			return
 		}
 		select {
 		case c.recvQueue <- &udpPacket{buf, n, addr}:
 		default:
-			log.Printf("udphop: recv queue full, dropping packet from %s", addr)
+			// Drop the packet if the queue is full
 			c.bufPool.Put(buf)
 		}
 	}
@@ -138,7 +135,7 @@ func (c *ObfsUDPHopClientPacketConn) hop() {
 	}
 	newConn, err := net.ListenUDP("udp", nil)
 	if err != nil {
-		log.Printf("udphop: failed to listen on %s: %v", newConn.LocalAddr(), err)
+		// Skip this hop if failed to listen
 		return
 	}
 	// Close prevConn,
@@ -160,7 +157,6 @@ func (c *ObfsUDPHopClientPacketConn) hop() {
 	}
 	go c.recvRoutine(c.currentConn)
 	c.addrIndex = rand.Intn(len(c.serverAddrs))
-	log.Printf("udphop: hopping to %s", c.serverAddrs[c.addrIndex])
 }
 
 func (c *ObfsUDPHopClientPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
@@ -196,11 +192,13 @@ func (c *ObfsUDPHopClientPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 func (c *ObfsUDPHopClientPacketConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 	c.connMutex.RLock()
 	defer c.connMutex.RUnlock()
-	// Check if the address is the server address
-	if addr.String() != c.serverAddr.String() {
-		log.Printf("udphop: invalid write address %s", addr)
-		return 0, net.ErrWriteToConnected
-	}
+	/*
+		// Check if the address is the server address
+		if addr.String() != c.serverAddr.String() {
+			return 0, net.ErrWriteToConnected
+		}
+	*/
+	// Skip the check for now, always write to the server
 	return c.currentConn.WriteTo(b, c.serverAddrs[c.addrIndex])
 }
 
