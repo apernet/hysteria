@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -19,8 +20,9 @@ type releaseInfo struct {
 }
 
 func checkUpdate() {
+	sv := strings.Split(appVersion, "-")[0]
 	info, err := fetchLatestRelease()
-	if err == nil && info.TagName != appVersion {
+	if err == nil && info.TagName != sv {
 		logrus.WithFields(logrus.Fields{
 			"version": info.TagName,
 			"url":     info.URL,
