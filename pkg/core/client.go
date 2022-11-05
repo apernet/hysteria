@@ -26,7 +26,6 @@ var ErrClosed = errors.New("closed")
 
 type Client struct {
 	serverAddr string
-	serverName string // QUIC SNI
 
 	sendBPS, recvBPS uint64
 	auth             []byte
@@ -52,18 +51,8 @@ func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig
 	pktConnFunc pktconns.ClientPacketConnFunc, sendBPS uint64, recvBPS uint64, quicReconnectFunc func(err error),
 ) (*Client, error) {
 	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud.DisablePathMTUDiscovery
-	// QUIC wants server name, but our serverAddr is usually host:port,
-	// so we try to extract it from serverAddr.
-	serverName, _, err := net.SplitHostPort(serverAddr)
-	if err != nil {
-		// It's possible that we have some weird serverAddr combined with weird PacketConn implementation,
-		// that doesn't follow the standard host:port format. So it's ok if we run into error here.
-		// Server name should be set in tlsConfig in that case.
-		serverName = ""
-	}
 	c := &Client{
 		serverAddr:        serverAddr,
-		serverName:        serverName,
 		sendBPS:           sendBPS,
 		recvBPS:           recvBPS,
 		auth:              auth,
@@ -92,7 +81,7 @@ func (c *Client) connect() error {
 		return err
 	}
 	// Dial QUIC
-	quicConn, err := quic.Dial(pktConn, sAddr, c.serverName, c.tlsConfig, c.quicConfig)
+	quicConn, err := quic.Dial(pktConn, sAddr, c.serverAddr, c.tlsConfig, c.quicConfig)
 	if err != nil {
 		_ = pktConn.Close()
 		return err
