@@ -1,4 +1,4 @@
-FROM golang:1.19-alpine AS builder
+FROM golang:1-alpine AS builder
 
 LABEL maintainer="mritd <mritd@linux.com>"
 
@@ -14,7 +14,7 @@ COPY . /go/src/github.com/hynetwork/hysteria
 WORKDIR /go/src/github.com/hynetwork/hysteria
 
 RUN set -ex \
-    && apk add git build-base \
+    && apk add git build-base bash \
     && ./build.sh \
     && mv ./build/hysteria-* /go/bin/hysteria
 
