@@ -49,6 +49,8 @@ New-Item -ItemType Directory -Force -Path build
 
 Write-Host "Starting build..." -ForegroundColor Green
 
+$env:CGO_ENABLED = 0
+
 foreach ($platform in $platforms) {
     $env:GOOS = $platform.Split("/")[0]
     $env:GOARCH = $platform.Split("/")[1]
