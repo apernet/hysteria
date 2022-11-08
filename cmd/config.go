@@ -24,6 +24,8 @@ const (
 
 	ServerMaxIdleTimeoutSec     = 60
 	DefaultClientIdleTimeoutSec = 20
+
+	DefaultClientHopIntervalSec = 10
 )
 
 var rateStringRegexp = regexp.MustCompile(`^(\d+)\s*([KMGT]?)([Bb])ps$`)
@@ -168,6 +170,7 @@ type clientConfig struct {
 	QuitOnDisconnect bool `json:"quit_on_disconnect"`
 	HandshakeTimeout int  `json:"handshake_timeout"`
 	IdleTimeout      int  `json:"idle_timeout"`
+	HopInterval      int  `json:"hop_interval"`
 	SOCKS5           struct {
 		Listen     string `json:"listen"`
 		Timeout    int    `json:"timeout"`
@@ -258,6 +261,9 @@ func (c *clientConfig) Check() error {
 	if c.IdleTimeout != 0 && c.IdleTimeout < 4 {
 		return errors.New("invalid idle timeout")
 	}
+	if c.HopInterval != 0 && c.HopInterval < 8 {
+		return errors.New("invalid hop interval")
+	}
 	if c.SOCKS5.Timeout != 0 && c.SOCKS5.Timeout < 4 {
 		return errors.New("invalid SOCKS5 timeout")
 	}
@@ -332,6 +338,9 @@ func (c *clientConfig) Fill() {
 	}
 	if c.IdleTimeout == 0 {
 		c.IdleTimeout = DefaultClientIdleTimeoutSec
+	}
+	if c.HopInterval == 0 {
+		c.HopInterval = DefaultClientHopIntervalSec
 	}
 }
 

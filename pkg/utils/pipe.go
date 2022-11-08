@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-const PipeBufferSize = 65535
+const PipeBufferSize = 32 * 1024
 
 func Pipe(src, dst io.ReadWriter, count func(int)) error {
 	buf := make([]byte, PipeBufferSize)

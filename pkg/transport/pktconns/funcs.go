@@ -2,6 +2,8 @@ package pktconns
 
 import (
 	"net"
+	"strings"
+	"time"
 
 	"github.com/HyNetwork/hysteria/pkg/transport/pktconns/faketcp"
 	"github.com/HyNetwork/hysteria/pkg/transport/pktconns/obfs"
@@ -15,13 +17,16 @@ type (
 )
 
 type (
-	ClientPacketConnFuncFactory func(obfsPassword string) ClientPacketConnFunc
+	ClientPacketConnFuncFactory func(obfsPassword string, hopInterval time.Duration) ClientPacketConnFunc
 	ServerPacketConnFuncFactory func(obfsPassword string) ServerPacketConnFunc
 )
 
-func NewClientUDPConnFunc(obfsPassword string) ClientPacketConnFunc {
+func NewClientUDPConnFunc(obfsPassword string, hopInterval time.Duration) ClientPacketConnFunc {
 	if obfsPassword == "" {
 		return func(server string) (net.PacketConn, net.Addr, error) {
+			if isMultiPortAddr(server) {
+				return udp.NewObfsUDPHopClientPacketConn(server, hopInterval, nil)
+			}
 			sAddr, err := net.ResolveUDPAddr("udp", server)
 			if err != nil {
 				return nil, nil, err
@@ -31,6 +36,10 @@ func NewClientUDPConnFunc(obfsPassword string) ClientPacketConnFunc {
 		}
 	} else {
 		return func(server string) (net.PacketConn, net.Addr, error) {
+			if isMultiPortAddr(server) {
+				ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
+				return udp.NewObfsUDPHopClientPacketConn(server, hopInterval, ob)
+			}
 			sAddr, err := net.ResolveUDPAddr("udp", server)
 			if err != nil {
 				return nil, nil, err
@@ -45,7 +54,7 @@ func NewClientUDPConnFunc(obfsPassword string) ClientPacketConnFunc {
 	}
 }
 
-func NewClientWeChatConnFunc(obfsPassword string) ClientPacketConnFunc {
+func NewClientWeChatConnFunc(obfsPassword string, hopInterval time.Duration) ClientPacketConnFunc {
 	if obfsPassword == "" {
 		return func(server string) (net.PacketConn, net.Addr, error) {
 			sAddr, err := net.ResolveUDPAddr("udp", server)
@@ -74,7 +83,7 @@ func NewClientWeChatConnFunc(obfsPassword string) ClientPacketConnFunc {
 	}
 }
 
-func NewClientFakeTCPConnFunc(obfsPassword string) ClientPacketConnFunc {
+func NewClientFakeTCPConnFunc(obfsPassword string, hopInterval time.Duration) ClientPacketConnFunc {
 	if obfsPassword == "" {
 		return func(server string) (net.PacketConn, net.Addr, error) {
 			sAddr, err := net.ResolveTCPAddr("tcp", server)
@@ -169,4 +178,12 @@ func NewServerFakeTCPConnFunc(obfsPassword string) ServerPacketConnFunc {
 			return faketcp.NewObfsFakeTCPConn(fakeTCPListener, ob), nil
 		}
 	}
+}
+
+func isMultiPortAddr(addr string) bool {
+	_, portStr, err := net.SplitHostPort(addr)
+	if err == nil && (strings.Contains(portStr, ",") || strings.Contains(portStr, "-")) {
+		return true
+	}
+	return false
 }

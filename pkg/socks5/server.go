@@ -19,7 +19,7 @@ import (
 	"github.com/txthinking/socks5"
 )
 
-const udpBufferSize = 65535
+const udpBufferSize = 4096
 
 var (
 	ErrUnsupportedCmd = errors.New("unsupported command")

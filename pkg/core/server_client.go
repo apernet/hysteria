@@ -17,7 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const udpBufferSize = 65535
+const udpBufferSize = 4096
 
 type serverClient struct {
 	CC              quic.Connection

@@ -10,7 +10,7 @@ import (
 	"github.com/HyNetwork/hysteria/pkg/core"
 )
 
-const udpBufferSize = 65535
+const udpBufferSize = 4096
 
 var ErrTimeout = errors.New("inactivity timeout")
 
