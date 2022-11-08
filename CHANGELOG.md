@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0
+
+- Connection migration: clients can now seamlessly switch between networks without losing their connection to the server
+- Dynamic port hopping: see https://hysteria.network/docs/port-hopping/ for more information
+
 ## 1.2.2
 
 - Fix a bug where the client would crash for IPv6 UDP requests in TProxy mode.
