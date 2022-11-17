@@ -18,6 +18,12 @@
 
 [8]: https://github.com/HyNetwork/hysteria/discussions
 
+![AperNet](docs/logos/AperNetLogo.png)
+
+An [Aperture Internet Laboratory](https://apernet.io/) project
+
+----------
+
 Hysteria is a feature-packed proxy & relay tool optimized for lossy, unstable connections (e.g. satellite networks,
 congested public Wi-Fi, connecting to foreign servers from China) powered by a customized protocol based on QUIC.
 
