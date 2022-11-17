@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/HyNetwork/hysteria/pkg/acl"
-	"github.com/HyNetwork/hysteria/pkg/core"
-	"github.com/HyNetwork/hysteria/pkg/transport"
-	"github.com/HyNetwork/hysteria/pkg/utils"
+	"github.com/apernet/hysteria/pkg/acl"
+	"github.com/apernet/hysteria/pkg/core"
+	"github.com/apernet/hysteria/pkg/transport"
+	"github.com/apernet/hysteria/pkg/utils"
 )
 
 import (

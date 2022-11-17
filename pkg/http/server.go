@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/HyNetwork/hysteria/pkg/transport"
-	"github.com/HyNetwork/hysteria/pkg/utils"
+	"github.com/apernet/hysteria/pkg/transport"
+	"github.com/apernet/hysteria/pkg/utils"
 
 	"github.com/elazarl/goproxy/ext/auth"
 
-	"github.com/HyNetwork/hysteria/pkg/acl"
-	"github.com/HyNetwork/hysteria/pkg/core"
+	"github.com/apernet/hysteria/pkg/acl"
+	"github.com/apernet/hysteria/pkg/core"
 	"github.com/elazarl/goproxy"
 )
 

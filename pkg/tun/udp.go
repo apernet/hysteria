@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/HyNetwork/hysteria/pkg/core"
+	"github.com/apernet/hysteria/pkg/core"
 	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 )
 

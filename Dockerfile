@@ -9,9 +9,9 @@ ARG GOPROXY=""
 
 ENV GOPROXY ${GOPROXY}
 
-COPY . /go/src/github.com/hynetwork/hysteria
+COPY . /go/src/github.com/apernet/hysteria
 
-WORKDIR /go/src/github.com/hynetwork/hysteria
+WORKDIR /go/src/github.com/apernet/hysteria
 
 RUN set -ex \
     && apk add git build-base bash \

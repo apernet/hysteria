@@ -6,11 +6,11 @@ body:
     id: header
     attributes:
       value: |
-        在创建 Issue 之前， 请花几分钟阅读一下我们 Wiki 上的 [配置指南](https://github.com/HyNetwork/hysteria/wiki/%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8)，
+        在创建 Issue 之前， 请花几分钟阅读一下我们 Wiki 上的 [配置指南](https://hysteria.network/zh/docs/quick-start/)，
 
-        最新的配置参数在 [高级用法](https://github.com/HyNetwork/hysteria/wiki/%E9%AB%98%E7%BA%A7%E7%94%A8%E6%B3%95) 里有详细的说明。
+        最新的配置参数在 [高级用法](https://hysteria.network/zh/docs/advanced-usage/) 里有详细的说明。
 
-        您可能遇到的绝大部分问题都能在 [常见问题](https://github.com/HyNetwork/hysteria/wiki/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98) 中找到解决方案。
+        您可能遇到的绝大部分问题都能在 [常见问题](https://hysteria.network/zh/docs/common-problems/) 中找到解决方案。
 
         任何已有解决方案的 Issue 将会被直接关闭， 感谢理解。
 

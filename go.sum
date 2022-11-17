@@ -201,10 +201,6 @@ github.com/BurntSushi/toml v1.1.0/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbi
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/Dreamacro/go-shadowsocks2 v0.1.7/go.mod h1:8p5G4cAj5ZlXwUR+Ww63gfSikr8kvw8uw3TDwLAJpUc=
-github.com/HyNetwork/go-tproxy v0.0.0-20221025153553-ed04a2935f88 h1:gZbrSMb8ojmSGxC0C4L3gFwgYFf1xvAnU2gCyDmsbSA=
-github.com/HyNetwork/go-tproxy v0.0.0-20221025153553-ed04a2935f88/go.mod h1:u7+cv3PYlgsz2jDM/qi/zl17zi03OO78Bhe5nlLOrVc=
-github.com/HyNetwork/quic-go v0.30.1-0.20221105180419-83715d7269a8 h1:FBo40lMrk1bZZzJRJx8U+bQUPhLDGTUJ/Q5NV5BbO4Q=
-github.com/HyNetwork/quic-go v0.30.1-0.20221105180419-83715d7269a8/go.mod h1:ssOrRsOmdxa768Wr78vnh2B8JozgLsMzG/g+0qEC7uk=
 github.com/Microsoft/go-winio v0.4.16-0.20201130162521-d1ffc52c7331/go.mod h1:XB6nPKklQyQ7GC9LdcBEcBl8PF76WugXOPRXwdLnMv0=
 github.com/Microsoft/go-winio v0.5.1/go.mod h1:JPGBdM1cNvN/6ISo+n8V5iA4v8pBzdOpzfwIujj1a84=
 github.com/Microsoft/hcsshim v0.8.14/go.mod h1:NtVKoYxQuTLx6gEq0L96c9Ju4JbRJ4nY2ow3VK6a9Lg=
@@ -223,6 +219,10 @@ github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239/go.mod h1:2FmKhYU
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/antonfisher/nested-logrus-formatter v1.3.1 h1:NFJIr+pzwv5QLHTPyKz9UMEoHck02Q9L0FP13b/xSbQ=
 github.com/antonfisher/nested-logrus-formatter v1.3.1/go.mod h1:6WTfyWFkBc9+zyBaKIqRrg/KwMqBbodBjgbHjDz7zjA=
+github.com/apernet/go-tproxy v0.0.0-20221025153553-ed04a2935f88 h1:YNsl7PMiU9x/0CleMHJ7GUdS8y1aRTFwTxdSmLLEijQ=
+github.com/apernet/go-tproxy v0.0.0-20221025153553-ed04a2935f88/go.mod h1:uxH+nFzlJug5OHjPYmzKwvVVb9wOToeGuLNVeerwWtc=
+github.com/apernet/quic-go v0.30.1-0.20221105180419-83715d7269a8 h1:gDR1F0nnzC76sww7NeNl81n4cXlkHIzAbxVjteIGKLw=
+github.com/apernet/quic-go v0.30.1-0.20221105180419-83715d7269a8/go.mod h1:ssOrRsOmdxa768Wr78vnh2B8JozgLsMzG/g+0qEC7uk=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
 github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmVTwzkszR9V5SSuryQ31EELlFMUz1kKyl939pY=

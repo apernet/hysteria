@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/HyNetwork/hysteria/pkg/core"
+	"github.com/apernet/hysteria/pkg/core"
 )
 
 const udpBufferSize = 4096

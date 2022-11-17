@@ -169,7 +169,7 @@ get_version() {
   fi
   # Get Hysteria release version number
   TMP_FILE="$(mktemp)"
-  if ! curl -x "${PROXY}" -sS -H "Accept: application/vnd.github.v3+json" -o "$TMP_FILE" 'https://api.github.com/repos/HyNetwork/hysteria/releases/latest'; then
+  if ! curl -x "${PROXY}" -sS -H "Accept: application/vnd.github.v3+json" -o "$TMP_FILE" 'https://api.github.com/repos/apernet/hysteria/releases/latest'; then
     "rm" "$TMP_FILE"
     echo 'error: Failed to get release list, please check your network.'
     exit 1
@@ -211,7 +211,7 @@ get_version() {
 }
 
 download_hysteria() {
-  DOWNLOAD_LINK="https://github.com/HyNetwork/hysteria/releases/download/$RELEASE_VERSION/hysteria-linux-$MACHINE"
+  DOWNLOAD_LINK="https://github.com/apernet/hysteria/releases/download/$RELEASE_VERSION/hysteria-linux-$MACHINE"
   echo "Downloading Hysteria archive: $DOWNLOAD_LINK"
   if ! curl -x "${PROXY}" -R -H 'Cache-Control: no-cache' -o "$BIN_FILE" "$DOWNLOAD_LINK"; then
     echo 'error: Download failed! Please check your network or try again.'
@@ -257,7 +257,7 @@ install_startup_service_file() {
 	[ $? -eq 0 ] && echo "User hysteria has been added."
   echo "[Unit]
 Description=Hysteria, a feature-packed network utility optimized for networks of poor quality
-Documentation=https://github.com/HyNetwork/hysteria/wiki
+Documentation=https://hysteria.network/
 After=network.target
 
 [Service]
@@ -276,7 +276,7 @@ RestartSec=5
 WantedBy=multi-user.target" > /lib/systemd/system/hysteria-server.service
   echo "[Unit]
 Description=Hysteria, a feature-packed network utility optimized for networks of poor quality
-Documentation=https://github.com/HyNetwork/hysteria/wiki
+Documentation=https://hysteria.network/
 After=network.target
 
 [Service]

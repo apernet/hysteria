@@ -8,7 +8,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/HyNetwork/hysteria/pkg/core"
+	"github.com/apernet/hysteria/pkg/core"
 )
 
 type TCPRedirect struct{}

@@ -12,8 +12,8 @@ import (
 	"github.com/docker/go-units"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 
-	"github.com/HyNetwork/hysteria/pkg/core"
-	"github.com/HyNetwork/hysteria/pkg/tun"
+	"github.com/apernet/hysteria/pkg/core"
+	"github.com/apernet/hysteria/pkg/tun"
 	"github.com/sirupsen/logrus"
 )
 

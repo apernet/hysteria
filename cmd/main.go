@@ -24,7 +24,7 @@ const (
 
 `
 	desc    = "A TCP/UDP relay & SOCKS5/HTTP proxy tool optimized for poor network environments"
-	authors = "HyNetwork <https://github.com/HyNetwork>"
+	authors = "Aperture Internet Laboratory <https://github.com/apernet>"
 )
 
 var (

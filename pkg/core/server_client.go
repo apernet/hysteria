@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/HyNetwork/hysteria/pkg/acl"
-	"github.com/HyNetwork/hysteria/pkg/transport"
-	"github.com/HyNetwork/hysteria/pkg/utils"
+	"github.com/apernet/hysteria/pkg/acl"
+	"github.com/apernet/hysteria/pkg/transport"
+	"github.com/apernet/hysteria/pkg/utils"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"

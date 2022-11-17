@@ -6,9 +6,9 @@ body:
     id: header
     attributes:
       value: |
-        Before creating an issue, please take a look at [Quick Start Guide](https://github.com/HyNetwork/hysteria/wiki/Quick-Start) and [Advanced Usage](https://github.com/HyNetwork/hysteria/wiki/Advanced-Usage).
+        Before creating an issue, please take a look at [Quick Start Guide](https://hysteria.network/docs/quick-start/) and [Advanced Usage](https://hysteria.network/docs/advanced-usage/).
 
-        You can find solutions to common problems in [Common Problems](https://github.com/HyNetwork/hysteria/wiki/Common-Problems). Anything already covered there will be closed without reply.
+        You can find solutions to common problems in [Common Problems](https://hysteria.network/docs/common-problems/). Anything already covered there will be closed without reply.
 
         You can [join our Telegram group](https://t.me/hysteria_github) our use Discussion for community support.
 

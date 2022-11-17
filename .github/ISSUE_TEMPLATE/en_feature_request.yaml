@@ -6,7 +6,7 @@ body:
     id: header
     attributes:
       value: |
-        Before creating an issue, please take a look at [Advanced Usage](https://github.com/HyNetwork/hysteria/wiki/Advanced-Usage) & existing issues to make sure it does not exist or has already been proposed.
+        Before creating an issue, please take a look at [Advanced Usage](https://hysteria.network/docs/advanced-usage/) & existing issues to make sure it does not exist or has already been proposed.
         
         You can also join our Telegram group or use Discussion to share your ideas with the community.
         

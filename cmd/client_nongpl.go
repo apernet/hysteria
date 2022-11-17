@@ -4,7 +4,7 @@
 package main
 
 import (
-	"github.com/HyNetwork/hysteria/pkg/core"
+	"github.com/apernet/hysteria/pkg/core"
 	"github.com/sirupsen/logrus"
 )
 

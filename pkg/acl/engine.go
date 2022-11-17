@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/HyNetwork/hysteria/pkg/utils"
+	"github.com/apernet/hysteria/pkg/utils"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/geoip2-golang"
 )

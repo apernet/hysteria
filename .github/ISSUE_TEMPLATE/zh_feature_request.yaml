@@ -6,7 +6,7 @@ body:
     id: header
     attributes:
       value: |
-        在创建 Issue 之前， 请花几分钟阅读一下我们 Wiki 上的 [高级用法](https://github.com/HyNetwork/hysteria/wiki/%E9%AB%98%E7%BA%A7%E7%94%A8%E6%B3%95)。 确认你想要的功能是否已经被实现。
+        在创建 Issue 之前， 请花几分钟阅读一下我们 Wiki 上的 [高级用法](https://hysteria.network/zh/docs/advanced-usage/)。 确认你想要的功能是否已经被实现。
 
         如果你有什么好的想法， 欢迎 [加入 Hysteria 的 Telegram 群组](https://t.me/hysteria_github) 参与功能上的讨论。
 

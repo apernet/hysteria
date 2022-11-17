@@ -6,17 +6,17 @@
 
 [2]: LICENSE.md
 
-[3]: https://img.shields.io/github/v/release/HyNetwork/hysteria?style=flat-square
+[3]: https://img.shields.io/github/v/release/apernet/hysteria?style=flat-square
 
-[4]: https://github.com/HyNetwork/hysteria/releases
+[4]: https://github.com/apernet/hysteria/releases
 
 [5]: https://img.shields.io/badge/chat-Telegram-blue?style=flat-square
 
 [6]: https://t.me/hysteria_github
 
-[7]: https://img.shields.io/github/discussions/HyNetwork/hysteria?style=flat-square
+[7]: https://img.shields.io/github/discussions/apernet/hysteria?style=flat-square
 
-[8]: https://github.com/HyNetwork/hysteria/discussions
+[8]: https://github.com/apernet/hysteria/discussions
 
 ![AperNet](docs/logos/AperNetLogo.png)
 

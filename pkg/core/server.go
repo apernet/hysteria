@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/HyNetwork/hysteria/pkg/congestion"
+	"github.com/apernet/hysteria/pkg/congestion"
 
-	"github.com/HyNetwork/hysteria/pkg/acl"
-	"github.com/HyNetwork/hysteria/pkg/pmtud"
-	"github.com/HyNetwork/hysteria/pkg/transport"
+	"github.com/apernet/hysteria/pkg/acl"
+	"github.com/apernet/hysteria/pkg/pmtud"
+	"github.com/apernet/hysteria/pkg/transport"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
 	"github.com/prometheus/client_golang/prometheus"

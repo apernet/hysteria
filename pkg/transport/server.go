@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/HyNetwork/hysteria/pkg/sockopt"
-	"github.com/HyNetwork/hysteria/pkg/utils"
+	"github.com/apernet/hysteria/pkg/sockopt"
+	"github.com/apernet/hysteria/pkg/utils"
 )
 
 type ServerTransport struct {

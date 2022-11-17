@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const githubAPIURL = "https://api.github.com/repos/HyNetwork/hysteria/releases/latest"
+const githubAPIURL = "https://api.github.com/repos/apernet/hysteria/releases/latest"
 
 type releaseInfo struct {
 	URL         string `json:"html_url"`

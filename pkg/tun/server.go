@@ -14,7 +14,7 @@ import (
 
 	"github.com/xjasonlyu/tun2socks/v2/core/option"
 
-	"github.com/HyNetwork/hysteria/pkg/core"
+	"github.com/apernet/hysteria/pkg/core"
 	"github.com/sirupsen/logrus"
 	t2score "github.com/xjasonlyu/tun2socks/v2/core"
 	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
