@@ -16,9 +16,10 @@ const (
 
 	DefaultALPN = "hysteria"
 
-	DefaultStreamReceiveWindow     = 15728640 // 15 MB/s
-	DefaultConnectionReceiveWindow = 67108864 // 64 MB/s
-	DefaultMaxIncomingStreams      = 1024
+	DefaultStreamReceiveWindow     = 16777216                           // 16 MB
+	DefaultConnectionReceiveWindow = DefaultStreamReceiveWindow * 5 / 2 // 40 MB
+
+	DefaultMaxIncomingStreams = 1024
 
 	DefaultMMDBFilename = "GeoLite2-Country.mmdb"
 
