@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apernet/hysteria/pkg/transport/pktconns/obfs"
+	"github.com/apernet/hysteria/pkg/pktconns/obfs"
 )
 
 const (

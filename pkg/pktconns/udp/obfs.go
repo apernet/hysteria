@@ -1,18 +1,19 @@
-package faketcp
+package udp
 
 import (
 	"net"
+	"os"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/apernet/hysteria/pkg/transport/pktconns/obfs"
+	"github.com/apernet/hysteria/pkg/pktconns/obfs"
 )
 
 const udpBufferSize = 4096
 
-type ObfsFakeTCPPacketConn struct {
-	orig *TCPConn
+type ObfsUDPPacketConn struct {
+	orig *net.UDPConn
 	obfs obfs.Obfuscator
 
 	readBuf    []byte
@@ -21,8 +22,8 @@ type ObfsFakeTCPPacketConn struct {
 	writeMutex sync.Mutex
 }
 
-func NewObfsFakeTCPConn(orig *TCPConn, obfs obfs.Obfuscator) *ObfsFakeTCPPacketConn {
-	return &ObfsFakeTCPPacketConn{
+func NewObfsUDPConn(orig *net.UDPConn, obfs obfs.Obfuscator) *ObfsUDPPacketConn {
+	return &ObfsUDPPacketConn{
 		orig:     orig,
 		obfs:     obfs,
 		readBuf:  make([]byte, udpBufferSize),
@@ -30,7 +31,7 @@ func NewObfsFakeTCPConn(orig *TCPConn, obfs obfs.Obfuscator) *ObfsFakeTCPPacketC
 	}
 }
 
-func (c *ObfsFakeTCPPacketConn) ReadFrom(p []byte) (int, net.Addr, error) {
+func (c *ObfsUDPPacketConn) ReadFrom(p []byte) (int, net.Addr, error) {
 	for {
 		c.readMutex.Lock()
 		n, addr, err := c.orig.ReadFrom(c.readBuf)
@@ -50,7 +51,7 @@ func (c *ObfsFakeTCPPacketConn) ReadFrom(p []byte) (int, net.Addr, error) {
 	}
 }
 
-func (c *ObfsFakeTCPPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+func (c *ObfsUDPPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	c.writeMutex.Lock()
 	bn := c.obfs.Obfuscate(p, c.writeBuf)
 	_, err = c.orig.WriteTo(c.writeBuf[:bn], addr)
@@ -62,34 +63,38 @@ func (c *ObfsFakeTCPPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err err
 	}
 }
 
-func (c *ObfsFakeTCPPacketConn) Close() error {
+func (c *ObfsUDPPacketConn) Close() error {
 	return c.orig.Close()
 }
 
-func (c *ObfsFakeTCPPacketConn) LocalAddr() net.Addr {
+func (c *ObfsUDPPacketConn) LocalAddr() net.Addr {
 	return c.orig.LocalAddr()
 }
 
-func (c *ObfsFakeTCPPacketConn) SetDeadline(t time.Time) error {
+func (c *ObfsUDPPacketConn) SetDeadline(t time.Time) error {
 	return c.orig.SetDeadline(t)
 }
 
-func (c *ObfsFakeTCPPacketConn) SetReadDeadline(t time.Time) error {
+func (c *ObfsUDPPacketConn) SetReadDeadline(t time.Time) error {
 	return c.orig.SetReadDeadline(t)
 }
 
-func (c *ObfsFakeTCPPacketConn) SetWriteDeadline(t time.Time) error {
+func (c *ObfsUDPPacketConn) SetWriteDeadline(t time.Time) error {
 	return c.orig.SetWriteDeadline(t)
 }
 
-func (c *ObfsFakeTCPPacketConn) SetReadBuffer(bytes int) error {
+func (c *ObfsUDPPacketConn) SetReadBuffer(bytes int) error {
 	return c.orig.SetReadBuffer(bytes)
 }
 
-func (c *ObfsFakeTCPPacketConn) SetWriteBuffer(bytes int) error {
+func (c *ObfsUDPPacketConn) SetWriteBuffer(bytes int) error {
 	return c.orig.SetWriteBuffer(bytes)
 }
 
-func (c *ObfsFakeTCPPacketConn) SyscallConn() (syscall.RawConn, error) {
+func (c *ObfsUDPPacketConn) SyscallConn() (syscall.RawConn, error) {
 	return c.orig.SyscallConn()
+}
+
+func (c *ObfsUDPPacketConn) File() (f *os.File, err error) {
+	return c.orig.File()
 }

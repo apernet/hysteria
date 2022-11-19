@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/apernet/hysteria/pkg/transport/pktconns"
+	"github.com/apernet/hysteria/pkg/pktconns"
 
 	"github.com/apernet/hysteria/cmd/auth"
 	"github.com/apernet/hysteria/pkg/acl"

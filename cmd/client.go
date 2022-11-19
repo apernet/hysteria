@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/apernet/hysteria/pkg/transport/pktconns"
+	"github.com/apernet/hysteria/pkg/pktconns"
 
 	"github.com/apernet/hysteria/pkg/pmtud"
 	"github.com/apernet/hysteria/pkg/redirect"
