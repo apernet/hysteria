@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 func TestEngine_ResolveAndMatch(t *testing.T) {
-	cache, _ := lru.NewARC(16)
+	cache, _ := lru.NewARC[cacheKey, cacheValue](entryCacheSize)
 	e := &Engine{
 		DefaultAction: ActionDirect,
 		Entries: []Entry{

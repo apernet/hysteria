@@ -1,6 +1,6 @@
 module github.com/apernet/hysteria
 
-go 1.17
+go 1.18
 
 require (
 	github.com/LiamHaworth/go-tproxy v0.0.0-20190726054950-ef7efd7f24ed
@@ -13,7 +13,7 @@ require (
 	github.com/folbricht/routedns v0.1.6-0.20220806202012-361f5b35b4c3
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/google/gopacket v1.1.19
-	github.com/hashicorp/golang-lru v0.5.4
+	github.com/hashicorp/golang-lru/v2 v2.0.1
 	github.com/lucas-clemente/quic-go v0.31.0
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/oschwald/geoip2-golang v1.8.0

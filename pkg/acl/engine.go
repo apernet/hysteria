@@ -6,8 +6,9 @@ import (
 	"os"
 	"strings"
 
+	lru "github.com/hashicorp/golang-lru/v2"
+
 	"github.com/apernet/hysteria/pkg/utils"
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/geoip2-golang"
 )
 
@@ -16,7 +17,7 @@ const entryCacheSize = 1024
 type Engine struct {
 	DefaultAction Action
 	Entries       []Entry
-	Cache         *lru.ARCCache
+	Cache         *lru.ARCCache[cacheKey, cacheValue]
 	ResolveIPAddr func(string) (*net.IPAddr, error)
 	GeoIPReader   *geoip2.Reader
 }
@@ -59,7 +60,7 @@ func LoadFromFile(filename string, resolveIPAddr func(string) (*net.IPAddr, erro
 		}
 		entries = append(entries, entry)
 	}
-	cache, err := lru.NewARC(entryCacheSize)
+	cache, err := lru.NewARC[cacheKey, cacheValue](entryCacheSize)
 	if err != nil {
 		return nil, err
 	}
@@ -78,9 +79,8 @@ func (e *Engine) ResolveAndMatch(host string, port uint16, isUDP bool) (Action, 
 	if ip == nil {
 		// Domain
 		ipAddr, err := e.ResolveIPAddr(host)
-		if v, ok := e.Cache.Get(cacheKey{host, port, isUDP}); ok {
+		if ce, ok := e.Cache.Get(cacheKey{host, port, isUDP}); ok {
 			// Cache hit
-			ce := v.(cacheValue)
 			return ce.Action, ce.Arg, true, ipAddr, err
 		}
 		for _, entry := range e.Entries {
@@ -107,9 +107,8 @@ func (e *Engine) ResolveAndMatch(host string, port uint16, isUDP bool) (Action, 
 		return e.DefaultAction, "", true, ipAddr, err
 	} else {
 		// IP
-		if v, ok := e.Cache.Get(cacheKey{ip.String(), port, isUDP}); ok {
+		if ce, ok := e.Cache.Get(cacheKey{ip.String(), port, isUDP}); ok {
 			// Cache hit
-			ce := v.(cacheValue)
 			return ce.Action, ce.Arg, false, &net.IPAddr{
 				IP:   ip,
 				Zone: zone,
