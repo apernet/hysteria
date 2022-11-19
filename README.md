@@ -82,6 +82,6 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境（如卫星网络�
 
 **欢迎大佬捐赠！** 如希望挂名请在捐赠后联系我。
 
-Bitcoin: `bc1qzkfjy4vpm8hzu8haw0j6efzwczrjv7ntu4lzqu`
-
-Monero: `8ASufSipkvzDUge4dLnr9ZSFXpVn8M2Sea5G79DL5rFncnaKEAwqag8Xptpp8MSvpHiNtKxQgYtho3eDzW2nak4PJA84oBa`
+<a href="https://nowpayments.io/donation?api_key=EJH83FM-FDC40ZW-QGDZRR4-A7SC67S" target="_blank">
+ <img src="https://nowpayments.io/images/embeds/donation-button-black.svg" alt="Crypto donation button by NOWPayments">
+</a>
