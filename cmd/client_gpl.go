@@ -47,7 +47,7 @@ func startTUN(config *clientConfig, client *core.Client, errChan chan error) {
 		tcpSendBufferSize, err = units.RAMInBytes(config.TUN.TCPSendBufferSize)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
-				"err":        err,
+				"error":      err,
 				"tcp-sndbuf": config.TUN.TCPSendBufferSize,
 			}).Fatal("Failed to parse tcp-sndbuf in the TUN config")
 		}
@@ -61,13 +61,13 @@ func startTUN(config *clientConfig, client *core.Client, errChan chan error) {
 		tcpReceiveBufferSize, err = units.RAMInBytes(config.TUN.TCPReceiveBufferSize)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
-				"err":        err,
+				"error":      err,
 				"tcp-rcvbuf": config.TUN.TCPReceiveBufferSize,
 			}).Fatal("Failed to parse tcp-rcvbuf in the TUN config")
 		}
 		if (tcpReceiveBufferSize != 0 && tcpReceiveBufferSize < tcp.MinBufferSize) || tcpReceiveBufferSize > tcp.MaxBufferSize {
 			logrus.WithFields(logrus.Fields{
-				"err":        err,
+				"error":      err,
 				"tcp-rcvbuf": config.TUN.TCPReceiveBufferSize,
 			}).Fatal("Invalid tcp-rcvbuf in the TUN config")
 		}

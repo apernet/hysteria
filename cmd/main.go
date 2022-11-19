@@ -57,8 +57,10 @@ var rootCmd = &cobra.Command{
 			logrus.SetFormatter(&nested.Formatter{
 				FieldsOrder: []string{
 					"version", "url",
-					"config", "file", "mode",
+					"config", "file", "mode", "protocol",
+					"cert", "key",
 					"addr", "src", "dst", "session", "action", "interface",
+					"tcp-sndbuf", "tcp-rcvbuf",
 					"retry", "interval",
 					"code", "msg", "error",
 				},
