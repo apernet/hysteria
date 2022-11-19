@@ -14,7 +14,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/google/gopacket v1.1.19
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/lucas-clemente/quic-go v0.30.0
+	github.com/lucas-clemente/quic-go v0.31.0
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/oschwald/geoip2-golang v1.8.0
 	github.com/prometheus/client_golang v1.14.0
@@ -24,7 +24,7 @@ require (
 	github.com/txthinking/socks5 v0.0.0-20220212043548-414499347d4a
 	github.com/xjasonlyu/tun2socks/v2 v2.4.1
 	github.com/yosuke-furukawa/json5 v0.1.1
-	golang.org/x/sys v0.0.0-20220908164124-27713097b956
+	golang.org/x/sys v0.1.1-0.20221102194838-fc697a31fa06
 	gvisor.dev/gvisor v0.0.0-20220405222207-795f4f0139bb
 )
 
@@ -89,6 +89,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/lucas-clemente/quic-go => github.com/apernet/quic-go v0.30.1-0.20221105180419-83715d7269a8
+replace github.com/lucas-clemente/quic-go => github.com/apernet/quic-go v0.31.1-0.20221119042740-af3f46bd335f
 
 replace github.com/LiamHaworth/go-tproxy => github.com/apernet/go-tproxy v0.0.0-20221025153553-ed04a2935f88
