@@ -1,11 +1,13 @@
 package udp
 
 import (
+	"errors"
 	"math/rand"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/apernet/hysteria/pkg/pktconns/obfs"
@@ -28,6 +30,9 @@ type ObfsUDPHopClientPacketConn struct {
 	prevConn    net.PacketConn
 	currentConn net.PacketConn
 	addrIndex   int
+
+	readBufferSize  int
+	writeBufferSize int
 
 	recvQueue chan *udpPacket
 	closeChan chan struct{}
@@ -155,6 +160,13 @@ func (c *ObfsUDPHopClientPacketConn) hop() {
 	} else {
 		c.currentConn = newConn
 	}
+	// Set buffer sizes if previously set
+	if c.readBufferSize > 0 {
+		_ = trySetPacketConnReadBuffer(c.currentConn, c.readBufferSize)
+	}
+	if c.writeBufferSize > 0 {
+		_ = trySetPacketConnWriteBuffer(c.currentConn, c.writeBufferSize)
+	}
 	go c.recvRoutine(c.currentConn)
 	c.addrIndex = rand.Intn(len(c.serverAddrs))
 }
@@ -242,6 +254,56 @@ func (c *ObfsUDPHopClientPacketConn) SetDeadline(t time.Time) error {
 		return err
 	}
 	return c.SetWriteDeadline(t)
+}
+
+func (c *ObfsUDPHopClientPacketConn) SetReadBuffer(bytes int) error {
+	c.connMutex.Lock()
+	defer c.connMutex.Unlock()
+	c.readBufferSize = bytes
+	if c.prevConn != nil {
+		_ = trySetPacketConnReadBuffer(c.prevConn, bytes)
+	}
+	return trySetPacketConnReadBuffer(c.currentConn, bytes)
+}
+
+func (c *ObfsUDPHopClientPacketConn) SetWriteBuffer(bytes int) error {
+	c.connMutex.Lock()
+	defer c.connMutex.Unlock()
+	c.writeBufferSize = bytes
+	if c.prevConn != nil {
+		_ = trySetPacketConnWriteBuffer(c.prevConn, bytes)
+	}
+	return trySetPacketConnWriteBuffer(c.currentConn, bytes)
+}
+
+func (c *ObfsUDPHopClientPacketConn) SyscallConn() (syscall.RawConn, error) {
+	c.connMutex.RLock()
+	defer c.connMutex.RUnlock()
+	sc, ok := c.currentConn.(syscall.Conn)
+	if !ok {
+		return nil, errors.New("not supported")
+	}
+	return sc.SyscallConn()
+}
+
+func trySetPacketConnReadBuffer(pc net.PacketConn, bytes int) error {
+	sc, ok := pc.(interface {
+		SetReadBuffer(bytes int) error
+	})
+	if ok {
+		return sc.SetReadBuffer(bytes)
+	}
+	return nil
+}
+
+func trySetPacketConnWriteBuffer(pc net.PacketConn, bytes int) error {
+	sc, ok := pc.(interface {
+		SetWriteBuffer(bytes int) error
+	})
+	if ok {
+		return sc.SetWriteBuffer(bytes)
+	}
+	return nil
 }
 
 // parseAddr parses the multi-port server address and returns the host and ports.

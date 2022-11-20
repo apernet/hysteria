@@ -89,6 +89,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/lucas-clemente/quic-go => github.com/apernet/quic-go v0.31.1-0.20221119042740-af3f46bd335f
+replace github.com/lucas-clemente/quic-go => github.com/apernet/quic-go v0.31.1-0.20221119235156-55bf700f2dd4
 
 replace github.com/LiamHaworth/go-tproxy => github.com/apernet/go-tproxy v0.0.0-20221025153553-ed04a2935f88
