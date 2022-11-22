@@ -81,7 +81,7 @@ func NewProxyHTTPServer(hyClient *core.Client, transport *transport.ClientTransp
 	}
 	proxy.ConnectDial = nil
 	if basicAuthFunc != nil {
-		auth.ProxyBasic(proxy, "hysteria client", basicAuthFunc)
+		auth.ProxyBasic(proxy, "hysteria", basicAuthFunc)
 	}
 	return proxy, nil
 }
