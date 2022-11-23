@@ -29,6 +29,7 @@ type Client struct {
 
 	sendBPS, recvBPS uint64
 	auth             []byte
+	fastOpen         bool
 
 	tlsConfig  *tls.Config
 	quicConfig *quic.Config
@@ -48,7 +49,8 @@ type Client struct {
 }
 
 func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
-	pktConnFunc pktconns.ClientPacketConnFunc, sendBPS uint64, recvBPS uint64, quicReconnectFunc func(err error),
+	pktConnFunc pktconns.ClientPacketConnFunc, sendBPS uint64, recvBPS uint64, fastOpen bool,
+	quicReconnectFunc func(err error),
 ) (*Client, error) {
 	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud.DisablePathMTUDiscovery
 	c := &Client{
@@ -56,6 +58,7 @@ func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig
 		sendBPS:           sendBPS,
 		recvBPS:           recvBPS,
 		auth:              auth,
+		fastOpen:          fastOpen,
 		tlsConfig:         tlsConfig,
 		quicConfig:        quicConfig,
 		pktConnFunc:       pktConnFunc,
@@ -221,21 +224,26 @@ func (c *Client) DialTCP(addr string) (net.Conn, error) {
 		_ = stream.Close()
 		return nil, err
 	}
-	// Read response
-	var sr serverResponse
-	err = struc.Unpack(stream, &sr)
-	if err != nil {
-		_ = stream.Close()
-		return nil, err
-	}
-	if !sr.OK {
-		_ = stream.Close()
-		return nil, fmt.Errorf("connection rejected: %s", sr.Message)
+	// If fast open is enabled, we return the stream immediately
+	// and defer the response handling to the first Read() call
+	if !c.fastOpen {
+		// Read response
+		var sr serverResponse
+		err = struc.Unpack(stream, &sr)
+		if err != nil {
+			_ = stream.Close()
+			return nil, err
+		}
+		if !sr.OK {
+			_ = stream.Close()
+			return nil, fmt.Errorf("connection rejected: %s", sr.Message)
+		}
 	}
 	return &hyTCPConn{
 		Orig:             stream,
 		PseudoLocalAddr:  session.LocalAddr(),
 		PseudoRemoteAddr: session.RemoteAddr(),
+		Established:      !c.fastOpen,
 	}, nil
 }
 
@@ -306,9 +314,23 @@ type hyTCPConn struct {
 	Orig             quic.Stream
 	PseudoLocalAddr  net.Addr
 	PseudoRemoteAddr net.Addr
+	Established      bool
 }
 
 func (w *hyTCPConn) Read(b []byte) (n int, err error) {
+	if !w.Established {
+		var sr serverResponse
+		err := struc.Unpack(w.Orig, &sr)
+		if err != nil {
+			_ = w.Close()
+			return 0, err
+		}
+		if !sr.OK {
+			_ = w.Close()
+			return 0, fmt.Errorf("connection rejected: %s", sr.Message)
+		}
+		w.Established = true
+	}
 	return w.Orig.Read(b)
 }
 
