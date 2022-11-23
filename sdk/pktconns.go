@@ -23,13 +23,27 @@ var clientPacketConnFuncFactoryMap = map[Protocol]clientPacketConnFuncFactory{
 	ProtocolFakeTCP: newClientFakeTCPConnFunc,
 }
 
+func resolveFuncToIPResolveFunc(resolveFunc ResolveFunc) func(network string, address string) (*net.IPAddr, error) {
+	return func(network string, address string) (*net.IPAddr, error) {
+		addr, err := resolveFunc(network, address)
+		if err != nil {
+			return nil, err
+		}
+		if ipAddr, ok := addr.(*net.IPAddr); ok {
+			return ipAddr, nil
+		}
+		return nil, net.InvalidAddrError("not an IP address")
+	}
+}
+
 func newClientUDPConnFunc(obfsPassword string, hopInterval time.Duration,
 	resolveFunc ResolveFunc, listenUDPFunc ListenUDPFunc,
 ) pktconns.ClientPacketConnFunc {
 	if obfsPassword == "" {
 		return func(server string) (net.PacketConn, net.Addr, error) {
 			if isMultiPortAddr(server) {
-				return udp.NewObfsUDPHopClientPacketConn(server, hopInterval, nil)
+				return udp.NewObfsUDPHopClientPacketConn(server, hopInterval, nil,
+					resolveFuncToIPResolveFunc(resolveFunc), listenUDPFunc)
 			}
 			sAddr, err := resolveFunc("udp", server)
 			if err != nil {
@@ -42,7 +56,8 @@ func newClientUDPConnFunc(obfsPassword string, hopInterval time.Duration,
 		return func(server string) (net.PacketConn, net.Addr, error) {
 			if isMultiPortAddr(server) {
 				ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
-				return udp.NewObfsUDPHopClientPacketConn(server, hopInterval, ob)
+				return udp.NewObfsUDPHopClientPacketConn(server, hopInterval, ob,
+					resolveFuncToIPResolveFunc(resolveFunc), listenUDPFunc)
 			}
 			sAddr, err := resolveFunc("udp", server)
 			if err != nil {

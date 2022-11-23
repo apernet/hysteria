@@ -156,7 +156,7 @@ type ClientConfig struct {
 	QUICConfig *quic.Config
 }
 
-// fill fills in the default values (if not set) for the configuration.
+// fill in the default values (if not set) for the configuration.
 func (c *ClientConfig) fill() {
 	if c.ResolveFunc == nil {
 		c.ResolveFunc = func(network string, address string) (net.Addr, error) {
@@ -165,6 +165,8 @@ func (c *ClientConfig) fill() {
 				return net.ResolveTCPAddr(network, address)
 			case "udp", "udp4", "udp6":
 				return net.ResolveUDPAddr(network, address)
+			case "ip", "ip4", "ip6":
+				return net.ResolveIPAddr(network, address)
 			default:
 				return nil, errors.New("unsupported network type")
 			}

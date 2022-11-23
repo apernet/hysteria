@@ -24,7 +24,8 @@ type ObfsUDPHopClientPacketConn struct {
 	serverAddrs []net.Addr
 	hopInterval time.Duration
 
-	obfs obfs.Obfuscator
+	obfs       obfs.Obfuscator
+	listenFunc func(network string, laddr *net.UDPAddr) (*net.UDPConn, error)
 
 	connMutex   sync.RWMutex
 	prevConn    net.PacketConn
@@ -57,13 +58,16 @@ type udpPacket struct {
 	addr net.Addr
 }
 
-func NewObfsUDPHopClientPacketConn(server string, hopInterval time.Duration, obfs obfs.Obfuscator) (*ObfsUDPHopClientPacketConn, net.Addr, error) {
+func NewObfsUDPHopClientPacketConn(server string, hopInterval time.Duration, obfs obfs.Obfuscator,
+	resolveFunc func(network string, address string) (*net.IPAddr, error),
+	listenFunc func(network string, laddr *net.UDPAddr) (*net.UDPConn, error),
+) (*ObfsUDPHopClientPacketConn, net.Addr, error) {
 	host, ports, err := parseAddr(server)
 	if err != nil {
 		return nil, nil, err
 	}
 	// Resolve the server IP address, then attach the ports to UDP addresses
-	ip, err := net.ResolveIPAddr("ip", host)
+	ip, err := resolveFunc("ip", host)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -80,6 +84,7 @@ func NewObfsUDPHopClientPacketConn(server string, hopInterval time.Duration, obf
 		serverAddrs: serverAddrs,
 		hopInterval: hopInterval,
 		obfs:        obfs,
+		listenFunc:  listenFunc,
 		addrIndex:   rand.Intn(len(serverAddrs)),
 		recvQueue:   make(chan *udpPacket, packetQueueSize),
 		closeChan:   make(chan struct{}),
@@ -89,7 +94,7 @@ func NewObfsUDPHopClientPacketConn(server string, hopInterval time.Duration, obf
 			},
 		},
 	}
-	curConn, err := net.ListenUDP("udp", nil)
+	curConn, err := listenFunc("udp", nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -138,7 +143,7 @@ func (c *ObfsUDPHopClientPacketConn) hop() {
 	if c.closed {
 		return
 	}
-	newConn, err := net.ListenUDP("udp", nil)
+	newConn, err := c.listenFunc("udp", nil)
 	if err != nil {
 		// Skip this hop if failed to listen
 		return

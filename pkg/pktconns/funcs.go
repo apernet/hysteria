@@ -41,7 +41,7 @@ func NewClientUDPConnFunc(obfsPassword string, hopInterval time.Duration) Client
 	if obfsPassword == "" {
 		return func(server string) (net.PacketConn, net.Addr, error) {
 			if isMultiPortAddr(server) {
-				return udp.NewObfsUDPHopClientPacketConn(server, hopInterval, nil)
+				return udp.NewObfsUDPHopClientPacketConn(server, hopInterval, nil, net.ResolveIPAddr, net.ListenUDP)
 			}
 			sAddr, err := net.ResolveUDPAddr("udp", server)
 			if err != nil {
@@ -54,7 +54,7 @@ func NewClientUDPConnFunc(obfsPassword string, hopInterval time.Duration) Client
 		return func(server string) (net.PacketConn, net.Addr, error) {
 			if isMultiPortAddr(server) {
 				ob := obfs.NewXPlusObfuscator([]byte(obfsPassword))
-				return udp.NewObfsUDPHopClientPacketConn(server, hopInterval, ob)
+				return udp.NewObfsUDPHopClientPacketConn(server, hopInterval, ob, net.ResolveIPAddr, net.ListenUDP)
 			}
 			sAddr, err := net.ResolveUDPAddr("udp", server)
 			if err != nil {
