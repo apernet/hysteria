@@ -73,7 +73,7 @@ func startTUN(config *clientConfig, client *core.Client, errChan chan error) {
 		}
 	}
 
-	tunServer, err := tun.NewServer(client, time.Duration(config.TUN.Timeout)*time.Second,
+	tunServer, err := tun.NewServer(client, timeout,
 		config.TUN.Name, config.TUN.MTU,
 		int(tcpSendBufferSize), int(tcpReceiveBufferSize), config.TUN.TCPModerateReceiveBuffer)
 	if err != nil {
