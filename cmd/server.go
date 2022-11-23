@@ -7,11 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/apernet/hysteria/pkg/pktconns"
-
 	"github.com/apernet/hysteria/cmd/auth"
 	"github.com/apernet/hysteria/pkg/acl"
 	"github.com/apernet/hysteria/pkg/core"
+	"github.com/apernet/hysteria/pkg/pktconns"
 	"github.com/apernet/hysteria/pkg/pmtud"
 	"github.com/apernet/hysteria/pkg/sockopt"
 	"github.com/apernet/hysteria/pkg/transport"
@@ -22,14 +21,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 )
-
-var serverPacketConnFuncFactoryMap = map[string]pktconns.ServerPacketConnFuncFactory{
-	"":             pktconns.NewServerUDPConnFunc,
-	"udp":          pktconns.NewServerUDPConnFunc,
-	"wechat":       pktconns.NewServerWeChatConnFunc,
-	"wechat-video": pktconns.NewServerWeChatConnFunc,
-	"faketcp":      pktconns.NewServerFakeTCPConnFunc,
-}
 
 func server(config *serverConfig) {
 	logrus.WithField("config", config.String()).Info("Server configuration loaded")
@@ -207,7 +198,7 @@ func server(config *serverConfig) {
 		}()
 	}
 	// Packet conn
-	pktConnFuncFactory := serverPacketConnFuncFactoryMap[config.Protocol]
+	pktConnFuncFactory := pktconns.ServerPacketConnFuncFactoryMap[config.Protocol]
 	if pktConnFuncFactory == nil {
 		logrus.WithField("protocol", config.Protocol).Fatal("Unsupported protocol")
 	}

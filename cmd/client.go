@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/apernet/hysteria/pkg/pktconns"
-
 	"github.com/apernet/hysteria/pkg/pmtud"
 	"github.com/apernet/hysteria/pkg/redirect"
 	"github.com/oschwald/geoip2-golang"
@@ -28,14 +27,6 @@ import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/sirupsen/logrus"
 )
-
-var clientPacketConnFuncFactoryMap = map[string]pktconns.ClientPacketConnFuncFactory{
-	"":             pktconns.NewClientUDPConnFunc,
-	"udp":          pktconns.NewClientUDPConnFunc,
-	"wechat":       pktconns.NewClientWeChatConnFunc,
-	"wechat-video": pktconns.NewClientWeChatConnFunc,
-	"faketcp":      pktconns.NewClientFakeTCPConnFunc,
-}
 
 func client(config *clientConfig) {
 	logrus.WithField("config", config.String()).Info("Client configuration loaded")
@@ -96,7 +87,7 @@ func client(config *clientConfig) {
 		auth = []byte(config.AuthString)
 	}
 	// Packet conn
-	pktConnFuncFactory := clientPacketConnFuncFactoryMap[config.Protocol]
+	pktConnFuncFactory := pktconns.ClientPacketConnFuncFactoryMap[config.Protocol]
 	if pktConnFuncFactory == nil {
 		logrus.WithFields(logrus.Fields{
 			"protocol": config.Protocol,

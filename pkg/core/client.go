@@ -189,7 +189,9 @@ func (c *Client) openStreamWithReconnect() (quic.Connection, quic.Stream, error)
 		// Temporary error, just return
 		return nil, nil, err
 	}
-	c.quicReconnectFunc(err)
+	if c.quicReconnectFunc != nil {
+		c.quicReconnectFunc(err)
+	}
 	// Permanent error, need to reconnect
 	if err := c.connect(); err != nil {
 		// Still error, oops

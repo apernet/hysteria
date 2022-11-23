@@ -21,6 +21,22 @@ type (
 	ServerPacketConnFuncFactory func(obfsPassword string) ServerPacketConnFunc
 )
 
+var ClientPacketConnFuncFactoryMap = map[string]ClientPacketConnFuncFactory{
+	"":             NewClientUDPConnFunc,
+	"udp":          NewClientUDPConnFunc,
+	"wechat":       NewClientWeChatConnFunc,
+	"wechat-video": NewClientWeChatConnFunc,
+	"faketcp":      NewClientFakeTCPConnFunc,
+}
+
+var ServerPacketConnFuncFactoryMap = map[string]ServerPacketConnFuncFactory{
+	"":             NewServerUDPConnFunc,
+	"udp":          NewServerUDPConnFunc,
+	"wechat":       NewServerWeChatConnFunc,
+	"wechat-video": NewServerWeChatConnFunc,
+	"faketcp":      NewServerFakeTCPConnFunc,
+}
+
 func NewClientUDPConnFunc(obfsPassword string, hopInterval time.Duration) ClientPacketConnFunc {
 	if obfsPassword == "" {
 		return func(server string) (net.PacketConn, net.Addr, error) {
