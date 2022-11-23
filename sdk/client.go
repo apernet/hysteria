@@ -26,8 +26,9 @@ const (
 )
 
 type (
-	Protocol    string
-	ResolveFunc func(network string, address string) (net.Addr, error)
+	Protocol      string
+	ResolveFunc   func(network string, address string) (net.Addr, error)
+	ListenUDPFunc func(network string, laddr *net.UDPAddr) (*net.UDPConn, error)
 )
 
 const (
@@ -74,6 +75,12 @@ type ClientConfig struct {
 	// ResolveFunc is the function used to resolve the server address.
 	// If not set, the default resolver will be used.
 	ResolveFunc ResolveFunc
+
+	// ListenUDPFunc is the function used to listen on a UDP port.
+	// If not set, the default listener will be used.
+	// Please note that ProtocolFakeTCP does NOT use this function,
+	// as it is not a UDP-based protocol and has its own stack.
+	ListenUDPFunc ListenUDPFunc
 
 	// Protocol is the protocol to use.
 	// It must be one of the following:
@@ -163,6 +170,9 @@ func (c *ClientConfig) fill() {
 			}
 		}
 	}
+	if c.ListenUDPFunc == nil {
+		c.ListenUDPFunc = net.ListenUDP
+	}
 	if c.Protocol == "" {
 		c.Protocol = ProtocolUDP
 	}
@@ -222,7 +232,7 @@ func NewClient(config ClientConfig) (Client, error) {
 	if pff == nil {
 		return nil, errors.New("unsupported protocol")
 	}
-	pf := pff(config.Obfs, config.HopInterval, config.ResolveFunc)
+	pf := pff(config.Obfs, config.HopInterval, config.ResolveFunc, config.ListenUDPFunc)
 	c, err := core.NewClient(config.ServerAddress, config.Auth, tlsConfig, quicConfig, pf,
 		config.SendBPS, config.RecvBPS, nil)
 	if err != nil {

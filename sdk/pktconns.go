@@ -13,7 +13,8 @@ import (
 )
 
 type (
-	clientPacketConnFuncFactory func(obfsPassword string, hopInterval time.Duration, resolveFunc ResolveFunc) pktconns.ClientPacketConnFunc
+	clientPacketConnFuncFactory func(obfsPassword string, hopInterval time.Duration,
+		resolveFunc ResolveFunc, listenUDPFunc ListenUDPFunc) pktconns.ClientPacketConnFunc
 )
 
 var clientPacketConnFuncFactoryMap = map[Protocol]clientPacketConnFuncFactory{
@@ -22,7 +23,9 @@ var clientPacketConnFuncFactoryMap = map[Protocol]clientPacketConnFuncFactory{
 	ProtocolFakeTCP: newClientFakeTCPConnFunc,
 }
 
-func newClientUDPConnFunc(obfsPassword string, hopInterval time.Duration, resolveFunc ResolveFunc) pktconns.ClientPacketConnFunc {
+func newClientUDPConnFunc(obfsPassword string, hopInterval time.Duration,
+	resolveFunc ResolveFunc, listenUDPFunc ListenUDPFunc,
+) pktconns.ClientPacketConnFunc {
 	if obfsPassword == "" {
 		return func(server string) (net.PacketConn, net.Addr, error) {
 			if isMultiPortAddr(server) {
@@ -32,7 +35,7 @@ func newClientUDPConnFunc(obfsPassword string, hopInterval time.Duration, resolv
 			if err != nil {
 				return nil, nil, err
 			}
-			udpConn, err := net.ListenUDP("udp", nil)
+			udpConn, err := listenUDPFunc("udp", nil)
 			return udpConn, sAddr, err
 		}
 	} else {
@@ -45,7 +48,7 @@ func newClientUDPConnFunc(obfsPassword string, hopInterval time.Duration, resolv
 			if err != nil {
 				return nil, nil, err
 			}
-			udpConn, err := net.ListenUDP("udp", nil)
+			udpConn, err := listenUDPFunc("udp", nil)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -55,14 +58,16 @@ func newClientUDPConnFunc(obfsPassword string, hopInterval time.Duration, resolv
 	}
 }
 
-func newClientWeChatConnFunc(obfsPassword string, hopInterval time.Duration, resolveFunc ResolveFunc) pktconns.ClientPacketConnFunc {
+func newClientWeChatConnFunc(obfsPassword string, hopInterval time.Duration,
+	resolveFunc ResolveFunc, listenUDPFunc ListenUDPFunc,
+) pktconns.ClientPacketConnFunc {
 	if obfsPassword == "" {
 		return func(server string) (net.PacketConn, net.Addr, error) {
 			sAddr, err := resolveFunc("udp", server)
 			if err != nil {
 				return nil, nil, err
 			}
-			udpConn, err := net.ListenUDP("udp", nil)
+			udpConn, err := listenUDPFunc("udp", nil)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -74,7 +79,7 @@ func newClientWeChatConnFunc(obfsPassword string, hopInterval time.Duration, res
 			if err != nil {
 				return nil, nil, err
 			}
-			udpConn, err := net.ListenUDP("udp", nil)
+			udpConn, err := listenUDPFunc("udp", nil)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -84,7 +89,9 @@ func newClientWeChatConnFunc(obfsPassword string, hopInterval time.Duration, res
 	}
 }
 
-func newClientFakeTCPConnFunc(obfsPassword string, hopInterval time.Duration, resolveFunc ResolveFunc) pktconns.ClientPacketConnFunc {
+func newClientFakeTCPConnFunc(obfsPassword string, hopInterval time.Duration,
+	resolveFunc ResolveFunc, listenUDPFunc ListenUDPFunc,
+) pktconns.ClientPacketConnFunc {
 	if obfsPassword == "" {
 		return func(server string) (net.PacketConn, net.Addr, error) {
 			sAddr, err := resolveFunc("tcp", server)
