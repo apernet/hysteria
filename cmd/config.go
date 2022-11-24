@@ -223,6 +223,7 @@ type clientConfig struct {
 	ReceiveWindowConn   uint64 `json:"recv_window_conn"`
 	ReceiveWindow       uint64 `json:"recv_window"`
 	DisableMTUDiscovery bool   `json:"disable_mtu_discovery"`
+	FastOpen            bool   `json:"fast_open"`
 	Resolver            string `json:"resolver"`
 	ResolvePreference   string `json:"resolve_preference"`
 }

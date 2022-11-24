@@ -134,7 +134,7 @@ func client(config *clientConfig) {
 	up, down, _ := config.Speed()
 	for {
 		try += 1
-		c, err := core.NewClient(config.Server, auth, tlsConfig, quicConfig, pktConnFunc, up, down,
+		c, err := core.NewClient(config.Server, auth, tlsConfig, quicConfig, pktConnFunc, up, down, config.FastOpen,
 			func(err error) {
 				if config.QuitOnDisconnect {
 					logrus.WithFields(logrus.Fields{

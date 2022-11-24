@@ -184,3 +184,5 @@ hy_linux
 .vscode
 
 /build/
+
+config*.json
