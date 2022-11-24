@@ -12,7 +12,7 @@ tasks:
         sh: git rev-parse HEAD
       BUILD_DATE:
         sh: date "+%Y%m%d%H%M%S"
-    dir: ./cmd
+    dir: ./app/cmd/
     cmds:
       - |
         GOOS={{.GOOS}} GOARCH={{.GOARCH}} GOARM={{.GOARM}} GOMIPS={{.GOMIPS}} \

@@ -52,7 +52,7 @@ for platform in "${platforms[@]}"; do
     if [ $GOOS = "windows" ]; then
         output="$output.exe"
     fi
-    env GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build -o $output -tags=gpl -ldflags "$ldflags" -trimpath ./cmd/
+    env GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build -o $output -tags=gpl -ldflags "$ldflags" -trimpath ./app/cmd/
     if [ $? -ne 0 ]; then
         echo "Error: failed to build $GOOS/$GOARCH"
         exit 1
