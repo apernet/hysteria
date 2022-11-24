@@ -49,6 +49,8 @@ github.com/antonfisher/nested-logrus-formatter v1.3.1 h1:NFJIr+pzwv5QLHTPyKz9UME
 github.com/antonfisher/nested-logrus-formatter v1.3.1/go.mod h1:6WTfyWFkBc9+zyBaKIqRrg/KwMqBbodBjgbHjDz7zjA=
 github.com/apernet/go-tproxy v0.0.0-20221025153553-ed04a2935f88 h1:YNsl7PMiU9x/0CleMHJ7GUdS8y1aRTFwTxdSmLLEijQ=
 github.com/apernet/go-tproxy v0.0.0-20221025153553-ed04a2935f88/go.mod h1:uxH+nFzlJug5OHjPYmzKwvVVb9wOToeGuLNVeerwWtc=
+github.com/apernet/goproxy v0.0.0-20221124043924-155acfaf278f h1:v3Bn97M5KWzdVajNphf3PxoHdsRF/RzBVovIsH/DEvY=
+github.com/apernet/goproxy v0.0.0-20221124043924-155acfaf278f/go.mod h1:Ro8st/ElPeALwNFlcTpWmkr6IoMFfkjXAvTHpevnDsM=
 github.com/apernet/quic-go v0.31.1-0.20221119235156-55bf700f2dd4 h1:rNk86XSaAK/nPyab0ZxI2uRWwYqse9JehOVG+ijOh0I=
 github.com/apernet/quic-go v0.31.1-0.20221119235156-55bf700f2dd4/go.mod h1:0wFbizLgYzqHqtlyxyCaJKlE7bYgE6JQ+54TLd/Dq2g=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
@@ -78,8 +80,6 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
-github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819 h1:RIB4cRk+lBqKK3Oy0r2gRX4ui7tuhiZq2SuTtTCi0/0=
-github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819/go.mod h1:Ro8st/ElPeALwNFlcTpWmkr6IoMFfkjXAvTHpevnDsM=
 github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2/go.mod h1:gNh8nYJoAm43RfaxurUnxr+N1PwuFV3ZMl/efxlIlY8=
 github.com/elazarl/goproxy/ext v0.0.0-20221015165544-a0805db90819 h1:PBc3oUutXxwCibSLQCmpunGvruDnoS6kdnaL7a0xwKY=
 github.com/elazarl/goproxy/ext v0.0.0-20221015165544-a0805db90819/go.mod h1:gNh8nYJoAm43RfaxurUnxr+N1PwuFV3ZMl/efxlIlY8=
