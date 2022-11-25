@@ -12,11 +12,11 @@ tasks:
         sh: git rev-parse HEAD
       BUILD_DATE:
         sh: date "+%Y%m%d%H%M%S"
-    dir: ./cmd
+    dir: ./app/cmd/
     cmds:
       - |
         GOOS={{.GOOS}} GOARCH={{.GOARCH}} GOARM={{.GOARM}} GOMIPS={{.GOMIPS}} \
-        go build -trimpath -o ../dist/hysteria-{{.TASK}} -ldflags \
+        go build -trimpath -o ../../dist/hysteria-{{.TASK}} -ldflags \
         "-w -s -X main.appCommit={{.BUILD_COMMIT}} -X main.appDate={{.BUILD_DATE}}"
   linux-386:
     cmds:

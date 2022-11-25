@@ -59,7 +59,7 @@ foreach ($platform in $platforms) {
     if ($env:GOOS -eq "windows") {
         $output = "$output.exe"
     }
-    go build -o $output -tags=gpl -ldflags $ldflags -trimpath ./cmd/
+    go build -o $output -tags=gpl -ldflags $ldflags -trimpath ./app/cmd/
     if ($LastExitCode -ne 0) {
         Write-Host "Error: failed to build $env:GOOS/$env:GOARCH" -ForegroundColor Red
         exit 1
