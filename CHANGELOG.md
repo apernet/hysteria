@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+- New `fast_open` option for client to reduce RTT when dialing TCP connections
+- Fix a bug where the HTTP proxy would not close connections properly
+- Minor performance improvements here and there
+
 ## 1.3.0
 
 - Connection migration: clients can now seamlessly switch between networks without losing their connection to the server
