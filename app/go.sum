@@ -51,8 +51,8 @@ github.com/apernet/go-tproxy v0.0.0-20221025153553-ed04a2935f88 h1:YNsl7PMiU9x/0
 github.com/apernet/go-tproxy v0.0.0-20221025153553-ed04a2935f88/go.mod h1:uxH+nFzlJug5OHjPYmzKwvVVb9wOToeGuLNVeerwWtc=
 github.com/apernet/goproxy v0.0.0-20221124043924-155acfaf278f h1:v3Bn97M5KWzdVajNphf3PxoHdsRF/RzBVovIsH/DEvY=
 github.com/apernet/goproxy v0.0.0-20221124043924-155acfaf278f/go.mod h1:Ro8st/ElPeALwNFlcTpWmkr6IoMFfkjXAvTHpevnDsM=
-github.com/apernet/quic-go v0.31.1-0.20221119235156-55bf700f2dd4 h1:rNk86XSaAK/nPyab0ZxI2uRWwYqse9JehOVG+ijOh0I=
-github.com/apernet/quic-go v0.31.1-0.20221119235156-55bf700f2dd4/go.mod h1:0wFbizLgYzqHqtlyxyCaJKlE7bYgE6JQ+54TLd/Dq2g=
+github.com/apernet/quic-go v0.31.1-0.20221126080508-c4a37bf8f6d7 h1:wvamuH2V9V2JP60DMYrsn3k9nNkcXHttV4KQ8W3Ah1Y=
+github.com/apernet/quic-go v0.31.1-0.20221126080508-c4a37bf8f6d7/go.mod h1:0wFbizLgYzqHqtlyxyCaJKlE7bYgE6JQ+54TLd/Dq2g=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
