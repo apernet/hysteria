@@ -299,6 +299,7 @@ WantedBy=multi-user.target" > /lib/systemd/system/hysteria-server@.service
 }
 
 start_hysteria() {
+  HYSTERIA_CUSTOMIZE="$(systemctl list-units | grep 'hysteria' | awk -F ' ' '{print $1}')"
   if [[ -f '/lib/systemd/system/hysteria-server.service' ]]; then
     if systemctl start "${HYSTERIA_CUSTOMIZE:-hysteria}"; then
       echo 'info: Start the Hystaria service.'
@@ -310,7 +311,7 @@ start_hysteria() {
 }
 
 stop_hysteria() {
-  HYSTERIA_CUSTOMIZE="$(systemctl list-units | grep 'hysteria@' | awk -F ' ' '{print $1}')"
+  HYSTERIA_CUSTOMIZE="$(systemctl list-units | grep 'hysteria' | awk -F ' ' '{print $1}')"
   if [[ -z "$HYSTERIA_CUSTOMIZE" ]]; then
     local hysteria_daemon_to_stop='hysteria-server.service'
   else
