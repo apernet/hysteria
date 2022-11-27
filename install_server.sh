@@ -719,7 +719,6 @@ get_latest_version() {
   _latest_version=${_latest_version%'"'}
 
   if [[ -n "$_latest_version" ]]; then
-    VERSION="$_latest_version"
     echo "$_latest_version"
   fi
 
