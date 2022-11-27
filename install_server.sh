@@ -300,7 +300,7 @@ WantedBy=multi-user.target" > /lib/systemd/system/hysteria-server@.service
 
 start_hysteria() {
   if [[ -f '/lib/systemd/system/hysteria-server.service' ]]; then
-    if systemctl start "${HYSTERIA_CUSTOMIZE:-hysteria}"; then
+    if systemctl start "${HYSTERIA_CUSTOMIZE:-hysteria-server}"; then
       echo 'info: Start the Hystaria service.'
     else
       echo '${red}error: Failed to start Hystaria service.'
