@@ -25,8 +25,6 @@ EXECUTABLE_INSTALL_PATH="/usr/local/bin/hysteria"
 
 # Paths to install systemd files
 SYSTEMD_SERVICES_DIR="/etc/systemd/system"
-SYSTEMD_SYSUSERS_DIR="/etc/sysusers.d"
-SYSTEMD_TMPFILES_DIR="/etc/tmpfiles.d"
 
 # Directory to store hysteria config file
 CONFIG_DIR="/etc/hysteria"
@@ -155,24 +153,6 @@ systemctl() {
   fi
 
   command systemctl "$@"
-}
-
-systemd-sysusers() {
-  if [[ "x$FORCE_NO_SYSTEMD" == "x2" ]] || ! has_command systemd-sysusers; then
-    warning "Ignored systemd command: systemd-sysusers $@"
-    return
-  fi
-
-  command systemd-sysusers "$@"
-}
-
-systemd-tmpfiles() {
-  if [[ "x$FORCE_NO_SYSTEMD" == "x2" ]] || ! has_command systemd-tmpfiles; then
-    warning "Ignored systemd command: systemd-tmpfiles $@"
-    return
-  fi
-
-  command systemd-tmpfiles "$@"
 }
 
 show_argument_error_and_exit() {
@@ -409,7 +389,7 @@ vercmp_segment() {
     echo 1
     return
   fi
-  local _numcmp=$(("$_lhs_num" - "$_rhs_num"))
+  local _numcmp=$(($_lhs_num - $_rhs_num))
   if [[ "$_numcmp" -ne 0 ]]; then
     echo "$_numcmp"
     return
@@ -626,20 +606,6 @@ tpl_etc_hysteria_config_json() {
 EOF
 }
 
-# /etc/sysusers.d/hysteria.conf
-tpl_sysusers_conf() {
-  cat << EOF
-u $HYSTERIA_USER - "Hysteria" $HYSTERIA_HOME_DIR
-EOF
-}
-
-# /etc/tmpfiles.d/hysteria.conf
-tpl_tmpfiles_conf() {
-  cat << EOF
-d $HYSTERIA_HOME_DIR 0750 $HYSTERIA_USER $HYSTERIA_USER
-EOF
-}
-
 
 ###
 # SYSTEMD
@@ -820,21 +786,19 @@ perform_install_hysteria_example_config() {
 }
 
 perform_install_hysteria_systemd() {
+  if [[ "x$FORCE_NO_SYSTEMD" == "x2" ]]; then
+    return
+  fi
+
   install_content -Dm644 "$(tpl_hysteria_server_service)" "$SYSTEMD_SERVICES_DIR/hysteria-server.service"
   install_content -Dm644 "$(tpl_hysteria_server_x_service)" "$SYSTEMD_SERVICES_DIR/hysteria-server@.service"
-  install_content -Dm644 "$(tpl_sysusers_conf)" "$SYSTEMD_SYSUSERS_DIR/hysteria.conf"
-  install_content -Dm644 "$(tpl_tmpfiles_conf)" "$SYSTEMD_TMPFILES_DIR/hysteria.conf"
 
   systemctl daemon-reload
-  systemd-sysusers
-  systemd-tmpfiles --create
 }
 
 perform_remove_hysteria_systemd() {
   remove_file "$SYSTEMD_SERVICES_DIR/hysteria-server.service"
   remove_file "$SYSTEMD_SERVICES_DIR/hysteria-server@.service"
-  remove_file "$SYSTEMD_SYSUSERS_DIR/hysteria.conf"
-  remove_file "$SYSTEMD_TMPFILES_DIR/hysteria.conf"
 
   systemctl daemon-reload
 }
@@ -873,12 +837,8 @@ perform_install() {
 
   perform_install_hysteria_binary
   perform_install_hysteria_example_config
-
-  if [[ "x$FORCE_NO_SYSTEMD" == "x2" ]]; then
-    perform_install_hysteria_home_legacy
-  else
-    perform_install_hysteria_systemd
-  fi
+  perform_install_hysteria_home_legacy
+  perform_install_hysteria_systemd
 
   if [[ -n "$_is_frash_install" ]]; then
     echo
