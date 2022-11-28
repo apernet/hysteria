@@ -41,7 +41,7 @@ HYSTERIA_HOME_DIR="/var/lib/hysteria"
 # curl command line flags.
 # To using a proxy, please specify ALL_PROXY in the environ variable, such like:
 # export ALL_PROXY=socks5h://192.0.2.1:1080
-CURL_FLAGS=(-L -q --retry 5 --retry-delay 10 --retry-max-time 60)
+CURL_FLAGS=(-L -f -q --retry 5 --retry-delay 10 --retry-max-time 60)
 
 
 ###
