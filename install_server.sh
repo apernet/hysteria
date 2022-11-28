@@ -17,6 +17,9 @@ set -e
 # Basename of this script
 SCRIPT_NAME="$(basename "$0")"
 
+# Command line arguments of this script
+SCRIPT_ARGS=("$@")
+
 # Path for installing executable
 EXECUTABLE_INSTALL_PATH="/usr/local/bin/hysteria"
 
@@ -272,8 +275,7 @@ check_permission() {
     *)
       if has_command sudo; then
         note "Re-running this script with sudo, you can also specify FORCE_NO_ROOT=1 to force this script running with current user."
-        sudo "$0" "$@"
-        exit $?
+        exec sudo "$0" "${SCRIPT_ARGS[@]}"
       else
         error "Please run this script with root or specify FORCE_NO_ROOT=1 to force this script running with current user."
         exit 13
