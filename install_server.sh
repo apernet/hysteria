@@ -581,7 +581,7 @@ tpl_hysteria_server_service_base() {
 
   cat << EOF
 [Unit]
-Description=Hysteria Server Service
+Description=Hysteria Server Service (${_config_name}.json)
 After=network.target
 
 [Service]
