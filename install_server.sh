@@ -911,7 +911,7 @@ perform_remove() {
   echo -e "You still need to remove configuration files and ACME certificates manually with the following commands:"
   echo
   echo -e "\t$(tred)rm -rf "$CONFIG_DIR"$(treset)"
-  echo -e "\t$(tred)userdel -f "$HYSTERIA_USER"$(treset)"
+  echo -e "\t$(tred)userdel -rf "$HYSTERIA_USER"$(treset)"
   if [[ "x$FORCE_NO_SYSTEMD" != "x2" ]]; then
     echo
     echo -e "You still might need to disable all related systemd services with the following commands:"
