@@ -146,6 +146,21 @@ error() {
   echo -e "$SCRIPT_NAME: $(tred)error: $_msg$(treset)"
 }
 
+has_prefix() {
+    local _s="$1"
+    local _prefix="$2"
+
+    if [[ -z "$_prefix" ]]; then
+        return 0
+    fi
+
+    if [[ -z "$_s" ]]; then
+        return 1
+    fi
+
+    [[ "x$_s" != "x${_s#"$_prefix"}" ]]
+}
+
 systemctl() {
   if [[ "x$FORCE_NO_SYSTEMD" == "x2" ]] || ! has_command systemctl; then
     warning "Ignored systemd command: systemctl $@"
@@ -501,6 +516,9 @@ parse_arguments() {
           show_argument_error_and_exit "Please specify the version for option '--version'."
         fi
         shift
+        if ! has_prefix "$VERSION" 'v'; then
+          show_argument_error_and_exit "Version numbers should begin with 'v' (such like 'v1.3.1'), got '$VERSION'"
+        fi
         ;;
       '-c' | '--check')
         if [[ -n "$OPERATION" && "$OPERATION" != 'check' ]]; then
