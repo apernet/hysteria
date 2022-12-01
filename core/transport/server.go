@@ -80,7 +80,11 @@ func (st *ServerTransport) ResolveIPAddr(address string) (*net.IPAddr, bool, err
 
 func (st *ServerTransport) DialTCP(raddr *AddrEx) (*net.TCPConn, error) {
 	if st.SOCKS5Client != nil {
-		return st.SOCKS5Client.DialTCP(raddr)
+		conn, err := st.SOCKS5Client.DialTCP(raddr)
+		if err != nil {
+			return nil, err
+		}
+		return conn.(*net.TCPConn), nil
 	} else {
 		conn, err := st.Dialer.Dial("tcp", raddr.String())
 		if err != nil {

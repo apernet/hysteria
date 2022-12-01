@@ -10,27 +10,29 @@ import (
 	"github.com/txthinking/socks5"
 )
 
+const (
+	negTimeout = 8 * time.Second
+)
+
 type SOCKS5Client struct {
-	ServerTCPAddr *net.TCPAddr
-	Username      string
-	Password      string
-	NegTimeout    time.Duration
+	Dialer     *net.Dialer
+	ServerAddr string
+	Username   string
+	Password   string
 }
 
-func NewSOCKS5Client(serverAddr string, username string, password string, negTimeout time.Duration) (*SOCKS5Client, error) {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", serverAddr)
-	if err != nil {
-		return nil, err
-	}
+func NewSOCKS5Client(serverAddr string, username string, password string) *SOCKS5Client {
 	return &SOCKS5Client{
-		ServerTCPAddr: tcpAddr,
-		Username:      username,
-		Password:      password,
-		NegTimeout:    negTimeout,
-	}, nil
+		Dialer: &net.Dialer{
+			Timeout: 8 * time.Second,
+		},
+		ServerAddr: serverAddr,
+		Username:   username,
+		Password:   password,
+	}
 }
 
-func (c *SOCKS5Client) negotiate(conn *net.TCPConn) error {
+func (c *SOCKS5Client) negotiate(conn net.Conn) error {
 	m := []byte{socks5.MethodNone}
 	if c.Username != "" && c.Password != "" {
 		m = append(m, socks5.MethodUsernamePassword)
@@ -63,7 +65,7 @@ func (c *SOCKS5Client) negotiate(conn *net.TCPConn) error {
 	return nil
 }
 
-func (c *SOCKS5Client) request(conn *net.TCPConn, r *socks5.Request) (*socks5.Reply, error) {
+func (c *SOCKS5Client) request(conn net.Conn, r *socks5.Request) (*socks5.Reply, error) {
 	if _, err := r.WriteTo(conn); err != nil {
 		return nil, err
 	}
@@ -74,12 +76,12 @@ func (c *SOCKS5Client) request(conn *net.TCPConn, r *socks5.Request) (*socks5.Re
 	return reply, nil
 }
 
-func (c *SOCKS5Client) DialTCP(raddr *AddrEx) (*net.TCPConn, error) {
-	conn, err := net.DialTCP("tcp", nil, c.ServerTCPAddr)
+func (c *SOCKS5Client) DialTCP(raddr *AddrEx) (net.Conn, error) {
+	conn, err := c.Dialer.Dial("tcp", c.ServerAddr)
 	if err != nil {
 		return nil, err
 	}
-	if err := conn.SetDeadline(time.Now().Add(c.NegTimeout)); err != nil {
+	if err := conn.SetDeadline(time.Now().Add(negTimeout)); err != nil {
 		_ = conn.Close()
 		return nil, err
 	}
@@ -112,11 +114,11 @@ func (c *SOCKS5Client) DialTCP(raddr *AddrEx) (*net.TCPConn, error) {
 }
 
 func (c *SOCKS5Client) ListenUDP() (STPacketConn, error) {
-	conn, err := net.DialTCP("tcp", nil, c.ServerTCPAddr)
+	conn, err := c.Dialer.Dial("tcp", c.ServerAddr)
 	if err != nil {
 		return nil, err
 	}
-	if err := conn.SetDeadline(time.Now().Add(c.NegTimeout)); err != nil {
+	if err := conn.SetDeadline(time.Now().Add(negTimeout)); err != nil {
 		_ = conn.Close()
 		return nil, err
 	}
@@ -145,7 +147,7 @@ func (c *SOCKS5Client) ListenUDP() (STPacketConn, error) {
 		_ = conn.Close()
 		return nil, err
 	}
-	udpConn, err := net.DialUDP("udp", nil, udpRelayAddr)
+	udpConn, err := c.Dialer.Dial("udp", udpRelayAddr.String())
 	if err != nil {
 		_ = conn.Close()
 		return nil, err
@@ -159,8 +161,8 @@ func (c *SOCKS5Client) ListenUDP() (STPacketConn, error) {
 }
 
 type socks5UDPConn struct {
-	tcpConn *net.TCPConn
-	udpConn *net.UDPConn
+	tcpConn net.Conn
+	udpConn net.Conn
 }
 
 func (c *socks5UDPConn) hold() {
