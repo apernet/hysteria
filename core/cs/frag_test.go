@@ -197,6 +197,50 @@ func Test_defragger_Feed(t *testing.T) {
 			},
 		},
 		{
+			"frag 0 - 1/2",
+			args{
+				udpMessage{
+					SessionID: 123,
+					HostLen:   4,
+					Host:      "test",
+					Port:      123,
+					MsgID:     0,
+					FragID:    0,
+					FragCount: 2,
+					DataLen:   5,
+					Data:      []byte("ilove"),
+				},
+			},
+			nil,
+		},
+		{
+			"frag 0 - 2/2",
+			args{
+				udpMessage{
+					SessionID: 123,
+					HostLen:   4,
+					Host:      "test",
+					Port:      123,
+					MsgID:     0,
+					FragID:    1,
+					FragCount: 2,
+					DataLen:   6,
+					Data:      []byte("nobody"),
+				},
+			},
+			&udpMessage{
+				SessionID: 123,
+				HostLen:   4,
+				Host:      "test",
+				Port:      123,
+				MsgID:     0,
+				FragID:    0,
+				FragCount: 1,
+				DataLen:   11,
+				Data:      []byte("ilovenobody"),
+			},
+		},
+		{
 			"frag 1 - 1/3",
 			args{
 				udpMessage{

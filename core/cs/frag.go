@@ -41,7 +41,7 @@ func (d *defragger) Feed(m udpMessage) *udpMessage {
 		// wtf is this?
 		return nil
 	}
-	if m.MsgID != d.msgID {
+	if m.MsgID != d.msgID || m.FragCount != uint8(len(d.frags)) {
 		// new message, clear previous state
 		d.msgID = m.MsgID
 		d.frags = make([]*udpMessage, m.FragCount)
