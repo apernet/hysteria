@@ -336,7 +336,7 @@ func (c *serverClient) handleUDP(stream quic.Stream) {
 				_ = struc.Pack(&msgBuf, &msg)
 				sendErr := c.CC.SendMessage(msgBuf.Bytes())
 				if sendErr != nil {
-					if errSize, ok := sendErr.(quic.ErrMessageToLarge); ok {
+					if errSize, ok := sendErr.(quic.ErrMessageTooLarge); ok {
 						// need to frag
 						msg.MsgID = uint16(rand.Intn(0xFFFF)) + 1 // msgID must be > 0 when fragCount > 1
 						fragMsgs := fragUDPMessage(msg, int(errSize))
