@@ -5,19 +5,25 @@ tasks:
     cmds:
       - rm -rf dist
       - mkdir -p dist
+  hash:
+    dir: ./dist
+    cmds:
+      - sha256sum hysteria-* > hashes.txt
   build-hysteria:
     label: build-{{.TASK}}
     vars:
+      BUILD_VERSION:
+        sh: git describe --tags
       BUILD_COMMIT:
         sh: git rev-parse HEAD
       BUILD_DATE:
-        sh: date "+%Y%m%d%H%M%S"
+        sh: date -u '+%F %T'
     dir: ./app/cmd/
     cmds:
       - |
-        GOOS={{.GOOS}} GOARCH={{.GOARCH}} GOARM={{.GOARM}} GOMIPS={{.GOMIPS}} \
+        GOOS={{.GOOS}} GOARCH={{.GOARCH}} GOARM={{.GOARM}} GOAMD64={{.GOAMD64}} GOMIPS={{.GOMIPS}} \
         go build -trimpath -o ../../dist/hysteria-{{.TASK}} -ldflags \
-        "-w -s -X main.appCommit={{.BUILD_COMMIT}} -X main.appDate={{.BUILD_DATE}}"
+        "-w -s -X 'main.appVersion={{.BUILD_VERSION}}' -X 'main.appCommit={{.BUILD_COMMIT}}' -X 'main.appDate={{.BUILD_DATE}}'"
   linux-386:
     cmds:
       - task: build-hysteria
@@ -129,12 +135,95 @@ tasks:
           GOOS: darwin,
           GOARCH: amd64
         }
+  darwin-amd64-v3:
+    cmds:
+      - task: build-hysteria
+        vars: {
+          TASK: "{{.TASK}}",
+          GOOS: darwin,
+          GOARCH: amd64,
+          GOAMD64: v3
+        }
   darwin-arm64:
     cmds:
       - task: build-hysteria
         vars: {
           TASK: "{{.TASK}}",
           GOOS: darwin,
+          GOARCH: arm64
+        }
+  freebsd-386:
+    cmds:
+      - task: build-hysteria
+        vars: {
+          TASK: "{{.TASK}}",
+          GOOS: freebsd,
+          GOARCH: 386
+        }
+  freebsd-amd64:
+    cmds:
+      - task: build-hysteria
+        vars: {
+          TASK: "{{.TASK}}",
+          GOOS: freebsd,
+          GOARCH: amd64
+        }
+  freebsd-amd64-v3:
+    cmds:
+      - task: build-hysteria
+        vars: {
+          TASK: "{{.TASK}}",
+          GOOS: freebsd,
+          GOARCH: amd64,
+          GOAMD64: v3
+        }
+  freebsd-arm:
+    cmds:
+      - task: build-hysteria
+        vars: {
+          TASK: "{{.TASK}}",
+          GOOS: freebsd,
+          GOARCH: arm
+        }
+  freebsd-arm64:
+    cmds:
+      - task: build-hysteria
+        vars: {
+          TASK: "{{.TASK}}",
+          GOOS: freebsd,
+          GOARCH: arm64
+        }
+  windows-386:
+    cmds:
+      - task: build-hysteria
+        vars: {
+          TASK: "{{.TASK}}.exe",
+          GOOS: windows,
+          GOARCH: 386
+        }
+  windows-amd64:
+    cmds:
+      - task: build-hysteria
+        vars: {
+          TASK: "{{.TASK}}.exe",
+          GOOS: freebsd,
+          GOARCH: amd64
+        }
+  windows-amd64-v3:
+    cmds:
+      - task: build-hysteria
+        vars: {
+          TASK: "{{.TASK}}.exe",
+          GOOS: freebsd,
+          GOARCH: amd64,
+          GOAMD64: v3
+        }
+  windows-arm64:
+    cmds:
+      - task: build-hysteria
+        vars: {
+          TASK: "{{.TASK}}.exe",
+          GOOS: freebsd,
           GOARCH: arm64
         }
   default:
@@ -153,4 +242,16 @@ tasks:
       - task: linux-mips64
       - task: linux-mips64le
       - task: darwin-amd64
+      - task: darwin-amd64-v3
       - task: darwin-arm64
+      - task: freebsd-386
+      - task: freebsd-amd64
+      - task: freebsd-amd64-v3
+      - task: freebsd-arm
+      - task: freebsd-arm64
+      - task: windows-386
+      - task: windows-amd64
+      - task: windows-amd64-v3
+      - task: windows-arm64
+      - task: hash
+
