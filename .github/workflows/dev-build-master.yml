@@ -6,6 +6,8 @@ on:
       - 'master'
     tags-ignore:
       - 'v*'
+      - 'core/v*'
+      - 'app/v*'
 
 jobs:
 
