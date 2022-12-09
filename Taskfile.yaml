@@ -40,14 +40,14 @@ tasks:
           GOOS: linux,
           GOARCH: amd64
         }
-  linux-amd64-v3:
+  linux-amd64-v4:
     cmds:
       - task: build-hysteria
         vars: {
           TASK: "{{.TASK}}",
           GOOS: linux,
           GOARCH: amd64,
-          GOAMD64: v3
+          GOAMD64: v4
         }
   linux-armv5:
     cmds:
@@ -135,14 +135,14 @@ tasks:
           GOOS: darwin,
           GOARCH: amd64
         }
-  darwin-amd64-v3:
+  darwin-amd64-v4:
     cmds:
       - task: build-hysteria
         vars: {
           TASK: "{{.TASK}}",
           GOOS: darwin,
           GOARCH: amd64,
-          GOAMD64: v3
+          GOAMD64: v4
         }
   darwin-arm64:
     cmds:
@@ -168,14 +168,14 @@ tasks:
           GOOS: freebsd,
           GOARCH: amd64
         }
-  freebsd-amd64-v3:
+  freebsd-amd64-v4:
     cmds:
       - task: build-hysteria
         vars: {
           TASK: "{{.TASK}}",
           GOOS: freebsd,
           GOARCH: amd64,
-          GOAMD64: v3
+          GOAMD64: v4
         }
   freebsd-arm:
     cmds:
@@ -206,24 +206,24 @@ tasks:
       - task: build-hysteria
         vars: {
           TASK: "{{.TASK}}.exe",
-          GOOS: freebsd,
+          GOOS: windows,
           GOARCH: amd64
         }
-  windows-amd64-v3:
+  windows-amd64-v4:
     cmds:
       - task: build-hysteria
         vars: {
           TASK: "{{.TASK}}.exe",
-          GOOS: freebsd,
+          GOOS: windows,
           GOARCH: amd64,
-          GOAMD64: v3
+          GOAMD64: v4
         }
   windows-arm64:
     cmds:
       - task: build-hysteria
         vars: {
           TASK: "{{.TASK}}.exe",
-          GOOS: freebsd,
+          GOOS: windows,
           GOARCH: arm64
         }
   default:
@@ -231,7 +231,7 @@ tasks:
       - task: clean
       - task: linux-386
       - task: linux-amd64
-      - task: linux-amd64-v3
+      - task: linux-amd64-v4
       - task: linux-armv5
       - task: linux-armv6
       - task: linux-armv7
@@ -242,16 +242,16 @@ tasks:
       - task: linux-mips64
       - task: linux-mips64le
       - task: darwin-amd64
-      - task: darwin-amd64-v3
+      - task: darwin-amd64-v4
       - task: darwin-arm64
       - task: freebsd-386
       - task: freebsd-amd64
-      - task: freebsd-amd64-v3
+      - task: freebsd-amd64-v4
       - task: freebsd-arm
       - task: freebsd-arm64
       - task: windows-386
       - task: windows-amd64
-      - task: windows-amd64-v3
+      - task: windows-amd64-v4
       - task: windows-arm64
       - task: hash
 
