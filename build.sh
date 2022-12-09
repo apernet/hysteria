@@ -8,6 +8,44 @@ set -e
 #   - HY_APP_COMMIT: App commit hash
 #   - HY_APP_PLATFORMS: Platforms to build for (e.g. "windows/amd64,linux/amd64,darwin/amd64")
 
+platform_to_env() {
+    local os=$1
+    local arch=$2
+    local env="GOOS=$os GOARCH=$arch CGO_ENABLED=0"
+
+    case $arch in
+    arm)
+        env+=" GOARM= GOARCH=arm"
+        ;;
+    armv5)
+        env+=" GOARM=5 GOARCH=arm"
+        ;;
+    armv6)
+        env+=" GOARM=6 GOARCH=arm"
+        ;;
+    armv7)
+        env+=" GOARM=7 GOARCH=arm"
+        ;;
+    mips | mipsle)
+        env+=" GOMIPS="
+        ;;
+    mips-sf)
+        env+=" GOMIPS=softfloat GOARCH=mips"
+        ;;
+    mipsle-sf)
+        env+=" GOMIPS=softfloat GOARCH=mipsle"
+        ;;
+    amd64)
+        env+=" GOAMD64= GOARCH=amd64"
+        ;;
+    amd64-avx)
+        env+=" GOAMD64=v3 GOARCH=amd64"
+        ;;
+    esac
+
+    echo $env
+}
+
 if ! [ -x "$(command -v go)" ]; then
     echo 'Error: go is not installed.' >&2
     exit 1
@@ -52,7 +90,8 @@ for platform in "${platforms[@]}"; do
     if [ $GOOS = "windows" ]; then
         output="$output.exe"
     fi
-    env GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build -o $output -tags=gpl -ldflags "$ldflags" -trimpath ./app/cmd/
+    envs=$(platform_to_env $GOOS $GOARCH)
+    env $envs go build -o $output -tags=gpl -ldflags "$ldflags" -trimpath ./app/cmd/
     if [ $? -ne 0 ]; then
         echo "Error: failed to build $GOOS/$GOARCH"
         exit 1

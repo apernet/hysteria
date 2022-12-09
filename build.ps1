@@ -5,6 +5,49 @@
 #   - HY_APP_COMMIT: App commit hash
 #   - HY_APP_PLATFORMS: Platforms to build for (e.g. "windows/amd64,linux/amd64,darwin/amd64")
 
+function PlatformToEnv($os, $arch) {
+    $env:CGO_ENABLED = 0
+    $env:GOOS = $os
+    $env:GOARCH = $arch
+    
+    switch -Regex ($arch) {
+        "arm" { 
+            $env:GOARM = "7"
+        }
+        "armv5" { 
+            $env:GOARM = "5"
+            $env:GOARCH = "arm"
+        }
+        "armv6" { 
+            $env:GOARM = "6"
+            $env:GOARCH = "arm"
+        }
+        "armv7" { 
+            $env:GOARM = "7"
+            $env:GOARCH = "arm"
+        }
+        "mips(le)?" {
+            $env:GOMIPS = ""
+        }
+        "mips-sf" {
+            $env:GOMIPS = "softfloat"
+            $env:GOARCH = "mips"
+        }
+        "mipsle-sf" {
+            $env:GOMIPS = "softfloat"
+            $env:GOARCH = "mipsle"
+        }
+        "amd64" {
+            $env:GOAMD64 = ""
+            $env:GOARCH = "amd64"
+        }
+        "amd64-avx" {
+            $env:GOAMD64 = "v3"
+            $env:GOARCH = "amd64"
+        }
+    }
+}
+
 if (!(Get-Command go -ErrorAction SilentlyContinue)) {
     Write-Host "Error: go is not installed." -ForegroundColor Red
     exit 1
@@ -49,19 +92,18 @@ New-Item -ItemType Directory -Force -Path build
 
 Write-Host "Starting build..." -ForegroundColor Green
 
-$env:CGO_ENABLED = 0
-
 foreach ($platform in $platforms) {
-    $env:GOOS = $platform.Split("/")[0]
-    $env:GOARCH = $platform.Split("/")[1]
-    Write-Host "Building $env:GOOS/$env:GOARCH" -ForegroundColor Green
-    $output = "build/hysteria-$env:GOOS-$env:GOARCH"
-    if ($env:GOOS -eq "windows") {
+    $os = $platform.Split("/")[0]
+    $arch = $platform.Split("/")[1]
+    PlatformToEnv $os $arch
+    Write-Host "Building $os/$arch" -ForegroundColor Green
+    $output = "build/hysteria-$os-$arch"
+    if ($os -eq "windows") {
         $output = "$output.exe"
     }
     go build -o $output -tags=gpl -ldflags $ldflags -trimpath ./app/cmd/
     if ($LastExitCode -ne 0) {
-        Write-Host "Error: failed to build $env:GOOS/$env:GOARCH" -ForegroundColor Red
+        Write-Host "Error: failed to build $os/$arch" -ForegroundColor Red
         exit 1
     }
 }
