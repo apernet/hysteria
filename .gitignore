@@ -184,5 +184,6 @@ hy_linux
 .vscode
 
 /build/
+/dist/
 
 config*.json
