@@ -13,7 +13,7 @@ tasks:
     label: build-{{.TASK}}
     vars:
       BUILD_VERSION:
-        sh: git describe --tags
+        sh: git describe --tags --always --match 'v*'
       BUILD_COMMIT:
         sh: git rev-parse HEAD
       BUILD_DATE:

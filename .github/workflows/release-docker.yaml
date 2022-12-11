@@ -4,10 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - master
-      - main
-      - release
 
 jobs:
   docker:
@@ -21,7 +17,7 @@ jobs:
 
       - name: Get tag
         id: get_tag
-        run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/}
+        run: echo "TAG=$(git describe --tags --always --match 'v*')" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -42,7 +38,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: tobyxdd/hysteria:latest,tobyxdd/hysteria:${{ steps.get_tag.outputs.tag }}
+          tags: tobyxdd/hysteria:latest,tobyxdd/hysteria:${{ steps.get_tag.outputs.TAG }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}

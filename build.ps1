@@ -9,20 +9,20 @@ function PlatformToEnv($os, $arch) {
     $env:CGO_ENABLED = 0
     $env:GOOS = $os
     $env:GOARCH = $arch
-    
+
     switch -Regex ($arch) {
-        "arm" { 
+        "arm" {
             $env:GOARM = "7"
         }
-        "armv5" { 
+        "armv5" {
             $env:GOARM = "5"
             $env:GOARCH = "arm"
         }
-        "armv6" { 
+        "armv6" {
             $env:GOARM = "6"
             $env:GOARCH = "arm"
         }
-        "armv7" { 
+        "armv7" {
             $env:GOARM = "7"
             $env:GOARCH = "arm"
         }
@@ -67,7 +67,7 @@ if ($env:HY_APP_VERSION) {
     $ldflags += " -X 'main.appVersion=$($env:HY_APP_VERSION)'"
 }
 else {
-    $ldflags += " -X 'main.appVersion=$(git describe --tags --always)'"
+    $ldflags += " -X 'main.appVersion=$(git describe --tags --always --match "v*")'"
 }
 if ($env:HY_APP_COMMIT) {
     $ldflags += " -X 'main.appCommit=$($env:HY_APP_COMMIT)'"
