@@ -33,12 +33,6 @@ CONFIG_DIR="/etc/hysteria"
 REPO_URL="https://github.com/apernet/hysteria"
 API_BASE_URL="https://api.github.com/repos/apernet/hysteria"
 
-# User for running hysteria
-HYSTERIA_USER="hysteria"
-
-# Directory for ACME certificates storage
-HYSTERIA_HOME_DIR="/var/lib/hysteria"
-
 # curl command line flags.
 # To using a proxy, please specify ALL_PROXY in the environ variable, such like:
 # export ALL_PROXY=socks5h://192.0.2.1:1080
@@ -50,13 +44,19 @@ CURL_FLAGS=(-L -f -q --retry 5 --retry-delay 10 --retry-max-time 60)
 ###
 
 # Package manager
-PACKAGE_MANAGEMENT_INSTALL=${PACKAGE_MANAGEMENT_INSTALL:-}
+PACKAGE_MANAGEMENT_INSTALL="${PACKAGE_MANAGEMENT_INSTALL:-}"
 
 # Operating System of current machine, supported: linux
-OPERATING_SYSTEM=${OPERATING_SYSTEM:-}
+OPERATING_SYSTEM="${OPERATING_SYSTEM:-}"
 
 # Architecture of current machine, supported: 386, amd64, arm, arm64, mipsle, s390x
-ARCHITECTURE=${ARCHITECTURE:-}
+ARCHITECTURE="${ARCHITECTURE:-}"
+
+# User for running hysteria
+HYSTERIA_USER="${HYSTERIA_USER:-}"
+
+# Directory for ACME certificates storage
+HYSTERIA_HOME_DIR="${HYSTERIA_HOME_DIR:-}"
 
 
 ###
@@ -203,6 +203,24 @@ remove_file() {
   fi
 }
 
+exec_sudo() {
+  # exec sudo with configurable environ preserved.
+  local _saved_ifs="$IFS"
+  IFS=$'\n'
+  local _preserved_env=(
+    $(env | grep "^PACKAGE_MANAGEMENT_INSTALL=" || true)
+    $(env | grep "^OPERATING_SYSTEM=" || true)
+    $(env | grep "^ARCHITECTURE=" || true)
+    $(env | grep "^HYSTERIA_\w*=" || true)
+    $(env | grep "^FORCE_\w*=" || true)
+  )
+  IFS="$_saved_ifs"
+
+  exec sudo env \
+    "${_preserved_env[@]}" \
+    "$@"
+}
+
 detect_package_manager() {
   if [[ -n "$PACKAGE_MANAGEMENT_INSTALL" ]]; then
     return 0
@@ -256,6 +274,12 @@ install_software() {
   fi
 }
 
+is_user_exists() {
+  local _user="$1"
+
+  id "$_user" > /dev/null 2>&1
+}
+
 check_permission() {
   if [[ "$UID" -eq '0' ]]; then
     return
@@ -270,7 +294,7 @@ check_permission() {
     *)
       if has_command sudo; then
         note "Re-running this script with sudo, you can also specify FORCE_NO_ROOT=1 to force this script running with current user."
-        exec sudo "$0" "${SCRIPT_ARGS[@]}"
+        exec_sudo "$0" "${SCRIPT_ARGS[@]}"
       else
         error "Please run this script with root or specify FORCE_NO_ROOT=1 to force this script running with current user."
         exit 13
@@ -474,6 +498,40 @@ vercmp() {
   fi
 
   return
+}
+
+check_hysteria_user() {
+  local _default_hysteria_user="$1"
+
+  if [[ -n "$HYSTERIA_USER" ]]; then
+    return
+  fi
+
+  if [[ ! -e "$SYSTEMD_SERVICES_DIR/hysteria-server.service" ]]; then
+    HYSTERIA_USER="$_default_hysteria_user"
+    return
+  fi
+
+  HYSTERIA_USER="$(grep -o '^User=\w*' "$SYSTEMD_SERVICES_DIR/hysteria-server.service" | tail -1 | cut -d '=' -f 2 || true)"
+
+  if [[ -z "$HYSTERIA_USER" ]]; then
+    HYSTERIA_USER="$_default_hysteria_user"
+  fi
+}
+
+check_hysteria_homedir() {
+  local _default_hysteria_homedir="$1"
+
+  if [[ -n "$HYSTERIA_HOME_DIR" ]]; then
+    return
+  fi
+
+  if ! is_user_exists "$HYSTERIA_USER"; then
+    HYSTERIA_HOME_DIR="$_default_hysteria_homedir"
+    return
+  fi
+
+  HYSTERIA_HOME_DIR="$(eval echo ~"$HYSTERIA_USER")"
 }
 
 
@@ -828,7 +886,7 @@ perform_remove_hysteria_systemd() {
 }
 
 perform_install_hysteria_home_legacy() {
-  if ! id "$HYSTERIA_USER" > /dev/null 2>&1; then
+  if ! is_user_exists "$HYSTERIA_USER"; then
     echo -ne "Creating user $HYSTERIA_USER ... "
     useradd -r -d "$HYSTERIA_HOME_DIR" -m "$HYSTERIA_USER"
     echo "ok"
@@ -897,7 +955,9 @@ perform_remove() {
   echo -e "You still need to remove configuration files and ACME certificates manually with the following commands:"
   echo
   echo -e "\t$(tred)rm -rf "$CONFIG_DIR"$(treset)"
-  echo -e "\t$(tred)userdel -rf "$HYSTERIA_USER"$(treset)"
+  if [[ "x$HYSTERIA_USER" != "xroot" ]]; then
+    echo -e "\t$(tred)userdel -r "$HYSTERIA_USER"$(treset)"
+  fi
   if [[ "x$FORCE_NO_SYSTEMD" != "x2" ]]; then
     echo
     echo -e "You still might need to disable all related systemd services with the following commands:"
@@ -928,6 +988,8 @@ main() {
 
   check_permission
   check_environment
+  check_hysteria_user "hysteria"
+  check_hysteria_homedir "/var/lib/$HYSTERIA_USER"
 
   case "$OPERATION" in
     "install")
