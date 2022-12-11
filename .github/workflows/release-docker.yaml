@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - master
+      - main
+      - release
 
 jobs:
   docker:
