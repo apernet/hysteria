@@ -307,6 +307,12 @@ check_environment_architecture() {
       ;;
     'amd64' | 'x86_64')
       ARCHITECTURE='amd64'
+      # check avx
+      if [[ -z "$VERSION" ]] || [[ "$(vercmp "$VERSION" 'v1.3.2')" -ge 0 ]]; then
+        if grep -qs 'flags\s*:.* avx ' /proc/cpuinfo; then
+          ARCHITECTURE='amd64-avx'
+        fi
+      fi
       ;;
     'armv5tel' | 'armv6l' | 'armv7' | 'armv7l')
       ARCHITECTURE='arm'
