@@ -25,7 +25,7 @@ jobs:
 
       - name: Run build script
         env:
-          HY_APP_PLATFORMS: 'darwin/amd64,darwin/arm64,windows/amd64,windows/386,linux/amd64,linux/386,linux/arm,linux/arm64,linux/s390x,linux/mipsle,freebsd/amd64,freebsd/386,freebsd/arm,freebsd/arm64'
+          HY_APP_PLATFORMS: 'darwin/amd64,darwin/amd64-avx,darwin/arm64,windows/amd64,windows/amd64-avx,windows/386,linux/amd64,linux/amd64-avx,linux/386,linux/arm,linux/armv5,linux/arm64,linux/s390x,linux/mipsle,linux/mipsle-sf,freebsd/amd64,freebsd/amd64-avx,freebsd/386,freebsd/arm,freebsd/arm64'
         run: ./build.sh
         shell: bash
 
@@ -42,16 +42,22 @@ jobs:
         with:
           files: |
             ./build/hysteria-darwin-amd64
+            ./build/hysteria-darwin-amd64-avx
             ./build/hysteria-darwin-arm64
             ./build/hysteria-windows-amd64.exe
+            ./build/hysteria-windows-amd64-avx.exe
             ./build/hysteria-windows-386.exe
             ./build/hysteria-linux-amd64
+            ./build/hysteria-linux-amd64-avx
             ./build/hysteria-linux-386
             ./build/hysteria-linux-arm
+            ./build/hysteria-linux-armv5
             ./build/hysteria-linux-arm64
             ./build/hysteria-linux-s390x
             ./build/hysteria-linux-mipsle
+            ./build/hysteria-linux-mipsle-sf
             ./build/hysteria-freebsd-amd64
+            ./build/hysteria-freebsd-amd64-avx
             ./build/hysteria-freebsd-386
             ./build/hysteria-freebsd-arm
             ./build/hysteria-freebsd-arm64

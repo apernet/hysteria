@@ -39,7 +39,7 @@ platform_to_env() {
 
     case "$arch" in
     arm)
-        env+=" GOARM= GOARCH=arm"
+        env+=" GOARM=7 GOARCH=arm"
         ;;
     armv5)
         env+=" GOARM=5 GOARCH=arm"

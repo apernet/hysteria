@@ -29,7 +29,7 @@ jobs:
 
       - name: Run build script
         env:
-          HY_APP_PLATFORMS: 'darwin/amd64,darwin/arm64,windows/amd64,windows/386,linux/amd64,linux/386,linux/arm,linux/arm64,linux/s390x,linux/mipsle,freebsd/amd64,freebsd/386,freebsd/arm,freebsd/arm64'
+          HY_APP_PLATFORMS: 'darwin/amd64,darwin/amd64-avx,darwin/arm64,windows/amd64,windows/amd64-avx,windows/386,linux/amd64,linux/amd64-avx,linux/386,linux/arm,linux/armv5,linux/arm64,linux/s390x,linux/mipsle,linux/mipsle-sf,freebsd/amd64,freebsd/amd64-avx,freebsd/386,freebsd/arm,freebsd/arm64'
         run: ./build.sh
         shell: bash
 
