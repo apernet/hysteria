@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.2
+
+- Fix a bug where some malformed UDP packets would cause the server to crash
+- Fix a bug where the server did not have a timeout for SOCKS5 outbound connections
+- Add build variants: amd64-avx, armv5, mipsle-sf, windows/arm64
+
 ## 1.3.1
 
 - New `fast_open` option for client to reduce RTT when dialing TCP connections
