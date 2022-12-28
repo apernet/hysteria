@@ -167,7 +167,7 @@ type clientConfig struct {
 	DownMbps int    `json:"down_mbps"`
 	// Optional below
 	Retry            int  `json:"retry"`
-	RetryInterval    int  `json:"retry_interval"`
+	RetryInterval    *int `json:"retry_interval"`
 	QuitOnDisconnect bool `json:"quit_on_disconnect"`
 	HandshakeTimeout int  `json:"handshake_timeout"`
 	IdleTimeout      int  `json:"idle_timeout"`
