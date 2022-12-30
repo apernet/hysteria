@@ -49,7 +49,7 @@ type Client struct {
 }
 
 func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
-	pktConnFunc pktconns.ClientPacketConnFunc, sendBPS uint64, recvBPS uint64, fastOpen bool,
+	pktConnFunc pktconns.ClientPacketConnFunc, sendBPS uint64, recvBPS uint64, fastOpen bool, lazyStart bool,
 	quicReconnectFunc func(err error),
 ) (*Client, error) {
 	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud.DisablePathMTUDiscovery
@@ -63,6 +63,9 @@ func NewClient(serverAddr string, auth []byte, tlsConfig *tls.Config, quicConfig
 		quicConfig:        quicConfig,
 		pktConnFunc:       pktConnFunc,
 		quicReconnectFunc: quicReconnectFunc,
+	}
+	if lazyStart {
+		return c, nil
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
@@ -182,18 +185,20 @@ func (c *Client) openStreamWithReconnect() (quic.Connection, quic.Stream, error)
 	if c.closed {
 		return nil, nil, ErrClosed
 	}
-	stream, err := c.quicConn.OpenStream()
-	if err == nil {
-		// All good
-		return c.quicConn, &qStream{stream}, nil
-	}
-	// Something is wrong
-	if nErr, ok := err.(net.Error); ok && nErr.Temporary() {
-		// Temporary error, just return
-		return nil, nil, err
-	}
-	if c.quicReconnectFunc != nil {
-		c.quicReconnectFunc(err)
+	if c.quicConn != nil {
+		stream, err := c.quicConn.OpenStream()
+		if err == nil {
+			// All good
+			return c.quicConn, &qStream{stream}, nil
+		}
+		// Something is wrong
+		if nErr, ok := err.(net.Error); ok && nErr.Temporary() {
+			// Temporary error, just return
+			return nil, nil, err
+		}
+		if c.quicReconnectFunc != nil {
+			c.quicReconnectFunc(err)
+		}
 	}
 	// Permanent error, need to reconnect
 	if err := c.connect(); err != nil {
@@ -201,7 +206,7 @@ func (c *Client) openStreamWithReconnect() (quic.Connection, quic.Stream, error)
 		return nil, nil, err
 	}
 	// We are not going to try again even if it still fails the second time
-	stream, err = c.quicConn.OpenStream()
+	stream, err := c.quicConn.OpenStream()
 	return c.quicConn, &qStream{stream}, err
 }
 
