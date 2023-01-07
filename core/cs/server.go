@@ -14,7 +14,6 @@ import (
 	"github.com/apernet/hysteria/core/transport"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 type (
@@ -25,6 +24,13 @@ type (
 	UDPRequestFunc func(addr net.Addr, auth []byte, sessionID uint32)
 	UDPErrorFunc   func(addr net.Addr, auth []byte, sessionID uint32, err error)
 )
+
+type TrafficCounter interface {
+	Rx(auth string, n int)
+	Tx(auth string, n int)
+	IncConn(auth string) // increase connection count
+	DecConn(auth string) // decrease connection count
+}
 
 type Server struct {
 	transport        *transport.ServerTransport
@@ -39,8 +45,7 @@ type Server struct {
 	udpRequestFunc UDPRequestFunc
 	udpErrorFunc   UDPErrorFunc
 
-	upCounterVec, downCounterVec *prometheus.CounterVec
-	connGaugeVec                 *prometheus.GaugeVec
+	trafficCounter TrafficCounter
 
 	pktConn  net.PacketConn
 	listener quic.Listener
@@ -51,7 +56,8 @@ func NewServer(tlsConfig *tls.Config, quicConfig *quic.Config,
 	sendBPS uint64, recvBPS uint64, disableUDP bool, aclEngine *acl.Engine,
 	connectFunc ConnectFunc, disconnectFunc DisconnectFunc,
 	tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
-	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc, promRegistry *prometheus.Registry,
+	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc,
+	trafficCounter TrafficCounter,
 ) (*Server, error) {
 	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud.DisablePathMTUDiscovery
 	listener, err := quic.Listen(pktConn, tlsConfig, quicConfig)
@@ -73,18 +79,7 @@ func NewServer(tlsConfig *tls.Config, quicConfig *quic.Config,
 		tcpErrorFunc:   tcpErrorFunc,
 		udpRequestFunc: udpRequestFunc,
 		udpErrorFunc:   udpErrorFunc,
-	}
-	if promRegistry != nil {
-		s.upCounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
-			Name: "hysteria_traffic_uplink_bytes_total",
-		}, []string{"auth"})
-		s.downCounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
-			Name: "hysteria_traffic_downlink_bytes_total",
-		}, []string{"auth"})
-		s.connGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "hysteria_active_conn",
-		}, []string{"auth"})
-		promRegistry.MustRegister(s.upCounterVec, s.downCounterVec, s.connGaugeVec)
+		trafficCounter: trafficCounter,
 	}
 	return s, nil
 }
@@ -127,7 +122,7 @@ func (s *Server) handleClient(cc quic.Connection) {
 	// Start accepting streams and messages
 	sc := newServerClient(cc, s.transport, auth, s.disableUDP, s.aclEngine,
 		s.tcpRequestFunc, s.tcpErrorFunc, s.udpRequestFunc, s.udpErrorFunc,
-		s.upCounterVec, s.downCounterVec, s.connGaugeVec)
+		s.trafficCounter)
 	err = sc.Run()
 	_ = qErrorGeneric.Send(cc)
 	s.disconnectFunc(cc.RemoteAddr(), auth, err)

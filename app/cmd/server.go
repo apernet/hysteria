@@ -192,9 +192,10 @@ func server(config *serverConfig) {
 		aclEngine.DefaultAction = acl.ActionDirect
 	}
 	// Prometheus
-	var promReg *prometheus.Registry
+	var trafficCounter cs.TrafficCounter
 	if len(config.PrometheusListen) > 0 {
-		promReg = prometheus.NewRegistry()
+		promReg := prometheus.NewRegistry()
+		trafficCounter = NewPrometheusTrafficCounter(promReg)
 		go func() {
 			http.Handle("/metrics", promhttp.HandlerFor(promReg, promhttp.HandlerOpts{}))
 			err := http.ListenAndServe(config.PrometheusListen, nil)
@@ -218,7 +219,7 @@ func server(config *serverConfig) {
 	up, down, _ := config.Speed()
 	server, err := cs.NewServer(tlsConfig, quicConfig, pktConn,
 		transport.DefaultServerTransport, up, down, config.DisableUDP, aclEngine,
-		connectFunc, disconnectFunc, tcpRequestFunc, tcpErrorFunc, udpRequestFunc, udpErrorFunc, promReg)
+		connectFunc, disconnectFunc, tcpRequestFunc, tcpErrorFunc, udpRequestFunc, udpErrorFunc, trafficCounter)
 	if err != nil {
 		logrus.WithField("error", err).Fatal("Failed to initialize server")
 	}
