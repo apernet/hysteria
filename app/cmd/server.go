@@ -16,10 +16,10 @@ import (
 	"github.com/apernet/hysteria/core/pmtud"
 	"github.com/apernet/hysteria/core/sockopt"
 	"github.com/apernet/hysteria/core/transport"
-	"github.com/lucas-clemente/quic-go"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/quic-go/quic-go"
 	"github.com/sirupsen/logrus"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 )

@@ -12,8 +12,8 @@ import (
 	"github.com/apernet/hysteria/core/acl"
 	"github.com/apernet/hysteria/core/transport"
 	"github.com/apernet/hysteria/core/utils"
-	"github.com/lucas-clemente/quic-go"
 	"github.com/lunixbochs/struc"
+	"github.com/quic-go/quic-go"
 )
 
 const udpBufferSize = 4096

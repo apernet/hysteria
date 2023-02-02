@@ -26,7 +26,7 @@ import (
 	"github.com/apernet/hysteria/core/acl"
 	"github.com/apernet/hysteria/core/cs"
 	"github.com/apernet/hysteria/core/transport"
-	"github.com/lucas-clemente/quic-go"
+	"github.com/quic-go/quic-go"
 	"github.com/sirupsen/logrus"
 )
 
