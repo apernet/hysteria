@@ -54,8 +54,9 @@ type serverConfig struct {
 	MMDB       string `json:"mmdb"`
 	Obfs       string `json:"obfs"`
 	Auth       struct {
-		Mode   string           `json:"mode"`
-		Config json5.RawMessage `json:"config"`
+		Mode      string           `json:"mode"`
+		Config    json5.RawMessage `json:"config"`
+		ConnLimit int              `json:"conn_limit"`
 	} `json:"auth"`
 	ALPN                string `json:"alpn"`
 	PrometheusListen    string `json:"prometheus_listen"`

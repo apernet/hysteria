@@ -123,6 +123,7 @@ func server(config *serverConfig) {
 	default:
 		logrus.WithField("mode", config.Auth.Mode).Fatal("Unsupported authentication mode")
 	}
+	connLimiter := auth.ConnLimiter{MaxConn: config.Auth.ConnLimit}
 	connectFunc := func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
 		ok, msg := authFunc(addr, auth, sSend, sRecv)
 		if !ok {
@@ -130,12 +131,25 @@ func server(config *serverConfig) {
 				"src": defaultIPMasker.Mask(addr.String()),
 				"msg": msg,
 			}).Info("Authentication failed, client rejected")
-		} else {
+		} else if connLimiter.Connect(auth) {
 			logrus.WithFields(logrus.Fields{
 				"src": defaultIPMasker.Mask(addr.String()),
 			}).Info("Client connected")
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"src": defaultIPMasker.Mask(addr.String()),
+			}).Info("Client rejected due to connection limit")
+			ok = false
+			msg = "too many connections"
 		}
 		return ok, msg
+	}
+	disconnectFunc := func(addr net.Addr, auth []byte, err error) {
+		connLimiter.Disconnect(auth)
+		logrus.WithFields(logrus.Fields{
+			"src":   defaultIPMasker.Mask(addr.String()),
+			"error": err,
+		}).Info("Client disconnected")
 	}
 	// Resolve preference
 	if len(config.ResolvePreference) > 0 {
@@ -228,13 +242,6 @@ func server(config *serverConfig) {
 
 	err = server.Serve()
 	logrus.WithField("error", err).Fatal("Server shutdown")
-}
-
-func disconnectFunc(addr net.Addr, auth []byte, err error) {
-	logrus.WithFields(logrus.Fields{
-		"src":   defaultIPMasker.Mask(addr.String()),
-		"error": err,
-	}).Info("Client disconnected")
 }
 
 func tcpRequestFunc(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string) {
