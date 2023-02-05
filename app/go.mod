@@ -10,7 +10,7 @@ require (
 	github.com/docker/go-units v0.5.0
 	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819
 	github.com/elazarl/goproxy/ext v0.0.0-20221015165544-a0805db90819
-	github.com/folbricht/routedns v0.1.20
+	github.com/folbricht/routedns v0.1.21-0.20230203002418-818d7b73e52b
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/oschwald/geoip2-golang v1.8.0
 	github.com/prometheus/client_golang v1.14.0
@@ -95,5 +95,3 @@ replace github.com/quic-go/quic-go => github.com/apernet/quic-go v0.31.2-0.20230
 replace github.com/LiamHaworth/go-tproxy => github.com/apernet/go-tproxy v0.0.0-20221025153553-ed04a2935f88
 
 replace github.com/elazarl/goproxy => github.com/apernet/goproxy v0.0.0-20221124043924-155acfaf278f
-
-replace github.com/folbricht/routedns v0.1.20 => github.com/apernet/routedns v0.0.0-20230202070443-d9b91436ef54
