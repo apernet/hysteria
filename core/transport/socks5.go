@@ -216,6 +216,11 @@ func (c *socks5UDPConn) Close() error {
 }
 
 func socks5AddrToUDPAddr(atyp byte, addr []byte, port []byte) (*net.UDPAddr, error) {
+	clone := func(b []byte) []byte {
+		c := make([]byte, len(b))
+		copy(c, b)
+		return c
+	}
 	iPort := int(binary.BigEndian.Uint16(port))
 	switch atyp {
 	case socks5.ATYPIPv4:
@@ -223,7 +228,7 @@ func socks5AddrToUDPAddr(atyp byte, addr []byte, port []byte) (*net.UDPAddr, err
 			return nil, errors.New("invalid ipv4 address")
 		}
 		return &net.UDPAddr{
-			IP:   net.IPv4(addr[0], addr[1], addr[2], addr[3]),
+			IP:   clone(addr),
 			Port: iPort,
 		}, nil
 	case socks5.ATYPIPv6:
@@ -231,7 +236,7 @@ func socks5AddrToUDPAddr(atyp byte, addr []byte, port []byte) (*net.UDPAddr, err
 			return nil, errors.New("invalid ipv6 address")
 		}
 		return &net.UDPAddr{
-			IP:   addr,
+			IP:   clone(addr),
 			Port: iPort,
 		}, nil
 	case socks5.ATYPDomain:
