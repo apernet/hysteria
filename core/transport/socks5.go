@@ -127,7 +127,9 @@ func (c *SOCKS5Client) ListenUDP() (STPacketConn, error) {
 		_ = conn.Close()
 		return nil, err
 	}
-	r := socks5.NewRequest(socks5.CmdUDP, socks5.ATYPIPv4, nil, nil)
+	var zeroIPv4 [4]byte
+	var zeroPort [2]byte
+	r := socks5.NewRequest(socks5.CmdUDP, socks5.ATYPIPv4, zeroIPv4[:], zeroPort[:])
 	reply, err := c.request(conn, r)
 	if err != nil {
 		_ = conn.Close()
