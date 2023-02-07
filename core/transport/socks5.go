@@ -223,7 +223,7 @@ func socks5AddrToUDPAddr(atyp byte, addr []byte, port []byte) (*net.UDPAddr, err
 			return nil, errors.New("invalid ipv4 address")
 		}
 		return &net.UDPAddr{
-			IP:   addr,
+			IP:   net.IPv4(addr[0], addr[1], addr[2], addr[3]),
 			Port: iPort,
 		}, nil
 	case socks5.ATYPIPv6:
