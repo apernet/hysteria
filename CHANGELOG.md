@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.3
+
+- Fix a bug that made UDP unusable when using `socks5_outbound`
+- Set the default value of `retry_interval` to 1 to prevent the client from retrying too often when errors occur
+- Prompt error if both acme and local cert file are specified in client config
+- Updated quic-go to v0.32.0, performance improvements
+
 ## 1.3.2
 
 - Fix a bug where some malformed UDP packets would cause the server to crash
