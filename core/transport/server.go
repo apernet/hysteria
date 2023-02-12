@@ -69,10 +69,18 @@ var DefaultServerTransport = &ServerTransport{
 	ResolvePreference: ResolvePreferenceDefault,
 }
 
-func (st *ServerTransport) ResolveIPAddr(address string) (*net.IPAddr, bool, error) {
+func (st *ServerTransport) ParseIPAddr(address string) (*net.IPAddr, bool) {
 	ip, zone := utils.ParseIPZone(address)
 	if ip != nil {
-		return &net.IPAddr{IP: ip, Zone: zone}, false, nil
+		return &net.IPAddr{IP: ip, Zone: zone}, false
+	}
+	return nil, true
+}
+
+func (st *ServerTransport) ResolveIPAddr(address string) (*net.IPAddr, bool, error) {
+	ip, isDomain := st.ParseIPAddr(address)
+	if !isDomain {
+		return ip, false, nil
 	}
 	ipAddr, err := resolveIPAddrWithPreference(address, st.ResolvePreference)
 	return ipAddr, true, err

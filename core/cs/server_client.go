@@ -140,10 +140,13 @@ func (c *serverClient) handleMessage(msg []byte) {
 		var err error
 		if c.ACLEngine != nil {
 			action, arg, isDomain, ipAddr, err = c.ACLEngine.ResolveAndMatch(dfMsg.Host, dfMsg.Port, true)
+		} else if c.Transport.ProxyEnabled() { // Case for SOCKS5 outbound
+			ipAddr, isDomain = c.Transport.ParseIPAddr(dfMsg.Host) // It is safe to leave ipAddr as nil since addrExToSOCKS5Addr will ignore it when there is a domain
+			err = nil
 		} else {
 			ipAddr, isDomain, err = c.Transport.ResolveIPAddr(dfMsg.Host)
 		}
-		if err != nil && !(isDomain && c.Transport.ProxyEnabled()) { // Special case for domain requests + SOCKS5 outbound
+		if err != nil {
 			return
 		}
 		switch action {
@@ -162,8 +165,16 @@ func (c *serverClient) handleMessage(msg []byte) {
 		case acl.ActionBlock:
 			// Do nothing
 		case acl.ActionHijack:
-			hijackIPAddr, isDomain, err := c.Transport.ResolveIPAddr(arg)
-			if err == nil || (isDomain && c.Transport.ProxyEnabled()) { // Special case for domain requests + SOCKS5 outbound
+			var isDomain bool
+			var hijackIPAddr *net.IPAddr
+			var err error
+			if c.Transport.ProxyEnabled() { // Case for domain requests + SOCKS5 outbound
+				hijackIPAddr, isDomain = c.Transport.ParseIPAddr(arg) // It is safe to leave ipAddr as nil since addrExToSOCKS5Addr will ignore it when there is a domain
+				err = nil
+			} else {
+				hijackIPAddr, isDomain, err = c.Transport.ResolveIPAddr(arg)
+			}
+			if err == nil {
 				addrEx := &transport.AddrEx{
 					IPAddr: hijackIPAddr,
 					Port:   int(dfMsg.Port),
@@ -190,10 +201,13 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 	var err error
 	if c.ACLEngine != nil {
 		action, arg, isDomain, ipAddr, err = c.ACLEngine.ResolveAndMatch(host, port, false)
+	} else if c.Transport.ProxyEnabled() { // Case for domain requests + SOCKS5 outbound
+		ipAddr, isDomain = c.Transport.ParseIPAddr(host) // It is safe to leave ipAddr as nil since addrExToSOCKS5Addr will ignore it when there is a domain
+		err = nil
 	} else {
 		ipAddr, isDomain, err = c.Transport.ResolveIPAddr(host)
 	}
-	if err != nil && !(isDomain && c.Transport.ProxyEnabled()) { // Special case for domain requests + SOCKS5 outbound
+	if err != nil {
 		_ = struc.Pack(stream, &serverResponse{
 			OK:      false,
 			Message: "host resolution failure",
@@ -229,8 +243,16 @@ func (c *serverClient) handleTCP(stream quic.Stream, host string, port uint16) {
 		})
 		return
 	case acl.ActionHijack:
-		hijackIPAddr, isDomain, err := c.Transport.ResolveIPAddr(arg)
-		if err != nil && !(isDomain && c.Transport.ProxyEnabled()) { // Special case for domain requests + SOCKS5 outbound
+		var isDomain bool
+		var hijackIPAddr *net.IPAddr
+		var err error
+		if c.Transport.ProxyEnabled() { // Case for domain requests + SOCKS5 outbound
+			hijackIPAddr, isDomain = c.Transport.ParseIPAddr(arg) // It is safe to leave ipAddr as nil since addrExToSOCKS5Addr will ignore it when there is a domain
+			err = nil
+		} else {
+			hijackIPAddr, isDomain, err = c.Transport.ResolveIPAddr(arg)
+		}
+		if err != nil {
 			_ = struc.Pack(stream, &serverResponse{
 				OK:      false,
 				Message: err.Error(),
