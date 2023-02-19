@@ -10,7 +10,7 @@ require (
 	github.com/oschwald/geoip2-golang v1.8.0
 	github.com/quic-go/quic-go v0.32.0
 	github.com/txthinking/socks5 v0.0.0-20220212043548-414499347d4a
-	golang.org/x/sys v0.4.0
+	golang.org/x/sys v0.5.0
 )
 
 require (
@@ -30,7 +30,7 @@ require (
 	golang.org/x/crypto v0.4.0 // indirect
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/mod v0.6.0 // indirect
-	golang.org/x/net v0.5.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect
 )
 
