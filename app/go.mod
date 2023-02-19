@@ -52,10 +52,10 @@ require (
 	github.com/oschwald/maxminddb-golang v1.10.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
-	github.com/pion/dtls/v2 v2.1.5 // indirect
+	github.com/pion/dtls/v2 v2.2.4 // indirect
 	github.com/pion/logging v0.2.2 // indirect
-	github.com/pion/transport v0.14.1 // indirect
-	github.com/pion/udp v0.1.2 // indirect
+	github.com/pion/transport/v2 v2.0.0 // indirect
+	github.com/pion/udp v0.1.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
