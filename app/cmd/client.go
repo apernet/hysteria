@@ -172,8 +172,7 @@ func client(config *clientConfig) {
 	}
 	defer client.Close()
 	if config.LazyStart {
-		logrus.WithField("addr", config.Server).Info("Option lazy_start specified. Server connection deferred.")
-
+		logrus.WithField("addr", config.Server).Info("Lazy start enabled, waiting for first connection")
 	} else {
 		logrus.WithField("addr", config.Server).Info("Connected")
 	}
