@@ -136,6 +136,7 @@ func client(config *clientConfig) {
 	for {
 		try += 1
 		c, err := cs.NewClient(config.Server, auth, tlsConfig, quicConfig, pktConnFunc, up, down, config.FastOpen,
+			config.LazyStart,
 			func(err error) {
 				if config.QuitOnDisconnect {
 					logrus.WithFields(logrus.Fields{
@@ -170,7 +171,11 @@ func client(config *clientConfig) {
 		}
 	}
 	defer client.Close()
-	logrus.WithField("addr", config.Server).Info("Connected")
+	if config.LazyStart {
+		logrus.WithField("addr", config.Server).Info("Lazy start enabled, waiting for first connection")
+	} else {
+		logrus.WithField("addr", config.Server).Info("Connected")
+	}
 
 	// Local
 	errChan := make(chan error)
