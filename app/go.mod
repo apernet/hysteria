@@ -22,7 +22,7 @@ require (
 	github.com/xjasonlyu/tun2socks/v2 v2.4.2-0.20230122052711-6809e7f83541
 	github.com/yosuke-furukawa/json5 v0.1.1
 	go.uber.org/zap v1.23.0
-	gvisor.dev/gvisor v0.0.0-20230121035754-f9368e81ec27
+	gvisor.dev/gvisor v0.0.0-20230313184804-9bf6dd27710d
 )
 
 require (
@@ -83,7 +83,7 @@ require (
 	golang.org/x/tools v0.5.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20220920152132-bb719d3a6e2c // indirect
-	google.golang.org/protobuf v1.28.1 // indirect
+	google.golang.org/protobuf v1.28.2-0.20230118093459-a9481185b34d // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
