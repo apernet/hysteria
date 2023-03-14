@@ -1,6 +1,3 @@
-//go:build !386
-// +build !386
-
 package redirect
 
 import (
@@ -23,13 +20,11 @@ func getOrigDst(fd uintptr) (*sockAddr, error) {
 	var addr sockAddr
 	addrSize := uint32(unsafe.Sizeof(addr))
 	// try IPv6 first
-	_, _, err := syscall.Syscall6(syscall.SYS_GETSOCKOPT, fd, syscall.SOL_IPV6, IP6T_SO_ORIGINAL_DST,
-		uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&addrSize)), 0)
-	if err != 0 {
+	err := getsockopt(fd, syscall.SOL_IPV6, IP6T_SO_ORIGINAL_DST, unsafe.Pointer(&addr), &addrSize)
+	if err != nil {
 		// try IPv4
-		_, _, err = syscall.Syscall6(syscall.SYS_GETSOCKOPT, fd, syscall.SOL_IP, SO_ORIGINAL_DST,
-			uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&addrSize)), 0)
-		if err != 0 {
+		err = getsockopt(fd, syscall.SOL_IP, SO_ORIGINAL_DST, unsafe.Pointer(&addr), &addrSize)
+		if err != nil {
 			// failed
 			return nil, err
 		}
