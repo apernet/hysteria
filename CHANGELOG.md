@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.4
+
+- Eliminate unnecessary DNS lookups when using SOCKS5 outbound with ACL disabled
+- Add a `lazy_start` option to let the client connect to the server only when there is an incoming connection
+- Fix a bug where TCP redirect didn't work on x86 (32-bit) machines
+- Fix memory leak when using UDP port hopping
+- Updated quic-go to v0.33.0
+
 ## 1.3.3
 
 - Fix a bug that made UDP unusable when using `socks5_outbound`
