@@ -36,6 +36,7 @@ var clientPacketConnFuncFactoryMap = map[string]pktconns.ClientPacketConnFuncFac
 	"wechat":       pktconns.NewClientWeChatConnFunc,
 	"wechat-video": pktconns.NewClientWeChatConnFunc,
 	"faketcp":      pktconns.NewClientFakeTCPConnFunc,
+	"dns":          pktconns.NewClientDnsConnFunc,
 }
 
 func client(config *clientConfig) {
