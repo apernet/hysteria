@@ -15,7 +15,6 @@ import (
 	"github.com/xjasonlyu/tun2socks/v2/core/option"
 
 	"github.com/apernet/hysteria/core/cs"
-	"github.com/sirupsen/logrus"
 	t2score "github.com/xjasonlyu/tun2socks/v2/core"
 	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 	"github.com/xjasonlyu/tun2socks/v2/core/device"
@@ -141,10 +140,7 @@ func (s *Server) ListenAndServe() error {
 	t2sconf := t2score.Config{
 		LinkEndpoint:     dev,
 		TransportHandler: s,
-		PrintFunc: func(format string, v ...interface{}) {
-			logrus.Infof(format, v...)
-		},
-		Options: opts,
+		Options:          opts,
 	}
 
 	st, err = t2score.CreateStack(&t2sconf)
