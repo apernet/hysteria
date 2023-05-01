@@ -1,6 +1,6 @@
 module github.com/apernet/hysteria/core
 
-go 1.18
+go 1.20
 
 require (
 	github.com/coreos/go-iptables v0.6.0
