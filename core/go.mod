@@ -10,7 +10,7 @@ require (
 	github.com/oschwald/geoip2-golang v1.8.0
 	github.com/quic-go/quic-go v0.33.0
 	github.com/txthinking/socks5 v0.0.0-20220212043548-414499347d4a
-	golang.org/x/sys v0.5.0
+	golang.org/x/sys v0.7.0
 )
 
 require (
@@ -25,11 +25,11 @@ require (
 	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf // indirect
 	github.com/txthinking/x v0.0.0-20210326105829-476fab902fbe // indirect
-	golang.org/x/crypto v0.5.0 // indirect
+	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/exp v0.0.0-20230131160201-f062dba9d201 // indirect
-	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/tools v0.5.0 // indirect
+	golang.org/x/mod v0.8.0 // indirect
+	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/tools v0.6.0 // indirect
 	google.golang.org/protobuf v1.28.2-0.20230118093459-a9481185b34d // indirect
 )
 
