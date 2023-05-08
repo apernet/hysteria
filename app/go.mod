@@ -14,7 +14,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/oschwald/geoip2-golang v1.8.0
 	github.com/prometheus/client_golang v1.14.0
-	github.com/quic-go/quic-go v0.33.0
+	github.com/quic-go/quic-go v0.34.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
@@ -61,8 +61,8 @@ require (
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
-	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
-	github.com/quic-go/qtls-go1-20 v0.1.1 // indirect
+	github.com/quic-go/qtls-go1-19 v0.3.2 // indirect
+	github.com/quic-go/qtls-go1-20 v0.2.2 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
@@ -90,7 +90,7 @@ require (
 
 replace github.com/apernet/hysteria/core => ../core/
 
-replace github.com/quic-go/quic-go => github.com/apernet/quic-go v0.32.1-0.20230226201325-e07aae1a800b
+replace github.com/quic-go/quic-go => github.com/apernet/quic-go v0.34.1-0.20230507231629-ec008b7e8473
 
 replace github.com/LiamHaworth/go-tproxy => github.com/apernet/go-tproxy v0.0.0-20221025153553-ed04a2935f88
 
