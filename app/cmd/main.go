@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"golang.org/x/sys/windows"
 )
 
 const (
@@ -144,21 +142,6 @@ var serverCmd = &cobra.Command{
 	},
 }
 
-// Add console VT color mode
-func openWinVT() {
-	if runtime.GOOS != "windows" {
-		return
-	}
-	stdout := windows.Handle(os.Stdout.Fd())
-
-	var mode uint32
-	windows.GetConsoleMode(stdout, &mode)
-
-	mode |= windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING // Add VT Color Support
-
-	windows.SetConsoleMode(stdout, mode)
-}
-
 // fakeFlags replace the old flag format with the new format(eg: `-config` ->> `--config`)
 func fakeFlags() {
 	var args []string
@@ -174,9 +157,8 @@ func fakeFlags() {
 }
 
 func init() {
-	//
 	openWinVT()
-	
+
 	// compatible with old flag format
 	fakeFlags()
 
