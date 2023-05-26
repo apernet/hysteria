@@ -1,0 +1,35 @@
+listen: :443
+
+# tls:
+#   cert: my.crt
+#   key: my.key
+
+acme:
+  domains:
+    - my.example.com
+  email: hackerman@abcd.com
+  # ca: LetsEncrypt
+  # disableHTTP: false
+  # disableTLSALPN: false
+  # altHTTPPort: 80
+  # altTLSALPNPort: 443
+  # dir: "custom_dir"
+
+# quic:
+#   initStreamReceiveWindow: 8388608
+#   maxStreamReceiveWindow: 8388608
+#   initConnReceiveWindow: 20971520
+#   maxConnReceiveWindow: 20971520
+#   maxIdleTimeout: 130s
+#   maxIncomingStreams: 1024
+#   disablePathMTUDiscovery: false
+
+# bandwidth:
+#   up: "100 mbps"
+#   down: "100 mbps"
+#
+# disableUDP: false
+
+auth:
+  type: "password"
+  password: "hello world"

@@ -1,307 +1,275 @@
-package main
+package cmd
 
 import (
+	"context"
 	"crypto/tls"
-	"io"
+	"errors"
 	"net"
-	"net/http"
-	"time"
+	"strings"
 
-	"github.com/apernet/hysteria/app/auth"
+	"github.com/apernet/hysteria/core/server"
+	"github.com/apernet/hysteria/extras/auth"
 
-	"github.com/apernet/hysteria/core/pktconns"
-
-	"github.com/apernet/hysteria/core/acl"
-	"github.com/apernet/hysteria/core/cs"
-	"github.com/apernet/hysteria/core/pmtud"
-	"github.com/apernet/hysteria/core/sockopt"
-	"github.com/apernet/hysteria/core/transport"
-	"github.com/oschwald/geoip2-golang"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/quic-go/quic-go"
-	"github.com/sirupsen/logrus"
-	"github.com/yosuke-furukawa/json5/encoding/json5"
+	"github.com/caddyserver/certmagic"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
-var serverPacketConnFuncFactoryMap = map[string]pktconns.ServerPacketConnFuncFactory{
-	"":             pktconns.NewServerUDPConnFunc,
-	"udp":          pktconns.NewServerUDPConnFunc,
-	"wechat":       pktconns.NewServerWeChatConnFunc,
-	"wechat-video": pktconns.NewServerWeChatConnFunc,
-	"faketcp":      pktconns.NewServerFakeTCPConnFunc,
+var serverCmd = &cobra.Command{
+	Use:   "server",
+	Short: "Server mode",
+	Run:   runServer,
 }
 
-func server(config *serverConfig) {
-	logrus.WithField("config", config.String()).Info("Server configuration loaded")
-	config.Fill() // Fill default values
-	// Resolver
-	if len(config.Resolver) > 0 {
-		err := setResolver(config.Resolver)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err,
-			}).Fatal("Failed to set resolver")
-		}
+func init() {
+	rootCmd.AddCommand(serverCmd)
+	initServerConfigDefaults()
+}
+
+func initServerConfigDefaults() {
+	viper.SetDefault("listen", ":443")
+}
+
+func runServer(cmd *cobra.Command, args []string) {
+	logger.Info("server mode")
+
+	if err := viper.ReadInConfig(); err != nil {
+		logger.Fatal("failed to read server config", zap.Error(err))
 	}
-	// Load TLS config
-	var tlsConfig *tls.Config
-	if len(config.ACME.Domains) > 0 {
-		// ACME mode
-		tc, err := acmeTLSConfig(config.ACME.Domains, config.ACME.Email,
-			config.ACME.DisableHTTPChallenge, config.ACME.DisableTLSALPNChallenge,
-			config.ACME.AltHTTPPort, config.ACME.AltTLSALPNPort)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err,
-			}).Fatal("Failed to get a certificate with ACME")
-		}
-		tc.NextProtos = []string{config.ALPN}
-		tc.MinVersion = tls.VersionTLS13
-		tlsConfig = tc
-	} else {
-		// Local cert mode
-		kpl, err := newKeypairLoader(config.CertFile, config.KeyFile)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err,
-				"cert":  config.CertFile,
-				"key":   config.KeyFile,
-			}).Fatal("Failed to load the certificate")
-		}
-		tlsConfig = &tls.Config{
-			GetCertificate: kpl.GetCertificateFunc(),
-			NextProtos:     []string{config.ALPN},
-			MinVersion:     tls.VersionTLS13,
-		}
-	}
-	// QUIC config
-	quicConfig := &quic.Config{
-		InitialStreamReceiveWindow:     config.ReceiveWindowConn,
-		MaxStreamReceiveWindow:         config.ReceiveWindowConn,
-		InitialConnectionReceiveWindow: config.ReceiveWindowClient,
-		MaxConnectionReceiveWindow:     config.ReceiveWindowClient,
-		MaxIncomingStreams:             int64(config.MaxConnClient),
-		MaxIdleTimeout:                 ServerMaxIdleTimeoutSec * time.Second,
-		KeepAlivePeriod:                0, // Keep alive should solely be client's responsibility
-		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
-		EnableDatagrams:                true,
-	}
-	if !quicConfig.DisablePathMTUDiscovery && pmtud.DisablePathMTUDiscovery {
-		logrus.Info("Path MTU Discovery is not yet supported on this platform")
-	}
-	// Auth
-	var authFunc cs.ConnectFunc
-	var err error
-	switch authMode := config.Auth.Mode; authMode {
-	case "", "none":
-		if len(config.Obfs) == 0 {
-			logrus.Warn("Neither authentication nor obfuscation is turned on. " +
-				"Your server could be used by anyone! Are you sure this is what you want?")
-		}
-		authFunc = func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
-			return true, "Welcome"
-		}
-	case "password", "passwords":
-		authFunc, err = auth.PasswordAuthFunc(config.Auth.Config)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err,
-			}).Fatal("Failed to enable password authentication")
-		} else {
-			logrus.Info("Password authentication enabled")
-		}
-	case "external":
-		authFunc, err = auth.ExternalAuthFunc(config.Auth.Config)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err,
-			}).Fatal("Failed to enable external authentication")
-		} else {
-			logrus.Info("External authentication enabled")
-		}
-	default:
-		logrus.WithField("mode", config.Auth.Mode).Fatal("Unsupported authentication mode")
-	}
-	connectFunc := func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
-		ok, msg := authFunc(addr, auth, sSend, sRecv)
-		if !ok {
-			logrus.WithFields(logrus.Fields{
-				"src": defaultIPMasker.Mask(addr.String()),
-				"msg": msg,
-			}).Info("Authentication failed, client rejected")
-		} else {
-			logrus.WithFields(logrus.Fields{
-				"src": defaultIPMasker.Mask(addr.String()),
-			}).Info("Client connected")
-		}
-		return ok, msg
-	}
-	// Resolve preference
-	if len(config.ResolvePreference) > 0 {
-		pref, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err,
-			}).Fatal("Failed to parse the resolve preference")
-		}
-		transport.DefaultServerTransport.ResolvePreference = pref
-	}
-	// SOCKS5 outbound
-	if config.SOCKS5Outbound.Server != "" {
-		transport.DefaultServerTransport.SOCKS5Client = transport.NewSOCKS5Client(config.SOCKS5Outbound.Server,
-			config.SOCKS5Outbound.User, config.SOCKS5Outbound.Password)
-	}
-	// Bind outbound
-	if config.BindOutbound.Device != "" {
-		iface, err := net.InterfaceByName(config.BindOutbound.Device)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err,
-			}).Fatal("Failed to find the interface")
-		}
-		transport.DefaultServerTransport.LocalUDPIntf = iface
-		sockopt.BindDialer(transport.DefaultServerTransport.Dialer, iface)
-	}
-	if config.BindOutbound.Address != "" {
-		ip := net.ParseIP(config.BindOutbound.Address)
-		if ip == nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err,
-			}).Fatal("Failed to parse the address")
-		}
-		transport.DefaultServerTransport.Dialer.LocalAddr = &net.TCPAddr{IP: ip}
-		transport.DefaultServerTransport.LocalUDPAddr = &net.UDPAddr{IP: ip}
-	}
-	// ACL
-	var aclEngine *acl.Engine
-	if len(config.ACL) > 0 {
-		aclEngine, err = acl.LoadFromFile(config.ACL, func(addr string) (*net.IPAddr, error) {
-			ipAddr, _, err := transport.DefaultServerTransport.ResolveIPAddr(addr)
-			return ipAddr, err
-		},
-			func() (*geoip2.Reader, error) {
-				return loadMMDBReader(config.MMDB)
-			})
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err,
-				"file":  config.ACL,
-			}).Fatal("Failed to parse ACL")
-		}
-		aclEngine.DefaultAction = acl.ActionDirect
-	}
-	// Prometheus
-	var trafficCounter cs.TrafficCounter
-	if len(config.PrometheusListen) > 0 {
-		promReg := prometheus.NewRegistry()
-		trafficCounter = NewPrometheusTrafficCounter(promReg)
-		go func() {
-			http.Handle("/metrics", promhttp.HandlerFor(promReg, promhttp.HandlerOpts{}))
-			err := http.ListenAndServe(config.PrometheusListen, nil)
-			logrus.WithField("error", err).Fatal("Prometheus HTTP server error")
-		}()
-	}
-	// Packet conn
-	pktConnFuncFactory := serverPacketConnFuncFactoryMap[config.Protocol]
-	if pktConnFuncFactory == nil {
-		logrus.WithField("protocol", config.Protocol).Fatal("Unsupported protocol")
-	}
-	pktConnFunc := pktConnFuncFactory(config.Obfs)
-	pktConn, err := pktConnFunc(config.Listen)
+	config, err := viperToServerConfig()
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"error": err,
-			"addr":  config.Listen,
-		}).Fatal("Failed to listen on the UDP address")
+		logger.Fatal("failed to parse server config", zap.Error(err))
 	}
-	// Server
-	up, down, _ := config.Speed()
-	server, err := cs.NewServer(tlsConfig, quicConfig, pktConn,
-		transport.DefaultServerTransport, up, down, config.DisableUDP, aclEngine,
-		connectFunc, disconnectFunc, tcpRequestFunc, tcpErrorFunc, udpRequestFunc, udpErrorFunc, trafficCounter)
+
+	s, err := server.NewServer(config)
 	if err != nil {
-		logrus.WithField("error", err).Fatal("Failed to initialize server")
+		logger.Fatal("failed to initialize server", zap.Error(err))
 	}
-	defer server.Close()
-	logrus.WithField("addr", config.Listen).Info("Server up and running")
+	logger.Info("server up and running")
 
-	err = server.Serve()
-	logrus.WithField("error", err).Fatal("Server shutdown")
-}
-
-func disconnectFunc(addr net.Addr, auth []byte, err error) {
-	logrus.WithFields(logrus.Fields{
-		"src":   defaultIPMasker.Mask(addr.String()),
-		"error": err,
-	}).Info("Client disconnected")
-}
-
-func tcpRequestFunc(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string) {
-	logrus.WithFields(logrus.Fields{
-		"src":    defaultIPMasker.Mask(addr.String()),
-		"dst":    defaultIPMasker.Mask(reqAddr),
-		"action": actionToString(action, arg),
-	}).Debug("TCP request")
-}
-
-func tcpErrorFunc(addr net.Addr, auth []byte, reqAddr string, err error) {
-	if err != io.EOF {
-		logrus.WithFields(logrus.Fields{
-			"src":   defaultIPMasker.Mask(addr.String()),
-			"dst":   defaultIPMasker.Mask(reqAddr),
-			"error": err,
-		}).Info("TCP error")
-	} else {
-		logrus.WithFields(logrus.Fields{
-			"src": defaultIPMasker.Mask(addr.String()),
-			"dst": defaultIPMasker.Mask(reqAddr),
-		}).Debug("TCP EOF")
+	if err := s.Serve(); err != nil {
+		logger.Fatal("failed to serve", zap.Error(err))
 	}
 }
 
-func udpRequestFunc(addr net.Addr, auth []byte, sessionID uint32) {
-	logrus.WithFields(logrus.Fields{
-		"src":     defaultIPMasker.Mask(addr.String()),
-		"session": sessionID,
-	}).Debug("UDP request")
-}
-
-func udpErrorFunc(addr net.Addr, auth []byte, sessionID uint32, err error) {
-	if err != io.EOF {
-		logrus.WithFields(logrus.Fields{
-			"src":     defaultIPMasker.Mask(addr.String()),
-			"session": sessionID,
-			"error":   err,
-		}).Info("UDP error")
-	} else {
-		logrus.WithFields(logrus.Fields{
-			"src":     defaultIPMasker.Mask(addr.String()),
-			"session": sessionID,
-		}).Debug("UDP EOF")
-	}
-}
-
-func actionToString(action acl.Action, arg string) string {
-	switch action {
-	case acl.ActionDirect:
-		return "Direct"
-	case acl.ActionProxy:
-		return "Proxy"
-	case acl.ActionBlock:
-		return "Block"
-	case acl.ActionHijack:
-		return "Hijack to " + arg
-	default:
-		return "Unknown"
-	}
-}
-
-func parseServerConfig(cb []byte) (*serverConfig, error) {
-	var c serverConfig
-	err := json5.Unmarshal(cb, &c)
+func viperToServerConfig() (*server.Config, error) {
+	// Conn
+	conn, err := viperToServerConn()
 	if err != nil {
 		return nil, err
 	}
-	return &c, c.Check()
+	// TLS
+	tlsConfig, err := viperToServerTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+	// QUIC
+	quicConfig := viperToServerQUICConfig()
+	// Bandwidth
+	bwConfig, err := viperToServerBandwidthConfig()
+	if err != nil {
+		return nil, err
+	}
+	// Disable UDP
+	disableUDP := viper.GetBool("disableUDP")
+	// Authenticator
+	authenticator, err := viperToAuthenticator()
+	if err != nil {
+		return nil, err
+	}
+	// Config
+	config := &server.Config{
+		TLSConfig:       tlsConfig,
+		QUICConfig:      quicConfig,
+		Conn:            conn,
+		Outbound:        nil, // TODO
+		BandwidthConfig: bwConfig,
+		DisableUDP:      disableUDP,
+		Authenticator:   authenticator,
+		EventLogger:     &serverLogger{},
+		MasqHandler:     nil, // TODO
+	}
+	return config, nil
+}
+
+func viperToServerConn() (net.PacketConn, error) {
+	listen := viper.GetString("listen")
+	if listen == "" {
+		return nil, configError{Field: "listen", Err: errors.New("empty listen address")}
+	}
+	uAddr, err := net.ResolveUDPAddr("udp", listen)
+	if err != nil {
+		return nil, configError{Field: "listen", Err: err}
+	}
+	conn, err := net.ListenUDP("udp", uAddr)
+	if err != nil {
+		return nil, configError{Field: "listen", Err: err}
+	}
+	return conn, nil
+}
+
+func viperToServerTLSConfig() (server.TLSConfig, error) {
+	vTLS, vACME := viper.Sub("tls"), viper.Sub("acme")
+	if vTLS == nil && vACME == nil {
+		return server.TLSConfig{}, configError{Field: "tls", Err: errors.New("must set either tls or acme")}
+	}
+	if vTLS != nil && vACME != nil {
+		return server.TLSConfig{}, configError{Field: "tls", Err: errors.New("cannot set both tls and acme")}
+	}
+	if vTLS != nil {
+		return viperToServerTLSConfigLocal(vTLS)
+	} else {
+		return viperToServerTLSConfigACME(vACME)
+	}
+}
+
+func viperToServerTLSConfigLocal(v *viper.Viper) (server.TLSConfig, error) {
+	certPath, keyPath := v.GetString("cert"), v.GetString("key")
+	if certPath == "" || keyPath == "" {
+		return server.TLSConfig{}, configError{Field: "tls", Err: errors.New("empty cert or key path")}
+	}
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return server.TLSConfig{}, configError{Field: "tls", Err: err}
+	}
+	return server.TLSConfig{
+		Certificates: []tls.Certificate{cert},
+	}, nil
+}
+
+func viperToServerTLSConfigACME(v *viper.Viper) (server.TLSConfig, error) {
+	dataDir := v.GetString("dir")
+	if dataDir == "" {
+		dataDir = "acme"
+	}
+
+	cfg := &certmagic.Config{
+		RenewalWindowRatio: certmagic.DefaultRenewalWindowRatio,
+		KeySource:          certmagic.DefaultKeyGenerator,
+		Storage:            &certmagic.FileStorage{Path: dataDir},
+		Logger:             logger,
+	}
+	issuer := certmagic.NewACMEIssuer(cfg, certmagic.ACMEIssuer{
+		Email:                   v.GetString("email"),
+		Agreed:                  true,
+		DisableHTTPChallenge:    v.GetBool("disableHTTP"),
+		DisableTLSALPNChallenge: v.GetBool("disableTLSALPN"),
+		AltHTTPPort:             v.GetInt("altHTTPPort"),
+		AltTLSALPNPort:          v.GetInt("altTLSALPNPort"),
+		Logger:                  logger,
+	})
+	switch strings.ToLower(v.GetString("ca")) {
+	case "letsencrypt", "le", "":
+		// Default to Let's Encrypt
+		issuer.CA = certmagic.LetsEncryptProductionCA
+	case "zerossl", "zero":
+		issuer.CA = certmagic.ZeroSSLProductionCA
+	default:
+		return server.TLSConfig{}, configError{Field: "acme.ca", Err: errors.New("unknown CA")}
+	}
+	cfg.Issuers = []certmagic.Issuer{issuer}
+
+	cache := certmagic.NewCache(certmagic.CacheOptions{
+		GetConfigForCert: func(cert certmagic.Certificate) (*certmagic.Config, error) {
+			return cfg, nil
+		},
+		Logger: logger,
+	})
+	cfg = certmagic.New(cache, *cfg)
+
+	domains := v.GetStringSlice("domains")
+	if len(domains) == 0 {
+		return server.TLSConfig{}, configError{Field: "acme.domains", Err: errors.New("empty domains")}
+	}
+	err := cfg.ManageSync(context.Background(), domains)
+	if err != nil {
+		return server.TLSConfig{}, configError{Field: "acme", Err: err}
+	}
+	return server.TLSConfig{
+		GetCertificate: cfg.GetCertificate,
+	}, nil
+}
+
+func viperToServerQUICConfig() server.QUICConfig {
+	return server.QUICConfig{
+		InitialStreamReceiveWindow:     viper.GetUint64("quic.initStreamReceiveWindow"),
+		MaxStreamReceiveWindow:         viper.GetUint64("quic.maxStreamReceiveWindow"),
+		InitialConnectionReceiveWindow: viper.GetUint64("quic.initConnReceiveWindow"),
+		MaxConnectionReceiveWindow:     viper.GetUint64("quic.maxConnReceiveWindow"),
+		MaxIdleTimeout:                 viper.GetDuration("quic.maxIdleTimeout"),
+		MaxIncomingStreams:             viper.GetInt64("quic.maxIncomingStreams"),
+		DisablePathMTUDiscovery:        viper.GetBool("quic.disablePathMTUDiscovery"),
+	}
+}
+
+func viperToServerBandwidthConfig() (server.BandwidthConfig, error) {
+	bw := server.BandwidthConfig{}
+	upStr, downStr := viper.GetString("bandwidth.up"), viper.GetString("bandwidth.down")
+	if upStr != "" {
+		up, err := convBandwidth(upStr)
+		if err != nil {
+			return server.BandwidthConfig{}, configError{Field: "bandwidth.up", Err: err}
+		}
+		bw.MaxTx = up
+	}
+	if downStr != "" {
+		down, err := convBandwidth(downStr)
+		if err != nil {
+			return server.BandwidthConfig{}, configError{Field: "bandwidth.down", Err: err}
+		}
+		bw.MaxRx = down
+	}
+	return bw, nil
+}
+
+func viperToAuthenticator() (server.Authenticator, error) {
+	authType := viper.GetString("auth.type")
+	if authType == "" {
+		return nil, configError{Field: "auth.type", Err: errors.New("empty auth type")}
+	}
+	switch authType {
+	case "password":
+		pw := viper.GetString("auth.password")
+		if pw == "" {
+			return nil, configError{Field: "auth.password", Err: errors.New("empty auth password")}
+		}
+		return &auth.PasswordAuthenticator{Password: pw}, nil
+	default:
+		return nil, configError{Field: "auth.type", Err: errors.New("unsupported auth type")}
+	}
+}
+
+type serverLogger struct{}
+
+func (l *serverLogger) Connect(addr net.Addr, id string, tx uint64) {
+	logger.Info("client connected", zap.String("addr", addr.String()), zap.String("id", id), zap.Uint64("tx", tx))
+}
+
+func (l *serverLogger) Disconnect(addr net.Addr, id string, err error) {
+	logger.Info("client disconnected", zap.String("addr", addr.String()), zap.String("id", id), zap.Error(err))
+}
+
+func (l *serverLogger) TCPRequest(addr net.Addr, id, reqAddr string) {
+	logger.Debug("TCP request", zap.String("addr", addr.String()), zap.String("id", id), zap.String("reqAddr", reqAddr))
+}
+
+func (l *serverLogger) TCPError(addr net.Addr, id, reqAddr string, err error) {
+	if err == nil {
+		logger.Debug("TCP closed", zap.String("addr", addr.String()), zap.String("id", id), zap.String("reqAddr", reqAddr))
+	} else {
+		logger.Error("TCP error", zap.String("addr", addr.String()), zap.String("id", id), zap.String("reqAddr", reqAddr), zap.Error(err))
+	}
+}
+
+func (l *serverLogger) UDPRequest(addr net.Addr, id string, sessionID uint32) {
+	logger.Debug("UDP request", zap.String("addr", addr.String()), zap.String("id", id), zap.Uint32("sessionID", sessionID))
+}
+
+func (l *serverLogger) UDPError(addr net.Addr, id string, sessionID uint32, err error) {
+	if err == nil {
+		logger.Debug("UDP closed", zap.String("addr", addr.String()), zap.String("id", id), zap.Uint32("sessionID", sessionID))
+	} else {
+		logger.Error("UDP error", zap.String("addr", addr.String()), zap.String("id", id), zap.Uint32("sessionID", sessionID), zap.Error(err))
+	}
 }

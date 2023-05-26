@@ -1,0 +1,29 @@
+server: example.com
+# sni: other.example.com
+
+auth: "hello world"
+
+# tls:
+#   insecure: false
+#   ca: "custom.ca"
+
+# quic:
+#   initStreamReceiveWindow: 8388608
+#   maxStreamReceiveWindow: 8388608
+#   initConnReceiveWindow: 20971520
+#   maxConnReceiveWindow: 20971520
+#   maxIdleTimeout: 30s
+#   keepAlivePeriod: 10s
+#   disablePathMTUDiscovery: false
+
+bandwidth:
+  up: "100 mbps"
+  down: "100 mbps"
+
+# fastOpen: true
+
+socks5:
+  listen: 127.0.0.1:1080
+  # username: "user"
+  # password: "haha233"
+  # disableUDP: true
