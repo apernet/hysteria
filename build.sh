@@ -71,7 +71,7 @@ platform_to_env() {
 }
 
 make_ldflags() {
-    local ldflags="-s -w -X 'main.appDate=$(date -u '+%F %T')'"
+    local ldflags="-buildid= -s -w -X 'main.appDate=$(date -u '+%F %T')'"
     if [ -n "$HY_APP_VERSION" ]; then
         ldflags="$ldflags -X 'main.appVersion=$HY_APP_VERSION'"
     else
