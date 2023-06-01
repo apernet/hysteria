@@ -2,7 +2,10 @@ package protocol
 
 import (
 	"math/rand"
-	"strings"
+)
+
+const (
+	paddingChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
 // padding specifies a half-open range [Min, Max).
@@ -13,7 +16,11 @@ type padding struct {
 
 func (p padding) String() string {
 	n := p.Min + rand.Intn(p.Max-p.Min)
-	return strings.Repeat("a", n) // No need to randomize since everything is encrypted anyway
+	bs := make([]byte, n)
+	for i := range bs {
+		bs[i] = paddingChars[rand.Intn(len(paddingChars))]
+	}
+	return string(bs)
 }
 
 var (
