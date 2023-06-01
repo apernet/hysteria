@@ -289,6 +289,12 @@ func (h *h3sHandler) handleUDPRequest(stream quic.Stream) {
 		_ = stream.Close()
 		return
 	}
+	// Read request
+	err := protocol.ReadUDPRequest(stream)
+	if err != nil {
+		_ = stream.Close()
+		return
+	}
 	// Add to session manager
 	sessionID, conn, connCloseFunc, err := h.udpSM.Add()
 	if err != nil {

@@ -15,8 +15,11 @@ const (
 	FrameTypeTCPRequest = 0x401
 	FrameTypeUDPRequest = 0x402
 
-	MaxAddressLength = 2048 // for preventing DoS attack by sending a very large address length
-	MaxMessageLength = 2048 // for preventing DoS attack by sending a very large message length
+	// Max length values are for preventing DoS attacks
+
+	MaxAddressLength = 2048
+	MaxMessageLength = 2048
+	MaxPaddingLength = 4096
 
 	MaxUDPSize = 4096
 
@@ -30,28 +33,52 @@ const (
 // 0x401 (QUIC varint)
 // Address length (QUIC varint)
 // Address (bytes)
+// Padding length (QUIC varint)
+// Padding (bytes)
 
 func ReadTCPRequest(r io.Reader) (string, error) {
 	bReader := quicvarint.NewReader(r)
-	l, err := quicvarint.Read(bReader)
+	addrLen, err := quicvarint.Read(bReader)
 	if err != nil {
 		return "", err
 	}
-	if l == 0 || l > MaxAddressLength {
+	if addrLen == 0 || addrLen > MaxAddressLength {
 		return "", errors.ProtocolError{Message: "invalid address length"}
 	}
-	buf := make([]byte, l)
-	_, err = io.ReadFull(r, buf)
-	return string(buf), err
+	addrBuf := make([]byte, addrLen)
+	_, err = io.ReadFull(r, addrBuf)
+	if err != nil {
+		return "", err
+	}
+	paddingLen, err := quicvarint.Read(bReader)
+	if err != nil {
+		return "", err
+	}
+	if paddingLen > MaxPaddingLength {
+		return "", errors.ProtocolError{Message: "invalid padding length"}
+	}
+	if paddingLen > 0 {
+		_, err = io.CopyN(io.Discard, r, int64(paddingLen))
+		if err != nil {
+			return "", err
+		}
+	}
+	return string(addrBuf), nil
 }
 
 func WriteTCPRequest(w io.Writer, addr string) error {
-	l := len(addr)
-	sz := int(quicvarint.Len(FrameTypeTCPRequest)) + int(quicvarint.Len(uint64(l))) + l
+	padding := tcpRequestPadding.String()
+	paddingLen := len(padding)
+	addrLen := len(addr)
+	sz := int(quicvarint.Len(FrameTypeTCPRequest)) +
+		int(quicvarint.Len(uint64(addrLen))) + addrLen +
+		int(quicvarint.Len(uint64(paddingLen))) + paddingLen
 	buf := make([]byte, sz)
 	i := varintPut(buf, FrameTypeTCPRequest)
-	i += varintPut(buf[i:], uint64(l))
-	copy(buf[i:], addr)
+	i += varintPut(buf[i:], uint64(addrLen))
+	i += copy(buf[i:], addr)
+	i += varintPut(buf[i:], uint64(paddingLen))
+	copy(buf[i:], padding)
 	_, err := w.Write(buf)
 	return err
 }
@@ -60,6 +87,8 @@ func WriteTCPRequest(w io.Writer, addr string) error {
 // Status (byte, 0=ok, 1=error)
 // Message length (QUIC varint)
 // Message (bytes)
+// Padding length (QUIC varint)
+// Padding (bytes)
 
 func ReadTCPResponse(r io.Reader) (bool, string, error) {
 	var status [1]byte
@@ -67,45 +96,90 @@ func ReadTCPResponse(r io.Reader) (bool, string, error) {
 		return false, "", err
 	}
 	bReader := quicvarint.NewReader(r)
-	l, err := quicvarint.Read(bReader)
+	msgLen, err := quicvarint.Read(bReader)
 	if err != nil {
 		return false, "", err
 	}
-	if l == 0 {
-		// No message is ok
-		return status[0] == 0, "", nil
-	}
-	if l > MaxMessageLength {
+	if msgLen > MaxMessageLength {
 		return false, "", errors.ProtocolError{Message: "invalid message length"}
 	}
-	buf := make([]byte, l)
-	_, err = io.ReadFull(r, buf)
-	return status[0] == 0, string(buf), err
+	var msgBuf []byte
+	// No message is fine
+	if msgLen > 0 {
+		msgBuf = make([]byte, msgLen)
+		_, err = io.ReadFull(r, msgBuf)
+		if err != nil {
+			return false, "", err
+		}
+	}
+	paddingLen, err := quicvarint.Read(bReader)
+	if err != nil {
+		return false, "", err
+	}
+	if paddingLen > MaxPaddingLength {
+		return false, "", errors.ProtocolError{Message: "invalid padding length"}
+	}
+	if paddingLen > 0 {
+		_, err = io.CopyN(io.Discard, r, int64(paddingLen))
+		if err != nil {
+			return false, "", err
+		}
+	}
+	return status[0] == 0, string(msgBuf), nil
 }
 
 func WriteTCPResponse(w io.Writer, ok bool, msg string) error {
-	l := len(msg)
-	sz := 1 + int(quicvarint.Len(uint64(l))) + l
+	padding := tcpResponsePadding.String()
+	paddingLen := len(padding)
+	msgLen := len(msg)
+	sz := 1 + int(quicvarint.Len(uint64(msgLen))) + msgLen +
+		int(quicvarint.Len(uint64(paddingLen))) + paddingLen
 	buf := make([]byte, sz)
 	if ok {
 		buf[0] = 0
 	} else {
 		buf[0] = 1
 	}
-	i := varintPut(buf[1:], uint64(l))
-	copy(buf[1+i:], msg)
+	i := varintPut(buf[1:], uint64(msgLen))
+	i += copy(buf[1+i:], msg)
+	i += varintPut(buf[1+i:], uint64(paddingLen))
+	copy(buf[1+i:], padding)
 	_, err := w.Write(buf)
 	return err
 }
 
 // UDPRequest format:
 // 0x402 (QUIC varint)
+// Padding length (QUIC varint)
+// Padding (bytes)
 
-// Nothing to read
+func ReadUDPRequest(r io.Reader) error {
+	bReader := quicvarint.NewReader(r)
+	paddingLen, err := quicvarint.Read(bReader)
+	if err != nil {
+		return err
+	}
+	if paddingLen > MaxPaddingLength {
+		return errors.ProtocolError{Message: "invalid padding length"}
+	}
+	if paddingLen > 0 {
+		_, err = io.CopyN(io.Discard, r, int64(paddingLen))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func WriteUDPRequest(w io.Writer) error {
-	buf := make([]byte, quicvarint.Len(FrameTypeUDPRequest))
-	varintPut(buf, FrameTypeUDPRequest)
+	padding := udpRequestPadding.String()
+	paddingLen := len(padding)
+	sz := int(quicvarint.Len(FrameTypeUDPRequest)) +
+		int(quicvarint.Len(uint64(paddingLen))) + paddingLen
+	buf := make([]byte, sz)
+	i := varintPut(buf, FrameTypeUDPRequest)
+	i += varintPut(buf[i:], uint64(paddingLen))
+	copy(buf[i:], padding)
 	_, err := w.Write(buf)
 	return err
 }
@@ -115,6 +189,8 @@ func WriteUDPRequest(w io.Writer) error {
 // Session ID (uint32 BE)
 // Message length (QUIC varint)
 // Message (bytes)
+// Padding length (QUIC varint)
+// Padding (bytes)
 
 func ReadUDPResponse(r io.Reader) (bool, uint32, string, error) {
 	var status [1]byte
@@ -126,33 +202,55 @@ func ReadUDPResponse(r io.Reader) (bool, uint32, string, error) {
 		return false, 0, "", err
 	}
 	bReader := quicvarint.NewReader(r)
-	l, err := quicvarint.Read(bReader)
+	msgLen, err := quicvarint.Read(bReader)
 	if err != nil {
 		return false, 0, "", err
 	}
-	if l == 0 {
-		// No message is ok
-		return status[0] == 0, sessionID, "", nil
-	}
-	if l > MaxMessageLength {
+	if msgLen > MaxMessageLength {
 		return false, 0, "", errors.ProtocolError{Message: "invalid message length"}
 	}
-	buf := make([]byte, l)
-	_, err = io.ReadFull(r, buf)
-	return status[0] == 0, sessionID, string(buf), err
+	var msgBuf []byte
+	// No message is fine
+	if msgLen > 0 {
+		msgBuf = make([]byte, msgLen)
+		_, err = io.ReadFull(r, msgBuf)
+		if err != nil {
+			return false, 0, "", err
+		}
+	}
+	paddingLen, err := quicvarint.Read(bReader)
+	if err != nil {
+		return false, 0, "", err
+	}
+	if paddingLen > MaxPaddingLength {
+		return false, 0, "", errors.ProtocolError{Message: "invalid padding length"}
+	}
+	if paddingLen > 0 {
+		_, err = io.CopyN(io.Discard, r, int64(paddingLen))
+		if err != nil {
+			return false, 0, "", err
+		}
+	}
+	return status[0] == 0, sessionID, string(msgBuf), nil
 }
 
 func WriteUDPResponse(w io.Writer, ok bool, sessionID uint32, msg string) error {
-	l := len(msg)
-	buf := make([]byte, 5+int(quicvarint.Len(uint64(l)))+l)
+	padding := udpResponsePadding.String()
+	paddingLen := len(padding)
+	msgLen := len(msg)
+	sz := 1 + 4 + int(quicvarint.Len(uint64(msgLen))) + msgLen +
+		int(quicvarint.Len(uint64(paddingLen))) + paddingLen
+	buf := make([]byte, sz)
 	if ok {
 		buf[0] = 0
 	} else {
 		buf[0] = 1
 	}
 	binary.BigEndian.PutUint32(buf[1:], sessionID)
-	i := varintPut(buf[5:], uint64(l))
-	copy(buf[5+i:], msg)
+	i := varintPut(buf[5:], uint64(msgLen))
+	i += copy(buf[5+i:], msg)
+	i += varintPut(buf[5+i:], uint64(paddingLen))
+	copy(buf[5+i:], padding)
 	_, err := w.Write(buf)
 	return err
 }
