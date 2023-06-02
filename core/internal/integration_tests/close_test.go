@@ -37,7 +37,6 @@ func TestClientServerTCPClose(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		ServerName: udpAddr.String(),
 		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
@@ -161,7 +160,6 @@ func TestClientServerUDPClose(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		ServerName: udpAddr.String(),
 		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})

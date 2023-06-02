@@ -19,7 +19,6 @@ func TestClientNoServer(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14514},
-		ServerName: "not_a_real_server",
 	})
 	if err != nil {
 		t.Fatal("error creating client:", err)
@@ -68,7 +67,6 @@ func TestClientServerBadAuth(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		ServerName: udpAddr.String(),
 		Auth:       "wrong password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
@@ -127,7 +125,6 @@ func TestClientServerTCPEcho(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		ServerName: udpAddr.String(),
 		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
@@ -194,7 +191,6 @@ func TestClientServerUDPEcho(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		ServerName: udpAddr.String(),
 		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})

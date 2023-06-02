@@ -136,6 +136,7 @@ func (c *clientImpl) connect() (quic.Connection, func(), error) {
 	}
 	// Convert config to TLS config & QUIC config
 	tlsConfig := &tls.Config{
+		ServerName:         c.config.TLSConfig.ServerName,
 		InsecureSkipVerify: c.config.TLSConfig.InsecureSkipVerify,
 		RootCAs:            c.config.TLSConfig.RootCAs,
 	}
@@ -156,7 +157,7 @@ func (c *clientImpl) connect() (quic.Connection, func(), error) {
 		TLSClientConfig: tlsConfig,
 		QuicConfig:      quicConfig,
 		Dial: func(ctx context.Context, _ string, tlsCfg *tls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
-			qc, err := quic.DialEarlyContext(ctx, pktConn, c.config.ServerAddr, c.config.ServerName, tlsCfg, cfg)
+			qc, err := quic.DialEarly(ctx, pktConn, c.config.ServerAddr, tlsCfg, cfg)
 			if err != nil {
 				return nil, err
 			}

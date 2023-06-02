@@ -73,17 +73,13 @@ func viperToClientConfig() (*client.Config, error) {
 	if addrStr == "" {
 		return nil, configError{Field: "server", Err: errors.New("server address is empty")}
 	}
-	addrStr = completeServerAddrString(addrStr)
-	addr, err := net.ResolveUDPAddr("udp", addrStr)
+	host, hostPort := parseServerAddrString(addrStr)
+	addr, err := net.ResolveUDPAddr("udp", hostPort)
 	if err != nil {
 		return nil, configError{Field: "server", Err: err}
 	}
-	sni := viper.GetString("sni")
-	if sni == "" {
-		sni = addrStr
-	}
 	// TLS
-	tlsConfig, err := viperToClientTLSConfig()
+	tlsConfig, err := viperToClientTLSConfig(host)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +93,6 @@ func viperToClientConfig() (*client.Config, error) {
 	return &client.Config{
 		ConnFactory:     nil, // TODO
 		ServerAddr:      addr,
-		ServerName:      sni,
 		Auth:            viper.GetString("auth"),
 		TLSConfig:       tlsConfig,
 		QUICConfig:      quicConfig,
@@ -106,9 +101,14 @@ func viperToClientConfig() (*client.Config, error) {
 	}, nil
 }
 
-func viperToClientTLSConfig() (client.TLSConfig, error) {
+func viperToClientTLSConfig(host string) (client.TLSConfig, error) {
 	config := client.TLSConfig{
+		ServerName:         viper.GetString("tls.sni"),
 		InsecureSkipVerify: viper.GetBool("tls.insecure"),
+	}
+	if config.ServerName == "" {
+		// The user didn't specify a server name, fallback to the host part of the server address
+		config.ServerName = host
 	}
 	caPath := viper.GetString("tls.ca")
 	if caPath != "" {
@@ -181,12 +181,13 @@ func clientSOCKS5(v *viper.Viper, c client.Client) error {
 	return s.Serve(l)
 }
 
-func completeServerAddrString(addrStr string) string {
-	if _, _, err := net.SplitHostPort(addrStr); err != nil {
+func parseServerAddrString(addrStr string) (host, hostPort string) {
+	h, _, err := net.SplitHostPort(addrStr)
+	if err != nil {
 		// No port provided, use default HTTPS port
-		return net.JoinHostPort(addrStr, "443")
+		return addrStr, net.JoinHostPort(addrStr, "443")
 	}
-	return addrStr
+	return h, addrStr
 }
 
 type socks5Logger struct{}

@@ -1,11 +1,11 @@
 server: example.com
-# sni: other.example.com
 
 auth: "hello world"
 
 # tls:
+#   sni: another.example.com
 #   insecure: false
-#   ca: "custom.ca"
+#   ca: custom_ca.crt
 
 # quic:
 #   initStreamReceiveWindow: 8388608

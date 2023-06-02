@@ -49,7 +49,7 @@ func TestServerMasquerade(t *testing.T) {
 			InsecureSkipVerify: true,
 		},
 		Dial: func(ctx context.Context, _ string, tlsCfg *tls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
-			qc, err := quic.DialAddrEarlyContext(ctx, udpAddr.String(), tlsCfg, cfg)
+			qc, err := quic.DialAddrEarly(ctx, udpAddr.String(), tlsCfg, cfg)
 			if err != nil {
 				return nil, err
 			}

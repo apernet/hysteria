@@ -54,7 +54,7 @@ func NewServer(config *Config) (Server, error) {
 
 type serverImpl struct {
 	config   *Config
-	listener quic.Listener
+	listener *quic.Listener
 }
 
 func (s *serverImpl) Serve() error {

@@ -163,7 +163,6 @@ func TestClientServerTCPStress(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		ServerName: udpAddr.String(),
 		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
@@ -219,7 +218,6 @@ func TestClientServerUDPStress(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		ServerName: udpAddr.String(),
 		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})

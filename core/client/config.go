@@ -19,7 +19,6 @@ const (
 type Config struct {
 	ConnFactory     ConnFactory
 	ServerAddr      net.Addr
-	ServerName      string // host or host:port
 	Auth            string
 	TLSConfig       TLSConfig
 	QUICConfig      QUICConfig
@@ -35,9 +34,6 @@ func (c *Config) fill() error {
 	}
 	if c.ServerAddr == nil {
 		return errors.ConfigError{Field: "ServerAddr", Reason: "must be set"}
-	}
-	if c.ServerName == "" {
-		return errors.ConfigError{Field: "ServerName", Reason: "must be set"}
 	}
 	if c.QUICConfig.InitialStreamReceiveWindow == 0 {
 		c.QUICConfig.InitialStreamReceiveWindow = defaultStreamReceiveWindow
@@ -85,6 +81,7 @@ func (f *udpConnFactory) New(addr net.Addr) (net.PacketConn, error) {
 
 // TLSConfig contains the TLS configuration fields that we want to expose to the user.
 type TLSConfig struct {
+	ServerName         string
 	InsecureSkipVerify bool
 	RootCAs            *x509.CertPool
 }
