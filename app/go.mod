@@ -51,7 +51,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/quic-go/quic-go => github.com/apernet/quic-go v0.35.2-0.20230602223639-95e643736b77
+replace github.com/quic-go/quic-go => github.com/apernet/quic-go v0.35.2-0.20230603042631-1657f2ab6f57
 
 replace github.com/apernet/hysteria/core => ../core
 
