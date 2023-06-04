@@ -23,9 +23,11 @@ var (
 	// These values will be injected by the build system
 	appVersion = "Unknown"
 	appDate    = "Unknown"
+	appType    = "Unknown"
 	appCommit  = "Unknown"
 
-	appVersionLong = fmt.Sprintf("Version:\t%s\nBuildDate:\t%s\nCommitHash:\t%s", appVersion, appDate, appCommit)
+	appVersionLong = fmt.Sprintf("Version:\t%s\nBuildDate:\t%s\nBuildType:\t%s\nCommitHash:\t%s",
+		appVersion, appDate, appType, appCommit)
 )
 
 var logger *zap.Logger
