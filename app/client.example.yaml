@@ -1,6 +1,6 @@
 server: example.com
 
-auth: "hello world"
+auth: some_password
 
 # tls:
 #   sni: another.example.com
@@ -17,13 +17,13 @@ auth: "hello world"
 #   disablePathMTUDiscovery: false
 
 bandwidth:
-  up: "100 mbps"
-  down: "100 mbps"
+  up: 100 mbps
+  down: 100 mbps
 
 # fastOpen: true
 
 socks5:
   listen: 127.0.0.1:1080
-  # username: "user"
-  # password: "haha233"
+  # username: user
+  # password: pass
   # disableUDP: true

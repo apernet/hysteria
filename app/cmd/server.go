@@ -5,6 +5,9 @@ import (
 	"crypto/tls"
 	"errors"
 	"net"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strings"
 
 	"github.com/apernet/hysteria/core/server"
@@ -78,6 +81,11 @@ func viperToServerConfig() (*server.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Masquerade
+	masqHandler, err := viperToMasqHandler()
+	if err != nil {
+		return nil, err
+	}
 	// Config
 	config := &server.Config{
 		TLSConfig:       tlsConfig,
@@ -88,7 +96,7 @@ func viperToServerConfig() (*server.Config, error) {
 		DisableUDP:      disableUDP,
 		Authenticator:   authenticator,
 		EventLogger:     &serverLogger{},
-		MasqHandler:     nil, // TODO
+		MasqHandler:     masqHandler,
 	}
 	return config, nil
 }
@@ -237,6 +245,50 @@ func viperToAuthenticator() (server.Authenticator, error) {
 		return &auth.PasswordAuthenticator{Password: pw}, nil
 	default:
 		return nil, configError{Field: "auth.type", Err: errors.New("unsupported auth type")}
+	}
+}
+
+func viperToMasqHandler() (http.Handler, error) {
+	masqType := viper.GetString("masquerade.type")
+	if masqType == "" {
+		// Default to use the 404 handler
+		return http.NotFoundHandler(), nil
+	}
+	switch masqType {
+	case "404":
+		return http.NotFoundHandler(), nil
+	case "file":
+		dir := viper.GetString("masquerade.file.dir")
+		if dir == "" {
+			return nil, configError{Field: "masquerade.file.dir", Err: errors.New("empty directory")}
+		}
+		return http.FileServer(http.Dir(dir)), nil
+	case "proxy":
+		urlStr := viper.GetString("masquerade.proxy.url")
+		if urlStr == "" {
+			return nil, configError{Field: "masquerade.proxy.url", Err: errors.New("empty url")}
+		}
+		u, err := url.Parse(urlStr)
+		if err != nil {
+			return nil, configError{Field: "masquerade.proxy.url", Err: err}
+		}
+		proxy := &httputil.ReverseProxy{
+			Rewrite: func(r *httputil.ProxyRequest) {
+				r.SetURL(u)
+				// SetURL rewrites the Host header,
+				// but we don't want that if rewriteHost is false
+				if !viper.GetBool("masquerade.proxy.rewriteHost") {
+					r.Out.Host = r.In.Host
+				}
+			},
+			ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+				logger.Error("HTTP reverse proxy error", zap.Error(err))
+				w.WriteHeader(http.StatusBadGateway)
+			},
+		}
+		return proxy, nil
+	default:
+		return nil, configError{Field: "masquerade.type", Err: errors.New("unsupported masquerade type")}
 	}
 }
 

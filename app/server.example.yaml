@@ -13,7 +13,7 @@ acme:
   # disableTLSALPN: false
   # altHTTPPort: 80
   # altTLSALPNPort: 443
-  # dir: "custom_dir"
+  # dir: custom_dir
 
 # quic:
 #   initStreamReceiveWindow: 8388608
@@ -25,11 +25,17 @@ acme:
 #   disablePathMTUDiscovery: false
 
 # bandwidth:
-#   up: "100 mbps"
-#   down: "100 mbps"
+#   up: 100 mbps
+#   down: 100 mbps
 #
 # disableUDP: false
 
 auth:
-  type: "password"
-  password: "hello world"
+  type: password
+  password: some_password
+
+masquerade:
+  type: proxy
+  proxy:
+    url: https://some.site.net
+    rewriteHost: true

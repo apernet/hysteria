@@ -8,22 +8,28 @@
 
 ## Build (编译)
 
+Use the environment variable `HY_APP_PLATFORMS` to control which platforms to build for. For example: `"windows/amd64,linux/amd64,linux/arm"`
+
+用环境变量 `HY_APP_PLATFORMS` 来控制编译哪些平台的可执行文件。例如：`"windows/amd64,linux/amd64,linux/arm"`
+
 ```bash
-go build ./app
+python ./hyperbole.py build
 ```
+
+Builds will be placed in `./build` (编译输出在 `./build` 目录下)
 
 ## Usage (使用)
 
 ### Server
 ```bash
-./app server -c config.yaml
+./hysteria server -c config.yaml
 ```
 
 [Example sever config (示例服务器配置)](app/server.example.yaml)
 
 ### Client
 ```bash
-./app client -c config.yaml
+./hysteria client -c config.yaml
 ```
 
 [Example client config (示例客户端配置)](app/client.example.yaml)
@@ -34,4 +40,4 @@ go build ./app
 chrome --origin-to-force-quic-on=example.com:443
 ```
 
-Then visit `https://example.com:443` in Chrome.
+Then visit `https://example.com/` in Chrome.
