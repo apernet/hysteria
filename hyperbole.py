@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import argparse
 import os
 import subprocess
@@ -16,6 +19,8 @@ LOGO = """
 ░█▀█░░█░░█▀▀░█▀▀░█▀▄░█▀▄░█░█░█░░░█▀▀
 ░▀░▀░░▀░░▀░░░▀▀▀░▀░▀░▀▀░░▀▀▀░▀▀▀░▀▀▀
 """
+
+DESC = 'Hyperbole is the official build script for Hysteria.'
 
 BUILD_DIR = 'build'
 
@@ -117,7 +122,10 @@ def cmd_build(release=False):
         if os_name == 'windows':
             out_name += '.exe'
 
-        env = {**os.environ, 'GOOS': os_name, 'GOARCH': arch}
+        env = os.environ.copy()
+        env['GOOS'] = os_name
+        env['GOARCH'] = arch
+
         cmd = ['go', 'build', '-o',
                os.path.join(BUILD_DIR, out_name), '-ldflags', ' '.join(ldflags)]
         if release:
@@ -177,7 +185,7 @@ def cmd_clean():
 
 def cmd_about():
     print(LOGO)
-    print('Hyperbole is the official build script for Hysteria.')
+    print(DESC)
 
 
 def main():
