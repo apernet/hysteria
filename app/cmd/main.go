@@ -157,6 +157,8 @@ func fakeFlags() {
 }
 
 func init() {
+	openWinVT()
+
 	// compatible with old flag format
 	fakeFlags()
 
