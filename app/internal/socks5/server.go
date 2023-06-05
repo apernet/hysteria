@@ -254,6 +254,7 @@ func (s *Server) udpServer(udpConn *net.UDPConn, hyUDP client.HyUDPConn) error {
 					if err != nil {
 						continue
 					}
+					addr = addr[1:] // Remove the leading length byte
 					d := socks5.NewDatagram(atyp, addr, port, bs)
 					_, _ = udpConn.WriteToUDP(d.Bytes(), clientAddr)
 				}
