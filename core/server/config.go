@@ -26,8 +26,8 @@ type Config struct {
 	DisableUDP      bool
 	Authenticator   Authenticator
 	EventLogger     EventLogger
-	// TODO: TrafficLogger
-	MasqHandler http.Handler
+	TrafficLogger   TrafficLogger
+	MasqHandler     http.Handler
 }
 
 // fill fills the fields that are not set by the user with default values when possible,
@@ -169,4 +169,16 @@ type EventLogger interface {
 	TCPError(addr net.Addr, id, reqAddr string, err error)
 	UDPRequest(addr net.Addr, id string, sessionID uint32)
 	UDPError(addr net.Addr, id string, sessionID uint32, err error)
+}
+
+// TrafficLogger is an interface that provides traffic logging logic.
+// Tx/Rx in this context refers to the server-remote (proxy target) perspective.
+// Tx is the bytes sent from the server to the remote.
+// Rx is the bytes received by the server from the remote.
+// Apart from logging, the Log function can also return false to signal
+// that the client should be disconnected. This can be used to implement
+// bandwidth limits or post-connection authentication, for example.
+// The implementation of this interface must be thread-safe.
+type TrafficLogger interface {
+	Log(id string, tx, rx uint64) bool
 }

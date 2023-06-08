@@ -61,6 +61,37 @@ func (s *tcpEchoServer) Close() error {
 	return s.Listener.Close()
 }
 
+// tcpDoubleEchoServer is a TCP server that echoes twice what it reads from the connection.
+// It will never actively close the connection.
+type tcpDoubleEchoServer struct {
+	Listener net.Listener
+}
+
+func (s *tcpDoubleEchoServer) Serve() error {
+	for {
+		conn, err := s.Listener.Accept()
+		if err != nil {
+			return err
+		}
+		go func() {
+			buf := make([]byte, 1024)
+			for {
+				n, err := conn.Read(buf)
+				if err != nil {
+					_ = conn.Close()
+					return
+				}
+				_, _ = conn.Write(buf[:n])
+				_, _ = conn.Write(buf[:n])
+			}
+		}()
+	}
+}
+
+func (s *tcpDoubleEchoServer) Close() error {
+	return s.Listener.Close()
+}
+
 type sinkEvent struct {
 	Data []byte
 	Err  error
@@ -137,6 +168,34 @@ func (s *udpEchoServer) Serve() error {
 }
 
 func (s *udpEchoServer) Close() error {
+	return s.Conn.Close()
+}
+
+// udpDoubleEchoServer is a UDP server that echoes twice what it reads from the connection.
+// It will never actively close the connection.
+type udpDoubleEchoServer struct {
+	Conn net.PacketConn
+}
+
+func (s *udpDoubleEchoServer) Serve() error {
+	buf := make([]byte, 65536)
+	for {
+		n, addr, err := s.Conn.ReadFrom(buf)
+		if err != nil {
+			return err
+		}
+		_, err = s.Conn.WriteTo(buf[:n], addr)
+		if err != nil {
+			return err
+		}
+		_, err = s.Conn.WriteTo(buf[:n], addr)
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (s *udpDoubleEchoServer) Close() error {
 	return s.Conn.Close()
 }
 

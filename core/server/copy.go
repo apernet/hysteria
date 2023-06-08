@@ -1,0 +1,58 @@
+package server
+
+import "io"
+
+func copyBufferLog(dst io.Writer, src io.Reader, log func(n uint64)) error {
+	buf := make([]byte, 32*1024)
+	for {
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw > 0 {
+				log(uint64(nw))
+			}
+			if ew != nil {
+				return ew
+			}
+		}
+		if er != nil {
+			if er == io.EOF {
+				// EOF should not be considered as an error
+				return nil
+			}
+			return er
+		}
+	}
+}
+
+func copyTwoWayWithLogger(id string, serverRw, remoteRw io.ReadWriter, l TrafficLogger) error {
+	errChan := make(chan error, 2)
+	go func() {
+		errChan <- copyBufferLog(serverRw, remoteRw, func(n uint64) {
+			l.Log(id, 0, n)
+		})
+	}()
+	go func() {
+		errChan <- copyBufferLog(remoteRw, serverRw, func(n uint64) {
+			l.Log(id, n, 0)
+		})
+	}()
+	// Block until one of the two goroutines returns
+	return <-errChan
+}
+
+// copyTwoWay is the "fast-path" version of copyTwoWayWithLogger that does not log traffic.
+// It uses the built-in io.Copy instead of our own copyBufferLog.
+func copyTwoWay(serverRw, remoteRw io.ReadWriter) error {
+	errChan := make(chan error, 2)
+	go func() {
+		_, err := io.Copy(serverRw, remoteRw)
+		errChan <- err
+	}()
+	go func() {
+		_, err := io.Copy(remoteRw, serverRw)
+		errChan <- err
+	}()
+	// Block until one of the two goroutines returns
+	return <-errChan
+}

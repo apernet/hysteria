@@ -154,21 +154,25 @@ func (m *udpSessionManager) Add() (uint32, UDPConn, func(), error) {
 	}, nil
 }
 
-func (m *udpSessionManager) Feed(msg *protocol.UDPMessage) {
+// Feed feeds a UDP message to the session manager.
+// If the message itself is a complete message, or it's the last fragment of a message,
+// it will be sent to the UDP connection.
+// The function will then return the number of bytes sent and any error occurred.
+func (m *udpSessionManager) Feed(msg *protocol.UDPMessage) (int, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	entry, ok := m.m[msg.SessionID]
 	if !ok {
 		// No such session, drop the message
-		return
+		return 0, nil
 	}
 	dfMsg := entry.D.Feed(msg)
 	if dfMsg == nil {
 		// Not a complete message yet
-		return
+		return 0, nil
 	}
-	_, _ = entry.Conn.WriteTo(dfMsg.Data, dfMsg.Addr)
+	return entry.Conn.WriteTo(dfMsg.Data, dfMsg.Addr)
 }
 
 func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -263,17 +267,12 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	}
 	_ = protocol.WriteTCPResponse(stream, true, "")
 	// Start proxying
-	copyErrChan := make(chan error, 2)
-	go func() {
-		_, err := io.Copy(tConn, stream)
-		copyErrChan <- err
-	}()
-	go func() {
-		_, err := io.Copy(stream, tConn)
-		copyErrChan <- err
-	}()
-	// Block until one of the copy goroutines exits
-	err = <-copyErrChan
+	if h.config.TrafficLogger != nil {
+		err = copyTwoWayWithLogger(h.authID, stream, tConn, h.config.TrafficLogger)
+	} else {
+		// Use the fast path if no traffic logger is set
+		err = copyTwoWay(stream, tConn)
+	}
 	if h.config.EventLogger != nil {
 		h.config.EventLogger.TCPError(h.conn.RemoteAddr(), h.authID, reqAddr, err)
 	}
@@ -316,6 +315,9 @@ func (h *h3sHandler) handleUDPRequest(stream quic.Stream) {
 		for {
 			udpN, rAddr, err := conn.ReadFrom(udpBuf)
 			if udpN > 0 {
+				if h.config.TrafficLogger != nil {
+					h.config.TrafficLogger.Log(h.authID, 0, uint64(udpN))
+				}
 				// Try no frag first
 				msg := protocol.UDPMessage{
 					SessionID: sessionID,
@@ -379,7 +381,10 @@ func (h *h3sHandler) handleUDPMessage(msg []byte) {
 	if err != nil {
 		return
 	}
-	h.udpSM.Feed(udpMsg)
+	n, _ := h.udpSM.Feed(udpMsg)
+	if n > 0 && h.config.TrafficLogger != nil {
+		h.config.TrafficLogger.Log(h.authID, uint64(n), 0)
+	}
 }
 
 func (h *h3sHandler) masqHandler(w http.ResponseWriter, r *http.Request) {
