@@ -279,6 +279,10 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	// Cleanup
 	_ = tConn.Close()
 	_ = stream.Close()
+	// Disconnect the client if TrafficLogger requested
+	if err == errDisconnect {
+		_ = h.conn.CloseWithError(0, "")
+	}
 }
 
 func (h *h3sHandler) handleUDPRequest(stream quic.Stream) {
@@ -316,7 +320,12 @@ func (h *h3sHandler) handleUDPRequest(stream quic.Stream) {
 			udpN, rAddr, err := conn.ReadFrom(udpBuf)
 			if udpN > 0 {
 				if h.config.TrafficLogger != nil {
-					h.config.TrafficLogger.Log(h.authID, 0, uint64(udpN))
+					ok := h.config.TrafficLogger.Log(h.authID, 0, uint64(udpN))
+					if !ok {
+						// TrafficLogger requested to disconnect the client
+						_ = h.conn.CloseWithError(0, "")
+						return
+					}
 				}
 				// Try no frag first
 				msg := protocol.UDPMessage{
@@ -371,20 +380,30 @@ func (h *h3sHandler) udpLoop() {
 		if err != nil {
 			return
 		}
-		h.handleUDPMessage(msg)
+		ok := h.handleUDPMessage(msg)
+		if !ok {
+			// TrafficLogger requested to disconnect the client
+			_ = h.conn.CloseWithError(0, "")
+			return
+		}
 	}
 }
 
 // client -> remote direction
-func (h *h3sHandler) handleUDPMessage(msg []byte) {
+// Returns a bool indicating whether the receiving loop should continue
+func (h *h3sHandler) handleUDPMessage(msg []byte) (ok bool) {
 	udpMsg, err := protocol.ParseUDPMessage(msg)
 	if err != nil {
-		return
+		return true
 	}
-	n, _ := h.udpSM.Feed(udpMsg)
-	if n > 0 && h.config.TrafficLogger != nil {
-		h.config.TrafficLogger.Log(h.authID, uint64(n), 0)
+	if h.config.TrafficLogger != nil {
+		ok := h.config.TrafficLogger.Log(h.authID, uint64(len(udpMsg.Data)), 0)
+		if !ok {
+			return false
+		}
 	}
+	_, _ = h.udpSM.Feed(udpMsg)
+	return true
 }
 
 func (h *h3sHandler) masqHandler(w http.ResponseWriter, r *http.Request) {

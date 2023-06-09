@@ -1,16 +1,22 @@
 package server
 
-import "io"
+import (
+	"errors"
+	"io"
+)
 
-func copyBufferLog(dst io.Writer, src io.Reader, log func(n uint64)) error {
+var errDisconnect = errors.New("traffic logger requested disconnect")
+
+func copyBufferLog(dst io.Writer, src io.Reader, log func(n uint64) bool) error {
 	buf := make([]byte, 32*1024)
 	for {
 		nr, er := src.Read(buf)
 		if nr > 0 {
-			nw, ew := dst.Write(buf[0:nr])
-			if nw > 0 {
-				log(uint64(nw))
+			if !log(uint64(nr)) {
+				// Log returns false, which means that the client should be disconnected
+				return errDisconnect
 			}
+			_, ew := dst.Write(buf[0:nr])
 			if ew != nil {
 				return ew
 			}
@@ -28,13 +34,13 @@ func copyBufferLog(dst io.Writer, src io.Reader, log func(n uint64)) error {
 func copyTwoWayWithLogger(id string, serverRw, remoteRw io.ReadWriter, l TrafficLogger) error {
 	errChan := make(chan error, 2)
 	go func() {
-		errChan <- copyBufferLog(serverRw, remoteRw, func(n uint64) {
-			l.Log(id, 0, n)
+		errChan <- copyBufferLog(serverRw, remoteRw, func(n uint64) bool {
+			return l.Log(id, 0, n)
 		})
 	}()
 	go func() {
-		errChan <- copyBufferLog(remoteRw, serverRw, func(n uint64) {
-			l.Log(id, n, 0)
+		errChan <- copyBufferLog(remoteRw, serverRw, func(n uint64) bool {
+			return l.Log(id, n, 0)
 		})
 	}()
 	// Block until one of the two goroutines returns

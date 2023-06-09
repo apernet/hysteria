@@ -12,16 +12,21 @@ import (
 
 type testTrafficLogger struct {
 	Tx, Rx uint64
+	Block  atomic.Bool
 }
 
 func (l *testTrafficLogger) Log(id string, tx, rx uint64) bool {
 	atomic.AddUint64(&l.Tx, tx)
 	atomic.AddUint64(&l.Rx, rx)
-	return true
+	return !l.Block.Load()
 }
 
 func (l *testTrafficLogger) Get() (tx, rx uint64) {
 	return atomic.LoadUint64(&l.Tx), atomic.LoadUint64(&l.Rx)
+}
+
+func (l *testTrafficLogger) SetBlock(block bool) {
+	l.Block.Store(block)
 }
 
 func (l *testTrafficLogger) Reset() {
@@ -30,6 +35,8 @@ func (l *testTrafficLogger) Reset() {
 }
 
 // TestServerTrafficLogger tests that the server's TrafficLogger interface is working correctly.
+// More specifically, it tests that the server is correctly logging traffic in both directions,
+// and that it is correctly disconnecting clients when the traffic logger returns false.
 func TestServerTrafficLogger(t *testing.T) {
 	tl := &testTrafficLogger{}
 
@@ -146,5 +153,21 @@ func TestServerTrafficLogger(t *testing.T) {
 	tx, rx = tl.Get()
 	if tx != uint64(len(sData)) || rx != uint64(len(sData)*2) {
 		t.Fatalf("expected TrafficLogger Tx=%d, Rx=%d, got Tx=%d, Rx=%d", len(sData), len(sData)*2, tx, rx)
+	}
+
+	// Check the disconnect client functionality
+	tl.SetBlock(true)
+
+	// Send and receive TCP data again
+	sData = []byte("1234")
+	_, err = tConn.Write(sData)
+	if err != nil {
+		t.Fatal("error writing to TCP:", err)
+	}
+	// This should fail instantly without reading any data
+	// io.Copy should return nil as EOF is treated as a non-error though
+	n, err := io.Copy(io.Discard, tConn)
+	if n != 0 || err != nil {
+		t.Fatal("expected 0 bytes read and nil error, got", n, err)
 	}
 }
