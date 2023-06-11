@@ -12,8 +12,8 @@ import (
 	"github.com/caddyserver/certmagic"
 )
 
-func acmeTLSConfig(domains []string, email string, disableHTTP bool, disableTLSALPN bool,
-	altHTTPPort int, altTLSALPNPort int,
+func acmeTLSConfig(domains []string, email string, disableHTTP, disableTLSALPN bool,
+	altHTTPPort, altTLSALPNPort int,
 ) (*tls.Config, error) {
 	cfg := &certmagic.Config{
 		RenewalWindowRatio: certmagic.DefaultRenewalWindowRatio,

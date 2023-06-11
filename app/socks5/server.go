@@ -320,7 +320,7 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 	return nil
 }
 
-func (s *Server) udpServer(clientConn *net.UDPConn, localRelayConn *net.UDPConn, hyUDP cs.HyUDPConn) {
+func (s *Server) udpServer(clientConn, localRelayConn *net.UDPConn, hyUDP cs.HyUDPConn) {
 	var clientAddr *net.UDPAddr
 	buf := make([]byte, udpBufferSize)
 	// Local to remote

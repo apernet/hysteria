@@ -21,7 +21,7 @@ type SOCKS5Client struct {
 	Password   string
 }
 
-func NewSOCKS5Client(serverAddr string, username string, password string) *SOCKS5Client {
+func NewSOCKS5Client(serverAddr, username, password string) *SOCKS5Client {
 	return &SOCKS5Client{
 		Dialer: &net.Dialer{
 			Timeout: 8 * time.Second,
@@ -215,7 +215,7 @@ func (c *socks5UDPConn) Close() error {
 	return nil
 }
 
-func socks5AddrToUDPAddr(atyp byte, addr []byte, port []byte) (*net.UDPAddr, error) {
+func socks5AddrToUDPAddr(atyp byte, addr, port []byte) (*net.UDPAddr, error) {
 	clone := func(b []byte) []byte {
 		c := make([]byte, len(b))
 		copy(c, b)

@@ -8,8 +8,8 @@ import (
 )
 
 type Obfuscator interface {
-	Deobfuscate(in []byte, out []byte) int
-	Obfuscate(in []byte, out []byte) int
+	Deobfuscate(in, out []byte) int
+	Obfuscate(in, out []byte) int
 }
 
 const xpSaltLen = 16
@@ -30,7 +30,7 @@ func NewXPlusObfuscator(key []byte) *XPlusObfuscator {
 	}
 }
 
-func (x *XPlusObfuscator) Deobfuscate(in []byte, out []byte) int {
+func (x *XPlusObfuscator) Deobfuscate(in, out []byte) int {
 	outLen := len(in) - xpSaltLen
 	if outLen <= 0 || len(out) < outLen {
 		return 0
@@ -42,7 +42,7 @@ func (x *XPlusObfuscator) Deobfuscate(in []byte, out []byte) int {
 	return outLen
 }
 
-func (x *XPlusObfuscator) Obfuscate(in []byte, out []byte) int {
+func (x *XPlusObfuscator) Obfuscate(in, out []byte) int {
 	outLen := len(in) + xpSaltLen
 	if len(out) < outLen {
 		return 0

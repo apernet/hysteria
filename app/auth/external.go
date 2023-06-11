@@ -17,7 +17,7 @@ type CmdAuthProvider struct {
 	Cmd string
 }
 
-func (p *CmdAuthProvider) Auth(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
+func (p *CmdAuthProvider) Auth(addr net.Addr, auth []byte, sSend, sRecv uint64) (bool, string) {
 	cmd := exec.Command(p.Cmd, addr.String(), string(auth), strconv.Itoa(int(sSend)), strconv.Itoa(int(sRecv)))
 	out, err := cmd.Output()
 	if err != nil {
@@ -51,7 +51,7 @@ type authResp struct {
 	Msg string `json:"msg"`
 }
 
-func (p *HTTPAuthProvider) Auth(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
+func (p *HTTPAuthProvider) Auth(addr net.Addr, auth []byte, sSend, sRecv uint64) (bool, string) {
 	jbs, err := json.Marshal(&authReq{
 		Addr:    addr.String(),
 		Payload: auth,

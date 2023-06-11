@@ -8,7 +8,7 @@ import (
 	"unsafe"
 )
 
-func getsockopt(s uintptr, level uintptr, name uintptr, val unsafe.Pointer, vallen *uint32) (err error) {
+func getsockopt(s, level, name uintptr, val unsafe.Pointer, vallen *uint32) (err error) {
 	_, _, e := syscall.Syscall6(syscall.SYS_GETSOCKOPT, s, level, name, uintptr(val), uintptr(unsafe.Pointer(vallen)), 0)
 	if e != 0 {
 		err = e

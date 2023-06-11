@@ -24,7 +24,7 @@ func PasswordAuthFunc(rawMsg json5.RawMessage) (cs.ConnectFunc, error) {
 		// yes it is
 		pwds = []string{pwdConfig["password"]}
 	}
-	return func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
+	return func(addr net.Addr, auth []byte, sSend, sRecv uint64) (bool, string) {
 		for _, pwd := range pwds {
 			if string(auth) == pwd {
 				return true, "Welcome"

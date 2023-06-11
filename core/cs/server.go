@@ -17,7 +17,7 @@ import (
 )
 
 type (
-	ConnectFunc    func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string)
+	ConnectFunc    func(addr net.Addr, auth []byte, sSend, sRecv uint64) (bool, string)
 	DisconnectFunc func(addr net.Addr, auth []byte, err error)
 	TCPRequestFunc func(addr net.Addr, auth []byte, reqAddr string, action acl.Action, arg string)
 	TCPErrorFunc   func(addr net.Addr, auth []byte, reqAddr string, err error)
@@ -53,7 +53,7 @@ type Server struct {
 
 func NewServer(tlsConfig *tls.Config, quicConfig *quic.Config,
 	pktConn net.PacketConn, transport *transport.ServerTransport,
-	sendBPS uint64, recvBPS uint64, disableUDP bool, aclEngine *acl.Engine,
+	sendBPS, recvBPS uint64, disableUDP bool, aclEngine *acl.Engine,
 	connectFunc ConnectFunc, disconnectFunc DisconnectFunc,
 	tcpRequestFunc TCPRequestFunc, tcpErrorFunc TCPErrorFunc,
 	udpRequestFunc UDPRequestFunc, udpErrorFunc UDPErrorFunc,

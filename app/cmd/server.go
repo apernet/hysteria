@@ -99,7 +99,7 @@ func server(config *serverConfig) {
 			logrus.Warn("Neither authentication nor obfuscation is turned on. " +
 				"Your server could be used by anyone! Are you sure this is what you want?")
 		}
-		authFunc = func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
+		authFunc = func(addr net.Addr, auth []byte, sSend, sRecv uint64) (bool, string) {
 			return true, "Welcome"
 		}
 	case "password", "passwords":
@@ -123,7 +123,7 @@ func server(config *serverConfig) {
 	default:
 		logrus.WithField("mode", config.Auth.Mode).Fatal("Unsupported authentication mode")
 	}
-	connectFunc := func(addr net.Addr, auth []byte, sSend uint64, sRecv uint64) (bool, string) {
+	connectFunc := func(addr net.Addr, auth []byte, sSend, sRecv uint64) (bool, string) {
 		ok, msg := authFunc(addr, auth, sSend, sRecv)
 		if !ok {
 			logrus.WithFields(logrus.Fields{

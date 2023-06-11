@@ -4,8 +4,9 @@
 package main
 
 import (
-	"golang.org/x/sys/windows"
 	"os"
+
+	"golang.org/x/sys/windows"
 )
 
 // Add console VT color mode
