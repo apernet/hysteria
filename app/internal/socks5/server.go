@@ -254,7 +254,12 @@ func (s *Server) udpServer(udpConn *net.UDPConn, hyUDP client.HyUDPConn) error {
 					if err != nil {
 						continue
 					}
-					addr = addr[1:] // Remove the leading length byte
+					if atyp == socks5.ATYPDomain {
+						// socks5.ParseAddress adds a leading byte for domains,
+						// but socks5.NewDatagram will add it again as it expects a raw domain.
+						// So we must remove it here.
+						addr = addr[1:]
+					}
 					d := socks5.NewDatagram(atyp, addr, port, bs)
 					_, _ = udpConn.WriteToUDP(d.Bytes(), clientAddr)
 				}
