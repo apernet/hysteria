@@ -57,12 +57,12 @@ func runClient(cmd *cobra.Command, args []string) {
 		if v != nil {
 			hasMode = true
 			wg.Add(1)
-			go func(fn modeFunc) {
+			go func(mode string, fn modeFunc) {
 				defer wg.Done()
 				if err := fn(v, c); err != nil {
 					logger.Fatal("failed to run mode", zap.String("mode", mode), zap.Error(err))
 				}
-			}(fn)
+			}(mode, fn)
 		}
 	}
 	if !hasMode {
