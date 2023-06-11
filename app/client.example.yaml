@@ -27,3 +27,9 @@ socks5:
   # username: user
   # password: pass
   # disableUDP: true
+
+http:
+  listen: 127.0.0.1:8080
+  # username: user
+  # password: pass
+  # realm: my_private_realm

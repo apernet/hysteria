@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"github.com/apernet/hysteria/app/internal/http"
 	"github.com/apernet/hysteria/app/internal/socks5"
 	"github.com/apernet/hysteria/core/client"
 )
@@ -21,8 +22,11 @@ var clientCmd = &cobra.Command{
 	Run:   runClient,
 }
 
-var modeMap = map[string]func(*viper.Viper, client.Client) error{
+type modeFunc func(*viper.Viper, client.Client) error
+
+var modeMap = map[string]modeFunc{
 	"socks5": clientSOCKS5,
+	"http":   clientHTTP,
 }
 
 func init() {
@@ -48,17 +52,17 @@ func runClient(cmd *cobra.Command, args []string) {
 
 	var wg sync.WaitGroup
 	hasMode := false
-	for mode, f := range modeMap {
+	for mode, fn := range modeMap {
 		v := viper.Sub(mode)
 		if v != nil {
 			hasMode = true
 			wg.Add(1)
-			go func() {
+			go func(fn modeFunc) {
 				defer wg.Done()
-				if err := f(v, c); err != nil {
+				if err := fn(v, c); err != nil {
 					logger.Fatal("failed to run mode", zap.String("mode", mode), zap.Error(err))
 				}
-			}()
+			}(fn)
 		}
 	}
 	if !hasMode {
@@ -167,8 +171,8 @@ func clientSOCKS5(v *viper.Viper, c client.Client) error {
 	var authFunc func(username, password string) bool
 	username, password := v.GetString("username"), v.GetString("password")
 	if username != "" && password != "" {
-		authFunc = func(username, password string) bool {
-			return username == username && password == password
+		authFunc = func(u, p string) bool {
+			return u == username && p == password
 		}
 	}
 	s := socks5.Server{
@@ -179,6 +183,36 @@ func clientSOCKS5(v *viper.Viper, c client.Client) error {
 	}
 	logger.Info("SOCKS5 server listening", zap.String("addr", listenAddr))
 	return s.Serve(l)
+}
+
+func clientHTTP(v *viper.Viper, c client.Client) error {
+	listenAddr := v.GetString("listen")
+	if listenAddr == "" {
+		return configError{Field: "listen", Err: errors.New("listen address is empty")}
+	}
+	l, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		return configError{Field: "listen", Err: err}
+	}
+	var authFunc func(username, password string) bool
+	username, password := v.GetString("username"), v.GetString("password")
+	if username != "" && password != "" {
+		authFunc = func(u, p string) bool {
+			return u == username && p == password
+		}
+	}
+	realm := v.GetString("realm")
+	if realm == "" {
+		realm = "Hysteria"
+	}
+	h := http.Server{
+		HyClient:    c,
+		AuthFunc:    authFunc,
+		AuthRealm:   realm,
+		EventLogger: &httpLogger{},
+	}
+	logger.Info("HTTP proxy server listening", zap.String("addr", listenAddr))
+	return h.Serve(l)
 }
 
 func parseServerAddrString(addrStr string) (host, hostPort string) {
@@ -213,5 +247,31 @@ func (l *socks5Logger) UDPError(addr net.Addr, err error) {
 		logger.Debug("SOCKS5 UDP closed", zap.String("addr", addr.String()))
 	} else {
 		logger.Error("SOCKS5 UDP error", zap.String("addr", addr.String()), zap.Error(err))
+	}
+}
+
+type httpLogger struct{}
+
+func (l *httpLogger) ConnectRequest(addr net.Addr, reqAddr string) {
+	logger.Debug("HTTP CONNECT request", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr))
+}
+
+func (l *httpLogger) ConnectError(addr net.Addr, reqAddr string, err error) {
+	if err == nil {
+		logger.Debug("HTTP CONNECT closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr))
+	} else {
+		logger.Error("HTTP CONNECT error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr), zap.Error(err))
+	}
+}
+
+func (l *httpLogger) HTTPRequest(addr net.Addr, reqURL string) {
+	logger.Debug("HTTP request", zap.String("addr", addr.String()), zap.String("reqURL", reqURL))
+}
+
+func (l *httpLogger) HTTPError(addr net.Addr, reqURL string, err error) {
+	if err == nil {
+		logger.Debug("HTTP closed", zap.String("addr", addr.String()), zap.String("reqURL", reqURL))
+	} else {
+		logger.Error("HTTP error", zap.String("addr", addr.String()), zap.String("reqURL", reqURL), zap.Error(err))
 	}
 }
