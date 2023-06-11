@@ -254,9 +254,11 @@ func (s *Server) handleUDP(c *net.TCPConn, r *socks5.Request) error {
 		s.UDPErrorFunc(c.RemoteAddr(), closeErr)
 	}()
 	// Start local UDP server
+	// Bind to the same address that the incoming TCP connection is sending to
 	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{
-		IP:   s.TCPAddr.IP,
-		Zone: s.TCPAddr.Zone,
+		IP:   c.LocalAddr().(*net.TCPAddr).IP,
+		Zone: c.LocalAddr().(*net.TCPAddr).Zone,
+		Port: 0, // Random port
 	})
 	if err != nil {
 		_ = sendReply(c, socks5.RepServerFailure)
@@ -348,6 +350,9 @@ func (s *Server) udpServer(clientConn, localRelayConn *net.UDPConn, hyUDP cs.HyU
 					if err != nil {
 						continue
 					}
+					if atyp == socks5.ATYPDomain {
+						addr = addr[1:] // Remove the leading length byte
+					}
 					d := socks5.NewDatagram(atyp, addr, port, bs)
 					_, _ = clientConn.WriteToUDP(d.Bytes(), clientAddr)
 				}
@@ -361,6 +366,9 @@ func (s *Server) udpServer(clientConn, localRelayConn *net.UDPConn, hyUDP cs.HyU
 							atyp, addr, port, err := socks5.ParseAddress(from.String())
 							if err != nil {
 								continue
+							}
+							if atyp == socks5.ATYPDomain {
+								addr = addr[1:] // Remove the leading length byte
 							}
 							d := socks5.NewDatagram(atyp, addr, port, buf[:n])
 							_, _ = clientConn.WriteToUDP(d.Bytes(), clientAddr)
