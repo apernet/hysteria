@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.5
+
+- Add VT color support for Windows
+- Fix a bug where UDP did not work when using only port in SOCKS5 listen address (e.g. ":1080")
+- Fix a bug in handling SOCKS5 UDP packets with domain address
+- Updated quic-go to v0.34.0
+
 ## 1.3.4
 
 - Eliminate unnecessary DNS lookups when using SOCKS5 outbound with ACL disabled
@@ -57,7 +64,8 @@
 
 ## 1.1.0
 
-- Super major CPU performance improvements (~30% to several times faster, depending on the circumstances) by optimizing several data structures in quic-go (changes upstreamed)
+- Super major CPU performance improvements (~30% to several times faster, depending on the circumstances) by optimizing
+  several data structures in quic-go (changes upstreamed)
 
 ## 1.0.5
 
