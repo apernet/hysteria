@@ -30,6 +30,7 @@ var serverPacketConnFuncFactoryMap = map[string]pktconns.ServerPacketConnFuncFac
 	"wechat":       pktconns.NewServerWeChatConnFunc,
 	"wechat-video": pktconns.NewServerWeChatConnFunc,
 	"faketcp":      pktconns.NewServerFakeTCPConnFunc,
+	"dns":          pktconns.NewServerDnsConnFunc,
 }
 
 func server(config *serverConfig) {

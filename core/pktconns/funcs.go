@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apernet/hysteria/core/pktconns/dns"
 	"github.com/apernet/hysteria/core/pktconns/faketcp"
 	"github.com/apernet/hysteria/core/pktconns/obfs"
 	"github.com/apernet/hysteria/core/pktconns/udp"
@@ -109,6 +110,20 @@ func NewClientFakeTCPConnFunc(obfsPassword string, hopInterval time.Duration) Cl
 	}
 }
 
+func NewClientDnsConnFunc(domain string, hopInterval time.Duration) ClientPacketConnFunc {
+	return func(server string) (net.PacketConn, net.Addr, error) {
+		sAddr, err := net.ResolveUDPAddr("udp", server)
+		if err != nil {
+			return nil, nil, err
+		}
+		udpConn, err := net.ListenUDP("udp", nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return dns.NewDnsUDPConn(udpConn, domain), sAddr, nil
+	}
+}
+
 func NewServerUDPConnFunc(obfsPassword string) ServerPacketConnFunc {
 	if obfsPassword == "" {
 		return func(listen string) (net.PacketConn, error) {
@@ -177,6 +192,20 @@ func NewServerFakeTCPConnFunc(obfsPassword string) ServerPacketConnFunc {
 			}
 			return faketcp.NewObfsFakeTCPConn(fakeTCPListener, ob), nil
 		}
+	}
+}
+
+func NewServerDnsConnFunc(domain string) ServerPacketConnFunc {
+	return func(listen string) (net.PacketConn, error) {
+		laddrU, err := net.ResolveUDPAddr("udp", listen)
+		if err != nil {
+			return nil, err
+		}
+		udpConn, err := net.ListenUDP("udp", laddrU)
+		if err != nil {
+			return nil, err
+		}
+		return dns.NewDnsUDPConn(udpConn, domain), nil
 	}
 }
 
