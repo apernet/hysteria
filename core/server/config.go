@@ -117,8 +117,12 @@ type UDPConn interface {
 
 type defaultOutbound struct{}
 
+var defaultOutboundDialer = net.Dialer{
+	Timeout: 10 * time.Second,
+}
+
 func (o *defaultOutbound) DialTCP(reqAddr string) (net.Conn, error) {
-	return net.Dial("tcp", reqAddr)
+	return defaultOutboundDialer.Dial("tcp", reqAddr)
 }
 
 func (o *defaultOutbound) ListenUDP() (UDPConn, error) {
