@@ -24,6 +24,9 @@ import (
 
 const (
 	udpMessageChanSize = 1024
+
+	closeErrCodeOK            = 0x100 // HTTP3 ErrCodeNoError
+	closeErrCodeProtocolError = 0x101 // HTTP3 ErrCodeGeneralProtocolError
 )
 
 type Client interface {
@@ -179,13 +182,13 @@ func (c *clientImpl) connect() (quic.Connection, func(), error) {
 	resp, err := rt.RoundTrip(req)
 	if err != nil {
 		if conn != nil {
-			_ = conn.CloseWithError(0, "")
+			_ = conn.CloseWithError(closeErrCodeProtocolError, "")
 		}
 		_ = pktConn.Close()
 		return nil, nil, &coreErrs.ConnectError{Err: err}
 	}
 	if resp.StatusCode != protocol.StatusAuthOK {
-		_ = conn.CloseWithError(0, "")
+		_ = conn.CloseWithError(closeErrCodeProtocolError, "")
 		_ = pktConn.Close()
 		return nil, nil, &coreErrs.AuthError{StatusCode: resp.StatusCode}
 	}
@@ -206,7 +209,7 @@ func (c *clientImpl) connect() (quic.Connection, func(), error) {
 	go c.udpLoop(conn)
 
 	return conn, func() {
-		_ = conn.CloseWithError(0, "")
+		_ = conn.CloseWithError(closeErrCodeOK, "")
 		_ = pktConn.Close()
 	}, nil
 }

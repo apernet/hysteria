@@ -18,6 +18,11 @@ import (
 	"github.com/quic-go/quic-go/http3"
 )
 
+const (
+	closeErrCodeOK                  = 0x100 // HTTP3 ErrCodeNoError
+	closeErrCodeTrafficLimitReached = 0x107 // HTTP3 ErrCodeExcessiveLoad
+)
+
 type Server interface {
 	Serve() error
 	Close() error
@@ -85,7 +90,7 @@ func (s *serverImpl) handleClient(conn quic.Connection) {
 	if handler.authenticated && s.config.EventLogger != nil {
 		s.config.EventLogger.Disconnect(conn.RemoteAddr(), handler.authID, err)
 	}
-	_ = conn.CloseWithError(0, "")
+	_ = conn.CloseWithError(closeErrCodeOK, "")
 }
 
 type h3sHandler struct {
@@ -281,7 +286,7 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	_ = stream.Close()
 	// Disconnect the client if TrafficLogger requested
 	if err == errDisconnect {
-		_ = h.conn.CloseWithError(0, "")
+		_ = h.conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
 	}
 }
 
@@ -323,7 +328,7 @@ func (h *h3sHandler) handleUDPRequest(stream quic.Stream) {
 					ok := h.config.TrafficLogger.Log(h.authID, 0, uint64(udpN))
 					if !ok {
 						// TrafficLogger requested to disconnect the client
-						_ = h.conn.CloseWithError(0, "")
+						_ = h.conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
 						return
 					}
 				}
@@ -383,7 +388,7 @@ func (h *h3sHandler) udpLoop() {
 		ok := h.handleUDPMessage(msg)
 		if !ok {
 			// TrafficLogger requested to disconnect the client
-			_ = h.conn.CloseWithError(0, "")
+			_ = h.conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
 			return
 		}
 	}
