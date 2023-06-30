@@ -26,19 +26,23 @@ func runPing(cmd *cobra.Command, args []string) {
 	logger.Info("ping mode")
 
 	if len(args) != 1 {
-		logger.Fatal("no address specified")
+		logger.Fatal("must specify one and only one address")
 	}
 	addr := args[0]
 
 	if err := viper.ReadInConfig(); err != nil {
 		logger.Fatal("failed to read client config", zap.Error(err))
 	}
-	config, err := viperToClientConfig()
-	if err != nil {
+	var config clientConfig
+	if err := viper.Unmarshal(&config); err != nil {
 		logger.Fatal("failed to parse client config", zap.Error(err))
 	}
+	hyConfig, err := config.Config()
+	if err != nil {
+		logger.Fatal("failed to validate client config", zap.Error(err))
+	}
 
-	c, err := client.NewClient(config)
+	c, err := client.NewClient(hyConfig)
 	if err != nil {
 		logger.Fatal("failed to initialize client", zap.Error(err))
 	}
