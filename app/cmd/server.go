@@ -250,7 +250,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 	hyConfig, err := config.Config()
 	if err != nil {
-		logger.Fatal("failed to validate server config", zap.Error(err))
+		logger.Fatal("failed to load server config", zap.Error(err))
 	}
 
 	s, err := server.NewServer(hyConfig)

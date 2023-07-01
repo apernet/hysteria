@@ -141,7 +141,7 @@ func runClient(cmd *cobra.Command, args []string) {
 	}
 	hyConfig, err := config.Config()
 	if err != nil {
-		logger.Fatal("failed to validate client config", zap.Error(err))
+		logger.Fatal("failed to load client config", zap.Error(err))
 	}
 
 	c, err := client.NewClient(hyConfig)
