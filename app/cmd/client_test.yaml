@@ -1,0 +1,35 @@
+server: example.com
+
+auth: weak_ahh_password
+
+tls:
+  sni: another.example.com
+  insecure: true
+  ca: custom_ca.crt
+
+quic:
+  initStreamReceiveWindow: 1145141
+  maxStreamReceiveWindow: 1145142
+  initConnReceiveWindow: 1145143
+  maxConnReceiveWindow: 1145144
+  maxIdleTimeout: 10s
+  keepAlivePeriod: 4s
+  disablePathMTUDiscovery: true
+
+bandwidth:
+  up: 200 mbps
+  down: 1 gbps
+
+fastOpen: true
+
+socks5:
+  listen: 127.0.0.1:1080
+  username: anon
+  password: bro
+  disableUDP: true
+
+http:
+  listen: 127.0.0.1:8080
+  username: qqq
+  password: bruh
+  realm: martian

@@ -1,0 +1,44 @@
+listen: :8443
+
+tls:
+  cert: some.crt
+  key: some.key
+
+acme:
+  domains:
+    - sub1.example.com
+    - sub2.example.com
+  email: haha@cringe.net
+  ca: zero
+  disableHTTP: true
+  disableTLSALPN: true
+  altHTTPPort: 9980
+  altTLSALPNPort: 9443
+  dir: random_dir
+
+quic:
+  initStreamReceiveWindow: 77881
+  maxStreamReceiveWindow: 77882
+  initConnReceiveWindow: 77883
+  maxConnReceiveWindow: 77884
+  maxIdleTimeout: 999s
+  maxIncomingStreams: 256
+  disablePathMTUDiscovery: true
+
+bandwidth:
+  up: 500 mbps
+  down: 100 mbps
+
+disableUDP: true
+
+auth:
+  type: password
+  password: goofy_ahh_password
+
+masquerade:
+  type: proxy
+  file:
+    dir: /www/masq
+  proxy:
+    url: https://some.site.net
+    rewriteHost: true
