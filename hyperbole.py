@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import sys
 import subprocess
 import datetime
 import shutil
@@ -162,9 +163,11 @@ def cmd_run(args):
 
     try:
         subprocess.check_call(cmd)
-    except Exception:
-        print('Failed to run app')
-        return
+    except KeyboardInterrupt:
+        pass
+    except subprocess.CalledProcessError as e:
+        # Pass through the exit code
+        sys.exit(e.returncode)
 
 
 def cmd_format():
@@ -176,7 +179,6 @@ def cmd_format():
         subprocess.check_call(['gofumpt', '-w', '-l', '-extra', '.'])
     except Exception:
         print('Failed to format code')
-        return
 
 
 def cmd_clean():

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"github.com/apernet/hysteria/app/internal/forwarding"
 	"github.com/apernet/hysteria/app/internal/http"
 	"github.com/apernet/hysteria/app/internal/socks5"
 	"github.com/apernet/hysteria/core/client"
@@ -48,9 +50,10 @@ type clientConfig struct {
 		Up   string `mapstructure:"up"`
 		Down string `mapstructure:"down"`
 	} `mapstructure:"bandwidth"`
-	FastOpen bool          `mapstructure:"fastOpen"`
-	SOCKS5   *socks5Config `mapstructure:"socks5"`
-	HTTP     *httpConfig   `mapstructure:"http"`
+	FastOpen   bool              `mapstructure:"fastOpen"`
+	SOCKS5     *socks5Config     `mapstructure:"socks5"`
+	HTTP       *httpConfig       `mapstructure:"http"`
+	Forwarding []forwardingEntry `mapstructure:"forwarding"`
 }
 
 type socks5Config struct {
@@ -65,6 +68,13 @@ type httpConfig struct {
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
 	Realm    string `mapstructure:"realm"`
+}
+
+type forwardingEntry struct {
+	Listen     string        `mapstructure:"listen"`
+	Remote     string        `mapstructure:"remote"`
+	Protocol   string        `mapstructure:"protocol"`
+	UDPTimeout time.Duration `mapstructure:"udpTimeout"`
 }
 
 // Config validates the fields and returns a ready-to-use Hysteria client config
@@ -174,6 +184,16 @@ func runClient(cmd *cobra.Command, args []string) {
 			}
 		}()
 	}
+	if len(config.Forwarding) > 0 {
+		hasMode = true
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := clientForwarding(config.Forwarding, c); err != nil {
+				logger.Fatal("failed to run forwarding", zap.Error(err))
+			}
+		}()
+	}
 
 	if !hasMode {
 		logger.Fatal("no mode specified")
@@ -232,6 +252,53 @@ func clientHTTP(config httpConfig, c client.Client) error {
 	}
 	logger.Info("HTTP proxy server listening", zap.String("addr", config.Listen))
 	return h.Serve(l)
+}
+
+func clientForwarding(entries []forwardingEntry, c client.Client) error {
+	errChan := make(chan error, len(entries))
+	for _, e := range entries {
+		if e.Listen == "" {
+			return configError{Field: "listen", Err: errors.New("listen address is empty")}
+		}
+		if e.Remote == "" {
+			return configError{Field: "remote", Err: errors.New("remote address is empty")}
+		}
+		switch strings.ToLower(e.Protocol) {
+		case "tcp":
+			l, err := net.Listen("tcp", e.Listen)
+			if err != nil {
+				return configError{Field: "listen", Err: err}
+			}
+			logger.Info("TCP forwarding listening", zap.String("addr", e.Listen), zap.String("remote", e.Remote))
+			go func(remote string) {
+				t := &forwarding.TCPTunnel{
+					HyClient:    c,
+					Remote:      remote,
+					EventLogger: &tcpLogger{},
+				}
+				errChan <- t.Serve(l)
+			}(e.Remote)
+		case "udp":
+			l, err := net.ListenPacket("udp", e.Listen)
+			if err != nil {
+				return configError{Field: "listen", Err: err}
+			}
+			logger.Info("UDP forwarding listening", zap.String("addr", e.Listen), zap.String("remote", e.Remote))
+			go func(remote string, timeout time.Duration) {
+				u := &forwarding.UDPTunnel{
+					HyClient:    c,
+					Remote:      remote,
+					Timeout:     timeout,
+					EventLogger: &udpLogger{},
+				}
+				errChan <- u.Serve(l)
+			}(e.Remote, e.UDPTimeout)
+		default:
+			return configError{Field: "protocol", Err: errors.New("unsupported protocol")}
+		}
+	}
+	// Return if any one of the forwarding fails
+	return <-errChan
 }
 
 // parseServerAddrString parses server address string.
@@ -293,5 +360,33 @@ func (l *httpLogger) HTTPError(addr net.Addr, reqURL string, err error) {
 		logger.Debug("HTTP closed", zap.String("addr", addr.String()), zap.String("reqURL", reqURL))
 	} else {
 		logger.Error("HTTP error", zap.String("addr", addr.String()), zap.String("reqURL", reqURL), zap.Error(err))
+	}
+}
+
+type tcpLogger struct{}
+
+func (l *tcpLogger) Connect(addr net.Addr) {
+	logger.Debug("TCP forwarding connect", zap.String("addr", addr.String()))
+}
+
+func (l *tcpLogger) Error(addr net.Addr, err error) {
+	if err == nil {
+		logger.Debug("TCP forwarding closed", zap.String("addr", addr.String()))
+	} else {
+		logger.Error("TCP forwarding error", zap.String("addr", addr.String()), zap.Error(err))
+	}
+}
+
+type udpLogger struct{}
+
+func (l *udpLogger) Connect(addr net.Addr) {
+	logger.Debug("UDP forwarding connect", zap.String("addr", addr.String()))
+}
+
+func (l *udpLogger) Error(addr net.Addr, err error) {
+	if err == nil {
+		logger.Debug("UDP forwarding closed", zap.String("addr", addr.String()))
+	} else {
+		logger.Error("UDP forwarding error", zap.String("addr", addr.String()), zap.Error(err))
 	}
 }

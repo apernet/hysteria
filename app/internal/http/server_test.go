@@ -15,25 +15,25 @@ const (
 	testKeyFile  = "test.key"
 )
 
-type mockEchoHyClient struct{}
+type mockHyClient struct{}
 
-func (c *mockEchoHyClient) DialTCP(addr string) (net.Conn, error) {
+func (c *mockHyClient) DialTCP(addr string) (net.Conn, error) {
 	return net.Dial("tcp", addr)
 }
 
-func (c *mockEchoHyClient) ListenUDP() (client.HyUDPConn, error) {
+func (c *mockHyClient) ListenUDP() (client.HyUDPConn, error) {
 	// Not implemented
 	return nil, errors.New("not implemented")
 }
 
-func (c *mockEchoHyClient) Close() error {
+func (c *mockHyClient) Close() error {
 	return nil
 }
 
 func TestServer(t *testing.T) {
 	// Start the server
 	s := &Server{
-		HyClient: &mockEchoHyClient{},
+		HyClient: &mockHyClient{},
 	}
 	l, err := net.Listen("tcp", "127.0.0.1:18080")
 	if err != nil {

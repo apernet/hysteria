@@ -20,14 +20,14 @@ acme:
 #   maxStreamReceiveWindow: 8388608
 #   initConnReceiveWindow: 20971520
 #   maxConnReceiveWindow: 20971520
-#   maxIdleTimeout: 130s
+#   maxIdleTimeout: 30s
 #   maxIncomingStreams: 1024
 #   disablePathMTUDiscovery: false
 
 # bandwidth:
 #   up: 100 mbps
 #   down: 100 mbps
-#
+
 # disableUDP: false
 
 auth:

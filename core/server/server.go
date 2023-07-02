@@ -323,47 +323,45 @@ func (h *h3sHandler) handleUDPRequest(stream quic.Stream) {
 		msgBuf := make([]byte, protocol.MaxUDPSize)
 		for {
 			udpN, rAddr, err := conn.ReadFrom(udpBuf)
-			if udpN > 0 {
-				if h.config.TrafficLogger != nil {
-					ok := h.config.TrafficLogger.Log(h.authID, 0, uint64(udpN))
-					if !ok {
-						// TrafficLogger requested to disconnect the client
-						_ = h.conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
-						return
-					}
-				}
-				// Try no frag first
-				msg := protocol.UDPMessage{
-					SessionID: sessionID,
-					PacketID:  0,
-					FragID:    0,
-					FragCount: 1,
-					Addr:      rAddr,
-					Data:      udpBuf[:udpN],
-				}
-				msgN := msg.Serialize(msgBuf)
-				if msgN < 0 {
-					// Message even larger than MaxUDPSize, drop it
-					continue
-				}
-				sendErr := h.conn.SendMessage(msgBuf[:msgN])
-				var errTooLarge quic.ErrMessageTooLarge
-				if errors.As(sendErr, &errTooLarge) {
-					// Message too large, try fragmentation
-					msg.PacketID = uint16(rand.Intn(0xFFFF)) + 1
-					fMsgs := frag.FragUDPMessage(msg, int(errTooLarge))
-					for _, fMsg := range fMsgs {
-						msgN = fMsg.Serialize(msgBuf)
-						_ = h.conn.SendMessage(msgBuf[:msgN])
-					}
+			if err != nil {
+				connCloseFunc()
+				_ = stream.Close()
+				return
+			}
+			if h.config.TrafficLogger != nil {
+				ok := h.config.TrafficLogger.Log(h.authID, 0, uint64(udpN))
+				if !ok {
+					// TrafficLogger requested to disconnect the client
+					_ = h.conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
+					return
 				}
 			}
-			if err != nil {
-				break
+			// Try no frag first
+			msg := protocol.UDPMessage{
+				SessionID: sessionID,
+				PacketID:  0,
+				FragID:    0,
+				FragCount: 1,
+				Addr:      rAddr,
+				Data:      udpBuf[:udpN],
+			}
+			msgN := msg.Serialize(msgBuf)
+			if msgN < 0 {
+				// Message even larger than MaxUDPSize, drop it
+				continue
+			}
+			sendErr := h.conn.SendMessage(msgBuf[:msgN])
+			var errTooLarge quic.ErrMessageTooLarge
+			if errors.As(sendErr, &errTooLarge) {
+				// Message too large, try fragmentation
+				msg.PacketID = uint16(rand.Intn(0xFFFF)) + 1
+				fMsgs := frag.FragUDPMessage(msg, int(errTooLarge))
+				for _, fMsg := range fMsgs {
+					msgN = fMsg.Serialize(msgBuf)
+					_ = h.conn.SendMessage(msgBuf[:msgN])
+				}
 			}
 		}
-		connCloseFunc()
-		_ = stream.Close()
 	}()
 
 	// Hold (drain) the stream until the client closes it.

@@ -68,6 +68,19 @@ func TestClientConfig(t *testing.T) {
 			Password: "bruh",
 			Realm:    "martian",
 		},
+		Forwarding: []forwardingEntry{
+			{
+				Listen:   "127.0.0.1:8088",
+				Remote:   "internal.example.com:80",
+				Protocol: "tcp",
+			},
+			{
+				Listen:     "127.0.0.1:5353",
+				Remote:     "internal.example.com:53",
+				Protocol:   "udp",
+				UDPTimeout: 50 * time.Second,
+			},
+		},
 	}) {
 		t.Fatal("parsed client config is not equal to expected")
 	}

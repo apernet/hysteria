@@ -33,3 +33,12 @@ http:
   username: qqq
   password: bruh
   realm: martian
+
+forwarding:
+  - listen: 127.0.0.1:8088
+    remote: internal.example.com:80
+    protocol: tcp
+  - listen: 127.0.0.1:5353
+    remote: internal.example.com:53
+    protocol: udp
+    udpTimeout: 50s
