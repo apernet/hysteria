@@ -2,13 +2,11 @@
 
 > **Warning**
 > The code on this branch is a work-in-progress prototype of what will become Hysteria 2.0. It is currently very
-> unfinished, and unless you know what you are doing, you should stick with the stable 1.x releases for now. **The
-protocol is also subject to change, so we do not recommend third-party developers use this as a reference for the
-Hysteria 2 protocol at this time.**
+> unfinished, and unless you know what you are doing, you should stick with the stable 1.x releases for now.
 
 > **警告**
 > 此分支的代码是 Hysteria 2.0 的原型，目前仍在开发中，完成度十分有限。除非你十分确定自己在做什么，否则请继续使用稳定的 1.x
-> 版本。**协议也可能会发生变化，因此我们不建议第三方开发者在目前使用此分支作为 Hysteria 2 协议的参考。**
+> 版本。
 
 ## Build (编译)
 
@@ -45,15 +43,15 @@ Builds will be placed in `./build` (编译输出在 `./build` 目录下)
 
 The following environment variables for controlling logging are supported:
 
-- `LOG_LEVEL` - supported values are `debug`, `info`, `warn`, `error`
+- `HYSTERIA_LOG_LEVEL` - supported values are `debug`, `info`, `warn`, `error`
 
-- `LOG_FORMAT` - supported values are `console`, `json`
+- `HYSTERIA_LOG_FORMAT` - supported values are `console`, `json`
 
 支持通过以下环境变量来控制日志：
 
-- `LOG_LEVEL` - 支持的值有 `debug`, `info`, `warn`, `error`
+- `HYSTERIA_LOG_LEVEL` - 支持的值有 `debug`, `info`, `warn`, `error`
 
-- `LOG_FORMAT` - 支持的值有 `console`, `json`
+- `HYSTERIA_LOG_FORMAT` - 支持的值有 `console`, `json`
 
 ## Test HTTP/3 masquerading (测试 HTTP/3 伪装)
 
