@@ -19,6 +19,9 @@ const (
 `
 	appDesc    = "a powerful, censorship-resistant proxy tool optimized for lossy networks"
 	appAuthors = "Aperture Internet Laboratory <https://github.com/apernet>"
+
+	appLogLevelEnv  = "HYSTERIA_LOG_LEVEL"
+	appLogFormatEnv = "HYSTERIA_LOG_FORMAT"
 )
 
 var (
@@ -93,8 +96,8 @@ func init() {
 
 func initFlags() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file")
-	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", envOrDefault("LOG_LEVEL", "info"), "log level")
-	rootCmd.PersistentFlags().StringVarP(&logFormat, "log-format", "f", envOrDefault("LOG_FORMAT", "console"), "log format")
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", envOrDefault(appLogLevelEnv, "info"), "log level")
+	rootCmd.PersistentFlags().StringVarP(&logFormat, "log-format", "f", envOrDefault(appLogFormatEnv, "console"), "log format")
 }
 
 func initConfig() {
