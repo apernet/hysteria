@@ -17,6 +17,7 @@ import (
 	"github.com/apernet/hysteria/app/internal/http"
 	"github.com/apernet/hysteria/app/internal/socks5"
 	"github.com/apernet/hysteria/core/client"
+	"github.com/apernet/hysteria/extras/obfs"
 )
 
 var clientCmd = &cobra.Command{
@@ -32,7 +33,13 @@ func init() {
 type clientConfig struct {
 	Server string `mapstructure:"server"`
 	Auth   string `mapstructure:"auth"`
-	TLS    struct {
+	Obfs   struct {
+		Type       string `mapstructure:"type"`
+		Salamander struct {
+			Password string `mapstructure:"password"`
+		} `mapstructure:"salamander"`
+	} `mapstructure:"obfs"`
+	TLS struct {
 		SNI      string `mapstructure:"sni"`
 		Insecure bool   `mapstructure:"insecure"`
 		CA       string `mapstructure:"ca"`
@@ -80,6 +87,24 @@ type forwardingEntry struct {
 // Config validates the fields and returns a ready-to-use Hysteria client config
 func (c *clientConfig) Config() (*client.Config, error) {
 	hyConfig := &client.Config{}
+	// ConnFactory
+	switch strings.ToLower(c.Obfs.Type) {
+	case "", "plain":
+		// Default, do nothing
+	case "salamander":
+		ob, err := obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
+		if err != nil {
+			return nil, configError{Field: "obfs.salamander.password", Err: err}
+		}
+		hyConfig.ConnFactory = &obfsConnFactory{
+			NewFunc: func(addr net.Addr) (net.PacketConn, error) {
+				return net.ListenUDP("udp", nil)
+			},
+			Obfuscator: ob,
+		}
+	default:
+		return nil, configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
+	}
 	// ServerAddr
 	if c.Server == "" {
 		return nil, configError{Field: "server", Err: errors.New("server address is empty")}
@@ -309,6 +334,20 @@ func parseServerAddrString(addrStr string) (host, hostPort string) {
 		return addrStr, net.JoinHostPort(addrStr, "443")
 	}
 	return h, addrStr
+}
+
+// obfsConnFactory adds obfuscation to a function that creates net.PacketConn.
+type obfsConnFactory struct {
+	NewFunc    func(addr net.Addr) (net.PacketConn, error)
+	Obfuscator obfs.Obfuscator
+}
+
+func (f *obfsConnFactory) New(addr net.Addr) (net.PacketConn, error) {
+	conn, err := f.NewFunc(addr)
+	if err != nil {
+		return nil, err
+	}
+	return obfs.WrapPacketConn(conn, f.Obfuscator), nil
 }
 
 type socks5Logger struct{}

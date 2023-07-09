@@ -11,13 +11,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apernet/hysteria/core/server"
-	"github.com/apernet/hysteria/extras/auth"
-
 	"github.com/caddyserver/certmagic"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+
+	"github.com/apernet/hysteria/core/server"
+	"github.com/apernet/hysteria/extras/auth"
+	"github.com/apernet/hysteria/extras/obfs"
 )
 
 var serverCmd = &cobra.Command{
@@ -31,10 +32,16 @@ func init() {
 }
 
 type serverConfig struct {
-	Listen string            `mapstructure:"listen"`
-	TLS    *serverConfigTLS  `mapstructure:"tls"`
-	ACME   *serverConfigACME `mapstructure:"acme"`
-	QUIC   struct {
+	Listen string `mapstructure:"listen"`
+	Obfs   struct {
+		Type       string `mapstructure:"type"`
+		Salamander struct {
+			Password string `mapstructure:"password"`
+		} `mapstructure:"salamander"`
+	} `mapstructure:"obfs"`
+	TLS  *serverConfigTLS  `mapstructure:"tls"`
+	ACME *serverConfigACME `mapstructure:"acme"`
+	QUIC struct {
 		InitStreamReceiveWindow     uint64        `mapstructure:"initStreamReceiveWindow"`
 		MaxStreamReceiveWindow      uint64        `mapstructure:"maxStreamReceiveWindow"`
 		InitConnectionReceiveWindow uint64        `mapstructure:"initConnReceiveWindow"`
@@ -92,9 +99,21 @@ func (c *serverConfig) Config() (*server.Config, error) {
 	if err != nil {
 		return nil, configError{Field: "listen", Err: err}
 	}
-	hyConfig.Conn, err = net.ListenUDP("udp", uAddr)
+	conn, err := net.ListenUDP("udp", uAddr)
 	if err != nil {
 		return nil, configError{Field: "listen", Err: err}
+	}
+	switch strings.ToLower(c.Obfs.Type) {
+	case "", "plain":
+		hyConfig.Conn = conn
+	case "salamander":
+		ob, err := obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
+		if err != nil {
+			return nil, configError{Field: "obfs.salamander.password", Err: err}
+		}
+		hyConfig.Conn = obfs.WrapPacketConn(conn, ob)
+	default:
+		return nil, configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
 	}
 	// TLSConfig
 	if c.TLS == nil && c.ACME == nil {

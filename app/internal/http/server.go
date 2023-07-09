@@ -159,6 +159,7 @@ func (s *Server) handleConnect(conn net.Conn, req *http.Request) {
 	rConn, err := s.HyClient.DialTCP(reqAddr)
 	if err != nil {
 		_ = sendSimpleResponse(conn, req, http.StatusBadGateway)
+		closeErr = err
 		return
 	}
 	defer rConn.Close()

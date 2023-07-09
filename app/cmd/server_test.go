@@ -21,6 +21,19 @@ func TestServerConfig(t *testing.T) {
 	}
 	if !reflect.DeepEqual(config, serverConfig{
 		Listen: ":8443",
+		Obfs: struct {
+			Type       string `mapstructure:"type"`
+			Salamander struct {
+				Password string `mapstructure:"password"`
+			} `mapstructure:"salamander"`
+		}{
+			Type: "salamander",
+			Salamander: struct {
+				Password string `mapstructure:"password"`
+			}{
+				Password: "cry_me_a_r1ver",
+			},
+		},
 		TLS: &serverConfigTLS{
 			Cert: "some.crt",
 			Key:  "some.key",

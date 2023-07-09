@@ -22,6 +22,19 @@ func TestClientConfig(t *testing.T) {
 	if !reflect.DeepEqual(config, clientConfig{
 		Server: "example.com",
 		Auth:   "weak_ahh_password",
+		Obfs: struct {
+			Type       string `mapstructure:"type"`
+			Salamander struct {
+				Password string `mapstructure:"password"`
+			} `mapstructure:"salamander"`
+		}{
+			Type: "salamander",
+			Salamander: struct {
+				Password string `mapstructure:"password"`
+			}{
+				Password: "cry_me_a_r1ver",
+			},
+		},
 		TLS: struct {
 			SNI      string `mapstructure:"sni"`
 			Insecure bool   `mapstructure:"insecure"`

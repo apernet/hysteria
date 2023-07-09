@@ -2,6 +2,11 @@ server: example.com
 
 auth: weak_ahh_password
 
+obfs:
+  type: salamander
+  salamander:
+    password: cry_me_a_r1ver
+
 tls:
   sni: another.example.com
   insecure: true

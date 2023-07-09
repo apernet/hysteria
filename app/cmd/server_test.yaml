@@ -1,5 +1,10 @@
 listen: :8443
 
+obfs:
+  type: salamander
+  salamander:
+    password: cry_me_a_r1ver
+
 tls:
   cert: some.crt
   key: some.key

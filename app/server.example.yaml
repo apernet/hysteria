@@ -1,5 +1,10 @@
 listen: :443
 
+# obfs:
+#   type: salamander
+#   salamander:
+#     password: some_password
+
 # tls:
 #   cert: my.crt
 #   key: my.key
