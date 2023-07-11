@@ -6,6 +6,7 @@ require (
 	github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
 	github.com/apernet/hysteria/extras v0.0.0-00010101000000-000000000000
 	github.com/caddyserver/certmagic v0.17.2
+	github.com/mdp/qrterminal/v3 v3.1.1
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
 	github.com/txthinking/socks5 v0.0.0-20230325130024-4230056ae301
@@ -49,6 +50,7 @@ require (
 	golang.org/x/tools v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	rsc.io/qr v0.2.0 // indirect
 )
 
 replace github.com/quic-go/quic-go => github.com/apernet/quic-go v0.36.1-0.20230627042819-0a89ea8e4c8d

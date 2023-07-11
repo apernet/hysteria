@@ -4,11 +4,13 @@ import (
 	"crypto/x509"
 	"errors"
 	"net"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/mdp/qrterminal/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -20,6 +22,11 @@ import (
 	"github.com/apernet/hysteria/extras/obfs"
 )
 
+// Client flags
+var (
+	showQR bool
+)
+
 var clientCmd = &cobra.Command{
 	Use:   "client",
 	Short: "Client mode",
@@ -27,7 +34,12 @@ var clientCmd = &cobra.Command{
 }
 
 func init() {
+	initClientFlags()
 	rootCmd.AddCommand(clientCmd)
+}
+
+func initClientFlags() {
+	clientCmd.Flags().BoolVar(&showQR, "qr", false, "show QR code for server config sharing")
 }
 
 type clientConfig struct {
@@ -84,17 +96,15 @@ type forwardingEntry struct {
 	UDPTimeout time.Duration `mapstructure:"udpTimeout"`
 }
 
-// Config validates the fields and returns a ready-to-use Hysteria client config
-func (c *clientConfig) Config() (*client.Config, error) {
-	hyConfig := &client.Config{}
-	// ConnFactory
+func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
 	switch strings.ToLower(c.Obfs.Type) {
 	case "", "plain":
 		// Default, do nothing
+		return nil
 	case "salamander":
 		ob, err := obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
 		if err != nil {
-			return nil, configError{Field: "obfs.salamander.password", Err: err}
+			return configError{Field: "obfs.salamander.password", Err: err}
 		}
 		hyConfig.ConnFactory = &obfsConnFactory{
 			NewFunc: func(addr net.Addr) (net.PacketConn, error) {
@@ -102,41 +112,55 @@ func (c *clientConfig) Config() (*client.Config, error) {
 			},
 			Obfuscator: ob,
 		}
+		return nil
 	default:
-		return nil, configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
+		return configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
 	}
-	// ServerAddr
+}
+
+func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
 	if c.Server == "" {
-		return nil, configError{Field: "server", Err: errors.New("server address is empty")}
+		return configError{Field: "server", Err: errors.New("server address is empty")}
 	}
 	host, hostPort := parseServerAddrString(c.Server)
 	addr, err := net.ResolveUDPAddr("udp", hostPort)
 	if err != nil {
-		return nil, configError{Field: "server", Err: err}
+		return configError{Field: "server", Err: err}
 	}
 	hyConfig.ServerAddr = addr
-	// Auth
-	hyConfig.Auth = c.Auth
-	// TLSConfig
+	// Special handling for SNI
 	if c.TLS.SNI == "" {
 		// Use server hostname as SNI
 		hyConfig.TLSConfig.ServerName = host
-	} else {
+	}
+	return nil
+}
+
+func (c *clientConfig) fillAuth(hyConfig *client.Config) error {
+	hyConfig.Auth = c.Auth
+	return nil
+}
+
+func (c *clientConfig) fillTLSConfig(hyConfig *client.Config) error {
+	if c.TLS.SNI != "" {
 		hyConfig.TLSConfig.ServerName = c.TLS.SNI
 	}
 	hyConfig.TLSConfig.InsecureSkipVerify = c.TLS.Insecure
 	if c.TLS.CA != "" {
 		ca, err := os.ReadFile(c.TLS.CA)
 		if err != nil {
-			return nil, configError{Field: "tls.ca", Err: err}
+			return configError{Field: "tls.ca", Err: err}
 		}
 		cPool := x509.NewCertPool()
 		if !cPool.AppendCertsFromPEM(ca) {
-			return nil, configError{Field: "tls.ca", Err: errors.New("failed to parse CA certificate")}
+			return configError{Field: "tls.ca", Err: errors.New("failed to parse CA certificate")}
 		}
 		hyConfig.TLSConfig.RootCAs = cPool
 	}
-	// QUICConfig
+	return nil
+}
+
+func (c *clientConfig) fillQUICConfig(hyConfig *client.Config) error {
 	hyConfig.QUICConfig = client.QUICConfig{
 		InitialStreamReceiveWindow:     c.QUIC.InitStreamReceiveWindow,
 		MaxStreamReceiveWindow:         c.QUIC.MaxStreamReceiveWindow,
@@ -146,22 +170,74 @@ func (c *clientConfig) Config() (*client.Config, error) {
 		KeepAlivePeriod:                c.QUIC.KeepAlivePeriod,
 		DisablePathMTUDiscovery:        c.QUIC.DisablePathMTUDiscovery,
 	}
-	// BandwidthConfig
+	return nil
+}
+
+func (c *clientConfig) fillBandwidthConfig(hyConfig *client.Config) error {
 	if c.Bandwidth.Up == "" || c.Bandwidth.Down == "" {
-		return nil, configError{Field: "bandwidth", Err: errors.New("both up and down bandwidth must be set")}
+		return configError{Field: "bandwidth", Err: errors.New("both up and down bandwidth must be set")}
 	}
+	var err error
 	hyConfig.BandwidthConfig.MaxTx, err = convBandwidth(c.Bandwidth.Up)
 	if err != nil {
-		return nil, configError{Field: "bandwidth.up", Err: err}
+		return configError{Field: "bandwidth.up", Err: err}
 	}
 	hyConfig.BandwidthConfig.MaxRx, err = convBandwidth(c.Bandwidth.Down)
 	if err != nil {
-		return nil, configError{Field: "bandwidth.down", Err: err}
+		return configError{Field: "bandwidth.down", Err: err}
 	}
-	// FastOpen
-	hyConfig.FastOpen = c.FastOpen
+	return nil
+}
 
+func (c *clientConfig) fillFastOpen(hyConfig *client.Config) error {
+	hyConfig.FastOpen = c.FastOpen
+	return nil
+}
+
+// Config validates the fields and returns a ready-to-use Hysteria client config
+func (c *clientConfig) Config() (*client.Config, error) {
+	hyConfig := &client.Config{}
+	fillers := []func(*client.Config) error{
+		c.fillConnFactory,
+		c.fillServerAddr,
+		c.fillAuth,
+		c.fillTLSConfig,
+		c.fillQUICConfig,
+		c.fillBandwidthConfig,
+		c.fillFastOpen,
+	}
+	for _, f := range fillers {
+		if err := f(hyConfig); err != nil {
+			return nil, err
+		}
+	}
 	return hyConfig, nil
+}
+
+// ShareURI generates a URI for sharing the config with others.
+// Note that only the fields necessary for a client to connect to the server are included.
+// It doesn't include local modes, for example.
+func (c *clientConfig) ShareURI() string {
+	q := url.Values{}
+	switch strings.ToLower(c.Obfs.Type) {
+	case "salamander":
+		q.Set("obfs", "salamander")
+		q.Set("obfs-password", c.Obfs.Salamander.Password)
+	}
+	if c.TLS.SNI != "" {
+		q.Set("sni", c.TLS.SNI)
+	}
+	if c.TLS.Insecure {
+		q.Set("insecure", "1")
+	}
+	u := url.URL{
+		Scheme:   "hysteria2",
+		User:     url.User(c.Auth),
+		Host:     c.Server,
+		Path:     "/",
+		RawQuery: q.Encode(),
+	}
+	return u.String()
 }
 
 func runClient(cmd *cobra.Command, args []string) {
@@ -184,6 +260,17 @@ func runClient(cmd *cobra.Command, args []string) {
 		logger.Fatal("failed to initialize client", zap.Error(err))
 	}
 	defer c.Close()
+
+	uri := config.ShareURI()
+	logger.Info("use this URI to share your server", zap.String("uri", uri))
+	if showQR {
+		qrterminal.GenerateWithConfig(uri, qrterminal.Config{
+			Level:     qrterminal.L,
+			Writer:    os.Stdout,
+			BlackChar: qrterminal.BLACK,
+			WhiteChar: qrterminal.WHITE,
+		})
+	}
 
 	// Modes
 	var wg sync.WaitGroup

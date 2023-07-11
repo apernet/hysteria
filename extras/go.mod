@@ -2,7 +2,10 @@ module github.com/apernet/hysteria/extras
 
 go 1.20
 
-require github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
+require (
+	github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
+	golang.org/x/crypto v0.4.0
+)
 
 require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
@@ -13,7 +16,6 @@ require (
 	github.com/quic-go/qtls-go1-19 v0.3.2 // indirect
 	github.com/quic-go/qtls-go1-20 v0.2.2 // indirect
 	github.com/quic-go/quic-go v0.0.0-00010101000000-000000000000 // indirect
-	golang.org/x/crypto v0.4.0 // indirect
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
