@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -193,8 +194,79 @@ func (c *clientConfig) fillFastOpen(hyConfig *client.Config) error {
 	return nil
 }
 
+// URI generates a URI for sharing the config with others.
+// Note that only the bare minimum of information required to
+// connect to the server is included in the URI, specifically:
+// - server address
+// - authentication
+// - obfuscation type
+// - obfuscation password
+// - TLS SNI
+// - TLS insecure
+func (c *clientConfig) URI() string {
+	q := url.Values{}
+	switch strings.ToLower(c.Obfs.Type) {
+	case "salamander":
+		q.Set("obfs", "salamander")
+		q.Set("obfs-password", c.Obfs.Salamander.Password)
+	}
+	if c.TLS.SNI != "" {
+		q.Set("sni", c.TLS.SNI)
+	}
+	if c.TLS.Insecure {
+		q.Set("insecure", "1")
+	}
+	var user *url.Userinfo
+	if c.Auth != "" {
+		user = url.User(c.Auth)
+	}
+	u := url.URL{
+		Scheme:   "hysteria2",
+		User:     user,
+		Host:     c.Server,
+		Path:     "/",
+		RawQuery: q.Encode(),
+	}
+	return u.String()
+}
+
+// parseURI tries to parse the server address field as a URI,
+// and fills the config with the information contained in the URI.
+// Returns whether the server address field is a valid URI.
+// This allows a user to use put a URI as the server address and
+// omit the fields that are already contained in the URI.
+func (c *clientConfig) parseURI() bool {
+	u, err := url.Parse(c.Server)
+	if err != nil {
+		return false
+	}
+	if u.Scheme != "hysteria2" && u.Scheme != "hy2" {
+		return false
+	}
+	if u.User != nil {
+		c.Auth = u.User.String()
+	}
+	c.Server = u.Host
+	q := u.Query()
+	if obfsType := q.Get("obfs"); obfsType != "" {
+		c.Obfs.Type = obfsType
+		switch strings.ToLower(obfsType) {
+		case "salamander":
+			c.Obfs.Salamander.Password = q.Get("obfs-password")
+		}
+	}
+	if sni := q.Get("sni"); sni != "" {
+		c.TLS.SNI = sni
+	}
+	if insecure, err := strconv.ParseBool(q.Get("insecure")); err == nil {
+		c.TLS.Insecure = insecure
+	}
+	return true
+}
+
 // Config validates the fields and returns a ready-to-use Hysteria client config
 func (c *clientConfig) Config() (*client.Config, error) {
+	c.parseURI()
 	hyConfig := &client.Config{}
 	fillers := []func(*client.Config) error{
 		c.fillConnFactory,
@@ -211,32 +283,6 @@ func (c *clientConfig) Config() (*client.Config, error) {
 		}
 	}
 	return hyConfig, nil
-}
-
-// ShareURI generates a URI for sharing the config with others.
-// Note that only the fields necessary for a client to connect to the server are included.
-// It doesn't include local modes, for example.
-func (c *clientConfig) ShareURI() string {
-	q := url.Values{}
-	switch strings.ToLower(c.Obfs.Type) {
-	case "salamander":
-		q.Set("obfs", "salamander")
-		q.Set("obfs-password", c.Obfs.Salamander.Password)
-	}
-	if c.TLS.SNI != "" {
-		q.Set("sni", c.TLS.SNI)
-	}
-	if c.TLS.Insecure {
-		q.Set("insecure", "1")
-	}
-	u := url.URL{
-		Scheme:   "hysteria2",
-		User:     url.User(c.Auth),
-		Host:     c.Server,
-		Path:     "/",
-		RawQuery: q.Encode(),
-	}
-	return u.String()
 }
 
 func runClient(cmd *cobra.Command, args []string) {
@@ -260,7 +306,7 @@ func runClient(cmd *cobra.Command, args []string) {
 	}
 	defer c.Close()
 
-	uri := config.ShareURI()
+	uri := config.URI()
 	logger.Info("use this URI to share your server", zap.String("uri", uri))
 	if showQR {
 		printQR(uri)

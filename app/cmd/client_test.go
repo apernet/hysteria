@@ -98,3 +98,80 @@ func TestClientConfig(t *testing.T) {
 		t.Fatal("parsed client config is not equal to expected")
 	}
 }
+
+// TestClientConfigURI tests URI-related functions of clientConfig
+func TestClientConfigURI(t *testing.T) {
+	tests := []struct {
+		uri    string
+		uriOK  bool
+		config *clientConfig
+	}{
+		{
+			uri:   "hysteria2://god@zilla.jp/",
+			uriOK: true,
+			config: &clientConfig{
+				Server: "zilla.jp",
+				Auth:   "god",
+			},
+		},
+		{
+			uri:   "hysteria2://noauth.com/?insecure=1&obfs=salamander&obfs-password=66ccff&sni=crap.cc",
+			uriOK: true,
+			config: &clientConfig{
+				Server: "noauth.com",
+				Auth:   "",
+				Obfs: struct {
+					Type       string `mapstructure:"type"`
+					Salamander struct {
+						Password string `mapstructure:"password"`
+					} `mapstructure:"salamander"`
+				}{
+					Type: "salamander",
+					Salamander: struct {
+						Password string `mapstructure:"password"`
+					}{
+						Password: "66ccff",
+					},
+				},
+				TLS: struct {
+					SNI      string `mapstructure:"sni"`
+					Insecure bool   `mapstructure:"insecure"`
+					CA       string `mapstructure:"ca"`
+				}{
+					SNI:      "crap.cc",
+					Insecure: true,
+				},
+			},
+		},
+		{
+			uri:    "invalid.bs",
+			uriOK:  false,
+			config: nil,
+		},
+		{
+			uri:    "https://www.google.com/search?q=test",
+			uriOK:  false,
+			config: nil,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.uri, func(t *testing.T) {
+			// Test parseURI
+			nc := &clientConfig{Server: test.uri}
+			if ok := nc.parseURI(); ok != test.uriOK {
+				t.Fatal("unexpected parseURI ok result")
+			}
+			if test.uriOK && !reflect.DeepEqual(nc, test.config) {
+				t.Fatal("unexpected parsed client config from URI")
+			}
+			// Test URI generation
+			if test.config == nil {
+				// config is nil if parseURI is expected to fail
+				return
+			}
+			if uri := test.config.URI(); uri != test.uri {
+				t.Fatalf("generated URI mismatch: %s != %s", uri, test.uri)
+			}
+		})
+	}
+}
