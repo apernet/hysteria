@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/apernet/hysteria/extras/utils"
+	"github.com/mdp/qrterminal/v3"
 )
 
 // convBandwidth handles both string and int types for bandwidth.
@@ -19,6 +21,15 @@ func convBandwidth(bw interface{}) (uint64, error) {
 	default:
 		return 0, fmt.Errorf("invalid type %T for bandwidth", bwT)
 	}
+}
+
+func printQR(str string) {
+	qrterminal.GenerateWithConfig(str, qrterminal.Config{
+		Level:     qrterminal.L,
+		Writer:    os.Stdout,
+		BlackChar: qrterminal.BLACK,
+		WhiteChar: qrterminal.WHITE,
+	})
 }
 
 type configError struct {

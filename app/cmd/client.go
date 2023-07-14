@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mdp/qrterminal/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -264,12 +263,7 @@ func runClient(cmd *cobra.Command, args []string) {
 	uri := config.ShareURI()
 	logger.Info("use this URI to share your server", zap.String("uri", uri))
 	if showQR {
-		qrterminal.GenerateWithConfig(uri, qrterminal.Config{
-			Level:     qrterminal.L,
-			Writer:    os.Stdout,
-			BlackChar: qrterminal.BLACK,
-			WhiteChar: qrterminal.WHITE,
-		})
+		printQR(uri)
 	}
 
 	// Modes
