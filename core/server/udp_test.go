@@ -46,12 +46,12 @@ func (c *echoUDPConn) Close() error {
 	return nil
 }
 
-type udpsmMockIO struct {
+type udpMockIO struct {
 	ReceiveCh <-chan *protocol.UDPMessage
 	SendCh    chan<- *protocol.UDPMessage
 }
 
-func (io *udpsmMockIO) ReceiveMessage() (*protocol.UDPMessage, error) {
+func (io *udpMockIO) ReceiveMessage() (*protocol.UDPMessage, error) {
 	m := <-io.ReceiveCh
 	if m == nil {
 		return nil, errors.New("closed")
@@ -59,7 +59,7 @@ func (io *udpsmMockIO) ReceiveMessage() (*protocol.UDPMessage, error) {
 	return m, nil
 }
 
-func (io *udpsmMockIO) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
+func (io *udpMockIO) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 	nMsg := *msg
 	nMsg.Data = make([]byte, len(msg.Data))
 	copy(nMsg.Data, msg.Data)
@@ -67,45 +67,45 @@ func (io *udpsmMockIO) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 	return nil
 }
 
-func (io *udpsmMockIO) DialUDP(reqAddr string) (UDPConn, error) {
+func (io *udpMockIO) DialUDP(reqAddr string) (UDPConn, error) {
 	return &echoUDPConn{
 		PktCh: make(chan echoUDPConnPkt, 10),
 	}, nil
 }
 
-type udpsmMockEventNew struct {
+type udpMockEventNew struct {
 	SessionID uint32
 	ReqAddr   string
 }
 
-type udpsmMockEventClosed struct {
+type udpMockEventClosed struct {
 	SessionID uint32
 	Err       error
 }
 
-type udpsmMockEventLogger struct {
-	NewCh    chan<- udpsmMockEventNew
-	ClosedCh chan<- udpsmMockEventClosed
+type udpMockEventLogger struct {
+	NewCh    chan<- udpMockEventNew
+	ClosedCh chan<- udpMockEventClosed
 }
 
-func (l *udpsmMockEventLogger) New(sessionID uint32, reqAddr string) {
-	l.NewCh <- udpsmMockEventNew{sessionID, reqAddr}
+func (l *udpMockEventLogger) New(sessionID uint32, reqAddr string) {
+	l.NewCh <- udpMockEventNew{sessionID, reqAddr}
 }
 
-func (l *udpsmMockEventLogger) Closed(sessionID uint32, err error) {
-	l.ClosedCh <- udpsmMockEventClosed{sessionID, err}
+func (l *udpMockEventLogger) Closed(sessionID uint32, err error) {
+	l.ClosedCh <- udpMockEventClosed{sessionID, err}
 }
 
 func TestUDPSessionManager(t *testing.T) {
 	msgReceiveCh := make(chan *protocol.UDPMessage, 10)
 	msgSendCh := make(chan *protocol.UDPMessage, 10)
-	io := &udpsmMockIO{
+	io := &udpMockIO{
 		ReceiveCh: msgReceiveCh,
 		SendCh:    msgSendCh,
 	}
-	eventNewCh := make(chan udpsmMockEventNew, 10)
-	eventClosedCh := make(chan udpsmMockEventClosed, 10)
-	eventLogger := &udpsmMockEventLogger{
+	eventNewCh := make(chan udpMockEventNew, 10)
+	eventClosedCh := make(chan udpMockEventClosed, 10)
+	eventLogger := &udpMockEventLogger{
 		NewCh:    eventNewCh,
 		ClosedCh: eventClosedCh,
 	}

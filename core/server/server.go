@@ -146,8 +146,8 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if !h.config.DisableUDP {
 				h.udpOnce.Do(func() {
 					sm := newUDPSessionManager(
-						&udpsmIO{h.conn, id, h.config.TrafficLogger, h.config.Outbound},
-						&udpsmEventLogger{h.conn, id, h.config.EventLogger},
+						&udpIOImpl{h.conn, id, h.config.TrafficLogger, h.config.Outbound},
+						&udpEventLoggerImpl{h.conn, id, h.config.EventLogger},
 						udpSessionIdleTimeout)
 					h.udpSM = sm
 					go sm.Run()
@@ -231,15 +231,15 @@ func (h *h3sHandler) masqHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// udpsmIO is the IO implementation for udpSessionManager with TrafficLogger support
-type udpsmIO struct {
+// udpIOImpl is the IO implementation for udpSessionManager with TrafficLogger support
+type udpIOImpl struct {
 	Conn          quic.Connection
 	AuthID        string
 	TrafficLogger TrafficLogger
 	Outbound      Outbound
 }
 
-func (io *udpsmIO) ReceiveMessage() (*protocol.UDPMessage, error) {
+func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
 	for {
 		msg, err := io.Conn.ReceiveMessage()
 		if err != nil {
@@ -263,7 +263,7 @@ func (io *udpsmIO) ReceiveMessage() (*protocol.UDPMessage, error) {
 	}
 }
 
-func (io *udpsmIO) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
+func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 	if io.TrafficLogger != nil {
 		ok := io.TrafficLogger.Log(io.AuthID, 0, uint64(len(msg.Data)))
 		if !ok {
@@ -280,23 +280,23 @@ func (io *udpsmIO) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 	return io.Conn.SendMessage(buf[:msgN])
 }
 
-func (io *udpsmIO) DialUDP(reqAddr string) (UDPConn, error) {
+func (io *udpIOImpl) DialUDP(reqAddr string) (UDPConn, error) {
 	return io.Outbound.DialUDP(reqAddr)
 }
 
-type udpsmEventLogger struct {
+type udpEventLoggerImpl struct {
 	Conn        quic.Connection
 	AuthID      string
 	EventLogger EventLogger
 }
 
-func (l *udpsmEventLogger) New(sessionID uint32, reqAddr string) {
+func (l *udpEventLoggerImpl) New(sessionID uint32, reqAddr string) {
 	if l.EventLogger != nil {
 		l.EventLogger.UDPRequest(l.Conn.RemoteAddr(), l.AuthID, sessionID, reqAddr)
 	}
 }
 
-func (l *udpsmEventLogger) Closed(sessionID uint32, err error) {
+func (l *udpEventLoggerImpl) Closed(sessionID uint32, err error) {
 	if l.EventLogger != nil {
 		l.EventLogger.UDPError(l.Conn.RemoteAddr(), l.AuthID, sessionID, err)
 	}

@@ -17,13 +17,13 @@ const (
 	idleCleanupInterval = 1 * time.Second
 )
 
-type udpSessionManagerIO interface {
+type udpIO interface {
 	ReceiveMessage() (*protocol.UDPMessage, error)
 	SendMessage([]byte, *protocol.UDPMessage) error
 	DialUDP(reqAddr string) (UDPConn, error)
 }
 
-type udpSessionManagerEventLogger interface {
+type udpEventLogger interface {
 	New(sessionID uint32, reqAddr string)
 	Closed(sessionID uint32, err error)
 }
@@ -54,7 +54,7 @@ func (e *udpSessionEntry) Feed(msg *protocol.UDPMessage) (int, error) {
 // and sends using the provided io.
 // Exit and returns error when either the underlying UDP connection returns
 // error (e.g. closed), or the provided io returns error when sending.
-func (e *udpSessionEntry) ReceiveLoop(io udpSessionManagerIO) error {
+func (e *udpSessionEntry) ReceiveLoop(io udpIO) error {
 	udpBuf := make([]byte, protocol.MaxUDPSize)
 	msgBuf := make([]byte, protocol.MaxUDPSize)
 	for {
@@ -82,7 +82,7 @@ func (e *udpSessionEntry) ReceiveLoop(io udpSessionManagerIO) error {
 // sendMessageAutoFrag tries to send a UDP message as a whole first,
 // but if it fails due to quic.ErrMessageTooLarge, it tries again by
 // fragmenting the message.
-func sendMessageAutoFrag(io udpSessionManagerIO, buf []byte, msg *protocol.UDPMessage) error {
+func sendMessageAutoFrag(io udpIO, buf []byte, msg *protocol.UDPMessage) error {
 	err := io.SendMessage(buf, msg)
 	var errTooLarge quic.ErrMessageTooLarge
 	if errors.As(err, &errTooLarge) {
@@ -107,8 +107,8 @@ func sendMessageAutoFrag(io udpSessionManagerIO, buf []byte, msg *protocol.UDPMe
 // Similar to standard NAT, a UDP session is destroyed when no UDP message is received
 // for a certain period of time (specified by idleTimeout).
 type udpSessionManager struct {
-	io          udpSessionManagerIO
-	eventLogger udpSessionManagerEventLogger
+	io          udpIO
+	eventLogger udpEventLogger
 	idleTimeout time.Duration
 
 	mutex  sync.Mutex
@@ -116,11 +116,7 @@ type udpSessionManager struct {
 	nextID uint32
 }
 
-func newUDPSessionManager(
-	io udpSessionManagerIO,
-	eventLogger udpSessionManagerEventLogger,
-	idleTimeout time.Duration,
-) *udpSessionManager {
+func newUDPSessionManager(io udpIO, eventLogger udpEventLogger, idleTimeout time.Duration) *udpSessionManager {
 	return &udpSessionManager{
 		io:          io,
 		eventLogger: eventLogger,
