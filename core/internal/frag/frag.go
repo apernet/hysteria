@@ -4,9 +4,9 @@ import (
 	"github.com/apernet/hysteria/core/internal/protocol"
 )
 
-func FragUDPMessage(m protocol.UDPMessage, maxSize int) []protocol.UDPMessage {
+func FragUDPMessage(m *protocol.UDPMessage, maxSize int) []protocol.UDPMessage {
 	if m.Size() <= maxSize {
-		return []protocol.UDPMessage{m}
+		return []protocol.UDPMessage{*m}
 	}
 	fullPayload := m.Data
 	maxPayloadSize := maxSize - m.HeaderSize()
@@ -19,7 +19,7 @@ func FragUDPMessage(m protocol.UDPMessage, maxSize int) []protocol.UDPMessage {
 		if payloadSize > maxPayloadSize {
 			payloadSize = maxPayloadSize
 		}
-		frag := m
+		frag := *m
 		frag.FragID = fragID
 		frag.FragCount = fragCount
 		frag.Data = fullPayload[off : off+payloadSize]

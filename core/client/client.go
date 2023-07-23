@@ -400,7 +400,7 @@ func (c *udpConn) Receive() ([]byte, string, error) {
 // Send is not thread-safe as it uses a shared send buffer for now.
 func (c *udpConn) Send(data []byte, addr string) error {
 	// Try no frag first
-	msg := protocol.UDPMessage{
+	msg := &protocol.UDPMessage{
 		SessionID: c.SessionID,
 		PacketID:  0,
 		FragID:    0,

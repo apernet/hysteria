@@ -75,7 +75,7 @@ func (a *PluggableOutboundAdapter) DialTCP(reqAddr string) (net.Conn, error) {
 	})
 }
 
-func (a *PluggableOutboundAdapter) ListenUDP() (server.UDPConn, error) {
+func (a *PluggableOutboundAdapter) DialUDP() (server.UDPConn, error) {
 	conn, err := a.PluggableOutbound.ListenUDP()
 	if err != nil {
 		return nil, err

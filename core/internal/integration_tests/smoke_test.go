@@ -36,7 +36,7 @@ func TestClientNoServer(t *testing.T) {
 	// Try UDP
 	_, err = c.ListenUDP()
 	if !errors.As(err, &cErr) {
-		t.Fatal("expected connect error from ListenUDP")
+		t.Fatal("expected connect error from DialUDP")
 	}
 }
 
@@ -86,7 +86,7 @@ func TestClientServerBadAuth(t *testing.T) {
 	// Try UDP
 	_, err = c.ListenUDP()
 	if !errors.As(err, &aErr) {
-		t.Fatal("expected auth error from ListenUDP")
+		t.Fatal("expected auth error from DialUDP")
 	}
 }
 

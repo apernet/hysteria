@@ -68,10 +68,10 @@ func TestPluggableOutboundAdapter(t *testing.T) {
 	if err != errWrongAddr {
 		t.Fatal("DialTCP with wrong addr should fail, got", err)
 	}
-	// ListenUDP
-	uConn, err := adapter.ListenUDP()
+	// DialUDP
+	uConn, err := adapter.DialUDP()
 	if err != nil {
-		t.Fatal("ListenUDP failed", err)
+		t.Fatal("DialUDP failed", err)
 	}
 	// ReadFrom
 	b := make([]byte, 10)

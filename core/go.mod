@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/quic-go/quic-go v0.0.0-00010101000000-000000000000
+	go.uber.org/goleak v1.2.1
 	golang.org/x/time v0.3.0
 )
 

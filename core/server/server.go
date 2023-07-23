@@ -3,14 +3,11 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"errors"
-	"io"
-	"math/rand"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/apernet/hysteria/core/internal/congestion"
-	"github.com/apernet/hysteria/core/internal/frag"
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/apernet/hysteria/core/internal/utils"
 
@@ -21,6 +18,8 @@ import (
 const (
 	closeErrCodeOK                  = 0x100 // HTTP3 ErrCodeNoError
 	closeErrCodeTrafficLimitReached = 0x107 // HTTP3 ErrCodeExcessiveLoad
+
+	udpSessionIdleTimeout = 60 * time.Second
 )
 
 type Server interface {
@@ -101,90 +100,21 @@ type h3sHandler struct {
 	authID        string
 
 	udpOnce sync.Once
-	udpSM   udpSessionManager
+	udpSM   *udpSessionManager // Only set after authentication
 }
 
 func newH3sHandler(config *Config, conn quic.Connection) *h3sHandler {
 	return &h3sHandler{
 		config: config,
 		conn:   conn,
-		udpSM: udpSessionManager{
-			listenFunc: config.Outbound.ListenUDP,
-			m:          make(map[uint32]*udpSessionEntry),
-		},
 	}
-}
-
-type udpSessionEntry struct {
-	Conn   UDPConn
-	D      *frag.Defragger
-	Closed bool
-}
-
-type udpSessionManager struct {
-	listenFunc func() (UDPConn, error)
-	mutex      sync.RWMutex
-	m          map[uint32]*udpSessionEntry
-	nextID     uint32
-}
-
-// Add returns the session ID, the UDP connection and a function to close the UDP connection & delete the session.
-func (m *udpSessionManager) Add() (uint32, UDPConn, func(), error) {
-	conn, err := m.listenFunc()
-	if err != nil {
-		return 0, nil, nil, err
-	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	id := m.nextID
-	m.nextID++
-	entry := &udpSessionEntry{
-		Conn:   conn,
-		D:      &frag.Defragger{},
-		Closed: false,
-	}
-	m.m[id] = entry
-
-	return id, conn, func() {
-		m.mutex.Lock()
-		defer m.mutex.Unlock()
-		if entry.Closed {
-			// Already closed
-			return
-		}
-		entry.Closed = true
-		_ = conn.Close()
-		delete(m.m, id)
-	}, nil
-}
-
-// Feed feeds a UDP message to the session manager.
-// If the message itself is a complete message, or it's the last fragment of a message,
-// it will be sent to the UDP connection.
-// The function will then return the number of bytes sent and any error occurred.
-func (m *udpSessionManager) Feed(msg *protocol.UDPMessage) (int, error) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	entry, ok := m.m[msg.SessionID]
-	if !ok {
-		// No such session, drop the message
-		return 0, nil
-	}
-	dfMsg := entry.D.Feed(msg)
-	if dfMsg == nil {
-		// Not a complete message yet
-		return 0, nil
-	}
-	return entry.Conn.WriteTo(dfMsg.Data, dfMsg.Addr)
 }
 
 func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost && r.Host == protocol.URLHost && r.URL.Path == protocol.URLPath {
 		if h.authenticated {
 			// Already authenticated
-			protocol.AuthResponseDataToHeader(w.Header(), h.config.BandwidthConfig.MaxRx)
+			protocol.AuthResponseDataToHeader(w.Header(), !h.config.DisableUDP, h.config.BandwidthConfig.MaxRx)
 			w.WriteHeader(protocol.StatusAuthOK)
 			return
 		}
@@ -204,18 +134,23 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				h.conn.SetCongestionControl(congestion.NewBrutalSender(actualTx))
 			}
 			// Auth OK, send response
-			protocol.AuthResponseDataToHeader(w.Header(), h.config.BandwidthConfig.MaxRx)
+			protocol.AuthResponseDataToHeader(w.Header(), !h.config.DisableUDP, h.config.BandwidthConfig.MaxRx)
 			w.WriteHeader(protocol.StatusAuthOK)
 			// Call event logger
 			if h.config.EventLogger != nil {
 				h.config.EventLogger.Connect(h.conn.RemoteAddr(), id, actualTx)
 			}
-			// Start UDP loop if UDP is not disabled
+			// Initialize UDP session manager (if UDP is enabled)
 			// We use sync.Once to make sure that only one goroutine is started,
 			// as ServeHTTP may be called by multiple goroutines simultaneously
 			if !h.config.DisableUDP {
 				h.udpOnce.Do(func() {
-					go h.udpLoop()
+					sm := newUDPSessionManager(
+						&udpsmIO{h.conn, id, h.config.TrafficLogger, h.config.Outbound},
+						&udpsmEventLogger{h.conn, id, h.config.EventLogger},
+						udpSessionIdleTimeout)
+					h.udpSM = sm
+					go sm.Run()
 				})
 			}
 		} else {
@@ -239,9 +174,6 @@ func (h *h3sHandler) ProxyStreamHijacker(ft http3.FrameType, conn quic.Connectio
 	switch ft {
 	case protocol.FrameTypeTCPRequest:
 		go h.handleTCPRequest(stream)
-		return true, nil
-	case protocol.FrameTypeUDPRequest:
-		go h.handleUDPRequest(stream)
 		return true, nil
 	default:
 		return false, nil
@@ -290,130 +222,82 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	}
 }
 
-func (h *h3sHandler) handleUDPRequest(stream quic.Stream) {
-	if h.config.DisableUDP {
-		// UDP is disabled, send error message and close the stream
-		_ = protocol.WriteUDPResponse(stream, false, 0, "UDP is disabled on this server")
-		_ = stream.Close()
-		return
-	}
-	// Read request
-	err := protocol.ReadUDPRequest(stream)
-	if err != nil {
-		_ = stream.Close()
-		return
-	}
-	// Add to session manager
-	sessionID, conn, connCloseFunc, err := h.udpSM.Add()
-	if err != nil {
-		_ = protocol.WriteUDPResponse(stream, false, 0, err.Error())
-		_ = stream.Close()
-		return
-	}
-	// Send response
-	_ = protocol.WriteUDPResponse(stream, true, sessionID, "")
-	// Call event logger
-	if h.config.EventLogger != nil {
-		h.config.EventLogger.UDPRequest(h.conn.RemoteAddr(), h.authID, sessionID)
-	}
-
-	// client <- remote direction
-	go func() {
-		udpBuf := make([]byte, protocol.MaxUDPSize)
-		msgBuf := make([]byte, protocol.MaxUDPSize)
-		for {
-			udpN, rAddr, err := conn.ReadFrom(udpBuf)
-			if err != nil {
-				connCloseFunc()
-				_ = stream.Close()
-				return
-			}
-			if h.config.TrafficLogger != nil {
-				ok := h.config.TrafficLogger.Log(h.authID, 0, uint64(udpN))
-				if !ok {
-					// TrafficLogger requested to disconnect the client
-					_ = h.conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
-					return
-				}
-			}
-			// Try no frag first
-			msg := protocol.UDPMessage{
-				SessionID: sessionID,
-				PacketID:  0,
-				FragID:    0,
-				FragCount: 1,
-				Addr:      rAddr,
-				Data:      udpBuf[:udpN],
-			}
-			msgN := msg.Serialize(msgBuf)
-			if msgN < 0 {
-				// Message even larger than MaxUDPSize, drop it
-				continue
-			}
-			sendErr := h.conn.SendMessage(msgBuf[:msgN])
-			var errTooLarge quic.ErrMessageTooLarge
-			if errors.As(sendErr, &errTooLarge) {
-				// Message too large, try fragmentation
-				msg.PacketID = uint16(rand.Intn(0xFFFF)) + 1
-				fMsgs := frag.FragUDPMessage(msg, int(errTooLarge))
-				for _, fMsg := range fMsgs {
-					msgN = fMsg.Serialize(msgBuf)
-					_ = h.conn.SendMessage(msgBuf[:msgN])
-				}
-			}
-		}
-	}()
-
-	// Hold (drain) the stream until the client closes it.
-	// Closing the stream is the signal to stop the UDP session.
-	_, err = io.Copy(io.Discard, stream)
-	// Call event logger
-	if h.config.EventLogger != nil {
-		h.config.EventLogger.UDPError(h.conn.RemoteAddr(), h.authID, sessionID, err)
-	}
-
-	// Cleanup
-	connCloseFunc()
-	_ = stream.Close()
-}
-
-func (h *h3sHandler) udpLoop() {
-	for {
-		msg, err := h.conn.ReceiveMessage()
-		if err != nil {
-			return
-		}
-		ok := h.handleUDPMessage(msg)
-		if !ok {
-			// TrafficLogger requested to disconnect the client
-			_ = h.conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
-			return
-		}
-	}
-}
-
-// client -> remote direction
-// Returns a bool indicating whether the receiving loop should continue
-func (h *h3sHandler) handleUDPMessage(msg []byte) (ok bool) {
-	udpMsg, err := protocol.ParseUDPMessage(msg)
-	if err != nil {
-		return true
-	}
-	if h.config.TrafficLogger != nil {
-		ok := h.config.TrafficLogger.Log(h.authID, uint64(len(udpMsg.Data)), 0)
-		if !ok {
-			return false
-		}
-	}
-	_, _ = h.udpSM.Feed(udpMsg)
-	return true
-}
-
 func (h *h3sHandler) masqHandler(w http.ResponseWriter, r *http.Request) {
 	if h.config.MasqHandler != nil {
 		h.config.MasqHandler.ServeHTTP(w, r)
 	} else {
 		// Return 404 for everything
 		http.NotFound(w, r)
+	}
+}
+
+// udpsmIO is the IO implementation for udpSessionManager with TrafficLogger support
+type udpsmIO struct {
+	Conn          quic.Connection
+	AuthID        string
+	TrafficLogger TrafficLogger
+	Outbound      Outbound
+}
+
+func (io *udpsmIO) ReceiveMessage() (*protocol.UDPMessage, error) {
+	for {
+		msg, err := io.Conn.ReceiveMessage()
+		if err != nil {
+			// Connection error, this will stop the session manager
+			return nil, err
+		}
+		udpMsg, err := protocol.ParseUDPMessage(msg)
+		if err != nil {
+			// Invalid message, this is fine - just wait for the next
+			continue
+		}
+		if io.TrafficLogger != nil {
+			ok := io.TrafficLogger.Log(io.AuthID, uint64(len(udpMsg.Data)), 0)
+			if !ok {
+				// TrafficLogger requested to disconnect the client
+				_ = io.Conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
+				return nil, errDisconnect
+			}
+		}
+		return udpMsg, nil
+	}
+}
+
+func (io *udpsmIO) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
+	if io.TrafficLogger != nil {
+		ok := io.TrafficLogger.Log(io.AuthID, 0, uint64(len(msg.Data)))
+		if !ok {
+			// TrafficLogger requested to disconnect the client
+			_ = io.Conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
+			return errDisconnect
+		}
+	}
+	msgN := msg.Serialize(buf)
+	if msgN < 0 {
+		// Message larger than buffer, silent drop
+		return nil
+	}
+	return io.Conn.SendMessage(buf[:msgN])
+}
+
+func (io *udpsmIO) DialUDP(reqAddr string) (UDPConn, error) {
+	return io.Outbound.DialUDP(reqAddr)
+}
+
+type udpsmEventLogger struct {
+	Conn        quic.Connection
+	AuthID      string
+	EventLogger EventLogger
+}
+
+func (l *udpsmEventLogger) New(sessionID uint32, reqAddr string) {
+	if l.EventLogger != nil {
+		l.EventLogger.UDPRequest(l.Conn.RemoteAddr(), l.AuthID, sessionID, reqAddr)
+	}
+}
+
+func (l *udpsmEventLogger) Closed(sessionID uint32, err error) {
+	if l.EventLogger != nil {
+		l.EventLogger.UDPError(l.Conn.RemoteAddr(), l.AuthID, sessionID, err)
 	}
 }
