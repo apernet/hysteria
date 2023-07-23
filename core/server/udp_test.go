@@ -67,7 +67,7 @@ func (io *udpMockIO) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 	return nil
 }
 
-func (io *udpMockIO) DialUDP(reqAddr string) (UDPConn, error) {
+func (io *udpMockIO) UDP(reqAddr string) (UDPConn, error) {
 	return &echoUDPConn{
 		PktCh: make(chan echoUDPConnPkt, 10),
 	}, nil
@@ -78,22 +78,22 @@ type udpMockEventNew struct {
 	ReqAddr   string
 }
 
-type udpMockEventClosed struct {
+type udpMockEventClose struct {
 	SessionID uint32
 	Err       error
 }
 
 type udpMockEventLogger struct {
-	NewCh    chan<- udpMockEventNew
-	ClosedCh chan<- udpMockEventClosed
+	NewCh   chan<- udpMockEventNew
+	CloseCh chan<- udpMockEventClose
 }
 
 func (l *udpMockEventLogger) New(sessionID uint32, reqAddr string) {
 	l.NewCh <- udpMockEventNew{sessionID, reqAddr}
 }
 
-func (l *udpMockEventLogger) Closed(sessionID uint32, err error) {
-	l.ClosedCh <- udpMockEventClosed{sessionID, err}
+func (l *udpMockEventLogger) Close(sessionID uint32, err error) {
+	l.CloseCh <- udpMockEventClose{sessionID, err}
 }
 
 func TestUDPSessionManager(t *testing.T) {
@@ -104,10 +104,10 @@ func TestUDPSessionManager(t *testing.T) {
 		SendCh:    msgSendCh,
 	}
 	eventNewCh := make(chan udpMockEventNew, 10)
-	eventClosedCh := make(chan udpMockEventClosed, 10)
+	eventCloseCh := make(chan udpMockEventClose, 10)
 	eventLogger := &udpMockEventLogger{
-		NewCh:    eventNewCh,
-		ClosedCh: eventClosedCh,
+		NewCh:   eventNewCh,
+		CloseCh: eventCloseCh,
 	}
 	sm := newUDPSessionManager(io, eventLogger, 2*time.Second)
 	go sm.Run()
@@ -172,13 +172,13 @@ func TestUDPSessionManager(t *testing.T) {
 	}
 	// Timeout check
 	startTime := time.Now()
-	closedMap := make(map[uint32]bool)
+	closeMap := make(map[uint32]bool)
 	for i := 0; i < 2; i++ {
-		closedEvent := <-eventClosedCh
-		closedMap[closedEvent.SessionID] = true
+		closeEvent := <-eventCloseCh
+		closeMap[closeEvent.SessionID] = true
 	}
-	if !(closedMap[1234] && closedMap[5678]) {
-		t.Error("unexpected closed event value", closedMap)
+	if !(closeMap[1234] && closeMap[5678]) {
+		t.Error("unexpected close event value")
 	}
 	if time.Since(startTime) < 2*time.Second || time.Since(startTime) > 4*time.Second {
 		t.Error("unexpected timeout duration")

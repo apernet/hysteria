@@ -192,7 +192,7 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 		h.config.EventLogger.TCPRequest(h.conn.RemoteAddr(), h.authID, reqAddr)
 	}
 	// Dial target
-	tConn, err := h.config.Outbound.DialTCP(reqAddr)
+	tConn, err := h.config.Outbound.TCP(reqAddr)
 	if err != nil {
 		_ = protocol.WriteTCPResponse(stream, false, err.Error())
 		_ = stream.Close()
@@ -280,8 +280,8 @@ func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 	return io.Conn.SendMessage(buf[:msgN])
 }
 
-func (io *udpIOImpl) DialUDP(reqAddr string) (UDPConn, error) {
-	return io.Outbound.DialUDP(reqAddr)
+func (io *udpIOImpl) UDP(reqAddr string) (UDPConn, error) {
+	return io.Outbound.UDP(reqAddr)
 }
 
 type udpEventLoggerImpl struct {
@@ -296,7 +296,7 @@ func (l *udpEventLoggerImpl) New(sessionID uint32, reqAddr string) {
 	}
 }
 
-func (l *udpEventLoggerImpl) Closed(sessionID uint32, err error) {
+func (l *udpEventLoggerImpl) Close(sessionID uint32, err error) {
 	if l.EventLogger != nil {
 		l.EventLogger.UDPError(l.Conn.RemoteAddr(), l.AuthID, sessionID, err)
 	}

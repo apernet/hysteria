@@ -20,12 +20,12 @@ const (
 type udpIO interface {
 	ReceiveMessage() (*protocol.UDPMessage, error)
 	SendMessage([]byte, *protocol.UDPMessage) error
-	DialUDP(reqAddr string) (UDPConn, error)
+	UDP(reqAddr string) (UDPConn, error)
 }
 
 type udpEventLogger interface {
 	New(sessionID uint32, reqAddr string)
-	Closed(sessionID uint32, err error)
+	Close(sessionID uint32, err error)
 }
 
 type udpSessionEntry struct {
@@ -164,7 +164,7 @@ func (m *udpSessionManager) cleanup(idleOnly bool) {
 		if !idleOnly || now.Sub(entry.Last.Get()) > m.idleTimeout {
 			entry.Closed = true
 			_ = entry.Conn.Close()
-			m.eventLogger.Closed(sessionID, nil)
+			m.eventLogger.Close(sessionID, nil)
 			delete(m.m, sessionID)
 		}
 	}
@@ -177,10 +177,10 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 	if entry == nil {
 		// New session
 		m.eventLogger.New(msg.SessionID, msg.Addr)
-		conn, err := m.io.DialUDP(msg.Addr)
+		conn, err := m.io.UDP(msg.Addr)
 		if err != nil {
 			m.mutex.Unlock()
-			m.eventLogger.Closed(msg.SessionID, err)
+			m.eventLogger.Close(msg.SessionID, err)
 			return
 		}
 		entry = &udpSessionEntry{
@@ -197,7 +197,7 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 			if !entry.Closed {
 				entry.Closed = true
 				_ = entry.Conn.Close()
-				m.eventLogger.Closed(entry.ID, err)
+				m.eventLogger.Close(entry.ID, err)
 				delete(m.m, entry.ID)
 			}
 			m.mutex.Unlock()

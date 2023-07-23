@@ -103,13 +103,12 @@ type QUICConfig struct {
 }
 
 // Outbound provides the implementation of how the server should connect to remote servers.
-// Even though it's called DialUDP, outbound implementations do not necessarily have to
-// return a "connected" UDP socket that can only send and receive from reqAddr. It's the
-// address of the first packet to be sent.
-// It's perfectly fine to have a "full-cone" implementation for UDP.
+// Although UDP includes a reqAddr, the implementation does not necessarily have to use it
+// to make a "connected" UDP connection that does not accept packets from other addresses.
+// In fact, the default implementation simply uses net.ListenUDP for a "full-cone" behavior.
 type Outbound interface {
-	DialTCP(reqAddr string) (net.Conn, error)
-	DialUDP(reqAddr string) (UDPConn, error)
+	TCP(reqAddr string) (net.Conn, error)
+	UDP(reqAddr string) (UDPConn, error)
 }
 
 // UDPConn is like net.PacketConn, but uses string for addresses.
@@ -125,11 +124,11 @@ var defaultOutboundDialer = net.Dialer{
 	Timeout: 10 * time.Second,
 }
 
-func (o *defaultOutbound) DialTCP(reqAddr string) (net.Conn, error) {
+func (o *defaultOutbound) TCP(reqAddr string) (net.Conn, error) {
 	return defaultOutboundDialer.Dial("tcp", reqAddr)
 }
 
-func (o *defaultOutbound) DialUDP(reqAddr string) (UDPConn, error) {
+func (o *defaultOutbound) UDP(reqAddr string) (UDPConn, error) {
 	conn, err := net.ListenUDP("udp", nil)
 	if err != nil {
 		return nil, err
