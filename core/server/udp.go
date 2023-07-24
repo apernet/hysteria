@@ -111,9 +111,8 @@ type udpSessionManager struct {
 	eventLogger udpEventLogger
 	idleTimeout time.Duration
 
-	mutex  sync.Mutex
-	m      map[uint32]*udpSessionEntry
-	nextID uint32
+	mutex sync.Mutex
+	m     map[uint32]*udpSessionEntry
 }
 
 func newUDPSessionManager(io udpIO, eventLogger udpEventLogger, idleTimeout time.Duration) *udpSessionManager {
@@ -211,4 +210,10 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 	// Feed (send) errors are ignored for now,
 	// as some are temporary (e.g. invalid address)
 	_, _ = entry.Feed(msg)
+}
+
+func (m *udpSessionManager) Count() int {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	return len(m.m)
 }

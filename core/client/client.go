@@ -3,18 +3,13 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"errors"
-	"io"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
 
 	coreErrs "github.com/apernet/hysteria/core/errors"
 	"github.com/apernet/hysteria/core/internal/congestion"
-	"github.com/apernet/hysteria/core/internal/frag"
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/apernet/hysteria/core/internal/utils"
 
@@ -23,8 +18,6 @@ import (
 )
 
 const (
-	udpMessageChanSize = 1024
-
 	closeErrCodeOK            = 0x100 // HTTP3 ErrCodeNoError
 	closeErrCodeProtocolError = 0x101 // HTTP3 ErrCodeGeneralProtocolError
 )
@@ -48,94 +41,25 @@ func NewClient(config *Config) (Client, error) {
 	c := &clientImpl{
 		config: config,
 	}
-	c.conn = &autoReconnectConn{
-		Connect: c.connect,
+	if err := c.connect(); err != nil {
+		return nil, err
 	}
 	return c, nil
 }
 
 type clientImpl struct {
 	config *Config
-	conn   *autoReconnectConn
 
-	udpSM udpSessionManager
+	pktConn net.PacketConn
+	conn    quic.Connection
+
+	udpSM *udpSessionManager
 }
 
-type udpSessionEntry struct {
-	Ch     chan *protocol.UDPMessage
-	D      *frag.Defragger
-	Closed bool
-}
-
-type udpSessionManager struct {
-	mutex sync.RWMutex
-	m     map[uint32]*udpSessionEntry
-}
-
-func (m *udpSessionManager) Init() {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.m = make(map[uint32]*udpSessionEntry)
-}
-
-// Add returns both a channel for receiving messages and a function to close the channel & delete the session.
-func (m *udpSessionManager) Add(id uint32) (<-chan *protocol.UDPMessage, func()) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	// Important: make sure we add and delete the channel in the same map,
-	// as the map may be replaced by Init() at any time.
-	currentM := m.m
-
-	entry := &udpSessionEntry{
-		Ch:     make(chan *protocol.UDPMessage, udpMessageChanSize),
-		D:      &frag.Defragger{},
-		Closed: false,
-	}
-	currentM[id] = entry
-
-	return entry.Ch, func() {
-		m.mutex.Lock()
-		defer m.mutex.Unlock()
-		if entry.Closed {
-			// Double close a channel will panic,
-			// so we need a flag to make sure we only close it once.
-			return
-		}
-		entry.Closed = true
-		close(entry.Ch)
-		delete(currentM, id)
-	}
-}
-
-func (m *udpSessionManager) Feed(msg *protocol.UDPMessage) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	entry, ok := m.m[msg.SessionID]
-	if !ok {
-		// No such session, drop the message
-		return
-	}
-	dfMsg := entry.D.Feed(msg)
-	if dfMsg == nil {
-		// Not a complete message yet
-		return
-	}
-	select {
-	case entry.Ch <- dfMsg:
-		// OK
-	default:
-		// Channel is full, drop the message
-	}
-}
-
-func (c *clientImpl) connect() (quic.Connection, func(), error) {
-	// Use a new packet conn for each connection,
-	// remember to close it after the QUIC connection is closed.
+func (c *clientImpl) connect() error {
 	pktConn, err := c.config.ConnFactory.New(c.config.ServerAddr)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 	// Convert config to TLS config & QUIC config
 	tlsConfig := &tls.Config{
@@ -185,15 +109,15 @@ func (c *clientImpl) connect() (quic.Connection, func(), error) {
 			_ = conn.CloseWithError(closeErrCodeProtocolError, "")
 		}
 		_ = pktConn.Close()
-		return nil, nil, &coreErrs.ConnectError{Err: err}
+		return &coreErrs.ConnectError{Err: err}
 	}
 	if resp.StatusCode != protocol.StatusAuthOK {
 		_ = conn.CloseWithError(closeErrCodeProtocolError, "")
 		_ = pktConn.Close()
-		return nil, nil, &coreErrs.AuthError{StatusCode: resp.StatusCode}
+		return &coreErrs.AuthError{StatusCode: resp.StatusCode}
 	}
 	// Auth OK
-	serverRx := protocol.AuthResponseDataFromHeader(resp.Header)
+	udpEnabled, serverRx := protocol.AuthResponseDataFromHeader(resp.Header)
 	// actualTx = min(serverRx, clientTx)
 	actualTx := serverRx
 	if actualTx == 0 || actualTx > c.config.BandwidthConfig.MaxTx {
@@ -205,46 +129,20 @@ func (c *clientImpl) connect() (quic.Connection, func(), error) {
 	}
 	_ = resp.Body.Close()
 
-	c.udpSM.Init()
-	go c.udpLoop(conn)
-
-	return conn, func() {
-		_ = conn.CloseWithError(closeErrCodeOK, "")
-		_ = pktConn.Close()
-	}, nil
-}
-
-func (c *clientImpl) udpLoop(conn quic.Connection) {
-	for {
-		msg, err := conn.ReceiveMessage()
-		if err != nil {
-			return
-		}
-		c.handleUDPMessage(msg)
+	c.pktConn = pktConn
+	c.conn = conn
+	if udpEnabled {
+		c.udpSM = newUDPSessionManager(&udpIOImpl{Conn: conn})
+		go func() {
+			c.udpSM.Run()
+			// TODO: Mark connection as closed
+		}()
 	}
-}
-
-// client <- remote direction
-func (c *clientImpl) handleUDPMessage(msg []byte) {
-	udpMsg, err := protocol.ParseUDPMessage(msg)
-	if err != nil {
-		return
-	}
-	c.udpSM.Feed(udpMsg)
-}
-
-// openStream wraps the stream with QStream, which handles Close() properly
-func (c *clientImpl) openStream() (quic.Connection, quic.Stream, error) {
-	qc, stream, err := c.conn.OpenStream()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return qc, &utils.QStream{Stream: stream}, nil
+	return nil
 }
 
 func (c *clientImpl) DialTCP(addr string) (net.Conn, error) {
-	qc, stream, err := c.openStream()
+	stream, err := c.openStream()
 	if err != nil {
 		return nil, err
 	}
@@ -260,8 +158,8 @@ func (c *clientImpl) DialTCP(addr string) (net.Conn, error) {
 		// to the first Read() call.
 		return &tcpConn{
 			Orig:             stream,
-			PseudoLocalAddr:  qc.LocalAddr(),
-			PseudoRemoteAddr: qc.RemoteAddr(),
+			PseudoLocalAddr:  c.conn.LocalAddr(),
+			PseudoRemoteAddr: c.conn.RemoteAddr(),
 			Established:      false,
 		}, nil
 	}
@@ -277,49 +175,23 @@ func (c *clientImpl) DialTCP(addr string) (net.Conn, error) {
 	}
 	return &tcpConn{
 		Orig:             stream,
-		PseudoLocalAddr:  qc.LocalAddr(),
-		PseudoRemoteAddr: qc.RemoteAddr(),
+		PseudoLocalAddr:  c.conn.LocalAddr(),
+		PseudoRemoteAddr: c.conn.RemoteAddr(),
 		Established:      true,
 	}, nil
 }
 
 func (c *clientImpl) ListenUDP() (HyUDPConn, error) {
-	qc, stream, err := c.openStream()
-	if err != nil {
-		return nil, err
+	if c.udpSM == nil {
+		return nil, coreErrs.DialError{Message: "UDP not enabled"}
 	}
-	// Send request
-	err = protocol.WriteUDPRequest(stream)
-	if err != nil {
-		_ = stream.Close()
-		return nil, err
-	}
-	// Read response
-	ok, sessionID, msg, err := protocol.ReadUDPResponse(stream)
-	if err != nil {
-		_ = stream.Close()
-		return nil, err
-	}
-	if !ok {
-		_ = stream.Close()
-		return nil, coreErrs.DialError{Message: msg}
-	}
-
-	ch, closeFunc := c.udpSM.Add(sessionID)
-	uc := &udpConn{
-		QC:        qc,
-		Stream:    stream,
-		SessionID: sessionID,
-		Ch:        ch,
-		CloseFunc: closeFunc,
-		SendBuf:   make([]byte, protocol.MaxUDPSize),
-	}
-	go uc.Hold()
-	return uc, nil
+	return c.udpSM.NewUDP()
 }
 
 func (c *clientImpl) Close() error {
-	return c.conn.Close()
+	_ = c.conn.CloseWithError(closeErrCodeOK, "")
+	_ = c.pktConn.Close()
+	return nil
 }
 
 type tcpConn struct {
@@ -372,72 +244,40 @@ func (c *tcpConn) SetWriteDeadline(t time.Time) error {
 	return c.Orig.SetWriteDeadline(t)
 }
 
-type udpConn struct {
-	QC        quic.Connection
-	Stream    quic.Stream
-	SessionID uint32
-	Ch        <-chan *protocol.UDPMessage
-	CloseFunc func()
-	SendBuf   []byte
+type udpIOImpl struct {
+	Conn quic.Connection
 }
 
-func (c *udpConn) Hold() {
-	// Hold (drain) the stream until someone closes it.
-	// Closing the stream is the signal to stop the UDP session.
-	_, _ = io.Copy(io.Discard, c.Stream)
-	_ = c.Close()
-}
-
-func (c *udpConn) Receive() ([]byte, string, error) {
-	msg := <-c.Ch
-	if msg == nil {
-		// Closed
-		return nil, "", io.EOF
-	}
-	return msg.Data, msg.Addr, nil
-}
-
-// Send is not thread-safe as it uses a shared send buffer for now.
-func (c *udpConn) Send(data []byte, addr string) error {
-	// Try no frag first
-	msg := &protocol.UDPMessage{
-		SessionID: c.SessionID,
-		PacketID:  0,
-		FragID:    0,
-		FragCount: 1,
-		Addr:      addr,
-		Data:      data,
-	}
-	n := msg.Serialize(c.SendBuf)
-	if n < 0 {
-		// Message even larger than MaxUDPSize, drop it
-		// Maybe we should return an error in the future?
-		return nil
-	}
-	sendErr := c.QC.SendMessage(c.SendBuf[:n])
-	if sendErr == nil {
-		// All good
-		return nil
-	}
-	var errTooLarge quic.ErrMessageTooLarge
-	if errors.As(sendErr, &errTooLarge) {
-		// Message too large, try fragmentation
-		msg.PacketID = uint16(rand.Intn(0xFFFF)) + 1
-		fMsgs := frag.FragUDPMessage(msg, int(errTooLarge))
-		for _, fMsg := range fMsgs {
-			n = fMsg.Serialize(c.SendBuf)
-			err := c.QC.SendMessage(c.SendBuf[:n])
-			if err != nil {
-				return err
-			}
+func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
+	for {
+		msg, err := io.Conn.ReceiveMessage()
+		if err != nil {
+			// Connection error, this will stop the session manager
+			return nil, err
 		}
-		return nil
+		udpMsg, err := protocol.ParseUDPMessage(msg)
+		if err != nil {
+			// Invalid message, this is fine - just wait for the next
+			continue
+		}
+		return udpMsg, nil
 	}
-	// Other error
-	return sendErr
 }
 
-func (c *udpConn) Close() error {
-	c.CloseFunc()
-	return c.Stream.Close()
+func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
+	msgN := msg.Serialize(buf)
+	if msgN < 0 {
+		// Message larger than buffer, silent drop
+		return nil
+	}
+	return io.Conn.SendMessage(buf[:msgN])
+}
+
+// openStream wraps the stream with QStream, which handles Close() properly
+func (c *clientImpl) openStream() (quic.Stream, error) {
+	stream, err := c.conn.OpenStream()
+	if err != nil {
+		return nil, err
+	}
+	return &utils.QStream{Stream: stream}, nil
 }

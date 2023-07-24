@@ -106,25 +106,4 @@ func TestServerMasquerade(t *testing.T) {
 	if nErr, ok := err.(net.Error); !ok || !nErr.Timeout() {
 		t.Fatal("expected timeout, got", err)
 	}
-
-	// Try UDP request
-	udpStream, err := conn.OpenStream()
-	if err != nil {
-		t.Fatal("error opening stream:", err)
-	}
-	defer udpStream.Close()
-	err = protocol.WriteUDPRequest(udpStream)
-	if err != nil {
-		t.Fatal("error sending request:", err)
-	}
-
-	// We should receive nothing
-	_ = udpStream.SetReadDeadline(time.Now().Add(2 * time.Second))
-	n, err = udpStream.Read(buf)
-	if n != 0 {
-		t.Fatal("expected no response, got", n)
-	}
-	if nErr, ok := err.(net.Error); !ok || !nErr.Timeout() {
-		t.Fatal("expected timeout, got", err)
-	}
 }

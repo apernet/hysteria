@@ -287,7 +287,7 @@ func (l *channelEventLogger) TCPError(addr net.Addr, id, reqAddr string, err err
 	}
 }
 
-func (l *channelEventLogger) UDPRequest(addr net.Addr, id string, sessionID uint32) {
+func (l *channelEventLogger) UDPRequest(addr net.Addr, id string, sessionID uint32, reqAddr string) {
 	if l.UDPRequestEventCh != nil {
 		l.UDPRequestEventCh <- udpRequestEvent{
 			Addr:      addr,
