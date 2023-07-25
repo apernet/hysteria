@@ -133,12 +133,17 @@ func (c *clientImpl) connect() error {
 	c.conn = conn
 	if udpEnabled {
 		c.udpSM = newUDPSessionManager(&udpIOImpl{Conn: conn})
-		go func() {
-			c.udpSM.Run()
-			// TODO: Mark connection as closed
-		}()
 	}
 	return nil
+}
+
+// openStream wraps the stream with QStream, which handles Close() properly
+func (c *clientImpl) openStream() (quic.Stream, error) {
+	stream, err := c.conn.OpenStream()
+	if err != nil {
+		return nil, err
+	}
+	return &utils.QStream{Stream: stream}, nil
 }
 
 func (c *clientImpl) DialTCP(addr string) (net.Conn, error) {
@@ -271,13 +276,4 @@ func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 		return nil
 	}
 	return io.Conn.SendMessage(buf[:msgN])
-}
-
-// openStream wraps the stream with QStream, which handles Close() properly
-func (c *clientImpl) openStream() (quic.Stream, error) {
-	stream, err := c.conn.OpenStream()
-	if err != nil {
-		return nil, err
-	}
-	return &utils.QStream{Stream: stream}, nil
 }

@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sync"
 
+	coreErrs "github.com/apernet/hysteria/core/errors"
 	"github.com/apernet/hysteria/core/internal/frag"
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/quic-go/quic-go"
@@ -86,21 +87,22 @@ type udpSessionManager struct {
 	mutex  sync.Mutex
 	m      map[uint32]*udpConn
 	nextID uint32
+
+	closed bool
 }
 
 func newUDPSessionManager(io udpIO) *udpSessionManager {
-	return &udpSessionManager{
+	m := &udpSessionManager{
 		io:     io,
 		m:      make(map[uint32]*udpConn),
 		nextID: 1,
 	}
+	go m.run()
+	return m
 }
 
-// Run runs the session manager main loop.
-// Exit and returns error when the underlying io returns error (e.g. closed).
-func (m *udpSessionManager) Run() error {
-	defer m.cleanup()
-
+func (m *udpSessionManager) run() error {
+	defer m.closeCleanup()
 	for {
 		msg, err := m.io.ReceiveMessage()
 		if err != nil {
@@ -110,13 +112,14 @@ func (m *udpSessionManager) Run() error {
 	}
 }
 
-func (m *udpSessionManager) cleanup() {
+func (m *udpSessionManager) closeCleanup() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	for _, conn := range m.m {
 		m.close(conn)
 	}
+	m.closed = true
 }
 
 func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
@@ -141,6 +144,10 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 func (m *udpSessionManager) NewUDP() (HyUDPConn, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+
+	if m.closed {
+		return nil, coreErrs.ClosedError{}
+	}
 
 	id := m.nextID
 	m.nextID++
