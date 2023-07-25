@@ -9,7 +9,7 @@ import (
 
 func TestFragUDPMessage(t *testing.T) {
 	type args struct {
-		m       protocol.UDPMessage
+		m       *protocol.UDPMessage
 		maxSize int
 	}
 	tests := []struct {
@@ -20,7 +20,7 @@ func TestFragUDPMessage(t *testing.T) {
 		{
 			"no frag",
 			args{
-				protocol.UDPMessage{
+				&protocol.UDPMessage{
 					SessionID: 123,
 					PacketID:  123,
 					FragID:    0,
@@ -44,7 +44,7 @@ func TestFragUDPMessage(t *testing.T) {
 		{
 			"2 frags",
 			args{
-				protocol.UDPMessage{
+				&protocol.UDPMessage{
 					SessionID: 123,
 					PacketID:  123,
 					FragID:    0,
@@ -76,7 +76,7 @@ func TestFragUDPMessage(t *testing.T) {
 		{
 			"4 frags",
 			args{
-				protocol.UDPMessage{
+				&protocol.UDPMessage{
 					SessionID: 123,
 					PacketID:  123,
 					FragID:    0,
@@ -124,7 +124,7 @@ func TestFragUDPMessage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := FragUDPMessage(&tt.args.m, tt.args.maxSize); !reflect.DeepEqual(got, tt.want) {
+			if got := FragUDPMessage(tt.args.m, tt.args.maxSize); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("FragUDPMessage() = %v, want %v", got, tt.want)
 			}
 		})
