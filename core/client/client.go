@@ -149,6 +149,10 @@ func (c *clientImpl) openStream() (quic.Stream, error) {
 func (c *clientImpl) DialTCP(addr string) (net.Conn, error) {
 	stream, err := c.openStream()
 	if err != nil {
+		if netErr, ok := err.(net.Error); ok && !netErr.Temporary() {
+			// Connection is dead
+			return nil, coreErrs.ClosedError{}
+		}
 		return nil, err
 	}
 	// Send request

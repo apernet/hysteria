@@ -166,26 +166,24 @@ func TestUDPSessionManager(t *testing.T) {
 		for _, m := range ms {
 			msgReceiveCh <- m
 		}
-		// New event order should be consistent
-		newEvent := <-eventNewCh
-		if newEvent.SessionID != 1234 || newEvent.ReqAddr != "example.com:5353" {
-			t.Error("unexpected new event value")
+		// New event order should be consistent with message order
+		for i := 0; i < 2; i++ {
+			newEvent := <-eventNewCh
+			if newEvent.SessionID != ms[i].SessionID || newEvent.ReqAddr != ms[i].Addr {
+				t.Errorf("unexpected new event value: %d:%s", newEvent.SessionID, newEvent.ReqAddr)
+			}
 		}
-		newEvent = <-eventNewCh
-		if newEvent.SessionID != 5678 || newEvent.ReqAddr != "example.com:9999" {
-			t.Error("unexpected new event value")
-		}
-		// Message order is not guaranteed
+		// Message order is not guaranteed so we use a map
 		msgMap := make(map[string]bool)
 		for i := 0; i < 4; i++ {
 			msg := <-msgSendCh
 			msgMap[fmt.Sprintf("%d:%s:%s", msg.SessionID, msg.Addr, string(msg.Data))] = true
 		}
-		if !(msgMap["1234:example.com:5353:hello"] &&
-			msgMap["5678:example.com:9999:goodbye"] &&
-			msgMap["1234:example.com:5353: world"] &&
-			msgMap["5678:example.com:9999: girl"]) {
-			t.Error("unexpected message value")
+		for _, m := range ms {
+			key := fmt.Sprintf("%d:%s:%s", m.SessionID, m.Addr, string(m.Data))
+			if !msgMap[key] {
+				t.Errorf("missing message: %s", key)
+			}
 		}
 		// Timeout check
 		startTime := time.Now()
@@ -194,11 +192,14 @@ func TestUDPSessionManager(t *testing.T) {
 			closeEvent := <-eventCloseCh
 			closeMap[closeEvent.SessionID] = true
 		}
-		if !(closeMap[1234] && closeMap[5678]) {
-			t.Error("unexpected close event value")
+		for i := 0; i < 2; i++ {
+			if !closeMap[ms[i].SessionID] {
+				t.Errorf("missing close event: %d", ms[i].SessionID)
+			}
 		}
-		if time.Since(startTime) < 2*time.Second || time.Since(startTime) > 4*time.Second {
-			t.Error("unexpected timeout duration")
+		dur := time.Since(startTime)
+		if dur < 2*time.Second || dur > 4*time.Second {
+			t.Errorf("unexpected timeout duration: %s", dur)
 		}
 	})
 
@@ -206,7 +207,7 @@ func TestUDPSessionManager(t *testing.T) {
 		// Close UDP connection immediately after creation
 		io.UDPClose = true
 
-		msgReceiveCh <- &protocol.UDPMessage{
+		m := &protocol.UDPMessage{
 			SessionID: 8888,
 			PacketID:  0,
 			FragID:    0,
@@ -214,14 +215,15 @@ func TestUDPSessionManager(t *testing.T) {
 			Addr:      "mygod.org:1514",
 			Data:      []byte("goodnight"),
 		}
+		msgReceiveCh <- m
 		// Should have both new and close events immediately
 		newEvent := <-eventNewCh
-		if newEvent.SessionID != 8888 || newEvent.ReqAddr != "mygod.org:1514" {
-			t.Error("unexpected new event value")
+		if newEvent.SessionID != m.SessionID || newEvent.ReqAddr != m.Addr {
+			t.Errorf("unexpected new event value: %d:%s", newEvent.SessionID, newEvent.ReqAddr)
 		}
 		closeEvent := <-eventCloseCh
-		if closeEvent.SessionID != 8888 || closeEvent.Err != errUDPClosed {
-			t.Error("unexpected close event value")
+		if closeEvent.SessionID != m.SessionID || closeEvent.Err != errUDPClosed {
+			t.Errorf("unexpected close event value: %d:%s", closeEvent.SessionID, closeEvent.Err)
 		}
 	})
 
@@ -229,7 +231,7 @@ func TestUDPSessionManager(t *testing.T) {
 		// Block UDP connection creation
 		io.BlockUDP = true
 
-		msgReceiveCh <- &protocol.UDPMessage{
+		m := &protocol.UDPMessage{
 			SessionID: 9999,
 			PacketID:  0,
 			FragID:    0,
@@ -237,14 +239,15 @@ func TestUDPSessionManager(t *testing.T) {
 			Addr:      "xxx.net:12450",
 			Data:      []byte("nope"),
 		}
+		msgReceiveCh <- m
 		// Should have both new and close events immediately
 		newEvent := <-eventNewCh
-		if newEvent.SessionID != 9999 || newEvent.ReqAddr != "xxx.net:12450" {
-			t.Error("unexpected new event value")
+		if newEvent.SessionID != m.SessionID || newEvent.ReqAddr != m.Addr {
+			t.Errorf("unexpected new event value: %d:%s", newEvent.SessionID, newEvent.ReqAddr)
 		}
 		closeEvent := <-eventCloseCh
-		if closeEvent.SessionID != 9999 || closeEvent.Err != errUDPBlocked {
-			t.Error("unexpected close event value")
+		if closeEvent.SessionID != m.SessionID || closeEvent.Err != errUDPBlocked {
+			t.Errorf("unexpected close event value: %d:%s", closeEvent.SessionID, closeEvent.Err)
 		}
 	})
 
