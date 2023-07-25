@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/goleak"
 
@@ -28,9 +28,9 @@ func TestUDPSessionManager(t *testing.T) {
 
 	// Test UDP session IO
 	udpConn1, err := sm.NewUDP()
-	assert.Equal(t, err, nil)
+	assert.NoError(t, err)
 	udpConn2, err := sm.NewUDP()
-	assert.Equal(t, err, nil)
+	assert.NoError(t, err)
 
 	msg1 := &protocol.UDPMessage{
 		SessionID: 1,
@@ -42,7 +42,7 @@ func TestUDPSessionManager(t *testing.T) {
 	}
 	io.EXPECT().SendMessage(mock.Anything, msg1).Return(nil).Once()
 	err = udpConn1.Send(msg1.Data, msg1.Addr)
-	assert.Equal(t, err, nil)
+	assert.NoError(t, err)
 
 	msg2 := &protocol.UDPMessage{
 		SessionID: 2,
@@ -54,7 +54,7 @@ func TestUDPSessionManager(t *testing.T) {
 	}
 	io.EXPECT().SendMessage(mock.Anything, msg2).Return(nil).Once()
 	err = udpConn2.Send(msg2.Data, msg2.Addr)
-	assert.Equal(t, err, nil)
+	assert.NoError(t, err)
 
 	respMsg1 := &protocol.UDPMessage{
 		SessionID: 1,
@@ -66,7 +66,7 @@ func TestUDPSessionManager(t *testing.T) {
 	}
 	receiveCh <- respMsg1
 	data, addr, err := udpConn1.Receive()
-	assert.Equal(t, err, nil)
+	assert.NoError(t, err)
 	assert.Equal(t, data, respMsg1.Data)
 	assert.Equal(t, addr, respMsg1.Addr)
 
@@ -80,7 +80,7 @@ func TestUDPSessionManager(t *testing.T) {
 	}
 	receiveCh <- respMsg2
 	data, addr, err = udpConn2.Receive()
-	assert.Equal(t, err, nil)
+	assert.NoError(t, err)
 	assert.Equal(t, data, respMsg2.Data)
 	assert.Equal(t, addr, respMsg2.Addr)
 
@@ -101,7 +101,7 @@ func TestUDPSessionManager(t *testing.T) {
 		_, _, err := udpConn1.Receive()
 		errChan <- err
 	}()
-	assert.Equal(t, udpConn1.Close(), nil)
+	assert.NoError(t, udpConn1.Close())
 	assert.Equal(t, <-errChan, io2.EOF)
 
 	// Test close IO unblocks Receive() and blocks new UDP creation
@@ -117,6 +117,6 @@ func TestUDPSessionManager(t *testing.T) {
 
 	// Leak checks
 	time.Sleep(1 * time.Second)
-	assert.Equal(t, sm.Count(), 0, "session count should be 0")
+	assert.Zero(t, sm.Count(), "session count should be 0")
 	goleak.VerifyNone(t)
 }

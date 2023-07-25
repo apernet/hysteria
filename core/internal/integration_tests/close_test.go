@@ -1,13 +1,16 @@
 package integration_tests
 
 import (
-	"bytes"
 	"crypto/rand"
 	"io"
 	"net"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/apernet/hysteria/core/client"
+	"github.com/apernet/hysteria/core/internal/integration_tests/mocks"
 	"github.com/apernet/hysteria/core/server"
 )
 
@@ -17,41 +20,31 @@ func TestClientServerTCPClose(t *testing.T) {
 	// Create server
 	udpAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14514}
 	udpConn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
 	s, err := server.NewServer(&server.Config{
-		TLSConfig: serverTLSConfig(),
-		Conn:      udpConn,
-		Authenticator: &pwAuthenticator{
-			Password: "password",
-			ID:       "nobody",
-		},
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		Authenticator: auth,
 	})
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	assert.NoError(t, err)
 	defer s.Close()
 	go s.Serve()
 
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
-	if err != nil {
-		t.Fatal("error creating client:", err)
-	}
+	assert.NoError(t, err)
 	defer c.Close()
 
 	t.Run("Close local", func(t *testing.T) {
 		// TCP sink server
 		sinkAddr := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 33344}
 		sinkListener, err := net.ListenTCP("tcp", sinkAddr)
-		if err != nil {
-			t.Fatal("error creating sink server:", err)
-		}
+		assert.NoError(t, err)
 		sinkCh := make(chan sinkEvent, 1)
 		sinkServer := &tcpSinkServer{
 			Listener: sinkListener,
@@ -63,47 +56,33 @@ func TestClientServerTCPClose(t *testing.T) {
 		// Generate some random data
 		sData := make([]byte, 1024000)
 		_, err = rand.Read(sData)
-		if err != nil {
-			t.Fatal("error generating random data:", err)
-		}
+		assert.NoError(t, err)
 
 		// Dial and send data to TCP sink server
 		conn, err := c.DialTCP(sinkAddr.String())
-		if err != nil {
-			t.Fatal("error dialing TCP:", err)
-		}
-		defer conn.Close()
+		assert.NoError(t, err)
 		_, err = conn.Write(sData)
-		if err != nil {
-			t.Fatal("error writing to TCP:", err)
-		}
+		assert.NoError(t, err)
 
 		// Close the connection
 		// This should cause the sink server to send an event to the channel
 		_ = conn.Close()
 		event := <-sinkCh
-		if event.Err != nil {
-			t.Fatal("non-nil error received from sink server:", event.Err)
-		}
-		if !bytes.Equal(event.Data, sData) {
-			t.Fatal("data mismatch")
-		}
+		assert.NoError(t, event.Err)
+		assert.Equal(t, sData, event.Data)
 	})
 
 	t.Run("Close remote", func(t *testing.T) {
 		// Generate some random data
 		sData := make([]byte, 1024000)
 		_, err = rand.Read(sData)
-		if err != nil {
-			t.Fatal("error generating random data:", err)
-		}
+		assert.NoError(t, err)
 
 		// TCP sender server
 		senderAddr := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 33345}
 		senderListener, err := net.ListenTCP("tcp", senderAddr)
-		if err != nil {
-			t.Fatal("error creating sender server:", err)
-		}
+		assert.NoError(t, err)
+
 		senderServer := &tcpSenderServer{
 			Listener: senderListener,
 			Data:     sData,
@@ -113,17 +92,11 @@ func TestClientServerTCPClose(t *testing.T) {
 
 		// Dial and read data from TCP sender server
 		conn, err := c.DialTCP(senderAddr.String())
-		if err != nil {
-			t.Fatal("error dialing TCP:", err)
-		}
+		assert.NoError(t, err)
 		defer conn.Close()
 		rData, err := io.ReadAll(conn)
-		if err != nil {
-			t.Fatal("error reading from TCP:", err)
-		}
-		if !bytes.Equal(rData, sData) {
-			t.Fatal("data mismatch")
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, sData, rData)
 	})
 }
 

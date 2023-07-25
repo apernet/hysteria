@@ -1,0 +1,15 @@
+with-expecter: true
+dir: mocks
+outpkg: mocks
+packages:
+  github.com/apernet/hysteria/core/server:
+    interfaces:
+      Authenticator:
+        config:
+          mockname: MockAuthenticator
+      EventLogger:
+        config:
+          mockname: MockEventLogger
+      TrafficLogger:
+        config:
+          mockname: MockTrafficLogger
