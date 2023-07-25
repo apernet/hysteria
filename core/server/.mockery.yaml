@@ -1,0 +1,15 @@
+with-expecter: true
+inpackage: true
+dir: .
+packages:
+  github.com/apernet/hysteria/core/server:
+    interfaces:
+      udpIO:
+        config:
+          mockname: mockUDPIO
+      udpEventLogger:
+        config:
+          mockname: mockUDPEventLogger
+      UDPConn:
+        config:
+          mockname: mockUDPConn

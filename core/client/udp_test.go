@@ -2,108 +2,121 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	io2 "io"
 	"testing"
 	"time"
 
+	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/mock"
+	"go.uber.org/goleak"
+
 	coreErrs "github.com/apernet/hysteria/core/errors"
 	"github.com/apernet/hysteria/core/internal/protocol"
-	"go.uber.org/goleak"
 )
 
-type udpEchoIO struct {
-	MsgCh   chan *protocol.UDPMessage
-	CloseCh chan struct{}
-}
-
-func (io *udpEchoIO) ReceiveMessage() (*protocol.UDPMessage, error) {
-	select {
-	case m := <-io.MsgCh:
-		return m, nil
-	case <-io.CloseCh:
-		return nil, errors.New("closed")
-	}
-}
-
-func (io *udpEchoIO) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
-	nMsg := *msg
-	nMsg.Data = make([]byte, len(msg.Data))
-	copy(nMsg.Data, msg.Data)
-	io.MsgCh <- &nMsg
-	return nil
-}
-
-func (io *udpEchoIO) Close() {
-	close(io.CloseCh)
-}
-
 func TestUDPSessionManager(t *testing.T) {
-	io := &udpEchoIO{
-		MsgCh:   make(chan *protocol.UDPMessage, 10),
-		CloseCh: make(chan struct{}),
-	}
+	io := newMockUDPIO(t)
+	receiveCh := make(chan *protocol.UDPMessage, 4)
+	io.EXPECT().ReceiveMessage().RunAndReturn(func() (*protocol.UDPMessage, error) {
+		m := <-receiveCh
+		if m == nil {
+			return nil, errors.New("closed")
+		}
+		return m, nil
+	})
 	sm := newUDPSessionManager(io)
 
-	rChan := make(chan error, 5)
+	// Test UDP session IO
+	udpConn1, err := sm.NewUDP()
+	assert.Equal(t, err, nil)
+	udpConn2, err := sm.NewUDP()
+	assert.Equal(t, err, nil)
 
-	for i := 0; i < 5; i++ {
-		go func(id int) {
-			conn, err := sm.NewUDP()
-			if err != nil {
-				rChan <- err
-				return
-			}
-			defer conn.Close()
-
-			addr := fmt.Sprintf("wow.com:%d", id)
-			for j := 0; j < 2; j++ {
-				s := fmt.Sprintf("hello %d %d", id, j)
-				err = conn.Send([]byte(s), addr)
-				if err != nil {
-					rChan <- err
-					return
-				}
-				bs, addr, err := conn.Receive()
-				if err != nil {
-					rChan <- err
-					return
-				}
-				if string(bs) != s || addr != addr {
-					rChan <- fmt.Errorf("unexpected message: %s %s", bs, addr)
-					return
-				}
-			}
-			rChan <- nil // Success
-		}(i)
+	msg1 := &protocol.UDPMessage{
+		SessionID: 1,
+		PacketID:  0,
+		FragID:    0,
+		FragCount: 1,
+		Addr:      "random.site.com:9000",
+		Data:      []byte("hello friend"),
 	}
+	io.EXPECT().SendMessage(mock.Anything, msg1).Return(nil).Once()
+	err = udpConn1.Send(msg1.Data, msg1.Addr)
+	assert.Equal(t, err, nil)
 
-	// Check the results
-	for i := 0; i < 5; i++ {
-		err := <-rChan
-		if err != nil {
-			t.Fatal(err)
-		}
+	msg2 := &protocol.UDPMessage{
+		SessionID: 2,
+		PacketID:  0,
+		FragID:    0,
+		FragCount: 1,
+		Addr:      "another.site.org:8000",
+		Data:      []byte("mr robot"),
 	}
+	io.EXPECT().SendMessage(mock.Anything, msg2).Return(nil).Once()
+	err = udpConn2.Send(msg2.Data, msg2.Addr)
+	assert.Equal(t, err, nil)
+
+	respMsg1 := &protocol.UDPMessage{
+		SessionID: 1,
+		PacketID:  0,
+		FragID:    0,
+		FragCount: 1,
+		Addr:      msg1.Addr,
+		Data:      []byte("goodbye captain price"),
+	}
+	receiveCh <- respMsg1
+	data, addr, err := udpConn1.Receive()
+	assert.Equal(t, err, nil)
+	assert.Equal(t, data, respMsg1.Data)
+	assert.Equal(t, addr, respMsg1.Addr)
+
+	respMsg2 := &protocol.UDPMessage{
+		SessionID: 2,
+		PacketID:  0,
+		FragID:    0,
+		FragCount: 1,
+		Addr:      msg2.Addr,
+		Data:      []byte("white rose"),
+	}
+	receiveCh <- respMsg2
+	data, addr, err = udpConn2.Receive()
+	assert.Equal(t, err, nil)
+	assert.Equal(t, data, respMsg2.Data)
+	assert.Equal(t, addr, respMsg2.Addr)
+
+	respMsg3 := &protocol.UDPMessage{
+		SessionID: 55, // Bogus session ID that doesn't exist
+		PacketID:  0,
+		FragID:    0,
+		FragCount: 1,
+		Addr:      "burgerking.com:27017",
+		Data:      []byte("impossible whopper"),
+	}
+	receiveCh <- respMsg3
+	// No test for this, just make sure it doesn't panic
+
+	// Test close UDP connection unblocks Receive()
+	errChan := make(chan error, 1)
+	go func() {
+		_, _, err := udpConn1.Receive()
+		errChan <- err
+	}()
+	assert.Equal(t, udpConn1.Close(), nil)
+	assert.Equal(t, <-errChan, io2.EOF)
+
+	// Test close IO unblocks Receive() and blocks new UDP creation
+	errChan = make(chan error, 1)
+	go func() {
+		_, _, err := udpConn2.Receive()
+		errChan <- err
+	}()
+	close(receiveCh)
+	assert.Equal(t, <-errChan, io2.EOF)
+	_, err = sm.NewUDP()
+	assert.Equal(t, err, coreErrs.ClosedError{})
 
 	// Leak checks
-	// Create another UDP session
-	conn, err := sm.NewUDP()
-	if err != nil {
-		t.Fatal(err)
-	}
-	io.Close()
-	time.Sleep(1 * time.Second) // Give some time for the goroutines to exit
-	_, _, err = conn.Receive()
-	if err != io2.EOF {
-		t.Fatal("expected EOF after closing io")
-	}
-	_, err = sm.NewUDP()
-	if !errors.Is(err, coreErrs.ClosedError{}) {
-		t.Fatal("expected ClosedError after closing io")
-	}
-	if sm.Count() != 0 {
-		t.Error("session count should be 0")
-	}
+	time.Sleep(1 * time.Second)
+	assert.Equal(t, sm.Count(), 0, "session count should be 0")
 	goleak.VerifyNone(t)
 }
