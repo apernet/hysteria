@@ -22,7 +22,7 @@ import (
 
 // TestServerMasquerade is a test to ensure that the server behaves as a normal
 // HTTP/3 server when dealing with an unauthenticated client. This is mainly to
-// confirm that the server does not expose itself to active probers.
+// confirm that the server does not expose itself to active probing.
 func TestServerMasquerade(t *testing.T) {
 	// Create server
 	udpConn, udpAddr, err := serverConn()

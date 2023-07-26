@@ -109,12 +109,12 @@ func (c *clientImpl) connect() error {
 			_ = conn.CloseWithError(closeErrCodeProtocolError, "")
 		}
 		_ = pktConn.Close()
-		return &coreErrs.ConnectError{Err: err}
+		return coreErrs.ConnectError{Err: err}
 	}
 	if resp.StatusCode != protocol.StatusAuthOK {
 		_ = conn.CloseWithError(closeErrCodeProtocolError, "")
 		_ = pktConn.Close()
-		return &coreErrs.AuthError{StatusCode: resp.StatusCode}
+		return coreErrs.AuthError{StatusCode: resp.StatusCode}
 	}
 	// Auth OK
 	udpEnabled, serverRx := protocol.AuthResponseDataFromHeader(resp.Header)

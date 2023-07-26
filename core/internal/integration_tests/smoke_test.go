@@ -1,43 +1,30 @@
 package integration_tests
 
 import (
-	"errors"
 	"io"
 	"net"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/apernet/hysteria/core/client"
 	coreErrs "github.com/apernet/hysteria/core/errors"
+	"github.com/apernet/hysteria/core/internal/integration_tests/mocks"
 	"github.com/apernet/hysteria/core/server"
 )
 
 // Smoke tests that act as a sanity check for client & server to ensure they can talk to each other correctly.
 
-// TestClientNoServer tests how the client handles a server that doesn't exist.
-// The client should still be able to be created, but TCP & UDP requests should fail.
+// TestClientNoServer tests how the client handles a server address it cannot connect to.
+// NewClient should return a ConnectError.
 func TestClientNoServer(t *testing.T) {
-	// Create client
 	c, err := client.NewClient(&client.Config{
-		ServerAddr: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14514},
+		ServerAddr: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 55666},
 	})
-	if err != nil {
-		t.Fatal("error creating client:", err)
-	}
-	defer c.Close()
-
-	var cErr *coreErrs.ConnectError
-
-	// Try TCP
-	_, err = c.TCP("google.com:443")
-	if !errors.As(err, &cErr) {
-		t.Fatal("expected connect error from TCP")
-	}
-
-	// Try UDP
-	_, err = c.UDP()
-	if !errors.As(err, &cErr) {
-		t.Fatal("expected connect error from DialUDP")
-	}
+	assert.Nil(t, c)
+	_, ok := err.(coreErrs.ConnectError)
+	assert.True(t, ok)
 }
 
 // TestClientServerBadAuth tests two things:
@@ -45,79 +32,82 @@ func TestClientNoServer(t *testing.T) {
 // - How the client handles failed authentication.
 func TestClientServerBadAuth(t *testing.T) {
 	// Create server
-	udpAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14514}
-	udpConn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	udpConn, udpAddr, err := serverConn()
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, "badpassword", uint64(0)).Return(false, "").Once()
 	s, err := server.NewServer(&server.Config{
-		TLSConfig: serverTLSConfig(),
-		Conn:      udpConn,
-		Authenticator: &pwAuthenticator{
-			Password: "correct password",
-			ID:       "nobody",
-		},
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		Authenticator: auth,
 	})
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	assert.NoError(t, err)
 	defer s.Close()
 	go s.Serve()
 
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		Auth:       "wrong password",
+		Auth:       "badpassword",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
-	if err != nil {
-		t.Fatal("error creating client:", err)
-	}
+	assert.Nil(t, c)
+	_, ok := err.(coreErrs.AuthError)
+	assert.True(t, ok)
+}
+
+// TestClientServerUDPDisabled tests how the client handles a server that does not support UDP.
+// UDP should return a DialError.
+func TestClientServerUDPDisabled(t *testing.T) {
+	// Create server
+	udpConn, udpAddr, err := serverConn()
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
+	s, err := server.NewServer(&server.Config{
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		DisableUDP:    true,
+		Authenticator: auth,
+	})
+	assert.NoError(t, err)
+	defer s.Close()
+	go s.Serve()
+
+	// Create client
+	c, err := client.NewClient(&client.Config{
+		ServerAddr: udpAddr,
+		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
+	})
+	assert.NoError(t, err)
 	defer c.Close()
 
-	var aErr *coreErrs.AuthError
-
-	// Try TCP
-	_, err = c.TCP("google.com:443")
-	if !errors.As(err, &aErr) {
-		t.Fatal("expected auth error from TCP")
-	}
-
-	// Try UDP
-	_, err = c.UDP()
-	if !errors.As(err, &aErr) {
-		t.Fatal("expected auth error from DialUDP")
-	}
+	conn, err := c.UDP()
+	assert.Nil(t, conn)
+	_, ok := err.(coreErrs.DialError)
+	assert.True(t, ok)
 }
 
 // TestClientServerTCPEcho tests TCP forwarding using a TCP echo server.
 func TestClientServerTCPEcho(t *testing.T) {
 	// Create server
-	udpAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14514}
-	udpConn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	udpConn, udpAddr, err := serverConn()
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
 	s, err := server.NewServer(&server.Config{
-		TLSConfig: serverTLSConfig(),
-		Conn:      udpConn,
-		Authenticator: &pwAuthenticator{
-			Password: "password",
-			ID:       "nobody",
-		},
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		Authenticator: auth,
 	})
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	assert.NoError(t, err)
 	defer s.Close()
 	go s.Serve()
 
 	// Create TCP echo server
-	echoTCPAddr := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14515}
-	echoListener, err := net.ListenTCP("tcp", echoTCPAddr)
-	if err != nil {
-		t.Fatal("error creating TCP echo server:", err)
-	}
+	echoAddr := "127.0.0.1:22333"
+	echoListener, err := net.Listen("tcp", echoAddr)
+	assert.NoError(t, err)
 	echoServer := &tcpEchoServer{Listener: echoListener}
 	defer echoServer.Close()
 	go echoServer.Serve()
@@ -125,65 +115,46 @@ func TestClientServerTCPEcho(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
-	if err != nil {
-		t.Fatal("error creating client:", err)
-	}
+	assert.NoError(t, err)
 	defer c.Close()
 
 	// Dial TCP
-	conn, err := c.TCP(echoTCPAddr.String())
-	if err != nil {
-		t.Fatal("error dialing TCP:", err)
-	}
+	conn, err := c.TCP(echoAddr)
+	assert.NoError(t, err)
 	defer conn.Close()
 
 	// Send and receive data
 	sData := []byte("hello world")
 	_, err = conn.Write(sData)
-	if err != nil {
-		t.Fatal("error writing to TCP:", err)
-	}
+	assert.NoError(t, err)
 	rData := make([]byte, len(sData))
 	_, err = io.ReadFull(conn, rData)
-	if err != nil {
-		t.Fatal("error reading from TCP:", err)
-	}
-	if string(rData) != string(sData) {
-		t.Fatalf("expected %q, got %q", sData, rData)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, sData, rData)
 }
 
 // TestClientServerUDPEcho tests UDP forwarding using a UDP echo server.
 func TestClientServerUDPEcho(t *testing.T) {
 	// Create server
-	udpAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14514}
-	udpConn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	udpConn, udpAddr, err := serverConn()
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
 	s, err := server.NewServer(&server.Config{
-		TLSConfig: serverTLSConfig(),
-		Conn:      udpConn,
-		Authenticator: &pwAuthenticator{
-			Password: "password",
-			ID:       "nobody",
-		},
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		Authenticator: auth,
 	})
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	assert.NoError(t, err)
 	defer s.Close()
 	go s.Serve()
 
 	// Create UDP echo server
-	echoUDPAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 55555}
-	echoConn, err := net.ListenUDP("udp", echoUDPAddr)
-	if err != nil {
-		t.Fatal("error creating UDP echo server:", err)
-	}
+	echoAddr := "127.0.0.1:22333"
+	echoConn, err := net.ListenPacket("udp", echoAddr)
+	assert.NoError(t, err)
 	echoServer := &udpEchoServer{Conn: echoConn}
 	defer echoServer.Close()
 	go echoServer.Serve()
@@ -191,35 +162,22 @@ func TestClientServerUDPEcho(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
-	if err != nil {
-		t.Fatal("error creating client:", err)
-	}
+	assert.NoError(t, err)
 	defer c.Close()
 
 	// Listen UDP
 	conn, err := c.UDP()
-	if err != nil {
-		t.Fatal("error listening UDP:", err)
-	}
+	assert.NoError(t, err)
 	defer conn.Close()
 
 	// Send and receive data
 	sData := []byte("hello world")
-	err = conn.Send(sData, echoUDPAddr.String())
-	if err != nil {
-		t.Fatal("error sending UDP:", err)
-	}
+	err = conn.Send(sData, echoAddr)
+	assert.NoError(t, err)
 	rData, rAddr, err := conn.Receive()
-	if err != nil {
-		t.Fatal("error receiving UDP:", err)
-	}
-	if string(rData) != string(sData) {
-		t.Fatalf("expected %q, got %q", sData, rData)
-	}
-	if rAddr != echoUDPAddr.String() {
-		t.Fatalf("expected %q, got %q", echoUDPAddr.String(), rAddr)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, sData, rData)
+	assert.Equal(t, echoAddr, rAddr)
 }

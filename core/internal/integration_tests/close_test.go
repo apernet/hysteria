@@ -92,8 +92,8 @@ func TestClientServerTCPClose(t *testing.T) {
 	_ = conn.Close()
 }
 
-// TestServerUDPIdleTimeout tests whether the server's UDP idle timeout works correctly.
-func TestServerUDPIdleTimeout(t *testing.T) {
+// TestClientServerUDPIdleTimeout tests whether the server's UDP idle timeout works correctly.
+func TestClientServerUDPIdleTimeout(t *testing.T) {
 	// Create server
 	udpConn, udpAddr, err := serverConn()
 	assert.NoError(t, err)

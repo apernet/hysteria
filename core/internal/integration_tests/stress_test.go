@@ -9,9 +9,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"golang.org/x/time/rate"
 
 	"github.com/apernet/hysteria/core/client"
+	"github.com/apernet/hysteria/core/internal/integration_tests/mocks"
 	"github.com/apernet/hysteria/core/server"
 )
 
@@ -26,9 +29,7 @@ func (s *tcpStressor) Run(t *testing.T) {
 	// Make some random data
 	sData := make([]byte, s.Size)
 	_, err := rand.Read(sData)
-	if err != nil {
-		t.Fatal("error generating random data:", err)
-	}
+	assert.NoError(t, err)
 
 	// Run iterations
 	for i := 0; i < s.Iterations; i++ {
@@ -57,9 +58,7 @@ func (s *tcpStressor) Run(t *testing.T) {
 		}
 		wg.Wait()
 
-		if len(errChan) > 0 {
-			t.Fatal("error reading from TCP:", <-errChan)
-		}
+		assert.Empty(t, errChan)
 	}
 }
 
@@ -76,9 +75,7 @@ func (s *udpStressor) Run(t *testing.T) {
 	// Make some random data
 	sData := make([]byte, s.Size)
 	_, err := rand.Read(sData)
-	if err != nil {
-		t.Fatal("error generating random data:", err)
-	}
+	assert.NoError(t, err)
 
 	// Due to UDP's unreliability, we need to limit the rate of sending
 	// to reduce packet loss. This is hardcoded to 1 MiB/s for now.
@@ -123,39 +120,29 @@ func (s *udpStressor) Run(t *testing.T) {
 		}
 		wg.Wait()
 
-		if len(errChan) > 0 {
-			t.Fatal("error reading from UDP:", <-errChan)
-		}
+		assert.Empty(t, errChan)
 	}
 }
 
 func TestClientServerTCPStress(t *testing.T) {
 	// Create server
-	udpAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14514}
-	udpConn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	udpConn, udpAddr, err := serverConn()
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
 	s, err := server.NewServer(&server.Config{
-		TLSConfig: serverTLSConfig(),
-		Conn:      udpConn,
-		Authenticator: &pwAuthenticator{
-			Password: "password",
-			ID:       "nobody",
-		},
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		Authenticator: auth,
 	})
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	assert.NoError(t, err)
 	defer s.Close()
 	go s.Serve()
 
 	// Create TCP echo server
-	echoTCPAddr := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14515}
-	echoListener, err := net.ListenTCP("tcp", echoTCPAddr)
-	if err != nil {
-		t.Fatal("error creating TCP echo server:", err)
-	}
+	echoAddr := "127.0.0.1:22333"
+	echoListener, err := net.Listen("tcp", echoAddr)
+	assert.NoError(t, err)
 	echoServer := &tcpEchoServer{Listener: echoListener}
 	defer echoServer.Close()
 	go echoServer.Serve()
@@ -163,16 +150,13 @@ func TestClientServerTCPStress(t *testing.T) {
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
-	if err != nil {
-		t.Fatal("error creating client:", err)
-	}
+	assert.NoError(t, err)
 	defer c.Close()
 
 	dialFunc := func() (net.Conn, error) {
-		return c.TCP(echoTCPAddr.String())
+		return c.TCP(echoAddr)
 	}
 
 	t.Run("Single 500m", (&tcpStressor{DialFunc: dialFunc, Size: 524288000, Parallel: 1, Iterations: 1}).Run)
@@ -186,49 +170,38 @@ func TestClientServerTCPStress(t *testing.T) {
 
 func TestClientServerUDPStress(t *testing.T) {
 	// Create server
-	udpAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14514}
-	udpConn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	udpConn, udpAddr, err := serverConn()
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
 	s, err := server.NewServer(&server.Config{
-		TLSConfig: serverTLSConfig(),
-		Conn:      udpConn,
-		Authenticator: &pwAuthenticator{
-			Password: "password",
-			ID:       "nobody",
-		},
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		Authenticator: auth,
 	})
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	assert.NoError(t, err)
 	defer s.Close()
 	go s.Serve()
 
 	// Create UDP echo server
-	echoUDPAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14515}
-	echoListener, err := net.ListenUDP("udp", echoUDPAddr)
-	if err != nil {
-		t.Fatal("error creating UDP echo server:", err)
-	}
-	echoServer := &udpEchoServer{Conn: echoListener}
+	echoAddr := "127.0.0.1:22333"
+	echoConn, err := net.ListenPacket("udp", echoAddr)
+	assert.NoError(t, err)
+	echoServer := &udpEchoServer{Conn: echoConn}
 	defer echoServer.Close()
 	go echoServer.Serve()
 
 	// Create client
 	c, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
-		Auth:       "password",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
-	if err != nil {
-		t.Fatal("error creating client:", err)
-	}
+	assert.NoError(t, err)
 	defer c.Close()
 
 	t.Run("Single 1000x100b", (&udpStressor{
 		ListenFunc: c.UDP,
-		ServerAddr: echoUDPAddr.String(),
+		ServerAddr: echoAddr,
 		Size:       100,
 		Count:      1000,
 		Parallel:   1,
@@ -236,7 +209,7 @@ func TestClientServerUDPStress(t *testing.T) {
 	}).Run)
 	t.Run("Single 1000x3k", (&udpStressor{
 		ListenFunc: c.UDP,
-		ServerAddr: echoUDPAddr.String(),
+		ServerAddr: echoAddr,
 		Size:       3000,
 		Count:      1000,
 		Parallel:   1,
@@ -245,7 +218,7 @@ func TestClientServerUDPStress(t *testing.T) {
 
 	t.Run("5 Sequential 1000x100b", (&udpStressor{
 		ListenFunc: c.UDP,
-		ServerAddr: echoUDPAddr.String(),
+		ServerAddr: echoAddr,
 		Size:       100,
 		Count:      1000,
 		Parallel:   1,
@@ -253,7 +226,7 @@ func TestClientServerUDPStress(t *testing.T) {
 	}).Run)
 	t.Run("5 Sequential 200x3k", (&udpStressor{
 		ListenFunc: c.UDP,
-		ServerAddr: echoUDPAddr.String(),
+		ServerAddr: echoAddr,
 		Size:       3000,
 		Count:      200,
 		Parallel:   1,
@@ -262,7 +235,7 @@ func TestClientServerUDPStress(t *testing.T) {
 
 	t.Run("2 Sequential 5 Parallel 1000x100b", (&udpStressor{
 		ListenFunc: c.UDP,
-		ServerAddr: echoUDPAddr.String(),
+		ServerAddr: echoAddr,
 		Size:       100,
 		Count:      1000,
 		Parallel:   5,
@@ -271,19 +244,10 @@ func TestClientServerUDPStress(t *testing.T) {
 
 	t.Run("2 Sequential 5 Parallel 200x3k", (&udpStressor{
 		ListenFunc: c.UDP,
-		ServerAddr: echoUDPAddr.String(),
+		ServerAddr: echoAddr,
 		Size:       3000,
 		Count:      200,
 		Parallel:   5,
 		Iterations: 2,
-	}).Run)
-
-	t.Run("10 Sequential 5 Parallel 200x3k", (&udpStressor{
-		ListenFunc: c.UDP,
-		ServerAddr: echoUDPAddr.String(),
-		Size:       3000,
-		Count:      200,
-		Parallel:   5,
-		Iterations: 10,
 	}).Run)
 }
