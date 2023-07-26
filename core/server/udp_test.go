@@ -170,6 +170,6 @@ func TestUDPSessionManager(t *testing.T) {
 	// Leak checks
 	close(msgCh)                // This will return error from ReceiveMessage(), should stop the session manager
 	time.Sleep(1 * time.Second) // Wait one more second just to be sure
-	assert.Equal(t, sm.Count(), 0, "session count should be 0")
+	assert.Zero(t, sm.Count(), "session count should be 0")
 	goleak.VerifyNone(t)
 }

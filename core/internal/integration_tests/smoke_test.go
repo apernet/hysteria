@@ -28,13 +28,13 @@ func TestClientNoServer(t *testing.T) {
 	var cErr *coreErrs.ConnectError
 
 	// Try TCP
-	_, err = c.DialTCP("google.com:443")
+	_, err = c.TCP("google.com:443")
 	if !errors.As(err, &cErr) {
-		t.Fatal("expected connect error from DialTCP")
+		t.Fatal("expected connect error from TCP")
 	}
 
 	// Try UDP
-	_, err = c.ListenUDP()
+	_, err = c.UDP()
 	if !errors.As(err, &cErr) {
 		t.Fatal("expected connect error from DialUDP")
 	}
@@ -78,13 +78,13 @@ func TestClientServerBadAuth(t *testing.T) {
 	var aErr *coreErrs.AuthError
 
 	// Try TCP
-	_, err = c.DialTCP("google.com:443")
+	_, err = c.TCP("google.com:443")
 	if !errors.As(err, &aErr) {
-		t.Fatal("expected auth error from DialTCP")
+		t.Fatal("expected auth error from TCP")
 	}
 
 	// Try UDP
-	_, err = c.ListenUDP()
+	_, err = c.UDP()
 	if !errors.As(err, &aErr) {
 		t.Fatal("expected auth error from DialUDP")
 	}
@@ -134,7 +134,7 @@ func TestClientServerTCPEcho(t *testing.T) {
 	defer c.Close()
 
 	// Dial TCP
-	conn, err := c.DialTCP(echoTCPAddr.String())
+	conn, err := c.TCP(echoTCPAddr.String())
 	if err != nil {
 		t.Fatal("error dialing TCP:", err)
 	}
@@ -200,7 +200,7 @@ func TestClientServerUDPEcho(t *testing.T) {
 	defer c.Close()
 
 	// Listen UDP
-	conn, err := c.ListenUDP()
+	conn, err := c.UDP()
 	if err != nil {
 		t.Fatal("error listening UDP:", err)
 	}

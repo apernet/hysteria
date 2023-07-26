@@ -15,6 +15,7 @@ const (
 	defaultConnReceiveWindow   = defaultStreamReceiveWindow * 5 / 2 // 20MB
 	defaultMaxIdleTimeout      = 30 * time.Second
 	defaultMaxIncomingStreams  = 1024
+	defaultUDPIdleTimeout      = 60 * time.Second
 )
 
 type Config struct {
@@ -24,6 +25,7 @@ type Config struct {
 	Outbound        Outbound
 	BandwidthConfig BandwidthConfig
 	DisableUDP      bool
+	UDPIdleTimeout  time.Duration
 	Authenticator   Authenticator
 	EventLogger     EventLogger
 	TrafficLogger   TrafficLogger
@@ -78,6 +80,11 @@ func (c *Config) fill() error {
 	}
 	if c.BandwidthConfig.MaxRx != 0 && c.BandwidthConfig.MaxRx < 65536 {
 		return errors.ConfigError{Field: "BandwidthConfig.MaxRx", Reason: "must be at least 65536"}
+	}
+	if c.UDPIdleTimeout == 0 {
+		c.UDPIdleTimeout = defaultUDPIdleTimeout
+	} else if c.UDPIdleTimeout < 2*time.Second || c.UDPIdleTimeout > 600*time.Second {
+		return errors.ConfigError{Field: "UDPIdleTimeout", Reason: "must be between 2s and 600s"}
 	}
 	if c.Authenticator == nil {
 		return errors.ConfigError{Field: "Authenticator", Reason: "must be set"}

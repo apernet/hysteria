@@ -118,7 +118,7 @@ func (t *UDPTunnel) handle(l net.PacketConn, sm *sessionManager, addr net.Addr, 
 		if t.EventLogger != nil {
 			t.EventLogger.Connect(addr)
 		}
-		hyConn, err := t.HyClient.ListenUDP()
+		hyConn, err := t.HyClient.UDP()
 		if err != nil {
 			if t.EventLogger != nil {
 				t.EventLogger.Error(addr, err)

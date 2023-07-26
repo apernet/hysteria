@@ -5,21 +5,18 @@ import (
 	"crypto/tls"
 	"net/http"
 	"sync"
-	"time"
+
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 
 	"github.com/apernet/hysteria/core/internal/congestion"
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/apernet/hysteria/core/internal/utils"
-
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/http3"
 )
 
 const (
 	closeErrCodeOK                  = 0x100 // HTTP3 ErrCodeNoError
 	closeErrCodeTrafficLimitReached = 0x107 // HTTP3 ErrCodeExcessiveLoad
-
-	udpSessionIdleTimeout = 60 * time.Second
 )
 
 type Server interface {
@@ -148,7 +145,7 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					sm := newUDPSessionManager(
 						&udpIOImpl{h.conn, id, h.config.TrafficLogger, h.config.Outbound},
 						&udpEventLoggerImpl{h.conn, id, h.config.EventLogger},
-						udpSessionIdleTimeout)
+						h.config.UDPIdleTimeout)
 					h.udpSM = sm
 					go sm.Run()
 				})

@@ -10,13 +10,13 @@ import (
 
 type MockEchoHyClient struct{}
 
-func (c *MockEchoHyClient) DialTCP(addr string) (net.Conn, error) {
+func (c *MockEchoHyClient) TCP(addr string) (net.Conn, error) {
 	return &mockEchoTCPConn{
 		BufChan: make(chan []byte, 10),
 	}, nil
 }
 
-func (c *MockEchoHyClient) ListenUDP() (client.HyUDPConn, error) {
+func (c *MockEchoHyClient) UDP() (client.HyUDPConn, error) {
 	return &mockEchoUDPConn{
 		BufChan: make(chan mockEchoUDPPacket, 10),
 	}, nil

@@ -172,7 +172,7 @@ func TestClientServerTCPStress(t *testing.T) {
 	defer c.Close()
 
 	dialFunc := func() (net.Conn, error) {
-		return c.DialTCP(echoTCPAddr.String())
+		return c.TCP(echoTCPAddr.String())
 	}
 
 	t.Run("Single 500m", (&tcpStressor{DialFunc: dialFunc, Size: 524288000, Parallel: 1, Iterations: 1}).Run)
@@ -227,7 +227,7 @@ func TestClientServerUDPStress(t *testing.T) {
 	defer c.Close()
 
 	t.Run("Single 1000x100b", (&udpStressor{
-		ListenFunc: c.ListenUDP,
+		ListenFunc: c.UDP,
 		ServerAddr: echoUDPAddr.String(),
 		Size:       100,
 		Count:      1000,
@@ -235,7 +235,7 @@ func TestClientServerUDPStress(t *testing.T) {
 		Iterations: 1,
 	}).Run)
 	t.Run("Single 1000x3k", (&udpStressor{
-		ListenFunc: c.ListenUDP,
+		ListenFunc: c.UDP,
 		ServerAddr: echoUDPAddr.String(),
 		Size:       3000,
 		Count:      1000,
@@ -244,7 +244,7 @@ func TestClientServerUDPStress(t *testing.T) {
 	}).Run)
 
 	t.Run("5 Sequential 1000x100b", (&udpStressor{
-		ListenFunc: c.ListenUDP,
+		ListenFunc: c.UDP,
 		ServerAddr: echoUDPAddr.String(),
 		Size:       100,
 		Count:      1000,
@@ -252,7 +252,7 @@ func TestClientServerUDPStress(t *testing.T) {
 		Iterations: 5,
 	}).Run)
 	t.Run("5 Sequential 200x3k", (&udpStressor{
-		ListenFunc: c.ListenUDP,
+		ListenFunc: c.UDP,
 		ServerAddr: echoUDPAddr.String(),
 		Size:       3000,
 		Count:      200,
@@ -261,7 +261,7 @@ func TestClientServerUDPStress(t *testing.T) {
 	}).Run)
 
 	t.Run("2 Sequential 5 Parallel 1000x100b", (&udpStressor{
-		ListenFunc: c.ListenUDP,
+		ListenFunc: c.UDP,
 		ServerAddr: echoUDPAddr.String(),
 		Size:       100,
 		Count:      1000,
@@ -270,7 +270,7 @@ func TestClientServerUDPStress(t *testing.T) {
 	}).Run)
 
 	t.Run("2 Sequential 5 Parallel 200x3k", (&udpStressor{
-		ListenFunc: c.ListenUDP,
+		ListenFunc: c.UDP,
 		ServerAddr: echoUDPAddr.String(),
 		Size:       3000,
 		Count:      200,
@@ -279,7 +279,7 @@ func TestClientServerUDPStress(t *testing.T) {
 	}).Run)
 
 	t.Run("10 Sequential 5 Parallel 200x3k", (&udpStressor{
-		ListenFunc: c.ListenUDP,
+		ListenFunc: c.UDP,
 		ServerAddr: echoUDPAddr.String(),
 		Size:       3000,
 		Count:      200,

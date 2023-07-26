@@ -58,15 +58,15 @@ func TestPluggableOutboundAdapter(t *testing.T) {
 	adapter := &PluggableOutboundAdapter{
 		PluggableOutbound: &mockPluggableOutbound{},
 	}
-	// DialTCP with correct addr
+	// TCP with correct addr
 	_, err := adapter.DialTCP("correct_host_1:34567")
 	if err != nil {
-		t.Fatal("DialTCP with correct addr failed", err)
+		t.Fatal("TCP with correct addr failed", err)
 	}
-	// DialTCP with wrong addr
+	// TCP with wrong addr
 	_, err = adapter.DialTCP("wrong_host_1:34567")
 	if err != errWrongAddr {
-		t.Fatal("DialTCP with wrong addr should fail, got", err)
+		t.Fatal("TCP with wrong addr should fail, got", err)
 	}
 	// DialUDP
 	uConn, err := adapter.DialUDP()

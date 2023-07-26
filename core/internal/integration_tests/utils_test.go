@@ -26,6 +26,15 @@ func serverTLSConfig() server.TLSConfig {
 	}
 }
 
+func serverConn() (net.PacketConn, net.Addr, error) {
+	udpAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14514}
+	udpConn, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+	return udpConn, udpAddr, nil
+}
+
 type pwAuthenticator struct {
 	Password string
 	ID       string

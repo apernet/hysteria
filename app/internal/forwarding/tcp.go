@@ -41,7 +41,7 @@ func (t *TCPTunnel) handle(conn net.Conn) {
 		}
 	}()
 
-	rc, err := t.HyClient.DialTCP(t.Remote)
+	rc, err := t.HyClient.TCP(t.Remote)
 	if err != nil {
 		closeErr = err
 		return

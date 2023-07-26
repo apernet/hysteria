@@ -135,7 +135,7 @@ func (s *Server) handleTCP(conn net.Conn, req *socks5.Request) {
 	}()
 
 	// Dial
-	rConn, err := s.HyClient.DialTCP(addr)
+	rConn, err := s.HyClient.TCP(addr)
 	if err != nil {
 		_ = sendSimpleReply(conn, socks5.RepHostUnreachable)
 		closeErr = err
@@ -196,7 +196,7 @@ func (s *Server) handleUDP(conn net.Conn, req *socks5.Request) {
 	defer udpConn.Close()
 
 	// HyClient UDP session
-	hyUDP, err := s.HyClient.ListenUDP()
+	hyUDP, err := s.HyClient.UDP()
 	if err != nil {
 		_ = sendSimpleReply(conn, socks5.RepServerFailure)
 		closeErr = err

@@ -50,7 +50,7 @@ func runPing(cmd *cobra.Command, args []string) {
 
 	logger.Info("connecting", zap.String("address", addr))
 	start := time.Now()
-	conn, err := c.DialTCP(addr)
+	conn, err := c.TCP(addr)
 	if err != nil {
 		logger.Fatal("failed to connect", zap.Error(err), zap.String("time", time.Since(start).String()))
 	}

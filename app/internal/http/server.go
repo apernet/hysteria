@@ -156,7 +156,7 @@ func (s *Server) handleConnect(conn net.Conn, req *http.Request) {
 	}()
 
 	// Dial
-	rConn, err := s.HyClient.DialTCP(reqAddr)
+	rConn, err := s.HyClient.TCP(reqAddr)
 	if err != nil {
 		_ = sendSimpleResponse(conn, req, http.StatusBadGateway)
 		closeErr = err
@@ -233,7 +233,7 @@ func (s *Server) initHTTPClient() {
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				// HyClient doesn't support context for now
-				return s.HyClient.DialTCP(addr)
+				return s.HyClient.TCP(addr)
 			},
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {

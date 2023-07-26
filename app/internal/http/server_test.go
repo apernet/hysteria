@@ -17,11 +17,11 @@ const (
 
 type mockHyClient struct{}
 
-func (c *mockHyClient) DialTCP(addr string) (net.Conn, error) {
+func (c *mockHyClient) TCP(addr string) (net.Conn, error) {
 	return net.Dial("tcp", addr)
 }
 
-func (c *mockHyClient) ListenUDP() (client.HyUDPConn, error) {
+func (c *mockHyClient) UDP() (client.HyUDPConn, error) {
 	// Not implemented
 	return nil, errors.New("not implemented")
 }

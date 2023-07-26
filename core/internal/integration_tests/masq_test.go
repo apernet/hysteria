@@ -6,10 +6,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+
+	"github.com/apernet/hysteria/core/internal/integration_tests/mocks"
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/apernet/hysteria/core/server"
 
@@ -22,22 +25,16 @@ import (
 // confirm that the server does not expose itself to active probers.
 func TestServerMasquerade(t *testing.T) {
 	// Create server
-	udpAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 14514}
-	udpConn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	udpConn, udpAddr, err := serverConn()
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, "", uint64(0)).Return(false, "").Once()
 	s, err := server.NewServer(&server.Config{
-		TLSConfig: serverTLSConfig(),
-		Conn:      udpConn,
-		Authenticator: &pwAuthenticator{
-			Password: "password",
-			ID:       "nobody",
-		},
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		Authenticator: auth,
 	})
-	if err != nil {
-		t.Fatal("error creating server:", err)
-	}
+	assert.NoError(t, err)
 	defer s.Close()
 	go s.Serve()
 
@@ -71,39 +68,27 @@ func TestServerMasquerade(t *testing.T) {
 		Header: make(http.Header),
 	}
 	resp, err := rt.RoundTrip(req)
-	if err != nil {
-		t.Fatal("error sending request:", err)
-	}
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("expected status %d, got %d", http.StatusNotFound, resp.StatusCode)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	for k := range resp.Header {
-		// Make sure no strange headers are sent
-		if strings.Contains(k, "Hysteria") {
-			t.Fatal("expected no Hysteria headers, got", k)
-		}
+		// Make sure no strange headers are sent by the server
+		assert.NotContains(t, k, "Hysteria")
 	}
 
 	buf := make([]byte, 1024)
 
 	// We send a TCP request anyway, see if we get a response
 	tcpStream, err := conn.OpenStream()
-	if err != nil {
-		t.Fatal("error opening stream:", err)
-	}
+	assert.NoError(t, err)
 	defer tcpStream.Close()
 	err = protocol.WriteTCPRequest(tcpStream, "www.google.com:443")
-	if err != nil {
-		t.Fatal("error sending request:", err)
-	}
+	assert.NoError(t, err)
 
 	// We should receive nothing
 	_ = tcpStream.SetReadDeadline(time.Now().Add(2 * time.Second))
 	n, err := tcpStream.Read(buf)
-	if n != 0 {
-		t.Fatal("expected no response, got", n)
-	}
-	if nErr, ok := err.(net.Error); !ok || !nErr.Timeout() {
-		t.Fatal("expected timeout, got", err)
-	}
+	assert.Equal(t, 0, n)
+	nErr, ok := err.(net.Error)
+	assert.True(t, ok)
+	assert.True(t, nErr.Timeout())
 }

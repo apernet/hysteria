@@ -23,8 +23,8 @@ const (
 )
 
 type Client interface {
-	DialTCP(addr string) (net.Conn, error)
-	ListenUDP() (HyUDPConn, error)
+	TCP(addr string) (net.Conn, error)
+	UDP() (HyUDPConn, error)
 	Close() error
 }
 
@@ -146,7 +146,7 @@ func (c *clientImpl) openStream() (quic.Stream, error) {
 	return &utils.QStream{Stream: stream}, nil
 }
 
-func (c *clientImpl) DialTCP(addr string) (net.Conn, error) {
+func (c *clientImpl) TCP(addr string) (net.Conn, error) {
 	stream, err := c.openStream()
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && !netErr.Temporary() {
@@ -190,7 +190,7 @@ func (c *clientImpl) DialTCP(addr string) (net.Conn, error) {
 	}, nil
 }
 
-func (c *clientImpl) ListenUDP() (HyUDPConn, error) {
+func (c *clientImpl) UDP() (HyUDPConn, error) {
 	if c.udpSM == nil {
 		return nil, coreErrs.DialError{Message: "UDP not enabled"}
 	}

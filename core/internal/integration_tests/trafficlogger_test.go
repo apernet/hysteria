@@ -84,7 +84,7 @@ func TestServerTrafficLogger(t *testing.T) {
 	defer c.Close()
 
 	// Dial TCP
-	tConn, err := c.DialTCP(echoTCPAddr.String())
+	tConn, err := c.TCP(echoTCPAddr.String())
 	if err != nil {
 		t.Fatal("error dialing TCP:", err)
 	}
@@ -124,7 +124,7 @@ func TestServerTrafficLogger(t *testing.T) {
 	go uEchoServer.Serve()
 
 	// Listen UDP
-	uConn, err := c.ListenUDP()
+	uConn, err := c.UDP()
 	if err != nil {
 		t.Fatal("error listening UDP:", err)
 	}

@@ -2,8 +2,19 @@ with-expecter: true
 dir: mocks
 outpkg: mocks
 packages:
+  net:
+    interfaces:
+      Conn:
+        config:
+          mockname: MockConn
   github.com/apernet/hysteria/core/server:
     interfaces:
+      Outbound:
+        config:
+          mockname: MockOutbound
+      UDPConn:
+        config:
+          mockname: MockUDPConn
       Authenticator:
         config:
           mockname: MockAuthenticator
