@@ -29,6 +29,7 @@ type directOutbound struct {
 	DeviceName string // For UDP binding
 }
 
+/*
 // NewDirectOutboundSimple creates a new directOutbound with the given mode,
 // without binding to a specific device. Works on all platforms.
 func NewDirectOutboundSimple(mode DirectOutboundMode) PluggableOutbound {
@@ -39,6 +40,7 @@ func NewDirectOutboundSimple(mode DirectOutboundMode) PluggableOutbound {
 		},
 	}
 }
+*/
 
 // resolve is our built-in DNS resolver for handling the case when
 // AddrEx.ResolveInfo is nil.

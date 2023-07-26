@@ -1,0 +1,12 @@
+with-expecter: true
+inpackage: true
+dir: .
+packages:
+  github.com/apernet/hysteria/extras/outbounds:
+    interfaces:
+      PluggableOutbound:
+        config:
+          mockname: mockPluggableOutbound
+      UDPConn:
+        config:
+          mockname: mockUDPConn

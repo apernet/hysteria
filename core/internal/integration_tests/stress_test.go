@@ -241,7 +241,6 @@ func TestClientServerUDPStress(t *testing.T) {
 		Parallel:   5,
 		Iterations: 2,
 	}).Run)
-
 	t.Run("2 Sequential 5 Parallel 200x3k", (&udpStressor{
 		ListenFunc: c.UDP,
 		ServerAddr: echoAddr,

@@ -21,8 +21,8 @@ import (
 // difference, we need a special PluggableOutboundAdapter to convert between the two
 // for use in Hysteria core config.
 type PluggableOutbound interface {
-	DialTCP(reqAddr *AddrEx) (net.Conn, error)
-	ListenUDP() (UDPConn, error)
+	TCP(reqAddr *AddrEx) (net.Conn, error)
+	UDP(reqAddr *AddrEx) (UDPConn, error)
 }
 
 type UDPConn interface {
@@ -60,7 +60,7 @@ type PluggableOutboundAdapter struct {
 	PluggableOutbound
 }
 
-func (a *PluggableOutboundAdapter) DialTCP(reqAddr string) (net.Conn, error) {
+func (a *PluggableOutboundAdapter) TCP(reqAddr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(reqAddr)
 	if err != nil {
 		return nil, err
@@ -69,14 +69,25 @@ func (a *PluggableOutboundAdapter) DialTCP(reqAddr string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return a.PluggableOutbound.DialTCP(&AddrEx{
+	return a.PluggableOutbound.TCP(&AddrEx{
 		Host: host,
 		Port: uint16(portInt),
 	})
 }
 
-func (a *PluggableOutboundAdapter) DialUDP() (server.UDPConn, error) {
-	conn, err := a.PluggableOutbound.ListenUDP()
+func (a *PluggableOutboundAdapter) UDP(reqAddr string) (server.UDPConn, error) {
+	host, port, err := net.SplitHostPort(reqAddr)
+	if err != nil {
+		return nil, err
+	}
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := a.PluggableOutbound.UDP(&AddrEx{
+		Host: host,
+		Port: uint16(portInt),
+	})
 	if err != nil {
 		return nil, err
 	}

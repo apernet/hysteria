@@ -1,103 +1,52 @@
 package outbounds
 
 import (
-	"errors"
-	"net"
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-var errWrongAddr = errors.New("wrong addr")
-
-type mockPluggableOutbound struct{}
-
-func (m *mockPluggableOutbound) DialTCP(reqAddr *AddrEx) (net.Conn, error) {
-	if !reflect.DeepEqual(reqAddr, &AddrEx{
-		Host:        "correct_host_1",
-		Port:        34567,
-		ResolveInfo: nil,
-	}) {
-		return nil, errWrongAddr
-	}
-	return nil, nil
-}
-
-func (m *mockPluggableOutbound) ListenUDP() (UDPConn, error) {
-	return &mockUDPConn{}, nil
-}
-
-type mockUDPConn struct{}
-
-func (u *mockUDPConn) ReadFrom(b []byte) (int, *AddrEx, error) {
-	for i := range b {
-		b[i] = 1
-	}
-	return len(b), &AddrEx{
-		Host:        "correct_host_2",
-		Port:        54321,
-		ResolveInfo: nil,
-	}, nil
-}
-
-func (u *mockUDPConn) WriteTo(b []byte, addr *AddrEx) (int, error) {
-	if !reflect.DeepEqual(addr, &AddrEx{
-		Host:        "correct_host_3",
-		Port:        22334,
-		ResolveInfo: nil,
-	}) {
-		return 0, errWrongAddr
-	}
-	return len(b), nil
-}
-
-func (u *mockUDPConn) Close() error {
-	return nil
-}
-
 func TestPluggableOutboundAdapter(t *testing.T) {
-	adapter := &PluggableOutboundAdapter{
-		PluggableOutbound: &mockPluggableOutbound{},
-	}
-	// TCP with correct addr
-	_, err := adapter.DialTCP("correct_host_1:34567")
-	if err != nil {
-		t.Fatal("TCP with correct addr failed", err)
-	}
-	// TCP with wrong addr
-	_, err = adapter.DialTCP("wrong_host_1:34567")
-	if err != errWrongAddr {
-		t.Fatal("TCP with wrong addr should fail, got", err)
-	}
-	// DialUDP
-	uConn, err := adapter.DialUDP()
-	if err != nil {
-		t.Fatal("DialUDP failed", err)
-	}
-	// ReadFrom
-	b := make([]byte, 10)
-	n, addr, err := uConn.ReadFrom(b)
-	if err != nil {
-		t.Fatal("ReadFrom failed", err)
-	}
-	if n != 10 || addr != "correct_host_2:54321" {
-		t.Fatalf("ReadFrom got wrong result, n: %d, addr: %s", n, addr)
-	}
-	// WriteTo with correct addr
-	n, err = uConn.WriteTo(b, "correct_host_3:22334")
-	if err != nil {
-		t.Fatal("WriteTo with correct addr failed", err)
-	}
-	if n != 10 {
-		t.Fatalf("WriteTo with correct addr got wrong result, n: %d", n)
-	}
-	// WriteTo with wrong addr
-	n, err = uConn.WriteTo(b, "wrong_host_3:22334")
-	if err != errWrongAddr {
-		t.Fatal("WriteTo with wrong addr should fail, got", err)
-	}
-	// Close
-	err = uConn.Close()
-	if err != nil {
-		t.Fatal("Close failed", err)
-	}
+	ob := newMockPluggableOutbound(t)
+	adapter := &PluggableOutboundAdapter{ob}
+
+	ob.EXPECT().TCP(&AddrEx{
+		Host: "only.fans",
+		Port: 443,
+	}).Return(nil, nil).Once()
+	conn, err := adapter.TCP("only.fans:443")
+	assert.Nil(t, conn)
+	assert.Nil(t, err)
+
+	mc := newMockUDPConn(t)
+	mc.EXPECT().ReadFrom(mock.Anything).RunAndReturn(func(bs []byte) (int, *AddrEx, error) {
+		return copy(bs, "gura"), &AddrEx{
+			Host: "gura.com",
+			Port: 2333,
+		}, nil
+	}).Once()
+	mc.EXPECT().WriteTo(mock.Anything, &AddrEx{
+		Host: "hololive.tv",
+		Port: 8999,
+	}).RunAndReturn(func(bs []byte, addr *AddrEx) (int, error) {
+		return len(bs), nil
+	}).Once()
+	ob.EXPECT().UDP(&AddrEx{
+		Host: "hololive.tv",
+		Port: 8999,
+	}).Return(mc, nil).Once()
+
+	uConn, err := adapter.UDP("hololive.tv:8999")
+	assert.Nil(t, err)
+	assert.NotNil(t, uConn)
+	n, err := uConn.WriteTo([]byte("gura"), "hololive.tv:8999")
+	assert.Nil(t, err)
+	assert.Equal(t, 4, n)
+	bs := make([]byte, 1024)
+	n, addr, err := uConn.ReadFrom(bs)
+	assert.Nil(t, err)
+	assert.Equal(t, 4, n)
+	assert.Equal(t, "gura", string(bs[:n]))
+	assert.Equal(t, "gura.com:2333", addr)
 }

@@ -1,9 +1,10 @@
 package obfs
 
 import (
-	"bytes"
 	"crypto/rand"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func BenchmarkSalamanderObfuscator_Obfuscate(b *testing.B) {
@@ -36,21 +37,9 @@ func TestSalamanderObfuscator(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		_, _ = rand.Read(in)
 		n := o.Obfuscate(in, oOut)
-		if n == 0 {
-			t.Fatal("Failed to obfuscate")
-		}
-		if n != len(in)+smSaltLen {
-			t.Fatal("Wrong obfuscated length")
-		}
+		assert.Equal(t, len(in)+smSaltLen, n)
 		n = o.Deobfuscate(oOut[:n], dOut)
-		if n == 0 {
-			t.Fatal("Failed to deobfuscate")
-		}
-		if n != len(in) {
-			t.Fatal("Wrong deobfuscated length")
-		}
-		if !bytes.Equal(in, dOut[:n]) {
-			t.Fatal("Deobfuscated data mismatch")
-		}
+		assert.Equal(t, len(in), n)
+		assert.Equal(t, in, dOut[:n])
 	}
 }
