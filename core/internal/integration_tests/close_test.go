@@ -90,7 +90,6 @@ func TestClientServerTCPClose(t *testing.T) {
 	bs, err := io.ReadAll(conn)
 	assert.NoError(t, err)
 	assert.Equal(t, "happy", string(bs))
-	_ = conn.Close()
 }
 
 // TestClientServerUDPIdleTimeout tests whether the server's UDP idle timeout works correctly.
