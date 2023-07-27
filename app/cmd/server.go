@@ -32,43 +32,24 @@ func init() {
 }
 
 type serverConfig struct {
-	Listen string `mapstructure:"listen"`
-	Obfs   struct {
-		Type       string `mapstructure:"type"`
-		Salamander struct {
-			Password string `mapstructure:"password"`
-		} `mapstructure:"salamander"`
-	} `mapstructure:"obfs"`
-	TLS  *serverConfigTLS  `mapstructure:"tls"`
-	ACME *serverConfigACME `mapstructure:"acme"`
-	QUIC struct {
-		InitStreamReceiveWindow     uint64        `mapstructure:"initStreamReceiveWindow"`
-		MaxStreamReceiveWindow      uint64        `mapstructure:"maxStreamReceiveWindow"`
-		InitConnectionReceiveWindow uint64        `mapstructure:"initConnReceiveWindow"`
-		MaxConnectionReceiveWindow  uint64        `mapstructure:"maxConnReceiveWindow"`
-		MaxIdleTimeout              time.Duration `mapstructure:"maxIdleTimeout"`
-		MaxIncomingStreams          int64         `mapstructure:"maxIncomingStreams"`
-		DisablePathMTUDiscovery     bool          `mapstructure:"disablePathMTUDiscovery"`
-	} `mapstructure:"quic"`
-	Bandwidth struct {
-		Up   string `mapstructure:"up"`
-		Down string `mapstructure:"down"`
-	} `mapstructure:"bandwidth"`
-	DisableUDP bool `mapstructure:"disableUDP"`
-	Auth       struct {
-		Type     string `mapstructure:"type"`
-		Password string `mapstructure:"password"`
-	} `mapstructure:"auth"`
-	Masquerade struct {
-		Type string `mapstructure:"type"`
-		File struct {
-			Dir string `mapstructure:"dir"`
-		} `mapstructure:"file"`
-		Proxy struct {
-			URL         string `mapstructure:"url"`
-			RewriteHost bool   `mapstructure:"rewriteHost"`
-		} `mapstructure:"proxy"`
-	} `mapstructure:"masquerade"`
+	Listen     string                 `mapstructure:"listen"`
+	Obfs       serverConfigObfs       `mapstructure:"obfs"`
+	TLS        *serverConfigTLS       `mapstructure:"tls"`
+	ACME       *serverConfigACME      `mapstructure:"acme"`
+	QUIC       serverConfigQUIC       `mapstructure:"quic"`
+	Bandwidth  serverConfigBandwidth  `mapstructure:"bandwidth"`
+	DisableUDP bool                   `mapstructure:"disableUDP"`
+	Auth       serverConfigAuth       `mapstructure:"auth"`
+	Masquerade serverConfigMasquerade `mapstructure:"masquerade"`
+}
+
+type serverConfigObfsSalamander struct {
+	Password string `mapstructure:"password"`
+}
+
+type serverConfigObfs struct {
+	Type       string                     `mapstructure:"type"`
+	Salamander serverConfigObfsSalamander `mapstructure:"salamander"`
 }
 
 type serverConfigTLS struct {
@@ -85,6 +66,41 @@ type serverConfigACME struct {
 	AltHTTPPort    int      `mapstructure:"altHTTPPort"`
 	AltTLSALPNPort int      `mapstructure:"altTLSALPNPort"`
 	Dir            string   `mapstructure:"dir"`
+}
+
+type serverConfigQUIC struct {
+	InitStreamReceiveWindow     uint64        `mapstructure:"initStreamReceiveWindow"`
+	MaxStreamReceiveWindow      uint64        `mapstructure:"maxStreamReceiveWindow"`
+	InitConnectionReceiveWindow uint64        `mapstructure:"initConnReceiveWindow"`
+	MaxConnectionReceiveWindow  uint64        `mapstructure:"maxConnReceiveWindow"`
+	MaxIdleTimeout              time.Duration `mapstructure:"maxIdleTimeout"`
+	MaxIncomingStreams          int64         `mapstructure:"maxIncomingStreams"`
+	DisablePathMTUDiscovery     bool          `mapstructure:"disablePathMTUDiscovery"`
+}
+
+type serverConfigBandwidth struct {
+	Up   string `mapstructure:"up"`
+	Down string `mapstructure:"down"`
+}
+
+type serverConfigAuth struct {
+	Type     string `mapstructure:"type"`
+	Password string `mapstructure:"password"`
+}
+
+type serverConfigMasqueradeFile struct {
+	Dir string `mapstructure:"dir"`
+}
+
+type serverConfigMasqueradeProxy struct {
+	URL         string `mapstructure:"url"`
+	RewriteHost bool   `mapstructure:"rewriteHost"`
+}
+
+type serverConfigMasquerade struct {
+	Type  string                      `mapstructure:"type"`
+	File  serverConfigMasqueradeFile  `mapstructure:"file"`
+	Proxy serverConfigMasqueradeProxy `mapstructure:"proxy"`
 }
 
 func (c *serverConfig) fillConn(hyConfig *server.Config) error {
@@ -348,8 +364,8 @@ func (l *serverLogger) TCPError(addr net.Addr, id, reqAddr string, err error) {
 	}
 }
 
-func (l *serverLogger) UDPRequest(addr net.Addr, id string, sessionID uint32) {
-	logger.Debug("UDP request", zap.String("addr", addr.String()), zap.String("id", id), zap.Uint32("sessionID", sessionID))
+func (l *serverLogger) UDPRequest(addr net.Addr, id string, sessionID uint32, reqAddr string) {
+	logger.Debug("UDP request", zap.String("addr", addr.String()), zap.String("id", id), zap.Uint32("sessionID", sessionID), zap.String("reqAddr", reqAddr))
 }
 
 func (l *serverLogger) UDPError(addr net.Addr, id string, sessionID uint32, err error) {

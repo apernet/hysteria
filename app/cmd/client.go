@@ -43,36 +43,46 @@ func initClientFlags() {
 }
 
 type clientConfig struct {
-	Server string `mapstructure:"server"`
-	Auth   string `mapstructure:"auth"`
-	Obfs   struct {
-		Type       string `mapstructure:"type"`
-		Salamander struct {
-			Password string `mapstructure:"password"`
-		} `mapstructure:"salamander"`
-	} `mapstructure:"obfs"`
-	TLS struct {
-		SNI      string `mapstructure:"sni"`
-		Insecure bool   `mapstructure:"insecure"`
-		CA       string `mapstructure:"ca"`
-	} `mapstructure:"tls"`
-	QUIC struct {
-		InitStreamReceiveWindow     uint64        `mapstructure:"initStreamReceiveWindow"`
-		MaxStreamReceiveWindow      uint64        `mapstructure:"maxStreamReceiveWindow"`
-		InitConnectionReceiveWindow uint64        `mapstructure:"initConnReceiveWindow"`
-		MaxConnectionReceiveWindow  uint64        `mapstructure:"maxConnReceiveWindow"`
-		MaxIdleTimeout              time.Duration `mapstructure:"maxIdleTimeout"`
-		KeepAlivePeriod             time.Duration `mapstructure:"keepAlivePeriod"`
-		DisablePathMTUDiscovery     bool          `mapstructure:"disablePathMTUDiscovery"`
-	} `mapstructure:"quic"`
-	Bandwidth struct {
-		Up   string `mapstructure:"up"`
-		Down string `mapstructure:"down"`
-	} `mapstructure:"bandwidth"`
-	FastOpen   bool              `mapstructure:"fastOpen"`
-	SOCKS5     *socks5Config     `mapstructure:"socks5"`
-	HTTP       *httpConfig       `mapstructure:"http"`
-	Forwarding []forwardingEntry `mapstructure:"forwarding"`
+	Server     string                `mapstructure:"server"`
+	Auth       string                `mapstructure:"auth"`
+	Obfs       clientConfigObfs      `mapstructure:"obfs"`
+	TLS        clientConfigTLS       `mapstructure:"tls"`
+	QUIC       clientConfigQUIC      `mapstructure:"quic"`
+	Bandwidth  clientConfigBandwidth `mapstructure:"bandwidth"`
+	FastOpen   bool                  `mapstructure:"fastOpen"`
+	SOCKS5     *socks5Config         `mapstructure:"socks5"`
+	HTTP       *httpConfig           `mapstructure:"http"`
+	Forwarding []forwardingEntry     `mapstructure:"forwarding"`
+}
+
+type clientConfigObfsSalamander struct {
+	Password string `mapstructure:"password"`
+}
+
+type clientConfigObfs struct {
+	Type       string                     `mapstructure:"type"`
+	Salamander clientConfigObfsSalamander `mapstructure:"salamander"`
+}
+
+type clientConfigTLS struct {
+	SNI      string `mapstructure:"sni"`
+	Insecure bool   `mapstructure:"insecure"`
+	CA       string `mapstructure:"ca"`
+}
+
+type clientConfigQUIC struct {
+	InitStreamReceiveWindow     uint64        `mapstructure:"initStreamReceiveWindow"`
+	MaxStreamReceiveWindow      uint64        `mapstructure:"maxStreamReceiveWindow"`
+	InitConnectionReceiveWindow uint64        `mapstructure:"initConnReceiveWindow"`
+	MaxConnectionReceiveWindow  uint64        `mapstructure:"maxConnReceiveWindow"`
+	MaxIdleTimeout              time.Duration `mapstructure:"maxIdleTimeout"`
+	KeepAlivePeriod             time.Duration `mapstructure:"keepAlivePeriod"`
+	DisablePathMTUDiscovery     bool          `mapstructure:"disablePathMTUDiscovery"`
+}
+
+type clientConfigBandwidth struct {
+	Up   string `mapstructure:"up"`
+	Down string `mapstructure:"down"`
 }
 
 type socks5Config struct {

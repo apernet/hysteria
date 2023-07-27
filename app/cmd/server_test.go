@@ -1,9 +1,10 @@
 package cmd
 
 import (
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/spf13/viper"
 )
@@ -12,25 +13,15 @@ import (
 func TestServerConfig(t *testing.T) {
 	viper.SetConfigFile("server_test.yaml")
 	err := viper.ReadInConfig()
-	if err != nil {
-		t.Fatal("failed to read server config", err)
-	}
+	assert.NoError(t, err)
 	var config serverConfig
-	if err := viper.Unmarshal(&config); err != nil {
-		t.Fatal("failed to parse server config", err)
-	}
-	if !reflect.DeepEqual(config, serverConfig{
+	err = viper.Unmarshal(&config)
+	assert.NoError(t, err)
+	assert.Equal(t, config, serverConfig{
 		Listen: ":8443",
-		Obfs: struct {
-			Type       string `mapstructure:"type"`
-			Salamander struct {
-				Password string `mapstructure:"password"`
-			} `mapstructure:"salamander"`
-		}{
+		Obfs: serverConfigObfs{
 			Type: "salamander",
-			Salamander: struct {
-				Password string `mapstructure:"password"`
-			}{
+			Salamander: serverConfigObfsSalamander{
 				Password: "cry_me_a_r1ver",
 			},
 		},
@@ -51,15 +42,7 @@ func TestServerConfig(t *testing.T) {
 			AltTLSALPNPort: 9443,
 			Dir:            "random_dir",
 		},
-		QUIC: struct {
-			InitStreamReceiveWindow     uint64        `mapstructure:"initStreamReceiveWindow"`
-			MaxStreamReceiveWindow      uint64        `mapstructure:"maxStreamReceiveWindow"`
-			InitConnectionReceiveWindow uint64        `mapstructure:"initConnReceiveWindow"`
-			MaxConnectionReceiveWindow  uint64        `mapstructure:"maxConnReceiveWindow"`
-			MaxIdleTimeout              time.Duration `mapstructure:"maxIdleTimeout"`
-			MaxIncomingStreams          int64         `mapstructure:"maxIncomingStreams"`
-			DisablePathMTUDiscovery     bool          `mapstructure:"disablePathMTUDiscovery"`
-		}{
+		QUIC: serverConfigQUIC{
 			InitStreamReceiveWindow:     77881,
 			MaxStreamReceiveWindow:      77882,
 			InitConnectionReceiveWindow: 77883,
@@ -68,46 +51,24 @@ func TestServerConfig(t *testing.T) {
 			MaxIncomingStreams:          256,
 			DisablePathMTUDiscovery:     true,
 		},
-		Bandwidth: struct {
-			Up   string `mapstructure:"up"`
-			Down string `mapstructure:"down"`
-		}{
+		Bandwidth: serverConfigBandwidth{
 			Up:   "500 mbps",
 			Down: "100 mbps",
 		},
 		DisableUDP: true,
-		Auth: struct {
-			Type     string `mapstructure:"type"`
-			Password string `mapstructure:"password"`
-		}{
+		Auth: serverConfigAuth{
 			Type:     "password",
 			Password: "goofy_ahh_password",
 		},
-		Masquerade: struct {
-			Type string `mapstructure:"type"`
-			File struct {
-				Dir string `mapstructure:"dir"`
-			} `mapstructure:"file"`
-			Proxy struct {
-				URL         string `mapstructure:"url"`
-				RewriteHost bool   `mapstructure:"rewriteHost"`
-			} `mapstructure:"proxy"`
-		}{
+		Masquerade: serverConfigMasquerade{
 			Type: "proxy",
-			File: struct {
-				Dir string `mapstructure:"dir"`
-			}{
+			File: serverConfigMasqueradeFile{
 				Dir: "/www/masq",
 			},
-			Proxy: struct {
-				URL         string `mapstructure:"url"`
-				RewriteHost bool   `mapstructure:"rewriteHost"`
-			}{
+			Proxy: serverConfigMasqueradeProxy{
 				URL:         "https://some.site.net",
 				RewriteHost: true,
 			},
 		},
-	}) {
-		t.Fatal("parsed server config is not equal to expected")
-	}
+	})
 }

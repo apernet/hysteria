@@ -3,27 +3,27 @@ package socks5
 import (
 	"net"
 	"os/exec"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/apernet/hysteria/app/internal/utils_test"
 )
 
 func TestServer(t *testing.T) {
 	// Start the server
+	l, err := net.Listen("tcp", "127.0.0.1:11080")
+	assert.NoError(t, err)
+	defer l.Close()
 	s := &Server{
 		HyClient: &utils_test.MockEchoHyClient{},
 	}
-	l, err := net.Listen("tcp", "127.0.0.1:11080")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
 	go s.Serve(l)
 
 	// Run the Python test script
 	cmd := exec.Command("python", "server_test.py")
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed to run test script: %v\n%s", err, out)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, "OK", strings.TrimSpace(string(out)))
 }

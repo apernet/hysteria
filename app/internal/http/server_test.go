@@ -5,7 +5,10 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/apernet/hysteria/core/client"
 )
@@ -22,7 +25,6 @@ func (c *mockHyClient) TCP(addr string) (net.Conn, error) {
 }
 
 func (c *mockHyClient) UDP() (client.HyUDPConn, error) {
-	// Not implemented
 	return nil, errors.New("not implemented")
 }
 
@@ -32,14 +34,12 @@ func (c *mockHyClient) Close() error {
 
 func TestServer(t *testing.T) {
 	// Start the server
+	l, err := net.Listen("tcp", "127.0.0.1:18080")
+	assert.NoError(t, err)
+	defer l.Close()
 	s := &Server{
 		HyClient: &mockHyClient{},
 	}
-	l, err := net.Listen("tcp", "127.0.0.1:18080")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
 	go s.Serve(l)
 
 	// Start a test HTTP & HTTPS server
@@ -51,8 +51,9 @@ func TestServer(t *testing.T) {
 
 	// Run the Python test script
 	cmd := exec.Command("python", "server_test.py")
+	// Suppress HTTPS warning text from Python
+	cmd.Env = append(cmd.Env, "PYTHONWARNINGS=ignore:Unverified HTTPS request")
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed to run test script: %v\n%s", err, out)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, "OK", strings.TrimSpace(string(out)))
 }

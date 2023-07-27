@@ -54,3 +54,4 @@ if __name__ == "__main__":
     test_tcp(1024, 1024, 10, domain=True)
     test_udp(1024, 1024, 10, domain=False)
     test_udp(1024, 1024, 10, domain=True)
+    print("OK")

@@ -1,9 +1,10 @@
 package cmd
 
 import (
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/spf13/viper"
 )
@@ -12,47 +13,25 @@ import (
 func TestClientConfig(t *testing.T) {
 	viper.SetConfigFile("client_test.yaml")
 	err := viper.ReadInConfig()
-	if err != nil {
-		t.Fatal("failed to read client config", err)
-	}
+	assert.NoError(t, err)
 	var config clientConfig
-	if err := viper.Unmarshal(&config); err != nil {
-		t.Fatal("failed to parse client config", err)
-	}
-	if !reflect.DeepEqual(config, clientConfig{
+	err = viper.Unmarshal(&config)
+	assert.NoError(t, err)
+	assert.Equal(t, config, clientConfig{
 		Server: "example.com",
 		Auth:   "weak_ahh_password",
-		Obfs: struct {
-			Type       string `mapstructure:"type"`
-			Salamander struct {
-				Password string `mapstructure:"password"`
-			} `mapstructure:"salamander"`
-		}{
+		Obfs: clientConfigObfs{
 			Type: "salamander",
-			Salamander: struct {
-				Password string `mapstructure:"password"`
-			}{
+			Salamander: clientConfigObfsSalamander{
 				Password: "cry_me_a_r1ver",
 			},
 		},
-		TLS: struct {
-			SNI      string `mapstructure:"sni"`
-			Insecure bool   `mapstructure:"insecure"`
-			CA       string `mapstructure:"ca"`
-		}{
+		TLS: clientConfigTLS{
 			SNI:      "another.example.com",
 			Insecure: true,
 			CA:       "custom_ca.crt",
 		},
-		QUIC: struct {
-			InitStreamReceiveWindow     uint64        `mapstructure:"initStreamReceiveWindow"`
-			MaxStreamReceiveWindow      uint64        `mapstructure:"maxStreamReceiveWindow"`
-			InitConnectionReceiveWindow uint64        `mapstructure:"initConnReceiveWindow"`
-			MaxConnectionReceiveWindow  uint64        `mapstructure:"maxConnReceiveWindow"`
-			MaxIdleTimeout              time.Duration `mapstructure:"maxIdleTimeout"`
-			KeepAlivePeriod             time.Duration `mapstructure:"keepAlivePeriod"`
-			DisablePathMTUDiscovery     bool          `mapstructure:"disablePathMTUDiscovery"`
-		}{
+		QUIC: clientConfigQUIC{
 			InitStreamReceiveWindow:     1145141,
 			MaxStreamReceiveWindow:      1145142,
 			InitConnectionReceiveWindow: 1145143,
@@ -61,10 +40,7 @@ func TestClientConfig(t *testing.T) {
 			KeepAlivePeriod:             4 * time.Second,
 			DisablePathMTUDiscovery:     true,
 		},
-		Bandwidth: struct {
-			Up   string `mapstructure:"up"`
-			Down string `mapstructure:"down"`
-		}{
+		Bandwidth: clientConfigBandwidth{
 			Up:   "200 mbps",
 			Down: "1 gbps",
 		},
@@ -94,9 +70,7 @@ func TestClientConfig(t *testing.T) {
 				UDPTimeout: 50 * time.Second,
 			},
 		},
-	}) {
-		t.Fatal("parsed client config is not equal to expected")
-	}
+	})
 }
 
 // TestClientConfigURI tests URI-related functions of clientConfig
@@ -120,24 +94,13 @@ func TestClientConfigURI(t *testing.T) {
 			config: &clientConfig{
 				Server: "noauth.com",
 				Auth:   "",
-				Obfs: struct {
-					Type       string `mapstructure:"type"`
-					Salamander struct {
-						Password string `mapstructure:"password"`
-					} `mapstructure:"salamander"`
-				}{
+				Obfs: clientConfigObfs{
 					Type: "salamander",
-					Salamander: struct {
-						Password string `mapstructure:"password"`
-					}{
+					Salamander: clientConfigObfsSalamander{
 						Password: "66ccff",
 					},
 				},
-				TLS: struct {
-					SNI      string `mapstructure:"sni"`
-					Insecure bool   `mapstructure:"insecure"`
-					CA       string `mapstructure:"ca"`
-				}{
+				TLS: clientConfigTLS{
 					SNI:      "crap.cc",
 					Insecure: true,
 				},
@@ -158,19 +121,13 @@ func TestClientConfigURI(t *testing.T) {
 		t.Run(test.uri, func(t *testing.T) {
 			// Test parseURI
 			nc := &clientConfig{Server: test.uri}
-			if ok := nc.parseURI(); ok != test.uriOK {
-				t.Fatal("unexpected parseURI ok result")
-			}
-			if test.uriOK && !reflect.DeepEqual(nc, test.config) {
-				t.Fatal("unexpected parsed client config from URI")
+			assert.Equal(t, nc.parseURI(), test.uriOK)
+			if test.uriOK {
+				assert.Equal(t, nc, test.config)
 			}
 			// Test URI generation
-			if test.config == nil {
-				// config is nil if parseURI is expected to fail
-				return
-			}
-			if uri := test.config.URI(); uri != test.uri {
-				t.Fatalf("generated URI mismatch: %s != %s", uri, test.uri)
+			if test.config != nil {
+				assert.Equal(t, test.config.URI(), test.uri)
 			}
 		})
 	}
