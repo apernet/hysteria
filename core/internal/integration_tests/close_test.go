@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/apernet/hysteria/core/client"
+	"github.com/apernet/hysteria/core/errors"
 	"github.com/apernet/hysteria/core/internal/integration_tests/mocks"
 	"github.com/apernet/hysteria/core/server"
 )
@@ -172,5 +173,74 @@ func TestClientServerUDPIdleTimeout(t *testing.T) {
 	})
 	eventLogger.EXPECT().UDPError(mock.Anything, mock.Anything, uint32(1), nil).Once()
 	time.Sleep(3 * time.Second)
-	mock.AssertExpectationsForObjects(t, sobConn, serverOb, eventLogger)
+}
+
+// TestClientServerClientShutdown tests whether the server can handle the client's shutdown correctly.
+func TestClientServerClientShutdown(t *testing.T) {
+	// Create server
+	udpConn, udpAddr, err := serverConn()
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
+	eventLogger := mocks.NewMockEventLogger(t)
+	eventLogger.EXPECT().Connect(mock.Anything, "nobody", mock.Anything).Once()
+	s, err := server.NewServer(&server.Config{
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		Authenticator: auth,
+		EventLogger:   eventLogger,
+	})
+	assert.NoError(t, err)
+	defer s.Close()
+	go s.Serve()
+
+	// Create client
+	c, err := client.NewClient(&client.Config{
+		ServerAddr: udpAddr,
+		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
+	})
+	assert.NoError(t, err)
+
+	// Close the client - expect disconnect event on the server side.
+	// Since client.Close() sends HTTP3 ErrCodeNoError, the error should be nil.
+	eventLogger.EXPECT().Disconnect(mock.Anything, "nobody", nil).Once()
+	_ = c.Close()
+	time.Sleep(1 * time.Second)
+}
+
+// TestClientServerServerShutdown tests whether the client can handle the server's shutdown correctly.
+func TestClientServerServerShutdown(t *testing.T) {
+	// Create server
+	udpConn, udpAddr, err := serverConn()
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
+	s, err := server.NewServer(&server.Config{
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		Authenticator: auth,
+	})
+	assert.NoError(t, err)
+	go s.Serve()
+
+	// Create client
+	c, err := client.NewClient(&client.Config{
+		ServerAddr: udpAddr,
+		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
+	})
+	assert.NoError(t, err)
+
+	// Close the server - expect the client to return ClosedError for both TCP & UDP calls.
+	_ = s.Close()
+	time.Sleep(1 * time.Second)
+
+	_, err = c.TCP("whatever")
+	_, ok := err.(errors.ClosedError)
+	assert.True(t, ok)
+
+	_, err = c.UDP()
+	_, ok = err.(errors.ClosedError)
+	assert.True(t, ok)
+
+	assert.NoError(t, c.Close())
 }

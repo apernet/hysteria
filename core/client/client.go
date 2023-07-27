@@ -149,7 +149,7 @@ func (c *clientImpl) openStream() (quic.Stream, error) {
 func (c *clientImpl) TCP(addr string) (net.Conn, error) {
 	stream, err := c.openStream()
 	if err != nil {
-		if netErr, ok := err.(net.Error); ok && !netErr.Temporary() {
+		if isQUICClosedError(err) {
 			// Connection is dead
 			return nil, coreErrs.ClosedError{}
 		}
@@ -201,6 +201,17 @@ func (c *clientImpl) Close() error {
 	_ = c.conn.CloseWithError(closeErrCodeOK, "")
 	_ = c.pktConn.Close()
 	return nil
+}
+
+// isQUICClosedError checks if the error returned by OpenStream
+// indicates that the QUIC connection is permanently closed.
+func isQUICClosedError(err error) bool {
+	netErr, ok := err.(net.Error)
+	if !ok {
+		return true
+	} else {
+		return !netErr.Temporary()
+	}
 }
 
 type tcpConn struct {
