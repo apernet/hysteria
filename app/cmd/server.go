@@ -32,15 +32,16 @@ func init() {
 }
 
 type serverConfig struct {
-	Listen     string                 `mapstructure:"listen"`
-	Obfs       serverConfigObfs       `mapstructure:"obfs"`
-	TLS        *serverConfigTLS       `mapstructure:"tls"`
-	ACME       *serverConfigACME      `mapstructure:"acme"`
-	QUIC       serverConfigQUIC       `mapstructure:"quic"`
-	Bandwidth  serverConfigBandwidth  `mapstructure:"bandwidth"`
-	DisableUDP bool                   `mapstructure:"disableUDP"`
-	Auth       serverConfigAuth       `mapstructure:"auth"`
-	Masquerade serverConfigMasquerade `mapstructure:"masquerade"`
+	Listen         string                 `mapstructure:"listen"`
+	Obfs           serverConfigObfs       `mapstructure:"obfs"`
+	TLS            *serverConfigTLS       `mapstructure:"tls"`
+	ACME           *serverConfigACME      `mapstructure:"acme"`
+	QUIC           serverConfigQUIC       `mapstructure:"quic"`
+	Bandwidth      serverConfigBandwidth  `mapstructure:"bandwidth"`
+	DisableUDP     bool                   `mapstructure:"disableUDP"`
+	UDPIdleTimeout time.Duration          `mapstructure:"udpIdleTimeout"`
+	Auth           serverConfigAuth       `mapstructure:"auth"`
+	Masquerade     serverConfigMasquerade `mapstructure:"masquerade"`
 }
 
 type serverConfigObfsSalamander struct {
@@ -235,6 +236,11 @@ func (c *serverConfig) fillDisableUDP(hyConfig *server.Config) error {
 	return nil
 }
 
+func (c *serverConfig) fillUDPIdleTimeout(hyConfig *server.Config) error {
+	hyConfig.UDPIdleTimeout = c.UDPIdleTimeout
+	return nil
+}
+
 func (c *serverConfig) fillAuthenticator(hyConfig *server.Config) error {
 	if c.Auth.Type == "" {
 		return configError{Field: "auth.type", Err: errors.New("empty auth type")}
@@ -304,6 +310,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 		c.fillQUICConfig,
 		c.fillBandwidthConfig,
 		c.fillDisableUDP,
+		c.fillUDPIdleTimeout,
 		c.fillAuthenticator,
 		c.fillEventLogger,
 		c.fillMasqHandler,

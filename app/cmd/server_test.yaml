@@ -35,6 +35,7 @@ bandwidth:
   down: 100 mbps
 
 disableUDP: true
+udpIdleTimeout: 120s
 
 auth:
   type: password
