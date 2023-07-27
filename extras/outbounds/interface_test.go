@@ -26,12 +26,10 @@ func TestPluggableOutboundAdapter(t *testing.T) {
 			Port: 2333,
 		}, nil
 	}).Once()
-	mc.EXPECT().WriteTo(mock.Anything, &AddrEx{
-		Host: "hololive.tv",
-		Port: 8999,
-	}).RunAndReturn(func(bs []byte, addr *AddrEx) (int, error) {
-		return len(bs), nil
-	}).Once()
+	mc.EXPECT().WriteTo([]byte("gawr"), &AddrEx{
+		Host: "another.hololive.tv",
+		Port: 1551,
+	}).Return(4, nil).Once()
 	ob.EXPECT().UDP(&AddrEx{
 		Host: "hololive.tv",
 		Port: 8999,
@@ -40,7 +38,7 @@ func TestPluggableOutboundAdapter(t *testing.T) {
 	uConn, err := adapter.UDP("hololive.tv:8999")
 	assert.Nil(t, err)
 	assert.NotNil(t, uConn)
-	n, err := uConn.WriteTo([]byte("gura"), "hololive.tv:8999")
+	n, err := uConn.WriteTo([]byte("gawr"), "another.hololive.tv:1551")
 	assert.Nil(t, err)
 	assert.Equal(t, 4, n)
 	bs := make([]byte, 1024)
