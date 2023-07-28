@@ -3,7 +3,6 @@ module github.com/apernet/hysteria/core
 go 1.20
 
 require (
-	github.com/magiconair/properties v1.8.7
 	github.com/quic-go/quic-go v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/goleak v1.2.1

@@ -12,14 +12,61 @@ import (
 const (
 	udpBufferSize = 4096
 
-	defaultTimeout = 5 * time.Minute
+	defaultTimeout      = 60 * time.Second
+	idleCleanupInterval = 1 * time.Second
 )
+
+type atomicTime struct {
+	v atomic.Value
+}
+
+func newAtomicTime(t time.Time) *atomicTime {
+	a := &atomicTime{}
+	a.Set(t)
+	return a
+}
+
+func (t *atomicTime) Set(new time.Time) {
+	t.v.Store(new)
+}
+
+func (t *atomicTime) Get() time.Time {
+	return t.v.Load().(time.Time)
+}
+
+type sessionEntry struct {
+	HyConn  client.HyUDPConn
+	Last    *atomicTime
+	Timeout bool // true if the session is closed due to timeout
+}
+
+func (e *sessionEntry) Feed(data []byte, addr string) error {
+	e.Last.Set(time.Now())
+	return e.HyConn.Send(data, addr)
+}
+
+func (e *sessionEntry) ReceiveLoop(pc net.PacketConn, addr net.Addr) error {
+	for {
+		data, _, err := e.HyConn.Receive()
+		if err != nil {
+			return err
+		}
+		_, err = pc.WriteTo(data, addr)
+		if err != nil {
+			return err
+		}
+		e.Last.Set(time.Now())
+	}
+}
 
 type UDPTunnel struct {
 	HyClient    client.Client
 	Remote      string
 	Timeout     time.Duration
 	EventLogger UDPEventLogger
+
+	m     map[string]*sessionEntry // addr -> HyConn
+	mutex sync.RWMutex
 }
 
 type UDPEventLogger interface {
@@ -27,94 +74,64 @@ type UDPEventLogger interface {
 	Error(addr net.Addr, err error)
 }
 
-type sessionEntry struct {
-	HyConn   client.HyUDPConn
-	Deadline atomic.Value
-}
+func (t *UDPTunnel) Serve(pc net.PacketConn) error {
+	stopCh := make(chan struct{})
+	go t.idleCleanupLoop(stopCh)
+	defer close(stopCh)
+	defer t.cleanup(false)
 
-type sessionManager struct {
-	SessionMap  map[string]*sessionEntry
-	Timeout     time.Duration
-	TimeoutFunc func(addr net.Addr)
-	Mutex       sync.RWMutex
-}
-
-func (sm *sessionManager) New(addr net.Addr, hyConn client.HyUDPConn) {
-	entry := &sessionEntry{
-		HyConn: hyConn,
-	}
-	entry.Deadline.Store(time.Now().Add(sm.Timeout))
-
-	// Timeout cleanup routine
-	go func() {
-		for {
-			ttl := entry.Deadline.Load().(time.Time).Sub(time.Now())
-			if ttl <= 0 {
-				// Inactive for too long, close the session
-				sm.Mutex.Lock()
-				delete(sm.SessionMap, addr.String())
-				sm.Mutex.Unlock()
-				_ = hyConn.Close()
-				if sm.TimeoutFunc != nil {
-					sm.TimeoutFunc(addr)
-				}
-				return
-			} else {
-				time.Sleep(ttl)
-			}
-		}
-	}()
-
-	sm.Mutex.Lock()
-	defer sm.Mutex.Unlock()
-	sm.SessionMap[addr.String()] = entry
-}
-
-func (sm *sessionManager) Get(addr net.Addr) client.HyUDPConn {
-	sm.Mutex.RLock()
-	defer sm.Mutex.RUnlock()
-	if entry, ok := sm.SessionMap[addr.String()]; ok {
-		return entry.HyConn
-	} else {
-		return nil
-	}
-}
-
-func (sm *sessionManager) Renew(addr net.Addr) {
-	sm.Mutex.RLock() // RLock is enough as we are not modifying the map itself, only a value in the entry
-	defer sm.Mutex.RUnlock()
-	if entry, ok := sm.SessionMap[addr.String()]; ok {
-		entry.Deadline.Store(time.Now().Add(sm.Timeout))
-	}
-}
-
-func (t *UDPTunnel) Serve(listener net.PacketConn) error {
-	sm := &sessionManager{
-		SessionMap:  make(map[string]*sessionEntry),
-		Timeout:     t.Timeout,
-		TimeoutFunc: func(addr net.Addr) { t.EventLogger.Error(addr, nil) },
-	}
-	if sm.Timeout <= 0 {
-		sm.Timeout = defaultTimeout
-	}
+	t.m = make(map[string]*sessionEntry)
 	buf := make([]byte, udpBufferSize)
 	for {
-		n, addr, err := listener.ReadFrom(buf)
+		n, addr, err := pc.ReadFrom(buf)
 		if err != nil {
 			return err
 		}
-		t.handle(listener, sm, addr, buf[:n])
+		t.feed(pc, addr, buf[:n])
 	}
 }
 
-func (t *UDPTunnel) handle(l net.PacketConn, sm *sessionManager, addr net.Addr, data []byte) {
-	hyConn := sm.Get(addr)
-	if hyConn != nil {
-		// Existing session
-		_ = hyConn.Send(data, t.Remote)
-		sm.Renew(addr)
-	} else {
-		// New session
+func (t *UDPTunnel) idleCleanupLoop(stopCh <-chan struct{}) {
+	ticker := time.NewTicker(idleCleanupInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			t.cleanup(true)
+		case <-stopCh:
+			return
+		}
+	}
+}
+
+func (t *UDPTunnel) cleanup(idleOnly bool) {
+	// We use RLock here as we are only scanning the map, not deleting from it.
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	timeout := t.Timeout
+	if timeout == 0 {
+		timeout = defaultTimeout
+	}
+
+	now := time.Now()
+	for _, entry := range t.m {
+		if !idleOnly || now.Sub(entry.Last.Get()) > timeout {
+			entry.Timeout = true
+			_ = entry.HyConn.Close()
+			// Closing the connection here will cause the ReceiveLoop to exit,
+			// and the session will be removed from the map there.
+		}
+	}
+}
+
+func (t *UDPTunnel) feed(pc net.PacketConn, addr net.Addr, data []byte) {
+	t.mutex.RLock()
+	entry := t.m[addr.String()]
+	t.mutex.RUnlock()
+
+	// Create a new session if not exists
+	if entry == nil {
 		if t.EventLogger != nil {
 			t.EventLogger.Connect(addr)
 		}
@@ -125,22 +142,38 @@ func (t *UDPTunnel) handle(l net.PacketConn, sm *sessionManager, addr net.Addr, 
 			}
 			return
 		}
-		sm.New(addr, hyConn)
-		_ = hyConn.Send(data, t.Remote)
-
-		// Local <- Remote routine
+		entry = &sessionEntry{
+			HyConn: hyConn,
+			Last:   newAtomicTime(time.Now()),
+		}
+		// Start the receive loop for this session
+		// Local <- Remote
 		go func() {
-			for {
-				data, _, err := hyConn.Receive()
-				if err != nil {
-					return
+			err := entry.ReceiveLoop(pc, addr)
+			if !entry.Timeout {
+				_ = hyConn.Close()
+				if t.EventLogger != nil {
+					t.EventLogger.Error(addr, err)
 				}
-				_, err = l.WriteTo(data, addr)
-				if err != nil {
-					return
+			} else {
+				// Connection already closed by timeout cleanup,
+				// no need to close again here.
+				// Use nil error to indicate timeout.
+				if t.EventLogger != nil {
+					t.EventLogger.Error(addr, nil)
 				}
-				sm.Renew(addr)
 			}
+			// Remove the session from the map
+			t.mutex.Lock()
+			delete(t.m, addr.String())
+			t.mutex.Unlock()
 		}()
+		// Insert the session into the map
+		t.mutex.Lock()
+		t.m[addr.String()] = entry
+		t.mutex.Unlock()
 	}
+
+	// Feed the message to the session
+	_ = entry.Feed(data, t.Remote)
 }

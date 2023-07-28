@@ -84,7 +84,7 @@ func (u *udpConn) Close() error {
 type udpSessionManager struct {
 	io udpIO
 
-	mutex  sync.Mutex
+	mutex  sync.RWMutex
 	m      map[uint32]*udpConn
 	nextID uint32
 
@@ -123,8 +123,8 @@ func (m *udpSessionManager) closeCleanup() {
 }
 
 func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	conn, ok := m.m[msg.SessionID]
 	if !ok {
@@ -162,9 +162,7 @@ func (m *udpSessionManager) NewUDP() (HyUDPConn, error) {
 	conn.CloseFunc = func() {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
-		if !conn.Closed {
-			m.close(conn)
-		}
+		m.close(conn)
 	}
 	m.m[id] = conn
 
@@ -172,13 +170,15 @@ func (m *udpSessionManager) NewUDP() (HyUDPConn, error) {
 }
 
 func (m *udpSessionManager) close(conn *udpConn) {
-	conn.Closed = true
-	close(conn.ReceiveCh)
-	delete(m.m, conn.ID)
+	if !conn.Closed {
+		conn.Closed = true
+		close(conn.ReceiveCh)
+		delete(m.m, conn.ID)
+	}
 }
 
 func (m *udpSessionManager) Count() int {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	return len(m.m)
 }

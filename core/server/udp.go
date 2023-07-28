@@ -29,11 +29,11 @@ type udpEventLogger interface {
 }
 
 type udpSessionEntry struct {
-	ID     uint32
-	Conn   UDPConn
-	D      *frag.Defragger
-	Last   *utils.AtomicTime
-	Closed bool
+	ID      uint32
+	Conn    UDPConn
+	D       *frag.Defragger
+	Last    *utils.AtomicTime
+	Timeout bool // true if the session is closed due to timeout
 }
 
 // Feed feeds a UDP message to the session.
@@ -111,7 +111,7 @@ type udpSessionManager struct {
 	eventLogger udpEventLogger
 	idleTimeout time.Duration
 
-	mutex sync.Mutex
+	mutex sync.RWMutex
 	m     map[uint32]*udpSessionEntry
 }
 
@@ -155,30 +155,31 @@ func (m *udpSessionManager) idleCleanupLoop(stopCh <-chan struct{}) {
 }
 
 func (m *udpSessionManager) cleanup(idleOnly bool) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	// We use RLock here as we are only scanning the map, not deleting from it.
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	now := time.Now()
-	for sessionID, entry := range m.m {
+	for _, entry := range m.m {
 		if !idleOnly || now.Sub(entry.Last.Get()) > m.idleTimeout {
-			entry.Closed = true
+			entry.Timeout = true
 			_ = entry.Conn.Close()
-			m.eventLogger.Close(sessionID, nil)
-			delete(m.m, sessionID)
+			// Closing the connection here will cause the ReceiveLoop to exit,
+			// and the session will be removed from the map there.
 		}
 	}
 }
 
 func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
-	m.mutex.Lock()
-
+	m.mutex.RLock()
 	entry := m.m[msg.SessionID]
+	m.mutex.RUnlock()
+
+	// Create a new session if not exists
 	if entry == nil {
-		// New session
 		m.eventLogger.New(msg.SessionID, msg.Addr)
 		conn, err := m.io.UDP(msg.Addr)
 		if err != nil {
-			m.mutex.Unlock()
 			m.eventLogger.Close(msg.SessionID, err)
 			return
 		}
@@ -191,20 +192,25 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 		// Start the receive loop for this session
 		go func() {
 			err := entry.ReceiveLoop(m.io)
-			// Receive loop stopped, remove the session
-			m.mutex.Lock()
-			if !entry.Closed {
-				entry.Closed = true
+			if !entry.Timeout {
 				_ = entry.Conn.Close()
 				m.eventLogger.Close(entry.ID, err)
-				delete(m.m, entry.ID)
+			} else {
+				// Connection already closed by timeout cleanup,
+				// no need to close again here.
+				// Use nil error to indicate timeout.
+				m.eventLogger.Close(entry.ID, nil)
 			}
+			// Remove the session from the map
+			m.mutex.Lock()
+			delete(m.m, entry.ID)
 			m.mutex.Unlock()
 		}()
+		// Insert the session into the map
+		m.mutex.Lock()
 		m.m[msg.SessionID] = entry
+		m.mutex.Unlock()
 	}
-
-	m.mutex.Unlock()
 
 	// Feed the message to the session
 	// Feed (send) errors are ignored for now,
@@ -213,7 +219,7 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 }
 
 func (m *udpSessionManager) Count() int {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	return len(m.m)
 }
