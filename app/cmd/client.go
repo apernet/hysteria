@@ -310,7 +310,7 @@ func runClient(cmd *cobra.Command, args []string) {
 		logger.Fatal("failed to load client config", zap.Error(err))
 	}
 
-	c, err := client.NewClient(hyConfig)
+	c, err := client.NewReconnectableClient(hyConfig, connectLog, false)
 	if err != nil {
 		logger.Fatal("failed to initialize client", zap.Error(err))
 	}
@@ -485,6 +485,15 @@ func (f *obfsConnFactory) New(addr net.Addr) (net.PacketConn, error) {
 		return nil, err
 	}
 	return obfs.WrapPacketConn(conn, f.Obfuscator), nil
+}
+
+func connectLog(count int) {
+	if count == 1 {
+		logger.Info("connected to server")
+	} else {
+		// Not the first time, we have reconnected
+		logger.Info("reconnected to server", zap.Int("count", count))
+	}
 }
 
 type socks5Logger struct{}

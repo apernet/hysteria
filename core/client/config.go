@@ -24,11 +24,16 @@ type Config struct {
 	QUICConfig      QUICConfig
 	BandwidthConfig BandwidthConfig
 	FastOpen        bool
+
+	filled bool // whether the fields have been verified and filled
 }
 
-// fill fills the fields that are not set by the user with default values when possible,
-// and returns an error if the user has not set a required field.
-func (c *Config) fill() error {
+// verifyAndFill fills the fields that are not set by the user with default values when possible,
+// and returns an error if the user has not set a required field or has set an invalid value.
+func (c *Config) verifyAndFill() error {
+	if c.filled {
+		return nil
+	}
 	if c.ConnFactory == nil {
 		c.ConnFactory = &udpConnFactory{}
 	}
@@ -66,6 +71,8 @@ func (c *Config) fill() error {
 		return errors.ConfigError{Field: "QUICConfig.KeepAlivePeriod", Reason: "must be between 2s and 60s"}
 	}
 	c.QUICConfig.DisablePathMTUDiscovery = c.QUICConfig.DisablePathMTUDiscovery || pmtud.DisablePathMTUDiscovery
+
+	c.filled = true
 	return nil
 }
 

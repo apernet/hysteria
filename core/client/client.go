@@ -35,7 +35,7 @@ type HyUDPConn interface {
 }
 
 func NewClient(config *Config) (Client, error) {
-	if err := config.fill(); err != nil {
+	if err := config.verifyAndFill(); err != nil {
 		return nil, err
 	}
 	c := &clientImpl{
