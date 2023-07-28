@@ -29,7 +29,6 @@ type directOutbound struct {
 	DeviceName string // For UDP binding
 }
 
-/*
 // NewDirectOutboundSimple creates a new directOutbound with the given mode,
 // without binding to a specific device. Works on all platforms.
 func NewDirectOutboundSimple(mode DirectOutboundMode) PluggableOutbound {
@@ -40,7 +39,6 @@ func NewDirectOutboundSimple(mode DirectOutboundMode) PluggableOutbound {
 		},
 	}
 }
-*/
 
 // resolve is our built-in DNS resolver for handling the case when
 // AddrEx.ResolveInfo is nil.
@@ -51,23 +49,14 @@ func (d *directOutbound) resolve(reqAddr *AddrEx) {
 		return
 	}
 	r := &ResolveInfo{}
-	for _, ip := range ips {
-		if r.IPv4 == nil && ip.To4() != nil {
-			r.IPv4 = ip
-		}
-		if r.IPv6 == nil && ip.To4() == nil {
-			// We must NOT use ip.To16() here because it will always
-			// return a 16-byte slice, even if the original IP is IPv4.
-			r.IPv6 = ip
-		}
-		if r.IPv4 != nil && r.IPv6 != nil {
-			break
-		}
+	r.IPv4, r.IPv6 = splitIPv4IPv6(ips)
+	if r.IPv4 == nil && r.IPv6 == nil {
+		r.Err = errors.New("no IPv4 or IPv6 address available")
 	}
 	reqAddr.ResolveInfo = r
 }
 
-func (d *directOutbound) DialTCP(reqAddr *AddrEx) (net.Conn, error) {
+func (d *directOutbound) TCP(reqAddr *AddrEx) (net.Conn, error) {
 	if reqAddr.ResolveInfo == nil {
 		// AddrEx.ResolveInfo is nil (no resolver in the pipeline),
 		// we need to resolve the address ourselves.
@@ -252,7 +241,7 @@ func (u *directOutboundUDPConn) Close() error {
 	return u.UDPConn.Close()
 }
 
-func (d *directOutbound) ListenUDP() (UDPConn, error) {
+func (d *directOutbound) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	c, err := net.ListenUDP("udp", nil)
 	if err != nil {
 		return nil, err
