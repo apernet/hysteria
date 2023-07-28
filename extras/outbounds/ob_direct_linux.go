@@ -12,21 +12,23 @@ func NewDirectOutboundBindToDevice(mode DirectOutboundMode, deviceName string) (
 	if err := verifyDeviceName(deviceName); err != nil {
 		return nil, err
 	}
-	return &directOutbound{
-		Mode: mode,
-		Dialer: &net.Dialer{
-			Timeout: defaultDialerTimeout,
-			Control: func(network, address string, c syscall.RawConn) error {
-				var errBind error
-				err := c.Control(func(fd uintptr) {
-					errBind = syscall.BindToDevice(int(fd), deviceName)
-				})
-				if err != nil {
-					return err
-				}
-				return errBind
-			},
+	d := &net.Dialer{
+		Timeout: defaultDialerTimeout,
+		Control: func(network, address string, c syscall.RawConn) error {
+			var errBind error
+			err := c.Control(func(fd uintptr) {
+				errBind = syscall.BindToDevice(int(fd), deviceName)
+			})
+			if err != nil {
+				return err
+			}
+			return errBind
 		},
+	}
+	return &directOutbound{
+		Mode:       mode,
+		Dialer4:    d,
+		Dialer6:    d,
 		DeviceName: deviceName,
 	}, nil
 }
