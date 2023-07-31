@@ -34,6 +34,7 @@ acme:
 #   down: 100 mbps
 
 # disableUDP: false
+# udpIdleTimeout: 60s
 
 auth:
   type: password
