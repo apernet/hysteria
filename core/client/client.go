@@ -13,8 +13,8 @@ import (
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/apernet/hysteria/core/internal/utils"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/http3"
+	"github.com/apernet/quic-go"
+	"github.com/apernet/quic-go/http3"
 )
 
 const (
@@ -270,7 +270,7 @@ type udpIOImpl struct {
 
 func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
 	for {
-		msg, err := io.Conn.ReceiveMessage()
+		msg, err := io.Conn.ReceiveMessage(context.Background())
 		if err != nil {
 			// Connection error, this will stop the session manager
 			return nil, err

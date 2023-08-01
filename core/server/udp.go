@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/quic-go/quic-go"
+	"github.com/apernet/quic-go"
 
 	"github.com/apernet/hysteria/core/internal/frag"
 	"github.com/apernet/hysteria/core/internal/protocol"

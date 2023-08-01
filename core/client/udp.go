@@ -6,10 +6,11 @@ import (
 	"math/rand"
 	"sync"
 
+	"github.com/apernet/quic-go"
+
 	coreErrs "github.com/apernet/hysteria/core/errors"
 	"github.com/apernet/hysteria/core/internal/frag"
 	"github.com/apernet/hysteria/core/internal/protocol"
-	"github.com/quic-go/quic-go"
 )
 
 const (
