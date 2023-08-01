@@ -9,7 +9,7 @@ require (
 )
 
 require (
-	github.com/apernet/quic-go v0.37.2-0.20230731235018-6dccf9f8de2c // indirect
+	github.com/apernet/quic-go v0.37.2-0.20230801020402-411ff2bef8f8 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/golang/mock v1.6.0 // indirect
