@@ -22,3 +22,19 @@ func splitIPv4IPv6(ips []net.IP) (ipv4, ipv6 net.IP) {
 	}
 	return
 }
+
+// tryParseIP tries to parse the host string in the AddrEx as an IP address.
+// If the host is indeed an IP address, it will fill the ResolveInfo with the
+// parsed IP address and return true. Otherwise, it will return false.
+func tryParseIP(addr *AddrEx) bool {
+	if ip := net.ParseIP(addr.Host); ip != nil {
+		addr.ResolveInfo = &ResolveInfo{}
+		if ip.To4() != nil {
+			addr.ResolveInfo.IPv4 = ip
+		} else {
+			addr.ResolveInfo.IPv6 = ip
+		}
+		return true
+	}
+	return false
+}

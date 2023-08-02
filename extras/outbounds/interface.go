@@ -48,6 +48,12 @@ func (a *AddrEx) String() string {
 	return net.JoinHostPort(a.Host, strconv.Itoa(int(a.Port)))
 }
 
+// ResolveInfo contains the resolved IP addresses from the resolver, and any
+// error that occurred during the resolution.
+// Note that there could be no error but also no resolved IP addresses,
+// or there could be an error but also some resolved IP addresses.
+// It's up to the actual outbound implementation to decide how to handle
+// these cases.
 type ResolveInfo struct {
 	IPv4 net.IP
 	IPv6 net.IP

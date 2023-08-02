@@ -68,6 +68,22 @@ func (e invalidOutboundModeError) Error() string {
 	return "invalid outbound mode"
 }
 
+type resolveError struct {
+	Err error
+}
+
+func (e resolveError) Error() string {
+	if e.Err == nil {
+		return "resolve error"
+	} else {
+		return "resolve error: " + e.Err.Error()
+	}
+}
+
+func (e resolveError) Unwrap() error {
+	return e.Err
+}
+
 // NewDirectOutboundSimple creates a new directOutbound with the given mode,
 // without binding to a specific device. Works on all platforms.
 func NewDirectOutboundSimple(mode DirectOutboundMode) PluggableOutbound {
@@ -143,7 +159,7 @@ func (d *directOutbound) TCP(reqAddr *AddrEx) (net.Conn, error) {
 		// ResolveInfo not nil but no address available,
 		// this can only mean that the resolver failed.
 		// Return the error from the resolver.
-		return nil, r.Err
+		return nil, resolveError{Err: r.Err}
 	}
 	switch d.Mode {
 	case DirectOutboundModeAuto:
@@ -250,7 +266,7 @@ func (u *directOutboundUDPConn) WriteTo(b []byte, addr *AddrEx) (int, error) {
 	}
 	r := addr.ResolveInfo
 	if r.IPv4 == nil && r.IPv6 == nil {
-		return 0, r.Err
+		return 0, resolveError{Err: r.Err}
 	}
 	if u.State == udpConnStateIPv4 {
 		if r.IPv4 != nil {
@@ -367,7 +383,7 @@ func (d *directOutbound) UDP(reqAddr *AddrEx) (UDPConn, error) {
 		}
 		r := reqAddr.ResolveInfo
 		if r.IPv4 == nil && r.IPv6 == nil {
-			return nil, r.Err
+			return nil, resolveError{Err: r.Err}
 		}
 		var bindIP net.IP      // can be nil, in which case we still lock the address family but don't bind to any address
 		var state udpConnState // either IPv4 or IPv6

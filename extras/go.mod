@@ -4,8 +4,9 @@ go 1.20
 
 require (
 	github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
+	github.com/miekg/dns v1.1.55
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/crypto v0.4.0
+	golang.org/x/crypto v0.11.0
 )
 
 require (
@@ -20,11 +21,11 @@ require (
 	github.com/quic-go/qtls-go1-20 v0.3.0 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
-	golang.org/x/mod v0.10.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
-	golang.org/x/tools v0.9.1 // indirect
+	golang.org/x/mod v0.12.0 // indirect
+	golang.org/x/net v0.12.0 // indirect
+	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/tools v0.11.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
