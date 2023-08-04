@@ -33,17 +33,18 @@ func init() {
 }
 
 type serverConfig struct {
-	Listen         string                 `mapstructure:"listen"`
-	Obfs           serverConfigObfs       `mapstructure:"obfs"`
-	TLS            *serverConfigTLS       `mapstructure:"tls"`
-	ACME           *serverConfigACME      `mapstructure:"acme"`
-	QUIC           serverConfigQUIC       `mapstructure:"quic"`
-	Bandwidth      serverConfigBandwidth  `mapstructure:"bandwidth"`
-	DisableUDP     bool                   `mapstructure:"disableUDP"`
-	UDPIdleTimeout time.Duration          `mapstructure:"udpIdleTimeout"`
-	Auth           serverConfigAuth       `mapstructure:"auth"`
-	Resolver       serverConfigResolver   `mapstructure:"resolver"`
-	Masquerade     serverConfigMasquerade `mapstructure:"masquerade"`
+	Listen         string                      `mapstructure:"listen"`
+	Obfs           serverConfigObfs            `mapstructure:"obfs"`
+	TLS            *serverConfigTLS            `mapstructure:"tls"`
+	ACME           *serverConfigACME           `mapstructure:"acme"`
+	QUIC           serverConfigQUIC            `mapstructure:"quic"`
+	Bandwidth      serverConfigBandwidth       `mapstructure:"bandwidth"`
+	DisableUDP     bool                        `mapstructure:"disableUDP"`
+	UDPIdleTimeout time.Duration               `mapstructure:"udpIdleTimeout"`
+	Auth           serverConfigAuth            `mapstructure:"auth"`
+	Resolver       serverConfigResolver        `mapstructure:"resolver"`
+	Outbounds      []serverConfigOutboundEntry `mapstructure:"outbounds"`
+	Masquerade     serverConfigMasquerade      `mapstructure:"masquerade"`
 }
 
 type serverConfigObfsSalamander struct {
@@ -113,6 +114,19 @@ type serverConfigResolver struct {
 	TCP  serverConfigResolverTCP `mapstructure:"tcp"`
 	UDP  serverConfigResolverUDP `mapstructure:"udp"`
 	TLS  serverConfigResolverTLS `mapstructure:"tls"`
+}
+
+type serverConfigOutboundDirect struct {
+	Mode       string `mapstructure:"mode"`
+	BindIPv4   string `mapstructure:"bindIPv4"`
+	BindIPv6   string `mapstructure:"bindIPv6"`
+	BindDevice string `mapstructure:"bindDevice"`
+}
+
+type serverConfigOutboundEntry struct {
+	Name   string                     `mapstructure:"name"`
+	Type   string                     `mapstructure:"type"`
+	Direct serverConfigOutboundDirect `mapstructure:"direct"`
 }
 
 type serverConfigMasqueradeFile struct {
@@ -240,13 +254,66 @@ func (c *serverConfig) fillQUICConfig(hyConfig *server.Config) error {
 	return nil
 }
 
+func serverConfigOutboundDirectToOutbound(c serverConfigOutboundDirect) (outbounds.PluggableOutbound, error) {
+	var mode outbounds.DirectOutboundMode
+	switch strings.ToLower(c.Mode) {
+	case "", "auto":
+		mode = outbounds.DirectOutboundModeAuto
+	case "64":
+		mode = outbounds.DirectOutboundMode64
+	case "46":
+		mode = outbounds.DirectOutboundMode46
+	case "6":
+		mode = outbounds.DirectOutboundMode6
+	case "4":
+		mode = outbounds.DirectOutboundMode4
+	default:
+		return nil, configError{Field: "outbounds.direct.mode", Err: errors.New("unsupported mode")}
+	}
+	bindIP := len(c.BindIPv4) > 0 || len(c.BindIPv6) > 0
+	bindDevice := len(c.BindDevice) > 0
+	if bindIP && bindDevice {
+		return nil, configError{Field: "outbounds.direct", Err: errors.New("cannot bind both IP and device")}
+	}
+	if bindIP {
+		ip4, ip6 := net.ParseIP(c.BindIPv4), net.ParseIP(c.BindIPv6)
+		if len(c.BindIPv4) > 0 && ip4 == nil {
+			return nil, configError{Field: "outbounds.direct.bindIPv4", Err: errors.New("invalid IPv4 address")}
+		}
+		if len(c.BindIPv6) > 0 && ip6 == nil {
+			return nil, configError{Field: "outbounds.direct.bindIPv6", Err: errors.New("invalid IPv6 address")}
+		}
+		return outbounds.NewDirectOutboundBindToIPs(mode, ip4, ip6)
+	}
+	if bindDevice {
+		return outbounds.NewDirectOutboundBindToDevice(mode, c.BindDevice)
+	}
+	return outbounds.NewDirectOutboundSimple(mode), nil
+}
+
 func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	// Resolver, ACL, actual outbound are all implemented through the Outbound interface.
 	// Depending on the config, we build a chain like this:
 	// Resolver(ACL(Outbounds...))
 
 	// Outbounds
-	ob := outbounds.NewDirectOutboundSimple(outbounds.DirectOutboundModeAuto)
+	var ob outbounds.PluggableOutbound
+	if len(c.Outbounds) == 0 {
+		ob = outbounds.NewDirectOutboundSimple(outbounds.DirectOutboundModeAuto)
+	} else {
+		// Multiple-outbound is for ACL only, not supported yet.
+		var err error
+		entry := c.Outbounds[0]
+		switch strings.ToLower(entry.Type) {
+		case "direct":
+			ob, err = serverConfigOutboundDirectToOutbound(entry.Direct)
+		default:
+			err = configError{Field: "outbounds.type", Err: errors.New("unsupported outbound type")}
+		}
+		if err != nil {
+			return err
+		}
+	}
 
 	// Resolver
 	switch strings.ToLower(c.Resolver.Type) {
