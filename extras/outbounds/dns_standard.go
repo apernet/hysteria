@@ -1,6 +1,7 @@
 package outbounds
 
 import (
+	"crypto/tls"
 	"net"
 	"time"
 
@@ -42,10 +43,33 @@ func NewStandardResolverTCP(addr string, timeout time.Duration, next PluggableOu
 	}
 }
 
+func NewStandardResolverTLS(addr string, timeout time.Duration, sni string, insecure bool, next PluggableOutbound) PluggableOutbound {
+	return &standardResolver{
+		Addr: addDefaultPortTLS(addr),
+		Client: &dns.Client{
+			Net:     "tcp-tls",
+			Timeout: timeoutOrDefault(timeout),
+			TLSConfig: &tls.Config{
+				ServerName:         sni,
+				InsecureSkipVerify: insecure,
+			},
+		},
+		Next: next,
+	}
+}
+
 // addDefaultPort adds the default DNS port (53) to the address if not present.
 func addDefaultPort(addr string) string {
 	if _, _, err := net.SplitHostPort(addr); err != nil {
 		return net.JoinHostPort(addr, "53")
+	}
+	return addr
+}
+
+// addDefaultPortTLS adds the default DNS-over-TLS port (853) to the address if not present.
+func addDefaultPortTLS(addr string) string {
+	if _, _, err := net.SplitHostPort(addr); err != nil {
+		return net.JoinHostPort(addr, "853")
 	}
 	return addr
 }

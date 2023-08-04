@@ -101,10 +101,18 @@ type serverConfigResolverUDP struct {
 	Timeout time.Duration `mapstructure:"timeout"`
 }
 
+type serverConfigResolverTLS struct {
+	Addr     string        `mapstructure:"addr"`
+	Timeout  time.Duration `mapstructure:"timeout"`
+	SNI      string        `mapstructure:"sni"`
+	Insecure bool          `mapstructure:"insecure"`
+}
+
 type serverConfigResolver struct {
 	Type string                  `mapstructure:"type"`
 	TCP  serverConfigResolverTCP `mapstructure:"tcp"`
 	UDP  serverConfigResolverUDP `mapstructure:"udp"`
+	TLS  serverConfigResolverTLS `mapstructure:"tls"`
 }
 
 type serverConfigMasqueradeFile struct {
@@ -254,6 +262,11 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 			return configError{Field: "resolver.udp.addr", Err: errors.New("empty resolver address")}
 		}
 		ob = outbounds.NewStandardResolverUDP(c.Resolver.UDP.Addr, c.Resolver.UDP.Timeout, ob)
+	case "tls", "tcp-tls":
+		if c.Resolver.TLS.Addr == "" {
+			return configError{Field: "resolver.tls.addr", Err: errors.New("empty resolver address")}
+		}
+		ob = outbounds.NewStandardResolverTLS(c.Resolver.TLS.Addr, c.Resolver.TLS.Timeout, c.Resolver.TLS.SNI, c.Resolver.TLS.Insecure, ob)
 	default:
 		return configError{Field: "resolver.type", Err: errors.New("unsupported resolver type")}
 	}

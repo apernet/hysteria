@@ -41,10 +41,12 @@ auth:
   password: some_password
 
 # resolver:
-#   type: udp
-#   udp:
-#     addr: 8.8.4.4
-#     timeout: 2s
+#   type: tls
+#   tls:
+#     addr: dot.yolo.com:8853
+#     timeout: 10s
+#     sni: server1.yolo.net
+#     insecure: true
 
 masquerade:
   type: proxy

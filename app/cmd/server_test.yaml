@@ -49,6 +49,11 @@ resolver:
   udp:
     addr: 4.6.8.0:53
     timeout: 2s
+  tls:
+    addr: dot.yolo.com:8853
+    timeout: 10s
+    sni: server1.yolo.net
+    insecure: true
 
 masquerade:
   type: proxy

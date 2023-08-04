@@ -71,6 +71,12 @@ func TestServerConfig(t *testing.T) {
 				Addr:    "4.6.8.0:53",
 				Timeout: 2 * time.Second,
 			},
+			TLS: serverConfigResolverTLS{
+				Addr:     "dot.yolo.com:8853",
+				Timeout:  10 * time.Second,
+				SNI:      "server1.yolo.net",
+				Insecure: true,
+			},
 		},
 		Masquerade: serverConfigMasquerade{
 			Type: "proxy",
