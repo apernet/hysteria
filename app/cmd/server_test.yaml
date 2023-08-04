@@ -41,6 +41,15 @@ auth:
   type: password
   password: goofy_ahh_password
 
+resolver:
+  type: udp
+  tcp:
+    addr: 123.123.123.123:5353
+    timeout: 4s
+  udp:
+    addr: 4.6.8.0:53
+    timeout: 2s
+
 masquerade:
   type: proxy
   file:

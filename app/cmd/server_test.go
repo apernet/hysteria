@@ -61,6 +61,17 @@ func TestServerConfig(t *testing.T) {
 			Type:     "password",
 			Password: "goofy_ahh_password",
 		},
+		Resolver: serverConfigResolver{
+			Type: "udp",
+			TCP: serverConfigResolverTCP{
+				Addr:    "123.123.123.123:5353",
+				Timeout: 4 * time.Second,
+			},
+			UDP: serverConfigResolverUDP{
+				Addr:    "4.6.8.0:53",
+				Timeout: 2 * time.Second,
+			},
+		},
 		Masquerade: serverConfigMasquerade{
 			Type: "proxy",
 			File: serverConfigMasqueradeFile{

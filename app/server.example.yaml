@@ -40,6 +40,12 @@ auth:
   type: password
   password: some_password
 
+# resolver:
+#   type: udp
+#   udp:
+#     addr: 8.8.4.4
+#     timeout: 2s
+
 masquerade:
   type: proxy
   proxy:

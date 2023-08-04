@@ -19,6 +19,7 @@ import (
 	"github.com/apernet/hysteria/core/server"
 	"github.com/apernet/hysteria/extras/auth"
 	"github.com/apernet/hysteria/extras/obfs"
+	"github.com/apernet/hysteria/extras/outbounds"
 )
 
 var serverCmd = &cobra.Command{
@@ -41,6 +42,7 @@ type serverConfig struct {
 	DisableUDP     bool                   `mapstructure:"disableUDP"`
 	UDPIdleTimeout time.Duration          `mapstructure:"udpIdleTimeout"`
 	Auth           serverConfigAuth       `mapstructure:"auth"`
+	Resolver       serverConfigResolver   `mapstructure:"resolver"`
 	Masquerade     serverConfigMasquerade `mapstructure:"masquerade"`
 }
 
@@ -87,6 +89,22 @@ type serverConfigBandwidth struct {
 type serverConfigAuth struct {
 	Type     string `mapstructure:"type"`
 	Password string `mapstructure:"password"`
+}
+
+type serverConfigResolverTCP struct {
+	Addr    string        `mapstructure:"addr"`
+	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+type serverConfigResolverUDP struct {
+	Addr    string        `mapstructure:"addr"`
+	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+type serverConfigResolver struct {
+	Type string                  `mapstructure:"type"`
+	TCP  serverConfigResolverTCP `mapstructure:"tcp"`
+	UDP  serverConfigResolverUDP `mapstructure:"udp"`
 }
 
 type serverConfigMasqueradeFile struct {
@@ -214,6 +232,36 @@ func (c *serverConfig) fillQUICConfig(hyConfig *server.Config) error {
 	return nil
 }
 
+func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
+	// Resolver, ACL, actual outbound are all implemented through the Outbound interface.
+	// Depending on the config, we build a chain like this:
+	// Resolver(ACL(Outbounds...))
+
+	// Outbounds
+	ob := outbounds.NewDirectOutboundSimple(outbounds.DirectOutboundModeAuto)
+
+	// Resolver
+	switch strings.ToLower(c.Resolver.Type) {
+	case "", "system":
+		// Do nothing. DirectOutbound will use system resolver by default.
+	case "tcp":
+		if c.Resolver.TCP.Addr == "" {
+			return configError{Field: "resolver.tcp.addr", Err: errors.New("empty resolver address")}
+		}
+		ob = outbounds.NewStandardResolverTCP(c.Resolver.TCP.Addr, c.Resolver.TCP.Timeout, ob)
+	case "udp":
+		if c.Resolver.UDP.Addr == "" {
+			return configError{Field: "resolver.udp.addr", Err: errors.New("empty resolver address")}
+		}
+		ob = outbounds.NewStandardResolverUDP(c.Resolver.UDP.Addr, c.Resolver.UDP.Timeout, ob)
+	default:
+		return configError{Field: "resolver.type", Err: errors.New("unsupported resolver type")}
+	}
+
+	hyConfig.Outbound = &outbounds.PluggableOutboundAdapter{PluggableOutbound: ob}
+	return nil
+}
+
 func (c *serverConfig) fillBandwidthConfig(hyConfig *server.Config) error {
 	var err error
 	if c.Bandwidth.Up != "" {
@@ -308,6 +356,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 		c.fillConn,
 		c.fillTLSConfig,
 		c.fillQUICConfig,
+		c.fillOutboundConfig,
 		c.fillBandwidthConfig,
 		c.fillDisableUDP,
 		c.fillUDPIdleTimeout,
@@ -320,6 +369,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 			return nil, err
 		}
 	}
+
 	return hyConfig, nil
 }
 

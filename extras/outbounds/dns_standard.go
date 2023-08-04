@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	standardResolverRetryTimes = 2
+	standardResolverDefaultTimeout = 2 * time.Second
+	standardResolverRetryTimes     = 2
 )
 
 // standardResolver is a PluggableOutbound DNS resolver that resolves hostnames
@@ -22,9 +23,9 @@ type standardResolver struct {
 
 func NewStandardResolverUDP(addr string, timeout time.Duration, next PluggableOutbound) PluggableOutbound {
 	return &standardResolver{
-		Addr: addr,
+		Addr: addDefaultPort(addr),
 		Client: &dns.Client{
-			Timeout: timeout,
+			Timeout: timeoutOrDefault(timeout),
 		},
 		Next: next,
 	}
@@ -32,13 +33,28 @@ func NewStandardResolverUDP(addr string, timeout time.Duration, next PluggableOu
 
 func NewStandardResolverTCP(addr string, timeout time.Duration, next PluggableOutbound) PluggableOutbound {
 	return &standardResolver{
-		Addr: addr,
+		Addr: addDefaultPort(addr),
 		Client: &dns.Client{
 			Net:     "tcp",
-			Timeout: timeout,
+			Timeout: timeoutOrDefault(timeout),
 		},
 		Next: next,
 	}
+}
+
+// addDefaultPort adds the default DNS port (53) to the address if not present.
+func addDefaultPort(addr string) string {
+	if _, _, err := net.SplitHostPort(addr); err != nil {
+		return net.JoinHostPort(addr, "53")
+	}
+	return addr
+}
+
+func timeoutOrDefault(timeout time.Duration) time.Duration {
+	if timeout == 0 {
+		return standardResolverDefaultTimeout
+	}
+	return timeout
 }
 
 // skipCNAMEChain skips the CNAME chain and returns the last CNAME target.
