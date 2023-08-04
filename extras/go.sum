@@ -1,5 +1,5 @@
-github.com/apernet/quic-go v0.37.2-0.20230801020402-411ff2bef8f8 h1:3gh/Aeg3mBtm0UBLk3auQNpI8QdVvrVEXv/N6RKByFI=
-github.com/apernet/quic-go v0.37.2-0.20230801020402-411ff2bef8f8/go.mod h1:tKbqlrErvfl0qmDz6L0qpAGEZ/WduGkn4lwNTT7HyXg=
+github.com/apernet/quic-go v0.37.3-0.20230804221709-80e23a7cabb6 h1:VGarn1dzEDMVAOX5W1O40BskFuyHgbUIfga3dDvyhgQ=
+github.com/apernet/quic-go v0.37.3-0.20230804221709-80e23a7cabb6/go.mod h1:Gqxx9qMiutRcTLNlbdPwuI9dF8+GV2GQG+5mVW0E34I=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
@@ -27,8 +27,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/quic-go/qpack v0.4.0 h1:Cr9BXA1sQS2SmDUWjSofMPNKmvF6IiIfDRmgU0w1ZCo=
 github.com/quic-go/qpack v0.4.0/go.mod h1:UZVnYIfi5GRk+zI9UMaCPsmZ2xKJP7XBUvVyT1Knj9A=
-github.com/quic-go/qtls-go1-20 v0.3.0 h1:NrCXmDl8BddZwO67vlvEpBTwT89bJfKYygxv4HQvuDk=
-github.com/quic-go/qtls-go1-20 v0.3.0/go.mod h1:X9Nh97ZL80Z+bX/gUXMbipO6OxdiDi58b/fMC9mAL+k=
+github.com/quic-go/qtls-go1-20 v0.3.1 h1:O4BLOM3hwfVF3AcktIylQXyl7Yi2iBNVy5QsV+ySxbg=
+github.com/quic-go/qtls-go1-20 v0.3.1/go.mod h1:X9Nh97ZL80Z+bX/gUXMbipO6OxdiDi58b/fMC9mAL+k=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0 h1:1zr/of2m5FGMsad5YfcqgdqdWrIhu+EBEJRhR1U7z/c=

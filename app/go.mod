@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	github.com/apernet/quic-go v0.37.2-0.20230801020402-411ff2bef8f8 // indirect
+	github.com/apernet/quic-go v0.37.3-0.20230804221709-80e23a7cabb6 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
@@ -34,7 +34,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.3.0 // indirect
+	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect

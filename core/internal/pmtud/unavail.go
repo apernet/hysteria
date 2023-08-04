@@ -1,11 +1,12 @@
-//go:build !linux && !windows
+//go:build !linux && !windows && !darwin
 
 package pmtud
 
-// quic-go's MTU discovery is enabled by default across all platforms. However, our testing has found that on certain
-// platforms (e.g. macOS) the DF bit is not set. As a result, probe packets that should never be fragmented are still
-// fragmented and transmitted. So we have decided to enable MTU discovery only on Linux and Windows for now, as we have
-// verified its functionality on these platforms.
+// quic-go's MTU detection is enabled by default on all platforms.
+// However, it only actually sets the DF bit on 3 supported platforms (Windows, macOS, Linux).
+// As a result, on other platforms, probe packets that should never be fragmented will still
+// be fragmented and transmitted. So we're only enabling it for platforms where we've verified
+// its functionality for now.
 
 const (
 	DisablePathMTUDiscovery = true

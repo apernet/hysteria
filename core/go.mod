@@ -3,7 +3,7 @@ module github.com/apernet/hysteria/core
 go 1.20
 
 require (
-	github.com/apernet/quic-go v0.37.2-0.20230801020402-411ff2bef8f8
+	github.com/apernet/quic-go v0.37.3-0.20230804221709-80e23a7cabb6
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/goleak v1.2.1
 	golang.org/x/time v0.3.0
@@ -19,7 +19,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.3.0 // indirect
+	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
