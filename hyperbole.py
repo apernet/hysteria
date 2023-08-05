@@ -162,7 +162,7 @@ def cmd_build(pprof=False, release=False):
         print("Built %s" % out_name)
 
 
-def cmd_run(args):
+def cmd_run(args, pprof=False):
     if not check_build_env():
         return
 
@@ -182,6 +182,9 @@ def cmd_run(args):
     ]
 
     cmd = ["go", "run", "-ldflags", " ".join(ldflags)]
+    if pprof:
+        cmd.append("-tags")
+        cmd.append("pprof")
     cmd.append(APP_SRC_DIR)
     cmd.extend(args)
 
@@ -237,6 +240,8 @@ def main():
 
     # Run
     p_run = p_cmd.add_parser("run", help="Run the app")
+    p_run.add_argument("-p", "--pprof", action="store_true",
+                       help="Run with pprof enabled")
     p_run.add_argument("args", nargs=argparse.REMAINDER)
 
     # Build
@@ -261,7 +266,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "run":
-        cmd_run(args.args)
+        cmd_run(args.args, args.pprof)
     elif args.command == "build":
         cmd_build(args.pprof, args.release)
     elif args.command == "format":
