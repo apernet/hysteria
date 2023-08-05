@@ -9,7 +9,9 @@ import (
 	"time"
 
 	coreErrs "github.com/apernet/hysteria/core/errors"
-	"github.com/apernet/hysteria/core/internal/congestion"
+	"github.com/apernet/hysteria/core/internal/congestion/bbr"
+	"github.com/apernet/hysteria/core/internal/congestion/brutal"
+	"github.com/apernet/hysteria/core/internal/congestion/common"
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/apernet/hysteria/core/internal/utils"
 
@@ -123,9 +125,16 @@ func (c *clientImpl) connect() error {
 	if actualTx == 0 || actualTx > c.config.BandwidthConfig.MaxTx {
 		actualTx = c.config.BandwidthConfig.MaxTx
 	}
-	// Set congestion control when applicable
+	// Use Brutal CC if actualTx > 0, otherwise use BBR
 	if actualTx > 0 {
-		conn.SetCongestionControl(congestion.NewBrutalSender(actualTx))
+		conn.SetCongestionControl(brutal.NewBrutalSender(actualTx))
+	} else {
+		conn.SetCongestionControl(bbr.NewBBRSender(
+			bbr.DefaultClock{},
+			bbr.GetInitialPacketSize(conn.RemoteAddr()),
+			32*common.InitMaxDatagramSize,
+			bbr.DefaultBBRMaxCongestionWindow*common.InitMaxDatagramSize,
+		))
 	}
 	_ = resp.Body.Close()
 

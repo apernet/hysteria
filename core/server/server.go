@@ -9,7 +9,9 @@ import (
 	"github.com/apernet/quic-go"
 	"github.com/apernet/quic-go/http3"
 
-	"github.com/apernet/hysteria/core/internal/congestion"
+	"github.com/apernet/hysteria/core/internal/congestion/bbr"
+	"github.com/apernet/hysteria/core/internal/congestion/brutal"
+	"github.com/apernet/hysteria/core/internal/congestion/common"
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/apernet/hysteria/core/internal/utils"
 )
@@ -126,9 +128,16 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// Set authenticated flag
 			h.authenticated = true
 			h.authID = id
-			// Update congestion control when applicable
+			// Use Brutal CC if actualTx > 0, otherwise use BBR
 			if actualTx > 0 {
-				h.conn.SetCongestionControl(congestion.NewBrutalSender(actualTx))
+				h.conn.SetCongestionControl(brutal.NewBrutalSender(actualTx))
+			} else {
+				h.conn.SetCongestionControl(bbr.NewBBRSender(
+					bbr.DefaultClock{},
+					bbr.GetInitialPacketSize(h.conn.RemoteAddr()),
+					32*common.InitMaxDatagramSize,
+					bbr.DefaultBBRMaxCongestionWindow*common.InitMaxDatagramSize,
+				))
 			}
 			// Auth OK, send response
 			protocol.AuthResponseDataToHeader(w.Header(), !h.config.DisableUDP, h.config.BandwidthConfig.MaxRx)

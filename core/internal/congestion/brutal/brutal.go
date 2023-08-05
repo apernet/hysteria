@@ -1,14 +1,14 @@
-package congestion
+package brutal
 
 import (
 	"time"
+
+	"github.com/apernet/hysteria/core/internal/congestion/common"
 
 	"github.com/apernet/quic-go/congestion"
 )
 
 const (
-	initMaxDatagramSize = 1252
-
 	pktInfoSlotCount = 4
 	minSampleCount   = 50
 	minAckRate       = 0.8
@@ -20,7 +20,7 @@ type BrutalSender struct {
 	rttStats        congestion.RTTStatsProvider
 	bps             congestion.ByteCount
 	maxDatagramSize congestion.ByteCount
-	pacer           *pacer
+	pacer           *common.Pacer
 
 	pktInfoSlots [pktInfoSlotCount]pktInfo
 	ackRate      float64
@@ -35,10 +35,10 @@ type pktInfo struct {
 func NewBrutalSender(bps uint64) *BrutalSender {
 	bs := &BrutalSender{
 		bps:             congestion.ByteCount(bps),
-		maxDatagramSize: initMaxDatagramSize,
+		maxDatagramSize: common.InitMaxDatagramSize,
 		ackRate:         1,
 	}
-	bs.pacer = newPacer(func() congestion.ByteCount {
+	bs.pacer = common.NewPacer(func() congestion.ByteCount {
 		return congestion.ByteCount(float64(bs.bps) / bs.ackRate)
 	})
 	return bs
@@ -142,10 +142,3 @@ func (b *BrutalSender) InRecovery() bool {
 func (b *BrutalSender) MaybeExitSlowStart() {}
 
 func (b *BrutalSender) OnRetransmissionTimeout(packetsRetransmitted bool) {}
-
-func maxDuration(a, b time.Duration) time.Duration {
-	if a > b {
-		return a
-	}
-	return b
-}

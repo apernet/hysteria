@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/apernet/quic-go v0.37.3-0.20230804221709-80e23a7cabb6
 	github.com/stretchr/testify v1.8.4
+	github.com/zhangyunhao116/fastrand v0.3.0
 	go.uber.org/goleak v1.2.1
 	golang.org/x/time v0.3.0
 )

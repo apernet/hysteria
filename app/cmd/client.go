@@ -185,7 +185,8 @@ func (c *clientConfig) fillQUICConfig(hyConfig *client.Config) error {
 
 func (c *clientConfig) fillBandwidthConfig(hyConfig *client.Config) error {
 	if c.Bandwidth.Up == "" || c.Bandwidth.Down == "" {
-		return configError{Field: "bandwidth", Err: errors.New("both up and down bandwidth must be set")}
+		// New core now allows users to omit bandwidth values and use built-in congestion control
+		return nil
 	}
 	var err error
 	hyConfig.BandwidthConfig.MaxTx, err = convBandwidth(c.Bandwidth.Up)
