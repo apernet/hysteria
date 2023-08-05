@@ -132,7 +132,7 @@ func (c *clientImpl) connect() error {
 		conn.SetCongestionControl(bbr.NewBBRSender(
 			bbr.DefaultClock{},
 			bbr.GetInitialPacketSize(conn.RemoteAddr()),
-			32*common.InitMaxDatagramSize,
+			bbr.InitialCongestionWindow*common.InitMaxDatagramSize,
 			bbr.DefaultBBRMaxCongestionWindow*common.InitMaxDatagramSize,
 		))
 	}

@@ -184,18 +184,19 @@ func (c *clientConfig) fillQUICConfig(hyConfig *client.Config) error {
 }
 
 func (c *clientConfig) fillBandwidthConfig(hyConfig *client.Config) error {
-	if c.Bandwidth.Up == "" || c.Bandwidth.Down == "" {
-		// New core now allows users to omit bandwidth values and use built-in congestion control
-		return nil
-	}
+	// New core now allows users to omit bandwidth values and use built-in congestion control
 	var err error
-	hyConfig.BandwidthConfig.MaxTx, err = convBandwidth(c.Bandwidth.Up)
-	if err != nil {
-		return configError{Field: "bandwidth.up", Err: err}
+	if c.Bandwidth.Up != "" {
+		hyConfig.BandwidthConfig.MaxTx, err = convBandwidth(c.Bandwidth.Up)
+		if err != nil {
+			return configError{Field: "bandwidth.up", Err: err}
+		}
 	}
-	hyConfig.BandwidthConfig.MaxRx, err = convBandwidth(c.Bandwidth.Down)
-	if err != nil {
-		return configError{Field: "bandwidth.down", Err: err}
+	if c.Bandwidth.Down != "" {
+		hyConfig.BandwidthConfig.MaxRx, err = convBandwidth(c.Bandwidth.Down)
+		if err != nil {
+			return configError{Field: "bandwidth.down", Err: err}
+		}
 	}
 	return nil
 }

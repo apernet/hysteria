@@ -135,7 +135,7 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				h.conn.SetCongestionControl(bbr.NewBBRSender(
 					bbr.DefaultClock{},
 					bbr.GetInitialPacketSize(h.conn.RemoteAddr()),
-					32*common.InitMaxDatagramSize,
+					bbr.InitialCongestionWindow*common.InitMaxDatagramSize,
 					bbr.DefaultBBRMaxCongestionWindow*common.InitMaxDatagramSize,
 				))
 			}
