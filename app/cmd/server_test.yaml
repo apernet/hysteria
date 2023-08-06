@@ -40,6 +40,10 @@ udpIdleTimeout: 120s
 auth:
   type: password
   password: goofy_ahh_password
+  userpass:
+    yolo: swag
+    lol: kek
+    foo: bar
 
 resolver:
   type: udp

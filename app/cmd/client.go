@@ -231,7 +231,13 @@ func (c *clientConfig) URI() string {
 	}
 	var user *url.Userinfo
 	if c.Auth != "" {
-		user = url.User(c.Auth)
+		// We need to handle the special case of user:pass pairs
+		rs := strings.SplitN(c.Auth, ":", 2)
+		if len(rs) == 2 {
+			user = url.UserPassword(rs[0], rs[1])
+		} else {
+			user = url.User(c.Auth)
+		}
 	}
 	u := url.URL{
 		Scheme:   "hysteria2",

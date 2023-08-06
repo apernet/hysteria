@@ -60,6 +60,11 @@ func TestServerConfig(t *testing.T) {
 		Auth: serverConfigAuth{
 			Type:     "password",
 			Password: "goofy_ahh_password",
+			UserPass: map[string]string{
+				"yolo": "swag",
+				"lol":  "kek",
+				"foo":  "bar",
+			},
 		},
 		Resolver: serverConfigResolver{
 			Type: "udp",

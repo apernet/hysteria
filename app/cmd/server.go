@@ -88,8 +88,9 @@ type serverConfigBandwidth struct {
 }
 
 type serverConfigAuth struct {
-	Type     string `mapstructure:"type"`
-	Password string `mapstructure:"password"`
+	Type     string            `mapstructure:"type"`
+	Password string            `mapstructure:"password"`
+	UserPass map[string]string `mapstructure:"userpass"`
 }
 
 type serverConfigResolverTCP struct {
@@ -379,6 +380,12 @@ func (c *serverConfig) fillAuthenticator(hyConfig *server.Config) error {
 			return configError{Field: "auth.password", Err: errors.New("empty auth password")}
 		}
 		hyConfig.Authenticator = &auth.PasswordAuthenticator{Password: c.Auth.Password}
+		return nil
+	case "userpass":
+		if len(c.Auth.UserPass) == 0 {
+			return configError{Field: "auth.userpass", Err: errors.New("empty auth userpass")}
+		}
+		hyConfig.Authenticator = &auth.UserPassAuthenticator{Users: c.Auth.UserPass}
 		return nil
 	default:
 		return configError{Field: "auth.type", Err: errors.New("unsupported auth type")}

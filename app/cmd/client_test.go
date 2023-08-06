@@ -90,6 +90,14 @@ func TestClientConfigURI(t *testing.T) {
 			},
 		},
 		{
+			uri:   "hysteria2://john:wick@continental.org/",
+			uriOK: true,
+			config: &clientConfig{
+				Server: "continental.org",
+				Auth:   "john:wick",
+			},
+		},
+		{
 			uri:   "hysteria2://noauth.com/?insecure=1&obfs=salamander&obfs-password=66ccff&sni=crap.cc",
 			uriOK: true,
 			config: &clientConfig{
