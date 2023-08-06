@@ -45,6 +45,7 @@ func TestClientConfig(t *testing.T) {
 			Down: "1 gbps",
 		},
 		FastOpen: true,
+		Lazy:     true,
 		SOCKS5: &socks5Config{
 			Listen:     "127.0.0.1:1080",
 			Username:   "anon",

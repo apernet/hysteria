@@ -50,6 +50,7 @@ type clientConfig struct {
 	QUIC       clientConfigQUIC      `mapstructure:"quic"`
 	Bandwidth  clientConfigBandwidth `mapstructure:"bandwidth"`
 	FastOpen   bool                  `mapstructure:"fastOpen"`
+	Lazy       bool                  `mapstructure:"lazy"`
 	SOCKS5     *socks5Config         `mapstructure:"socks5"`
 	HTTP       *httpConfig           `mapstructure:"http"`
 	Forwarding []forwardingEntry     `mapstructure:"forwarding"`
@@ -312,7 +313,7 @@ func runClient(cmd *cobra.Command, args []string) {
 		logger.Fatal("failed to load client config", zap.Error(err))
 	}
 
-	c, err := client.NewReconnectableClient(hyConfig, connectLog, false)
+	c, err := client.NewReconnectableClient(hyConfig, connectLog, config.Lazy)
 	if err != nil {
 		logger.Fatal("failed to initialize client", zap.Error(err))
 	}
