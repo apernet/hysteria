@@ -19,17 +19,18 @@ const (
 )
 
 type Config struct {
-	TLSConfig       TLSConfig
-	QUICConfig      QUICConfig
-	Conn            net.PacketConn
-	Outbound        Outbound
-	BandwidthConfig BandwidthConfig
-	DisableUDP      bool
-	UDPIdleTimeout  time.Duration
-	Authenticator   Authenticator
-	EventLogger     EventLogger
-	TrafficLogger   TrafficLogger
-	MasqHandler     http.Handler
+	TLSConfig             TLSConfig
+	QUICConfig            QUICConfig
+	Conn                  net.PacketConn
+	Outbound              Outbound
+	BandwidthConfig       BandwidthConfig
+	IgnoreClientBandwidth bool
+	DisableUDP            bool
+	UDPIdleTimeout        time.Duration
+	Authenticator         Authenticator
+	EventLogger           EventLogger
+	TrafficLogger         TrafficLogger
+	MasqHandler           http.Handler
 }
 
 // fill fills the fields that are not set by the user with default values when possible,

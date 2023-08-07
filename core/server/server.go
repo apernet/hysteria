@@ -9,9 +9,7 @@ import (
 	"github.com/apernet/quic-go"
 	"github.com/apernet/quic-go/http3"
 
-	"github.com/apernet/hysteria/core/internal/congestion/bbr"
-	"github.com/apernet/hysteria/core/internal/congestion/brutal"
-	"github.com/apernet/hysteria/core/internal/congestion/common"
+	"github.com/apernet/hysteria/core/internal/congestion"
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/apernet/hysteria/core/internal/utils"
 )
@@ -96,10 +94,10 @@ type h3sHandler struct {
 	conn   quic.Connection
 
 	authenticated bool
+	authMutex     sync.Mutex
 	authID        string
 
-	udpOnce sync.Once
-	udpSM   *udpSessionManager // Only set after authentication
+	udpSM *udpSessionManager // Only set after authentication
 }
 
 func newH3sHandler(config *Config, conn quic.Connection) *h3sHandler {
@@ -111,36 +109,49 @@ func newH3sHandler(config *Config, conn quic.Connection) *h3sHandler {
 
 func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost && r.Host == protocol.URLHost && r.URL.Path == protocol.URLPath {
+		h.authMutex.Lock()
+		defer h.authMutex.Unlock()
 		if h.authenticated {
 			// Already authenticated
-			protocol.AuthResponseDataToHeader(w.Header(), !h.config.DisableUDP, h.config.BandwidthConfig.MaxRx)
+			protocol.AuthResponseToHeader(w.Header(), protocol.AuthResponse{
+				UDPEnabled: !h.config.DisableUDP,
+				Rx:         h.config.BandwidthConfig.MaxRx,
+				RxAuto:     h.config.IgnoreClientBandwidth,
+			})
 			w.WriteHeader(protocol.StatusAuthOK)
 			return
 		}
-		auth, clientRx := protocol.AuthRequestDataFromHeader(r.Header)
-		// actualTx = min(serverTx, clientRx)
-		actualTx := clientRx
-		if h.config.BandwidthConfig.MaxTx > 0 && actualTx > h.config.BandwidthConfig.MaxTx {
-			actualTx = h.config.BandwidthConfig.MaxTx
-		}
-		ok, id := h.config.Authenticator.Authenticate(h.conn.RemoteAddr(), auth, actualTx)
+		authReq := protocol.AuthRequestFromHeader(r.Header)
+		actualTx := authReq.Rx
+		ok, id := h.config.Authenticator.Authenticate(h.conn.RemoteAddr(), authReq.Auth, actualTx)
 		if ok {
 			// Set authenticated flag
 			h.authenticated = true
 			h.authID = id
-			// Use Brutal CC if actualTx > 0, otherwise use BBR
-			if actualTx > 0 {
-				h.conn.SetCongestionControl(brutal.NewBrutalSender(actualTx))
+			if h.config.IgnoreClientBandwidth {
+				// Ignore client bandwidth, always use BBR
+				congestion.UseBBR(h.conn)
+				actualTx = 0
 			} else {
-				h.conn.SetCongestionControl(bbr.NewBBRSender(
-					bbr.DefaultClock{},
-					bbr.GetInitialPacketSize(h.conn.RemoteAddr()),
-					bbr.InitialCongestionWindow*common.InitMaxDatagramSize,
-					bbr.DefaultBBRMaxCongestionWindow*common.InitMaxDatagramSize,
-				))
+				// actualTx = min(serverTx, clientRx)
+				if h.config.BandwidthConfig.MaxTx > 0 && actualTx > h.config.BandwidthConfig.MaxTx {
+					// We have a maxTx limit and the client is asking for more than that,
+					// return and use the limit instead
+					actualTx = h.config.BandwidthConfig.MaxTx
+				}
+				if actualTx > 0 {
+					congestion.UseBrutal(h.conn, actualTx)
+				} else {
+					// Client doesn't know its own bandwidth, use BBR
+					congestion.UseBBR(h.conn)
+				}
 			}
 			// Auth OK, send response
-			protocol.AuthResponseDataToHeader(w.Header(), !h.config.DisableUDP, h.config.BandwidthConfig.MaxRx)
+			protocol.AuthResponseToHeader(w.Header(), protocol.AuthResponse{
+				UDPEnabled: !h.config.DisableUDP,
+				Rx:         h.config.BandwidthConfig.MaxRx,
+				RxAuto:     h.config.IgnoreClientBandwidth,
+			})
 			w.WriteHeader(protocol.StatusAuthOK)
 			// Call event logger
 			if h.config.EventLogger != nil {
@@ -150,14 +161,14 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// We use sync.Once to make sure that only one goroutine is started,
 			// as ServeHTTP may be called by multiple goroutines simultaneously
 			if !h.config.DisableUDP {
-				h.udpOnce.Do(func() {
+				go func() {
 					sm := newUDPSessionManager(
 						&udpIOImpl{h.conn, id, h.config.TrafficLogger, h.config.Outbound},
 						&udpEventLoggerImpl{h.conn, id, h.config.EventLogger},
 						h.config.UDPIdleTimeout)
 					h.udpSM = sm
 					go sm.Run()
-				})
+				}()
 			}
 		} else {
 			// Auth failed, pretend to be a normal HTTP server

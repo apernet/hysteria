@@ -33,18 +33,19 @@ func init() {
 }
 
 type serverConfig struct {
-	Listen         string                      `mapstructure:"listen"`
-	Obfs           serverConfigObfs            `mapstructure:"obfs"`
-	TLS            *serverConfigTLS            `mapstructure:"tls"`
-	ACME           *serverConfigACME           `mapstructure:"acme"`
-	QUIC           serverConfigQUIC            `mapstructure:"quic"`
-	Bandwidth      serverConfigBandwidth       `mapstructure:"bandwidth"`
-	DisableUDP     bool                        `mapstructure:"disableUDP"`
-	UDPIdleTimeout time.Duration               `mapstructure:"udpIdleTimeout"`
-	Auth           serverConfigAuth            `mapstructure:"auth"`
-	Resolver       serverConfigResolver        `mapstructure:"resolver"`
-	Outbounds      []serverConfigOutboundEntry `mapstructure:"outbounds"`
-	Masquerade     serverConfigMasquerade      `mapstructure:"masquerade"`
+	Listen                string                      `mapstructure:"listen"`
+	Obfs                  serverConfigObfs            `mapstructure:"obfs"`
+	TLS                   *serverConfigTLS            `mapstructure:"tls"`
+	ACME                  *serverConfigACME           `mapstructure:"acme"`
+	QUIC                  serverConfigQUIC            `mapstructure:"quic"`
+	Bandwidth             serverConfigBandwidth       `mapstructure:"bandwidth"`
+	IgnoreClientBandwidth bool                        `mapstructure:"ignoreClientBandwidth"`
+	DisableUDP            bool                        `mapstructure:"disableUDP"`
+	UDPIdleTimeout        time.Duration               `mapstructure:"udpIdleTimeout"`
+	Auth                  serverConfigAuth            `mapstructure:"auth"`
+	Resolver              serverConfigResolver        `mapstructure:"resolver"`
+	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
+	Masquerade            serverConfigMasquerade      `mapstructure:"masquerade"`
 }
 
 type serverConfigObfsSalamander struct {
@@ -360,6 +361,11 @@ func (c *serverConfig) fillBandwidthConfig(hyConfig *server.Config) error {
 	return nil
 }
 
+func (c *serverConfig) fillIgnoreClientBandwidth(hyConfig *server.Config) error {
+	hyConfig.IgnoreClientBandwidth = c.IgnoreClientBandwidth
+	return nil
+}
+
 func (c *serverConfig) fillDisableUDP(hyConfig *server.Config) error {
 	hyConfig.DisableUDP = c.DisableUDP
 	return nil
@@ -445,6 +451,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 		c.fillQUICConfig,
 		c.fillOutboundConfig,
 		c.fillBandwidthConfig,
+		c.fillIgnoreClientBandwidth,
 		c.fillDisableUDP,
 		c.fillUDPIdleTimeout,
 		c.fillAuthenticator,

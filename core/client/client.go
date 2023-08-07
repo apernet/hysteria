@@ -9,9 +9,7 @@ import (
 	"time"
 
 	coreErrs "github.com/apernet/hysteria/core/errors"
-	"github.com/apernet/hysteria/core/internal/congestion/bbr"
-	"github.com/apernet/hysteria/core/internal/congestion/brutal"
-	"github.com/apernet/hysteria/core/internal/congestion/common"
+	"github.com/apernet/hysteria/core/internal/congestion"
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/apernet/hysteria/core/internal/utils"
 
@@ -104,7 +102,10 @@ func (c *clientImpl) connect() error {
 		},
 		Header: make(http.Header),
 	}
-	protocol.AuthRequestDataToHeader(req.Header, c.config.Auth, c.config.BandwidthConfig.MaxRx)
+	protocol.AuthRequestToHeader(req.Header, protocol.AuthRequest{
+		Auth: c.config.Auth,
+		Rx:   c.config.BandwidthConfig.MaxRx,
+	})
 	resp, err := rt.RoundTrip(req)
 	if err != nil {
 		if conn != nil {
@@ -119,28 +120,30 @@ func (c *clientImpl) connect() error {
 		return coreErrs.AuthError{StatusCode: resp.StatusCode}
 	}
 	// Auth OK
-	udpEnabled, serverRx := protocol.AuthResponseDataFromHeader(resp.Header)
-	// actualTx = min(serverRx, clientTx)
-	actualTx := serverRx
-	if actualTx == 0 || actualTx > c.config.BandwidthConfig.MaxTx {
-		actualTx = c.config.BandwidthConfig.MaxTx
-	}
-	// Use Brutal CC if actualTx > 0, otherwise use BBR
-	if actualTx > 0 {
-		conn.SetCongestionControl(brutal.NewBrutalSender(actualTx))
+	authResp := protocol.AuthResponseFromHeader(resp.Header)
+	if authResp.RxAuto {
+		// Server asks client to use bandwidth detection,
+		// ignore local bandwidth config and use BBR
+		congestion.UseBBR(conn)
 	} else {
-		conn.SetCongestionControl(bbr.NewBBRSender(
-			bbr.DefaultClock{},
-			bbr.GetInitialPacketSize(conn.RemoteAddr()),
-			bbr.InitialCongestionWindow*common.InitMaxDatagramSize,
-			bbr.DefaultBBRMaxCongestionWindow*common.InitMaxDatagramSize,
-		))
+		// actualTx = min(serverRx, clientTx)
+		actualTx := authResp.Rx
+		if actualTx == 0 || actualTx > c.config.BandwidthConfig.MaxTx {
+			// Server doesn't have a limit, or our clientTx is smaller than serverRx
+			actualTx = c.config.BandwidthConfig.MaxTx
+		}
+		if actualTx > 0 {
+			congestion.UseBrutal(conn, actualTx)
+		} else {
+			// We don't know our own bandwidth either, use BBR
+			congestion.UseBBR(conn)
+		}
 	}
 	_ = resp.Body.Close()
 
 	c.pktConn = pktConn
 	c.conn = conn
-	if udpEnabled {
+	if authResp.UDPEnabled {
 		c.udpSM = newUDPSessionManager(&udpIOImpl{Conn: conn})
 	}
 	return nil

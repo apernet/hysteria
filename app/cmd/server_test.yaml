@@ -34,6 +34,8 @@ bandwidth:
   up: 500 mbps
   down: 100 mbps
 
+ignoreClientBandwidth: true
+
 disableUDP: true
 udpIdleTimeout: 120s
 

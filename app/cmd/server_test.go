@@ -55,8 +55,9 @@ func TestServerConfig(t *testing.T) {
 			Up:   "500 mbps",
 			Down: "100 mbps",
 		},
-		DisableUDP:     true,
-		UDPIdleTimeout: 120 * time.Second,
+		IgnoreClientBandwidth: true,
+		DisableUDP:            true,
+		UDPIdleTimeout:        120 * time.Second,
 		Auth: serverConfigAuth{
 			Type:     "password",
 			Password: "goofy_ahh_password",
