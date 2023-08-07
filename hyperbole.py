@@ -74,8 +74,7 @@ def get_app_commit():
     if not app_commit:
         try:
             app_commit = (
-                subprocess.check_output(
-                    ["git", "rev-parse", "HEAD"]).decode().strip()
+                subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
             )
         except Exception:
             app_commit = "Unknown"
@@ -86,8 +85,7 @@ def get_app_platforms():
     platforms = os.environ.get("HY_APP_PLATFORMS")
     if not platforms:
         d_os = subprocess.check_output(["go", "env", "GOOS"]).decode().strip()
-        d_arch = subprocess.check_output(
-            ["go", "env", "GOARCH"]).decode().strip()
+        d_arch = subprocess.check_output(["go", "env", "GOARCH"]).decode().strip()
         return [(d_os, d_arch)]
 
     result = []
@@ -118,8 +116,10 @@ def cmd_build(pprof=False, release=False):
         "-X",
         APP_SRC_CMD_PKG + ".appDate=" + app_date,
         "-X",
-        APP_SRC_CMD_PKG + ".appType=" +
-        ("release" if release else "dev") + ("-pprof" if pprof else ""),
+        APP_SRC_CMD_PKG
+        + ".appType="
+        + ("release" if release else "dev")
+        + ("-pprof" if pprof else ""),
         "-X",
         APP_SRC_CMD_PKG + ".appCommit=" + app_commit,
     ]
@@ -135,6 +135,7 @@ def cmd_build(pprof=False, release=False):
             out_name += ".exe"
 
         env = os.environ.copy()
+        env["CGO_ENABLED"] = "0"
         env["GOOS"] = os_name
         env["GOARCH"] = arch
 
@@ -240,16 +241,19 @@ def main():
 
     # Run
     p_run = p_cmd.add_parser("run", help="Run the app")
-    p_run.add_argument("-p", "--pprof", action="store_true",
-                       help="Run with pprof enabled")
+    p_run.add_argument(
+        "-p", "--pprof", action="store_true", help="Run with pprof enabled"
+    )
     p_run.add_argument("args", nargs=argparse.REMAINDER)
 
     # Build
     p_build = p_cmd.add_parser("build", help="Build the app")
-    p_build.add_argument("-p", "--pprof", action="store_true",
-                         help="Build with pprof enabled")
-    p_build.add_argument("-r", "--release", action="store_true",
-                         help="Build a release version")
+    p_build.add_argument(
+        "-p", "--pprof", action="store_true", help="Build with pprof enabled"
+    )
+    p_build.add_argument(
+        "-r", "--release", action="store_true", help="Build a release version"
+    )
 
     # Format
     p_cmd.add_parser("format", help="Format the code")
