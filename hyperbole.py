@@ -25,8 +25,12 @@ DESC = "Hyperbole is the official build script for Hysteria."
 
 BUILD_DIR = "build"
 
+CORE_SRC_DIR = "./core"
+EXTRAS_SRC_DIR = "./extras"
 APP_SRC_DIR = "./app"
 APP_SRC_CMD_PKG = "github.com/apernet/hysteria/app/cmd"
+
+MODULE_SRC_DIRS = [CORE_SRC_DIR, EXTRAS_SRC_DIR, APP_SRC_DIR]
 
 
 def check_command(args):
@@ -224,6 +228,24 @@ def cmd_mockgen():
                 print("Failed to generate mocks for %s" % dirpath)
 
 
+def cmd_tidy():
+    if not check_build_env():
+        return
+
+    for dir in MODULE_SRC_DIRS:
+        print("Tidying %s..." % dir)
+        try:
+            subprocess.check_call(["go", "mod", "tidy"], cwd=dir)
+        except Exception:
+            print("Failed to tidy %s" % dir)
+
+    print("Syncing go work...")
+    try:
+        subprocess.check_call(["go", "work", "sync"])
+    except Exception:
+        print("Failed to sync go work")
+
+
 def cmd_clean():
     shutil.rmtree(BUILD_DIR, ignore_errors=True)
 
@@ -261,6 +283,9 @@ def main():
     # Mockgen
     p_cmd.add_parser("mockgen", help="Generate mock interfaces")
 
+    # Tidy
+    p_cmd.add_parser("tidy", help="Tidy the go modules")
+
     # Clean
     p_cmd.add_parser("clean", help="Clean the build directory")
 
@@ -277,6 +302,8 @@ def main():
         cmd_format()
     elif args.command == "mockgen":
         cmd_mockgen()
+    elif args.command == "tidy":
+        cmd_tidy()
     elif args.command == "clean":
         cmd_clean()
     elif args.command == "about":
