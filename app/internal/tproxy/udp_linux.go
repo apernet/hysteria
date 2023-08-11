@@ -76,10 +76,22 @@ func (r *UDPTProxy) newPair(srcAddr, dstAddr *net.UDPAddr, initPkt []byte) {
 		return
 	}
 	// Start forwarding
-	go r.forwarding(conn, hyConn, dstAddr.String())
+	go func() {
+		err := r.forwarding(conn, hyConn, dstAddr.String())
+		_ = conn.Close()
+		_ = hyConn.Close()
+		if r.EventLogger != nil {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
+				// We don't consider deadline exceeded (timeout) an error
+				err = nil
+			}
+			r.EventLogger.Error(srcAddr, dstAddr, err)
+		}
+	}()
 }
 
-func (r *UDPTProxy) forwarding(conn *net.UDPConn, hyConn client.HyUDPConn, dst string) {
+func (r *UDPTProxy) forwarding(conn *net.UDPConn, hyConn client.HyUDPConn, dst string) error {
 	errChan := make(chan error, 2)
 	// Local <- Remote
 	go func() {
@@ -116,17 +128,7 @@ func (r *UDPTProxy) forwarding(conn *net.UDPConn, hyConn client.HyUDPConn, dst s
 			}
 		}
 	}()
-	err := <-errChan
-	_ = conn.Close()
-	_ = hyConn.Close()
-	if r.EventLogger != nil {
-		var netErr net.Error
-		if errors.As(err, &netErr) && netErr.Timeout() {
-			// We don't consider deadline exceeded (timeout) an error
-			err = nil
-		}
-		r.EventLogger.Error(conn.LocalAddr(), conn.RemoteAddr(), err)
-	}
+	return <-errChan
 }
 
 func (r *UDPTProxy) updateConnDeadline(conn *net.UDPConn) error {
