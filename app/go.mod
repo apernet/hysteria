@@ -10,7 +10,7 @@ require (
 	github.com/docker/go-units v0.5.0
 	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819
 	github.com/elazarl/goproxy/ext v0.0.0-20221015165544-a0805db90819
-	github.com/folbricht/routedns v0.1.21-0.20230220022436-4ae86ce30d53
+	github.com/folbricht/routedns v0.1.21-0.20230729081954-87071739e313
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/oschwald/geoip2-golang v1.8.0
 	github.com/prometheus/client_golang v1.14.0
