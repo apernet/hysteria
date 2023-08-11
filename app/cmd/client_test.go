@@ -58,18 +58,25 @@ func TestClientConfig(t *testing.T) {
 			Password: "bruh",
 			Realm:    "martian",
 		},
-		Forwarding: []forwardingEntry{
+		TCPForwarding: []tcpForwardingEntry{
 			{
-				Listen:   "127.0.0.1:8088",
-				Remote:   "internal.example.com:80",
-				Protocol: "tcp",
+				Listen: "127.0.0.1:8088",
+				Remote: "internal.example.com:80",
 			},
+		},
+		UDPForwarding: []udpForwardingEntry{
 			{
-				Listen:     "127.0.0.1:5353",
-				Remote:     "internal.example.com:53",
-				Protocol:   "udp",
-				UDPTimeout: 50 * time.Second,
+				Listen:  "127.0.0.1:5353",
+				Remote:  "internal.example.com:53",
+				Timeout: 50 * time.Second,
 			},
+		},
+		TCPTProxy: &tcpTProxyConfig{
+			Listen: "127.0.0.1:2500",
+		},
+		UDPTProxy: &udpTProxyConfig{
+			Listen:  "127.0.0.1:2501",
+			Timeout: 20 * time.Second,
 		},
 	})
 }

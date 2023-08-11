@@ -41,11 +41,18 @@ http:
   password: bruh
   realm: martian
 
-forwarding:
+tcpForwarding:
   - listen: 127.0.0.1:8088
     remote: internal.example.com:80
-    protocol: tcp
+
+udpForwarding:
   - listen: 127.0.0.1:5353
     remote: internal.example.com:53
-    protocol: udp
-    udpTimeout: 50s
+    timeout: 50s
+
+tcpTProxy:
+  listen: 127.0.0.1:2500
+
+udpTProxy:
+  listen: 127.0.0.1:2501
+  timeout: 20s

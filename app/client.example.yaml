@@ -39,11 +39,23 @@ http:
   # password: pass
   # realm: my_private_realm
 
-forwarding:
-  - listen: 127.0.0.1:6666
-    remote: 127.0.0.1:5201
-    protocol: tcp
+tcpForwarding:
+  - listen: 127.0.0.1:8088
+    remote: example.com:80
+  - listen: 127.0.0.1:9099
+    remote: example.com:90
+
+udpForwarding:
   - listen: 127.0.0.1:5353
-    remote: 1.1.1.1:53
-    protocol: udp
-    udpTimeout: 30s
+    remote: example.com:53
+    timeout: 50s
+  - listen: 127.0.0.1:6464
+    remote: example.com:64
+    timeout: 20s
+
+tcpTProxy:
+  listen: 127.0.0.1:2500
+
+udpTProxy:
+  listen: 127.0.0.1:2501
+  timeout: 20s

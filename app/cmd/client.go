@@ -18,6 +18,7 @@ import (
 	"github.com/apernet/hysteria/app/internal/forwarding"
 	"github.com/apernet/hysteria/app/internal/http"
 	"github.com/apernet/hysteria/app/internal/socks5"
+	"github.com/apernet/hysteria/app/internal/tproxy"
 	"github.com/apernet/hysteria/core/client"
 	"github.com/apernet/hysteria/extras/obfs"
 )
@@ -43,17 +44,20 @@ func initClientFlags() {
 }
 
 type clientConfig struct {
-	Server     string                `mapstructure:"server"`
-	Auth       string                `mapstructure:"auth"`
-	Obfs       clientConfigObfs      `mapstructure:"obfs"`
-	TLS        clientConfigTLS       `mapstructure:"tls"`
-	QUIC       clientConfigQUIC      `mapstructure:"quic"`
-	Bandwidth  clientConfigBandwidth `mapstructure:"bandwidth"`
-	FastOpen   bool                  `mapstructure:"fastOpen"`
-	Lazy       bool                  `mapstructure:"lazy"`
-	SOCKS5     *socks5Config         `mapstructure:"socks5"`
-	HTTP       *httpConfig           `mapstructure:"http"`
-	Forwarding []forwardingEntry     `mapstructure:"forwarding"`
+	Server        string                `mapstructure:"server"`
+	Auth          string                `mapstructure:"auth"`
+	Obfs          clientConfigObfs      `mapstructure:"obfs"`
+	TLS           clientConfigTLS       `mapstructure:"tls"`
+	QUIC          clientConfigQUIC      `mapstructure:"quic"`
+	Bandwidth     clientConfigBandwidth `mapstructure:"bandwidth"`
+	FastOpen      bool                  `mapstructure:"fastOpen"`
+	Lazy          bool                  `mapstructure:"lazy"`
+	SOCKS5        *socks5Config         `mapstructure:"socks5"`
+	HTTP          *httpConfig           `mapstructure:"http"`
+	TCPForwarding []tcpForwardingEntry  `mapstructure:"tcpForwarding"`
+	UDPForwarding []udpForwardingEntry  `mapstructure:"udpForwarding"`
+	TCPTProxy     *tcpTProxyConfig      `mapstructure:"tcpTProxy"`
+	UDPTProxy     *udpTProxyConfig      `mapstructure:"udpTProxy"`
 }
 
 type clientConfigObfsSalamander struct {
@@ -100,11 +104,24 @@ type httpConfig struct {
 	Realm    string `mapstructure:"realm"`
 }
 
-type forwardingEntry struct {
-	Listen     string        `mapstructure:"listen"`
-	Remote     string        `mapstructure:"remote"`
-	Protocol   string        `mapstructure:"protocol"`
-	UDPTimeout time.Duration `mapstructure:"udpTimeout"`
+type tcpForwardingEntry struct {
+	Listen string `mapstructure:"listen"`
+	Remote string `mapstructure:"remote"`
+}
+
+type udpForwardingEntry struct {
+	Listen  string        `mapstructure:"listen"`
+	Remote  string        `mapstructure:"remote"`
+	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+type tcpTProxyConfig struct {
+	Listen string `mapstructure:"listen"`
+}
+
+type udpTProxyConfig struct {
+	Listen  string        `mapstructure:"listen"`
+	Timeout time.Duration `mapstructure:"timeout"`
 }
 
 func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
@@ -355,13 +372,43 @@ func runClient(cmd *cobra.Command, args []string) {
 			}
 		}()
 	}
-	if len(config.Forwarding) > 0 {
+	if len(config.TCPForwarding) > 0 {
 		hasMode = true
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := clientForwarding(config.Forwarding, c); err != nil {
-				logger.Fatal("failed to run forwarding", zap.Error(err))
+			if err := clientTCPForwarding(config.TCPForwarding, c); err != nil {
+				logger.Fatal("failed to run TCP forwarding", zap.Error(err))
+			}
+		}()
+	}
+	if len(config.UDPForwarding) > 0 {
+		hasMode = true
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := clientUDPForwarding(config.UDPForwarding, c); err != nil {
+				logger.Fatal("failed to run UDP forwarding", zap.Error(err))
+			}
+		}()
+	}
+	if config.TCPTProxy != nil {
+		hasMode = true
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := clientTCPTProxy(*config.TCPTProxy, c); err != nil {
+				logger.Fatal("failed to run TCP transparent proxy", zap.Error(err))
+			}
+		}()
+	}
+	if config.UDPTProxy != nil {
+		hasMode = true
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := clientUDPTProxy(*config.UDPTProxy, c); err != nil {
+				logger.Fatal("failed to run UDP transparent proxy", zap.Error(err))
 			}
 		}()
 	}
@@ -425,7 +472,7 @@ func clientHTTP(config httpConfig, c client.Client) error {
 	return h.Serve(l)
 }
 
-func clientForwarding(entries []forwardingEntry, c client.Client) error {
+func clientTCPForwarding(entries []tcpForwardingEntry, c client.Client) error {
 	errChan := make(chan error, len(entries))
 	for _, e := range entries {
 		if e.Listen == "" {
@@ -434,42 +481,83 @@ func clientForwarding(entries []forwardingEntry, c client.Client) error {
 		if e.Remote == "" {
 			return configError{Field: "remote", Err: errors.New("remote address is empty")}
 		}
-		switch strings.ToLower(e.Protocol) {
-		case "tcp":
-			l, err := net.Listen("tcp", e.Listen)
-			if err != nil {
-				return configError{Field: "listen", Err: err}
-			}
-			logger.Info("TCP forwarding listening", zap.String("addr", e.Listen), zap.String("remote", e.Remote))
-			go func(remote string) {
-				t := &forwarding.TCPTunnel{
-					HyClient:    c,
-					Remote:      remote,
-					EventLogger: &tcpLogger{},
-				}
-				errChan <- t.Serve(l)
-			}(e.Remote)
-		case "udp":
-			l, err := net.ListenPacket("udp", e.Listen)
-			if err != nil {
-				return configError{Field: "listen", Err: err}
-			}
-			logger.Info("UDP forwarding listening", zap.String("addr", e.Listen), zap.String("remote", e.Remote))
-			go func(remote string, timeout time.Duration) {
-				u := &forwarding.UDPTunnel{
-					HyClient:    c,
-					Remote:      remote,
-					Timeout:     timeout,
-					EventLogger: &udpLogger{},
-				}
-				errChan <- u.Serve(l)
-			}(e.Remote, e.UDPTimeout)
-		default:
-			return configError{Field: "protocol", Err: errors.New("unsupported protocol")}
+		l, err := net.Listen("tcp", e.Listen)
+		if err != nil {
+			return configError{Field: "listen", Err: err}
 		}
+		logger.Info("TCP forwarding listening", zap.String("addr", e.Listen), zap.String("remote", e.Remote))
+		go func(remote string) {
+			t := &forwarding.TCPTunnel{
+				HyClient:    c,
+				Remote:      remote,
+				EventLogger: &tcpLogger{},
+			}
+			errChan <- t.Serve(l)
+		}(e.Remote)
 	}
 	// Return if any one of the forwarding fails
 	return <-errChan
+}
+
+func clientUDPForwarding(entries []udpForwardingEntry, c client.Client) error {
+	errChan := make(chan error, len(entries))
+	for _, e := range entries {
+		if e.Listen == "" {
+			return configError{Field: "listen", Err: errors.New("listen address is empty")}
+		}
+		if e.Remote == "" {
+			return configError{Field: "remote", Err: errors.New("remote address is empty")}
+		}
+		l, err := net.ListenPacket("udp", e.Listen)
+		if err != nil {
+			return configError{Field: "listen", Err: err}
+		}
+		logger.Info("UDP forwarding listening", zap.String("addr", e.Listen), zap.String("remote", e.Remote))
+		go func(remote string, timeout time.Duration) {
+			u := &forwarding.UDPTunnel{
+				HyClient:    c,
+				Remote:      remote,
+				Timeout:     timeout,
+				EventLogger: &udpLogger{},
+			}
+			errChan <- u.Serve(l)
+		}(e.Remote, e.Timeout)
+	}
+	// Return if any one of the forwarding fails
+	return <-errChan
+}
+
+func clientTCPTProxy(config tcpTProxyConfig, c client.Client) error {
+	if config.Listen == "" {
+		return configError{Field: "listen", Err: errors.New("listen address is empty")}
+	}
+	laddr, err := net.ResolveTCPAddr("tcp", config.Listen)
+	if err != nil {
+		return configError{Field: "listen", Err: err}
+	}
+	p := &tproxy.TCPTProxy{
+		HyClient:    c,
+		EventLogger: &tcpTProxyLogger{},
+	}
+	logger.Info("TCP transparent proxy listening", zap.String("addr", config.Listen))
+	return p.ListenAndServe(laddr)
+}
+
+func clientUDPTProxy(config udpTProxyConfig, c client.Client) error {
+	if config.Listen == "" {
+		return configError{Field: "listen", Err: errors.New("listen address is empty")}
+	}
+	laddr, err := net.ResolveUDPAddr("udp", config.Listen)
+	if err != nil {
+		return configError{Field: "listen", Err: err}
+	}
+	p := &tproxy.UDPTProxy{
+		HyClient:    c,
+		Timeout:     config.Timeout,
+		EventLogger: &udpTProxyLogger{},
+	}
+	logger.Info("UDP transparent proxy listening", zap.String("addr", config.Listen))
+	return p.ListenAndServe(laddr)
 }
 
 // parseServerAddrString parses server address string.
@@ -582,5 +670,33 @@ func (l *udpLogger) Error(addr net.Addr, err error) {
 		logger.Debug("UDP forwarding closed", zap.String("addr", addr.String()))
 	} else {
 		logger.Error("UDP forwarding error", zap.String("addr", addr.String()), zap.Error(err))
+	}
+}
+
+type tcpTProxyLogger struct{}
+
+func (l *tcpTProxyLogger) Connect(addr, reqAddr net.Addr) {
+	logger.Debug("TCP transparent proxy connect", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
+}
+
+func (l *tcpTProxyLogger) Error(addr, reqAddr net.Addr, err error) {
+	if err == nil {
+		logger.Debug("TCP transparent proxy closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
+	} else {
+		logger.Error("TCP transparent proxy error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
+	}
+}
+
+type udpTProxyLogger struct{}
+
+func (l *udpTProxyLogger) Connect(addr, reqAddr net.Addr) {
+	logger.Debug("UDP transparent proxy connect", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
+}
+
+func (l *udpTProxyLogger) Error(addr, reqAddr net.Addr, err error) {
+	if err == nil {
+		logger.Debug("UDP transparent proxy closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
+	} else {
+		logger.Error("UDP transparent proxy error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
 	}
 }
