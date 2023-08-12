@@ -70,6 +70,7 @@ func TestServerConfig(t *testing.T) {
 				URL:      "http://127.0.0.1:5000/auth",
 				Insecure: true,
 			},
+			Command: "/etc/some_command",
 		},
 		Resolver: serverConfigResolver{
 			Type: "udp",

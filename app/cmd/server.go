@@ -98,6 +98,7 @@ type serverConfigAuth struct {
 	Password string               `mapstructure:"password"`
 	UserPass map[string]string    `mapstructure:"userpass"`
 	HTTP     serverConfigAuthHTTP `mapstructure:"http"`
+	Command  string               `mapstructure:"command"`
 }
 
 type serverConfigResolverTCP struct {
@@ -404,6 +405,12 @@ func (c *serverConfig) fillAuthenticator(hyConfig *server.Config) error {
 			return configError{Field: "auth.http.url", Err: errors.New("empty auth http url")}
 		}
 		hyConfig.Authenticator = auth.NewHTTPAuthenticator(c.Auth.HTTP.URL, c.Auth.HTTP.Insecure)
+		return nil
+	case "command", "cmd":
+		if c.Auth.Command == "" {
+			return configError{Field: "auth.command", Err: errors.New("empty auth command")}
+		}
+		hyConfig.Authenticator = &auth.CommandAuthenticator{Cmd: c.Auth.Command}
 		return nil
 	default:
 		return configError{Field: "auth.type", Err: errors.New("unsupported auth type")}

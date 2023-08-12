@@ -49,6 +49,7 @@ auth:
   http:
     url: http://127.0.0.1:5000/auth
     insecure: true
+  command: /etc/some_command
 
 resolver:
   type: udp
