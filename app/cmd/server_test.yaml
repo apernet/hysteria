@@ -46,6 +46,9 @@ auth:
     yolo: swag
     lol: kek
     foo: bar
+  http:
+    url: http://127.0.0.1:5000/auth
+    insecure: true
 
 resolver:
   type: udp

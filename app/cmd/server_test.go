@@ -66,6 +66,10 @@ func TestServerConfig(t *testing.T) {
 				"lol":  "kek",
 				"foo":  "bar",
 			},
+			HTTP: serverConfigAuthHTTP{
+				URL:      "http://127.0.0.1:5000/auth",
+				Insecure: true,
+			},
 		},
 		Resolver: serverConfigResolver{
 			Type: "udp",

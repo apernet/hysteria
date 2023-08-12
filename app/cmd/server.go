@@ -88,10 +88,16 @@ type serverConfigBandwidth struct {
 	Down string `mapstructure:"down"`
 }
 
+type serverConfigAuthHTTP struct {
+	URL      string `mapstructure:"url"`
+	Insecure bool   `mapstructure:"insecure"`
+}
+
 type serverConfigAuth struct {
-	Type     string            `mapstructure:"type"`
-	Password string            `mapstructure:"password"`
-	UserPass map[string]string `mapstructure:"userpass"`
+	Type     string               `mapstructure:"type"`
+	Password string               `mapstructure:"password"`
+	UserPass map[string]string    `mapstructure:"userpass"`
+	HTTP     serverConfigAuthHTTP `mapstructure:"http"`
 }
 
 type serverConfigResolverTCP struct {
@@ -392,6 +398,12 @@ func (c *serverConfig) fillAuthenticator(hyConfig *server.Config) error {
 			return configError{Field: "auth.userpass", Err: errors.New("empty auth userpass")}
 		}
 		hyConfig.Authenticator = &auth.UserPassAuthenticator{Users: c.Auth.UserPass}
+		return nil
+	case "http", "https":
+		if c.Auth.HTTP.URL == "" {
+			return configError{Field: "auth.http.url", Err: errors.New("empty auth http url")}
+		}
+		hyConfig.Authenticator = auth.NewHTTPAuthenticator(c.Auth.HTTP.URL, c.Auth.HTTP.Insecure)
 		return nil
 	default:
 		return configError{Field: "auth.type", Err: errors.New("unsupported auth type")}
