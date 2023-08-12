@@ -3,6 +3,7 @@ module github.com/apernet/hysteria/app
 go 1.20
 
 require (
+	github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f
 	github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
 	github.com/apernet/hysteria/extras v0.0.0-00010101000000-000000000000
 	github.com/caddyserver/certmagic v0.17.2
@@ -15,7 +16,6 @@ require (
 )
 
 require (
-	github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f // indirect
 	github.com/apernet/quic-go v0.37.5-0.20230809210726-5508a358d07e // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
