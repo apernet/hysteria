@@ -32,6 +32,49 @@ APP_SRC_CMD_PKG = "github.com/apernet/hysteria/app/cmd"
 
 MODULE_SRC_DIRS = [CORE_SRC_DIR, EXTRAS_SRC_DIR, APP_SRC_DIR]
 
+ARCH_ALIASES = {
+    "arm": {
+        "GOARCH": "arm",
+        "GOARM": "7",
+    },
+    "armv5": {
+        "GOARCH": "arm",
+        "GOARM": "5",
+    },
+    "armv6": {
+        "GOARCH": "arm",
+        "GOARM": "6",
+    },
+    "armv7": {
+        "GOARCH": "arm",
+        "GOARM": "7",
+    },
+    "mips": {
+        "GOARCH": "mips",
+        "GOMIPS": "",
+    },
+    "mipsle": {
+        "GOARCH": "mipsle",
+        "GOMIPS": "",
+    },
+    "mips-sf": {
+        "GOARCH": "mips",
+        "GOMIPS": "softfloat",
+    },
+    "mipsle-sf": {
+        "GOARCH": "mipsle",
+        "GOMIPS": "softfloat",
+    },
+    "amd64": {
+        "GOARCH": "amd64",
+        "GOAMD64": "",
+    },
+    "amd64-avx": {
+        "GOARCH": "amd64",
+        "GOAMD64": "v3",
+    },
+}
+
 
 def check_command(args):
     try:
@@ -141,7 +184,11 @@ def cmd_build(pprof=False, release=False):
         env = os.environ.copy()
         env["CGO_ENABLED"] = "0"
         env["GOOS"] = os_name
-        env["GOARCH"] = arch
+        if arch in ARCH_ALIASES:
+            for k, v in ARCH_ALIASES[arch].items():
+                env[k] = v
+        else:
+            env["GOARCH"] = arch
 
         cmd = [
             "go",
