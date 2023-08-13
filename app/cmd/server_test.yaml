@@ -64,6 +64,11 @@ resolver:
     timeout: 10s
     sni: server1.yolo.net
     insecure: true
+  https:
+    addr: cringe.ahh.cc
+    timeout: 5s
+    sni: real.stuff.net
+    insecure: true
 
 outbounds:
   - name: goodstuff

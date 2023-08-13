@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
+	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6
 	github.com/miekg/dns v1.1.55
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.11.0

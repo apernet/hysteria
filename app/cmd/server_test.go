@@ -88,6 +88,12 @@ func TestServerConfig(t *testing.T) {
 				SNI:      "server1.yolo.net",
 				Insecure: true,
 			},
+			HTTPS: serverConfigResolverHTTPS{
+				Addr:     "cringe.ahh.cc",
+				Timeout:  5 * time.Second,
+				SNI:      "real.stuff.net",
+				Insecure: true,
+			},
 		},
 		Outbounds: []serverConfigOutboundEntry{
 			{

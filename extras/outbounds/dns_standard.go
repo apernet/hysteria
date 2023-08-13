@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	standardResolverDefaultTimeout = 2 * time.Second
-	standardResolverRetryTimes     = 2
+	resolverDefaultTimeout     = 2 * time.Second
+	standardResolverRetryTimes = 2
 )
 
 // standardResolver is a PluggableOutbound DNS resolver that resolves hostnames
@@ -76,7 +76,7 @@ func addDefaultPortTLS(addr string) string {
 
 func timeoutOrDefault(timeout time.Duration) time.Duration {
 	if timeout == 0 {
-		return standardResolverDefaultTimeout
+		return resolverDefaultTimeout
 	}
 	return timeout
 }

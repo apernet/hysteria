@@ -118,11 +118,19 @@ type serverConfigResolverTLS struct {
 	Insecure bool          `mapstructure:"insecure"`
 }
 
+type serverConfigResolverHTTPS struct {
+	Addr     string        `mapstructure:"addr"`
+	Timeout  time.Duration `mapstructure:"timeout"`
+	SNI      string        `mapstructure:"sni"`
+	Insecure bool          `mapstructure:"insecure"`
+}
+
 type serverConfigResolver struct {
-	Type string                  `mapstructure:"type"`
-	TCP  serverConfigResolverTCP `mapstructure:"tcp"`
-	UDP  serverConfigResolverUDP `mapstructure:"udp"`
-	TLS  serverConfigResolverTLS `mapstructure:"tls"`
+	Type  string                    `mapstructure:"type"`
+	TCP   serverConfigResolverTCP   `mapstructure:"tcp"`
+	UDP   serverConfigResolverUDP   `mapstructure:"udp"`
+	TLS   serverConfigResolverTLS   `mapstructure:"tls"`
+	HTTPS serverConfigResolverHTTPS `mapstructure:"https"`
 }
 
 type serverConfigOutboundDirect struct {
@@ -343,6 +351,11 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 			return configError{Field: "resolver.tls.addr", Err: errors.New("empty resolver address")}
 		}
 		ob = outbounds.NewStandardResolverTLS(c.Resolver.TLS.Addr, c.Resolver.TLS.Timeout, c.Resolver.TLS.SNI, c.Resolver.TLS.Insecure, ob)
+	case "https", "http":
+		if c.Resolver.HTTPS.Addr == "" {
+			return configError{Field: "resolver.https.addr", Err: errors.New("empty resolver address")}
+		}
+		ob = outbounds.NewDoHResolver(c.Resolver.HTTPS.Addr, c.Resolver.HTTPS.Timeout, c.Resolver.HTTPS.SNI, c.Resolver.HTTPS.Insecure, ob)
 	default:
 		return configError{Field: "resolver.type", Err: errors.New("unsupported resolver type")}
 	}
