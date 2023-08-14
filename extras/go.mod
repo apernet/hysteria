@@ -5,7 +5,9 @@ go 1.20
 require (
 	github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
 	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6
+	github.com/hashicorp/golang-lru/v2 v2.0.5
 	github.com/miekg/dns v1.1.55
+	github.com/oschwald/geoip2-golang v1.9.0
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.11.0
 )
@@ -17,6 +19,7 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
+	github.com/oschwald/maxminddb-golang v1.11.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
