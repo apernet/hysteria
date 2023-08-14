@@ -31,9 +31,10 @@ type TextRule struct {
 	Address       string
 	ProtoPort     string
 	HijackAddress string
+	LineNum       int
 }
 
-func parseLine(line string) *TextRule {
+func parseLine(line string, num int) *TextRule {
 	matches := linePattern.FindStringSubmatch(line)
 	if matches == nil {
 		return nil
@@ -43,6 +44,7 @@ func parseLine(line string) *TextRule {
 		Address:       strings.TrimSpace(matches[2]),
 		ProtoPort:     strings.TrimSpace(matches[3]),
 		HijackAddress: strings.TrimSpace(matches[4]),
+		LineNum:       num,
 	}
 }
 
@@ -61,7 +63,7 @@ func ParseTextRules(text string) ([]TextRule, error) {
 			continue
 		}
 		// Parse line
-		rule := parseLine(line)
+		rule := parseLine(line, lineNum)
 		if rule == nil {
 			return nil, &InvalidSyntaxError{line, lineNum}
 		}

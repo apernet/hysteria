@@ -84,12 +84,12 @@ func (s *compiledRuleSetImpl[O]) Match(host HostInfo, proto protocol, port uint1
 }
 
 type CompilationError struct {
-	Index   int
+	LineNum int
 	Message string
 }
 
 func (e *CompilationError) Error() string {
-	return fmt.Sprintf("error at index %d: %s", e.Index, e.Message)
+	return fmt.Sprintf("error at line %d: %s", e.LineNum, e.Message)
 }
 
 func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
@@ -99,21 +99,21 @@ func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
 	for i, rule := range rules {
 		outbound, ok := outbounds[rule.Outbound]
 		if !ok {
-			return nil, &CompilationError{i, fmt.Sprintf("outbound %s not found", rule.Outbound)}
+			return nil, &CompilationError{rule.LineNum, fmt.Sprintf("outbound %s not found", rule.Outbound)}
 		}
 		hm, errStr := compileHostMatcher(rule.Address, geoipFunc)
 		if errStr != "" {
-			return nil, &CompilationError{i, errStr}
+			return nil, &CompilationError{rule.LineNum, errStr}
 		}
 		proto, port, ok := parseProtoPort(rule.ProtoPort)
 		if !ok {
-			return nil, &CompilationError{i, fmt.Sprintf("invalid protocol/port: %s", rule.ProtoPort)}
+			return nil, &CompilationError{rule.LineNum, fmt.Sprintf("invalid protocol/port: %s", rule.ProtoPort)}
 		}
 		var hijackAddress net.IP
 		if rule.HijackAddress != "" {
 			hijackAddress = net.ParseIP(rule.HijackAddress)
 			if hijackAddress == nil {
-				return nil, &CompilationError{i, fmt.Sprintf("invalid hijack address (must be an IP address): %s", rule.HijackAddress)}
+				return nil, &CompilationError{rule.LineNum, fmt.Sprintf("invalid hijack address (must be an IP address): %s", rule.HijackAddress)}
 			}
 		}
 		compiledRules[i] = compiledRule[O]{outbound, hm, proto, port, hijackAddress}
