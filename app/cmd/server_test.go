@@ -101,6 +101,7 @@ func TestServerConfig(t *testing.T) {
 				"lmao(ok)",
 				"kek(cringe,boba,tea)",
 			},
+			GeoIP: "fake.mmdb",
 		},
 		Outbounds: []serverConfigOutboundEntry{
 			{
