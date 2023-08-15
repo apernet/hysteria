@@ -44,6 +44,7 @@ type serverConfig struct {
 	UDPIdleTimeout        time.Duration               `mapstructure:"udpIdleTimeout"`
 	Auth                  serverConfigAuth            `mapstructure:"auth"`
 	Resolver              serverConfigResolver        `mapstructure:"resolver"`
+	ACL                   serverConfigACL             `mapstructure:"acl"`
 	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
 	Masquerade            serverConfigMasquerade      `mapstructure:"masquerade"`
 }
@@ -131,6 +132,12 @@ type serverConfigResolver struct {
 	UDP   serverConfigResolverUDP   `mapstructure:"udp"`
 	TLS   serverConfigResolverTLS   `mapstructure:"tls"`
 	HTTPS serverConfigResolverHTTPS `mapstructure:"https"`
+}
+
+type serverConfigACL struct {
+	File   string   `mapstructure:"file"`
+	Inline []string `mapstructure:"inline"`
+	GeoIP  string   `mapstructure:"geoip"`
 }
 
 type serverConfigOutboundDirect struct {
@@ -314,22 +321,60 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	// Resolver(ACL(Outbounds...))
 
 	// Outbounds
-	var ob outbounds.PluggableOutbound
+	var obs []outbounds.OutboundEntry
 	if len(c.Outbounds) == 0 {
-		ob = outbounds.NewDirectOutboundSimple(outbounds.DirectOutboundModeAuto)
+		// Guarantee we have at least one outbound
+		obs = []outbounds.OutboundEntry{{
+			Name:     "default",
+			Outbound: outbounds.NewDirectOutboundSimple(outbounds.DirectOutboundModeAuto),
+		}}
 	} else {
-		// Multiple-outbound is for ACL only, not supported yet.
-		var err error
-		entry := c.Outbounds[0]
-		switch strings.ToLower(entry.Type) {
-		case "direct":
-			ob, err = serverConfigOutboundDirectToOutbound(entry.Direct)
-		default:
-			err = configError{Field: "outbounds.type", Err: errors.New("unsupported outbound type")}
+		obs = make([]outbounds.OutboundEntry, len(c.Outbounds))
+		for i, entry := range c.Outbounds {
+			if entry.Name == "" {
+				return configError{Field: "outbounds.name", Err: errors.New("empty outbound name")}
+			}
+			var ob outbounds.PluggableOutbound
+			var err error
+			switch strings.ToLower(entry.Type) {
+			case "direct":
+				ob, err = serverConfigOutboundDirectToOutbound(entry.Direct)
+			default:
+				err = configError{Field: "outbounds.type", Err: errors.New("unsupported outbound type")}
+			}
+			if err != nil {
+				return err
+			}
+			obs[i] = outbounds.OutboundEntry{Name: entry.Name, Outbound: ob}
 		}
+	}
+
+	var uOb outbounds.PluggableOutbound // "unified" outbound
+
+	// ACL
+	if c.ACL.File != "" && len(c.ACL.Inline) > 0 {
+		return configError{Field: "acl", Err: errors.New("cannot set both acl.file and acl.inline")}
+	}
+	gLoader := &geoipLoader{
+		Filename:        c.ACL.GeoIP,
+		DownloadFunc:    geoipDownloadFunc,
+		DownloadErrFunc: geoipDownloadErrFunc,
+	}
+	if c.ACL.File != "" {
+		acl, err := outbounds.NewACLEngineFromFile(c.ACL.File, obs, gLoader.Load)
 		if err != nil {
-			return err
+			return configError{Field: "acl.file", Err: err}
 		}
+		uOb = acl
+	} else if len(c.ACL.Inline) > 0 {
+		acl, err := outbounds.NewACLEngineFromString(strings.Join(c.ACL.Inline, "\n"), obs, gLoader.Load)
+		if err != nil {
+			return configError{Field: "acl.inline", Err: err}
+		}
+		uOb = acl
+	} else {
+		// No ACL, use the first outbound
+		uOb = obs[0].Outbound
 	}
 
 	// Resolver
@@ -340,27 +385,27 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 		if c.Resolver.TCP.Addr == "" {
 			return configError{Field: "resolver.tcp.addr", Err: errors.New("empty resolver address")}
 		}
-		ob = outbounds.NewStandardResolverTCP(c.Resolver.TCP.Addr, c.Resolver.TCP.Timeout, ob)
+		uOb = outbounds.NewStandardResolverTCP(c.Resolver.TCP.Addr, c.Resolver.TCP.Timeout, uOb)
 	case "udp":
 		if c.Resolver.UDP.Addr == "" {
 			return configError{Field: "resolver.udp.addr", Err: errors.New("empty resolver address")}
 		}
-		ob = outbounds.NewStandardResolverUDP(c.Resolver.UDP.Addr, c.Resolver.UDP.Timeout, ob)
+		uOb = outbounds.NewStandardResolverUDP(c.Resolver.UDP.Addr, c.Resolver.UDP.Timeout, uOb)
 	case "tls", "tcp-tls":
 		if c.Resolver.TLS.Addr == "" {
 			return configError{Field: "resolver.tls.addr", Err: errors.New("empty resolver address")}
 		}
-		ob = outbounds.NewStandardResolverTLS(c.Resolver.TLS.Addr, c.Resolver.TLS.Timeout, c.Resolver.TLS.SNI, c.Resolver.TLS.Insecure, ob)
+		uOb = outbounds.NewStandardResolverTLS(c.Resolver.TLS.Addr, c.Resolver.TLS.Timeout, c.Resolver.TLS.SNI, c.Resolver.TLS.Insecure, uOb)
 	case "https", "http":
 		if c.Resolver.HTTPS.Addr == "" {
 			return configError{Field: "resolver.https.addr", Err: errors.New("empty resolver address")}
 		}
-		ob = outbounds.NewDoHResolver(c.Resolver.HTTPS.Addr, c.Resolver.HTTPS.Timeout, c.Resolver.HTTPS.SNI, c.Resolver.HTTPS.Insecure, ob)
+		uOb = outbounds.NewDoHResolver(c.Resolver.HTTPS.Addr, c.Resolver.HTTPS.Timeout, c.Resolver.HTTPS.SNI, c.Resolver.HTTPS.Insecure, uOb)
 	default:
 		return configError{Field: "resolver.type", Err: errors.New("unsupported resolver type")}
 	}
 
-	hyConfig.Outbound = &outbounds.PluggableOutboundAdapter{PluggableOutbound: ob}
+	hyConfig.Outbound = &outbounds.PluggableOutboundAdapter{PluggableOutbound: uOb}
 	return nil
 }
 
@@ -522,6 +567,16 @@ func runServer(cmd *cobra.Command, args []string) {
 
 	if err := s.Serve(); err != nil {
 		logger.Fatal("failed to serve", zap.Error(err))
+	}
+}
+
+func geoipDownloadFunc(filename, url string) {
+	logger.Info("downloading GeoIP database", zap.String("filename", filename), zap.String("url", url))
+}
+
+func geoipDownloadErrFunc(err error) {
+	if err != nil {
+		logger.Error("failed to download GeoIP database", zap.Error(err))
 	}
 }
 

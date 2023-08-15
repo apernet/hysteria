@@ -10,12 +10,12 @@ import (
 	"github.com/oschwald/geoip2-golang"
 )
 
-type protocol int
+type Protocol int
 
 const (
-	protocolBoth protocol = iota
-	protocolTCP
-	protocolUDP
+	ProtocolBoth Protocol = iota
+	ProtocolTCP
+	ProtocolUDP
 )
 
 type Outbound interface {
@@ -33,19 +33,19 @@ func (h HostInfo) String() string {
 }
 
 type CompiledRuleSet[O Outbound] interface {
-	Match(host HostInfo, proto protocol, port uint16) (O, net.IP)
+	Match(host HostInfo, proto Protocol, port uint16) (O, net.IP)
 }
 
 type compiledRule[O Outbound] struct {
 	Outbound      O
 	HostMatcher   hostMatcher
-	Protocol      protocol
+	Protocol      Protocol
 	Port          uint16
 	HijackAddress net.IP
 }
 
-func (r *compiledRule[O]) Match(host HostInfo, proto protocol, port uint16) bool {
-	if r.Protocol != protocolBoth && r.Protocol != proto {
+func (r *compiledRule[O]) Match(host HostInfo, proto Protocol, port uint16) bool {
+	if r.Protocol != ProtocolBoth && r.Protocol != proto {
 		return false
 	}
 	if r.Port != 0 && r.Port != port {
@@ -64,7 +64,7 @@ type compiledRuleSetImpl[O Outbound] struct {
 	Cache *lru.Cache[string, matchResult[O]] // key: HostInfo.String()
 }
 
-func (s *compiledRuleSetImpl[O]) Match(host HostInfo, proto protocol, port uint16) (O, net.IP) {
+func (s *compiledRuleSetImpl[O]) Match(host HostInfo, proto Protocol, port uint16) (O, net.IP) {
 	host.Name = strings.ToLower(host.Name) // Normalize host name to lower case
 	key := host.String()
 	if result, ok := s.Cache.Get(key); ok {
@@ -92,12 +92,18 @@ func (e *CompilationError) Error() string {
 	return fmt.Sprintf("error at line %d: %s", e.LineNum, e.Message)
 }
 
+// Compile compiles TextRules into a CompiledRuleSet.
+// Names in the outbounds map MUST be in all lower case.
+// geoipFunc is a function that returns the GeoIP database needed by the GeoIP matcher.
+// It will be called every time a GeoIP matcher is used during compilation, but won't
+// be called if there is no GeoIP rule. We use a function here so that database loading
+// is on-demand (only required if used by rules).
 func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
 	cacheSize int, geoipFunc func() *geoip2.Reader,
 ) (CompiledRuleSet[O], error) {
 	compiledRules := make([]compiledRule[O], len(rules))
 	for i, rule := range rules {
-		outbound, ok := outbounds[rule.Outbound]
+		outbound, ok := outbounds[strings.ToLower(rule.Outbound)]
 		if !ok {
 			return nil, &CompilationError{rule.LineNum, fmt.Sprintf("outbound %s not found", rule.Outbound)}
 		}
@@ -137,40 +143,40 @@ func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
 //	[empty] (same as *)
 //
 // proto must be either "tcp" or "udp", case-insensitive.
-func parseProtoPort(protoPort string) (protocol, uint16, bool) {
+func parseProtoPort(protoPort string) (Protocol, uint16, bool) {
 	protoPort = strings.ToLower(protoPort)
 	if protoPort == "" || protoPort == "*" || protoPort == "*/*" {
-		return protocolBoth, 0, true
+		return ProtocolBoth, 0, true
 	}
 	parts := strings.SplitN(protoPort, "/", 2)
 	if len(parts) == 1 {
 		// No port, only protocol
 		switch parts[0] {
 		case "tcp":
-			return protocolTCP, 0, true
+			return ProtocolTCP, 0, true
 		case "udp":
-			return protocolUDP, 0, true
+			return ProtocolUDP, 0, true
 		default:
-			return protocolBoth, 0, false
+			return ProtocolBoth, 0, false
 		}
 	} else {
 		// Both protocol and port
-		var proto protocol
+		var proto Protocol
 		var port uint16
 		switch parts[0] {
 		case "tcp":
-			proto = protocolTCP
+			proto = ProtocolTCP
 		case "udp":
-			proto = protocolUDP
+			proto = ProtocolUDP
 		case "*":
-			proto = protocolBoth
+			proto = ProtocolBoth
 		default:
-			return protocolBoth, 0, false
+			return ProtocolBoth, 0, false
 		}
 		if parts[1] != "*" {
 			p64, err := strconv.ParseUint(parts[1], 10, 16)
 			if err != nil {
-				return protocolBoth, 0, false
+				return ProtocolBoth, 0, false
 			}
 			port = uint16(p64)
 		}
@@ -194,7 +200,7 @@ func compileHostMatcher(addr string, geoipFunc func() *geoip2.Reader) (hostMatch
 		if db == nil {
 			return nil, "failed to load GeoIP database"
 		}
-		return &geoIPMatcher{db, country}, ""
+		return &geoipMatcher{db, country}, ""
 	}
 	if strings.Contains(addr, "/") {
 		// CIDR matcher

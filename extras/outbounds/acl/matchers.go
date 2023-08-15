@@ -55,12 +55,12 @@ func deepMatchRune(str, pattern []rune) bool {
 	return len(str) == 0 && len(pattern) == 0
 }
 
-type geoIPMatcher struct {
+type geoipMatcher struct {
 	DB      *geoip2.Reader
 	Country string // must be uppercase ISO 3166-1 alpha-2 code
 }
 
-func (m *geoIPMatcher) Match(host HostInfo) bool {
+func (m *geoipMatcher) Match(host HostInfo) bool {
 	if host.IPv4 != nil {
 		record, err := m.DB.Country(host.IPv4)
 		if err == nil && record.Country.IsoCode == m.Country {

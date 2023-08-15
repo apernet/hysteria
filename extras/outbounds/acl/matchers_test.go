@@ -234,7 +234,7 @@ func Test_domainMatcher_Match(t *testing.T) {
 	}
 }
 
-func Test_geoIPMatcher_Match(t *testing.T) {
+func Test_geoipMatcher_Match(t *testing.T) {
 	db, err := geoip2.Open("GeoLite2-Country.mmdb")
 	assert.NoError(t, err)
 	defer db.Close()
@@ -298,7 +298,7 @@ func Test_geoIPMatcher_Match(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &geoIPMatcher{
+			m := &geoipMatcher{
 				DB:      tt.fields.DB,
 				Country: tt.fields.Country,
 			}

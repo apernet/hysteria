@@ -95,6 +95,13 @@ func TestServerConfig(t *testing.T) {
 				Insecure: true,
 			},
 		},
+		ACL: serverConfigACL{
+			File: "chnroute.txt",
+			Inline: []string{
+				"lmao(ok)",
+				"kek(cringe,boba,tea)",
+			},
+		},
 		Outbounds: []serverConfigOutboundEntry{
 			{
 				Name: "goodstuff",

@@ -2,7 +2,6 @@ package acl
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 )
@@ -70,12 +69,4 @@ func ParseTextRules(text string) ([]TextRule, error) {
 		rules = append(rules, *rule)
 	}
 	return rules, nil
-}
-
-func ParseTextRulesFile(filename string) ([]TextRule, error) {
-	bs, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return ParseTextRules(string(bs))
 }

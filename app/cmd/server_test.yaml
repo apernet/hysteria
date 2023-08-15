@@ -70,6 +70,12 @@ resolver:
     sni: real.stuff.net
     insecure: true
 
+acl:
+  file: chnroute.txt
+  inline:
+    - lmao(ok)
+    - kek(cringe,boba,tea)
+
 outbounds:
   - name: goodstuff
     type: direct

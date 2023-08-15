@@ -69,7 +69,7 @@ func TestCompile(t *testing.T) {
 
 	tests := []struct {
 		host         HostInfo
-		proto        protocol
+		proto        Protocol
 		port         uint16
 		wantOutbound int
 		wantIP       net.IP
@@ -78,7 +78,7 @@ func TestCompile(t *testing.T) {
 			host: HostInfo{
 				IPv4: net.ParseIP("1.2.3.4"),
 			},
-			proto:        protocolTCP,
+			proto:        ProtocolTCP,
 			port:         1234,
 			wantOutbound: ob1,
 			wantIP:       nil,
@@ -87,7 +87,7 @@ func TestCompile(t *testing.T) {
 			host: HostInfo{
 				IPv4: net.ParseIP("8.8.8.4"),
 			},
-			proto:        protocolUDP,
+			proto:        ProtocolUDP,
 			port:         5353,
 			wantOutbound: ob2,
 			wantIP:       net.ParseIP("1.1.1.1"),
@@ -96,7 +96,7 @@ func TestCompile(t *testing.T) {
 			host: HostInfo{
 				Name: "lean.delicious.com",
 			},
-			proto:        protocolUDP,
+			proto:        ProtocolUDP,
 			port:         443,
 			wantOutbound: ob3,
 			wantIP:       nil,
@@ -105,7 +105,7 @@ func TestCompile(t *testing.T) {
 			host: HostInfo{
 				IPv6: net.ParseIP("2606:4700::6810:85e5"),
 			},
-			proto:        protocolTCP,
+			proto:        ProtocolTCP,
 			port:         80,
 			wantOutbound: ob1,
 			wantIP:       net.ParseIP("2606:4700::6810:85e6"),
@@ -114,7 +114,7 @@ func TestCompile(t *testing.T) {
 			host: HostInfo{
 				IPv6: net.ParseIP("2606:4700:0:0:0:0:0:1"),
 			},
-			proto:        protocolUDP,
+			proto:        ProtocolUDP,
 			port:         8888,
 			wantOutbound: ob2,
 			wantIP:       nil,
@@ -123,7 +123,7 @@ func TestCompile(t *testing.T) {
 			host: HostInfo{
 				Name: "www.v2ex.com",
 			},
-			proto:        protocolUDP,
+			proto:        ProtocolUDP,
 			port:         1234,
 			wantOutbound: ob3,
 			wantIP:       nil,
@@ -132,7 +132,7 @@ func TestCompile(t *testing.T) {
 			host: HostInfo{
 				Name: "crap.v2ex.com",
 			},
-			proto:        protocolTCP,
+			proto:        ProtocolTCP,
 			port:         80,
 			wantOutbound: ob1,
 			wantIP:       net.ParseIP("2.2.2.2"),
@@ -141,7 +141,7 @@ func TestCompile(t *testing.T) {
 			host: HostInfo{
 				IPv4: net.ParseIP("210.140.92.187"),
 			},
-			proto:        protocolTCP,
+			proto:        ProtocolTCP,
 			port:         25,
 			wantOutbound: ob2,
 			wantIP:       nil,
