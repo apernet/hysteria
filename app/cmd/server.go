@@ -147,10 +147,17 @@ type serverConfigOutboundDirect struct {
 	BindDevice string `mapstructure:"bindDevice"`
 }
 
+type serverConfigOutboundSOCKS5 struct {
+	Addr     string `mapstructure:"addr"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+}
+
 type serverConfigOutboundEntry struct {
 	Name   string                     `mapstructure:"name"`
 	Type   string                     `mapstructure:"type"`
 	Direct serverConfigOutboundDirect `mapstructure:"direct"`
+	SOCKS5 serverConfigOutboundSOCKS5 `mapstructure:"socks5"`
 }
 
 type serverConfigMasqueradeFile struct {
@@ -315,6 +322,13 @@ func serverConfigOutboundDirectToOutbound(c serverConfigOutboundDirect) (outboun
 	return outbounds.NewDirectOutboundSimple(mode), nil
 }
 
+func serverConfigOutboundSOCKS5ToOutbound(c serverConfigOutboundSOCKS5) (outbounds.PluggableOutbound, error) {
+	if c.Addr == "" {
+		return nil, configError{Field: "outbounds.socks5.addr", Err: errors.New("empty socks5 address")}
+	}
+	return outbounds.NewSOCKS5Outbound(c.Addr, c.Username, c.Password), nil
+}
+
 func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	// Resolver, ACL, actual outbound are all implemented through the Outbound interface.
 	// Depending on the config, we build a chain like this:
@@ -339,6 +353,8 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 			switch strings.ToLower(entry.Type) {
 			case "direct":
 				ob, err = serverConfigOutboundDirectToOutbound(entry.Direct)
+			case "socks5":
+				ob, err = serverConfigOutboundSOCKS5ToOutbound(entry.SOCKS5)
 			default:
 				err = configError{Field: "outbounds.type", Err: errors.New("unsupported outbound type")}
 			}

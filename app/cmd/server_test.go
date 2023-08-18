@@ -114,6 +114,15 @@ func TestServerConfig(t *testing.T) {
 					BindDevice: "eth233",
 				},
 			},
+			{
+				Name: "badstuff",
+				Type: "socks5",
+				SOCKS5: serverConfigOutboundSOCKS5{
+					Addr:     "shady.proxy.ru:1080",
+					Username: "hackerman",
+					Password: "Elliot Alderson",
+				},
+			},
 		},
 		Masquerade: serverConfigMasquerade{
 			Type: "proxy",
