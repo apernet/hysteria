@@ -368,6 +368,7 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	var uOb outbounds.PluggableOutbound // "unified" outbound
 
 	// ACL
+	hasACL := false
 	if c.ACL.File != "" && len(c.ACL.Inline) > 0 {
 		return configError{Field: "acl", Err: errors.New("cannot set both acl.file and acl.inline")}
 	}
@@ -377,12 +378,14 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 		DownloadErrFunc: geoipDownloadErrFunc,
 	}
 	if c.ACL.File != "" {
+		hasACL = true
 		acl, err := outbounds.NewACLEngineFromFile(c.ACL.File, obs, gLoader.Load)
 		if err != nil {
 			return configError{Field: "acl.file", Err: err}
 		}
 		uOb = acl
 	} else if len(c.ACL.Inline) > 0 {
+		hasACL = true
 		acl, err := outbounds.NewACLEngineFromString(strings.Join(c.ACL.Inline, "\n"), obs, gLoader.Load)
 		if err != nil {
 			return configError{Field: "acl.inline", Err: err}
@@ -396,7 +399,12 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	// Resolver
 	switch strings.ToLower(c.Resolver.Type) {
 	case "", "system":
-		// Do nothing. DirectOutbound will use system resolver by default.
+		if hasACL {
+			// If the user uses ACL, we must put a resolver in front of it,
+			// for IP rules to work on domain requests.
+			uOb = outbounds.NewSystemResolver(uOb)
+		}
+		// Otherwise we can just rely on outbound handling on its own.
 	case "tcp":
 		if c.Resolver.TCP.Addr == "" {
 			return configError{Field: "resolver.tcp.addr", Err: errors.New("empty resolver address")}
