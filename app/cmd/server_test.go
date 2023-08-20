@@ -124,6 +124,9 @@ func TestServerConfig(t *testing.T) {
 				},
 			},
 		},
+		TrafficStats: serverConfigTrafficStats{
+			Listen: ":9999",
+		},
 		Masquerade: serverConfigMasquerade{
 			Type: "proxy",
 			File: serverConfigMasqueradeFile{

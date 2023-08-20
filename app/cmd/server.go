@@ -20,6 +20,7 @@ import (
 	"github.com/apernet/hysteria/extras/auth"
 	"github.com/apernet/hysteria/extras/obfs"
 	"github.com/apernet/hysteria/extras/outbounds"
+	"github.com/apernet/hysteria/extras/trafficlogger"
 )
 
 var serverCmd = &cobra.Command{
@@ -46,6 +47,7 @@ type serverConfig struct {
 	Resolver              serverConfigResolver        `mapstructure:"resolver"`
 	ACL                   serverConfigACL             `mapstructure:"acl"`
 	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
+	TrafficStats          serverConfigTrafficStats    `mapstructure:"trafficStats"`
 	Masquerade            serverConfigMasquerade      `mapstructure:"masquerade"`
 }
 
@@ -158,6 +160,10 @@ type serverConfigOutboundEntry struct {
 	Type   string                     `mapstructure:"type"`
 	Direct serverConfigOutboundDirect `mapstructure:"direct"`
 	SOCKS5 serverConfigOutboundSOCKS5 `mapstructure:"socks5"`
+}
+
+type serverConfigTrafficStats struct {
+	Listen string `mapstructure:"listen"`
 }
 
 type serverConfigMasqueradeFile struct {
@@ -504,6 +510,15 @@ func (c *serverConfig) fillEventLogger(hyConfig *server.Config) error {
 	return nil
 }
 
+func (c *serverConfig) fillTrafficLogger(hyConfig *server.Config) error {
+	if c.TrafficStats.Listen != "" {
+		tss := trafficlogger.NewTrafficStatsServer()
+		hyConfig.TrafficLogger = tss
+		go runTrafficStatsServer(c.TrafficStats.Listen, tss)
+	}
+	return nil
+}
+
 func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 	switch strings.ToLower(c.Masquerade.Type) {
 	case "", "404":
@@ -557,6 +572,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 		c.fillUDPIdleTimeout,
 		c.fillAuthenticator,
 		c.fillEventLogger,
+		c.fillTrafficLogger,
 		c.fillMasqHandler,
 	}
 	for _, f := range fillers {
@@ -591,6 +607,13 @@ func runServer(cmd *cobra.Command, args []string) {
 
 	if err := s.Serve(); err != nil {
 		logger.Fatal("failed to serve", zap.Error(err))
+	}
+}
+
+func runTrafficStatsServer(listen string, handler http.Handler) {
+	logger.Info("traffic stats server up and running", zap.String("listen", listen))
+	if err := http.ListenAndServe(listen, handler); err != nil {
+		logger.Fatal("failed to serve traffic stats", zap.Error(err))
 	}
 }
 

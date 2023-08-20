@@ -92,6 +92,9 @@ outbounds:
       username: hackerman
       password: Elliot Alderson
 
+trafficStats:
+  listen: :9999
+
 masquerade:
   type: proxy
   file:
