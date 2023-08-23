@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/apernet/hysteria/extras/utils"
 	"github.com/mdp/qrterminal/v3"
@@ -107,4 +108,13 @@ func (l *geoipLoader) Load() *geoip2.Reader {
 		l.db = db
 	}
 	return l.db
+}
+
+// normalizeCertHash normalizes a certificate hash string.
+// It converts all characters to lowercase and removes possible separators such as ":" and "-".
+func normalizeCertHash(hash string) string {
+	r := strings.ToLower(hash)
+	r = strings.ReplaceAll(r, ":", "")
+	r = strings.ReplaceAll(r, "-", "")
+	return r
 }

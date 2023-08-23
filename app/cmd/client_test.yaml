@@ -10,6 +10,7 @@ obfs:
 tls:
   sni: another.example.com
   insecure: true
+  pinSHA256: 114515DEADBEEF
   ca: custom_ca.crt
 
 quic:

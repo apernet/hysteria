@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"net"
 	"net/url"
@@ -70,9 +72,10 @@ type clientConfigObfs struct {
 }
 
 type clientConfigTLS struct {
-	SNI      string `mapstructure:"sni"`
-	Insecure bool   `mapstructure:"insecure"`
-	CA       string `mapstructure:"ca"`
+	SNI       string `mapstructure:"sni"`
+	Insecure  bool   `mapstructure:"insecure"`
+	PinSHA256 string `mapstructure:"pinSHA256"`
+	CA        string `mapstructure:"ca"`
 }
 
 type clientConfigQUIC struct {
@@ -174,6 +177,20 @@ func (c *clientConfig) fillTLSConfig(hyConfig *client.Config) error {
 		hyConfig.TLSConfig.ServerName = c.TLS.SNI
 	}
 	hyConfig.TLSConfig.InsecureSkipVerify = c.TLS.Insecure
+	if c.TLS.PinSHA256 != "" {
+		nHash := normalizeCertHash(c.TLS.PinSHA256)
+		hyConfig.TLSConfig.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+			for _, cert := range rawCerts {
+				hash := sha256.Sum256(cert)
+				hashHex := hex.EncodeToString(hash[:])
+				if hashHex == nHash {
+					return nil
+				}
+			}
+			// No match
+			return errors.New("no certificate matches the pinned hash")
+		}
+	}
 	if c.TLS.CA != "" {
 		ca, err := os.ReadFile(c.TLS.CA)
 		if err != nil {
@@ -233,6 +250,7 @@ func (c *clientConfig) fillFastOpen(hyConfig *client.Config) error {
 // - obfuscation password
 // - TLS SNI
 // - TLS insecure
+// - TLS pinned SHA256 hash (normalized)
 func (c *clientConfig) URI() string {
 	q := url.Values{}
 	switch strings.ToLower(c.Obfs.Type) {
@@ -245,6 +263,9 @@ func (c *clientConfig) URI() string {
 	}
 	if c.TLS.Insecure {
 		q.Set("insecure", "1")
+	}
+	if c.TLS.PinSHA256 != "" {
+		q.Set("pinSHA256", normalizeCertHash(c.TLS.PinSHA256))
 	}
 	var user *url.Userinfo
 	if c.Auth != "" {
@@ -296,6 +317,9 @@ func (c *clientConfig) parseURI() bool {
 	}
 	if insecure, err := strconv.ParseBool(q.Get("insecure")); err == nil {
 		c.TLS.Insecure = insecure
+	}
+	if pinSHA256 := q.Get("pinSHA256"); pinSHA256 != "" {
+		c.TLS.PinSHA256 = pinSHA256
 	}
 	return true
 }

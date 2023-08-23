@@ -88,9 +88,10 @@ func (f *udpConnFactory) New(addr net.Addr) (net.PacketConn, error) {
 
 // TLSConfig contains the TLS configuration fields that we want to expose to the user.
 type TLSConfig struct {
-	ServerName         string
-	InsecureSkipVerify bool
-	RootCAs            *x509.CertPool
+	ServerName            string
+	InsecureSkipVerify    bool
+	VerifyPeerCertificate func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
+	RootCAs               *x509.CertPool
 }
 
 // QUICConfig contains the QUIC configuration fields that we want to expose to the user.

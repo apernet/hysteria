@@ -63,9 +63,10 @@ func (c *clientImpl) connect() error {
 	}
 	// Convert config to TLS config & QUIC config
 	tlsConfig := &tls.Config{
-		ServerName:         c.config.TLSConfig.ServerName,
-		InsecureSkipVerify: c.config.TLSConfig.InsecureSkipVerify,
-		RootCAs:            c.config.TLSConfig.RootCAs,
+		ServerName:            c.config.TLSConfig.ServerName,
+		InsecureSkipVerify:    c.config.TLSConfig.InsecureSkipVerify,
+		VerifyPeerCertificate: c.config.TLSConfig.VerifyPeerCertificate,
+		RootCAs:               c.config.TLSConfig.RootCAs,
 	}
 	quicConfig := &quic.Config{
 		InitialStreamReceiveWindow:     c.config.QUICConfig.InitialStreamReceiveWindow,
