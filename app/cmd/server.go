@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"github.com/apernet/hysteria/app/internal/utils"
 	"github.com/apernet/hysteria/core/server"
 	"github.com/apernet/hysteria/extras/auth"
 	"github.com/apernet/hysteria/extras/obfs"
@@ -378,7 +379,7 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	if c.ACL.File != "" && len(c.ACL.Inline) > 0 {
 		return configError{Field: "acl", Err: errors.New("cannot set both acl.file and acl.inline")}
 	}
-	gLoader := &geoipLoader{
+	gLoader := &utils.GeoIPLoader{
 		Filename:        c.ACL.GeoIP,
 		DownloadFunc:    geoipDownloadFunc,
 		DownloadErrFunc: geoipDownloadErrFunc,
@@ -442,13 +443,13 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 func (c *serverConfig) fillBandwidthConfig(hyConfig *server.Config) error {
 	var err error
 	if c.Bandwidth.Up != "" {
-		hyConfig.BandwidthConfig.MaxTx, err = convBandwidth(c.Bandwidth.Up)
+		hyConfig.BandwidthConfig.MaxTx, err = utils.ConvBandwidth(c.Bandwidth.Up)
 		if err != nil {
 			return configError{Field: "bandwidth.up", Err: err}
 		}
 	}
 	if c.Bandwidth.Down != "" {
-		hyConfig.BandwidthConfig.MaxRx, err = convBandwidth(c.Bandwidth.Down)
+		hyConfig.BandwidthConfig.MaxRx, err = utils.ConvBandwidth(c.Bandwidth.Down)
 		if err != nil {
 			return configError{Field: "bandwidth.down", Err: err}
 		}

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -48,5 +49,20 @@ func StringToBps(s string) (uint64, error) {
 		return v * Terabyte / 8, nil
 	default:
 		return 0, errors.New("unsupported unit")
+	}
+}
+
+// ConvBandwidth handles both string and int types for bandwidth.
+// When using string, it will be parsed as a bandwidth string with units.
+// When using int, it will be parsed as a raw bandwidth in bytes per second.
+// It does NOT support float types.
+func ConvBandwidth(bw interface{}) (uint64, error) {
+	switch bwT := bw.(type) {
+	case string:
+		return StringToBps(bwT)
+	case int:
+		return uint64(bwT), nil
+	default:
+		return 0, fmt.Errorf("invalid type %T for bandwidth", bwT)
 	}
 }

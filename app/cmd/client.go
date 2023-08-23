@@ -21,6 +21,7 @@ import (
 	"github.com/apernet/hysteria/app/internal/http"
 	"github.com/apernet/hysteria/app/internal/socks5"
 	"github.com/apernet/hysteria/app/internal/tproxy"
+	"github.com/apernet/hysteria/app/internal/utils"
 	"github.com/apernet/hysteria/core/client"
 	"github.com/apernet/hysteria/extras/obfs"
 )
@@ -222,13 +223,13 @@ func (c *clientConfig) fillBandwidthConfig(hyConfig *client.Config) error {
 	// New core now allows users to omit bandwidth values and use built-in congestion control
 	var err error
 	if c.Bandwidth.Up != "" {
-		hyConfig.BandwidthConfig.MaxTx, err = convBandwidth(c.Bandwidth.Up)
+		hyConfig.BandwidthConfig.MaxTx, err = utils.ConvBandwidth(c.Bandwidth.Up)
 		if err != nil {
 			return configError{Field: "bandwidth.up", Err: err}
 		}
 	}
 	if c.Bandwidth.Down != "" {
-		hyConfig.BandwidthConfig.MaxRx, err = convBandwidth(c.Bandwidth.Down)
+		hyConfig.BandwidthConfig.MaxRx, err = utils.ConvBandwidth(c.Bandwidth.Down)
 		if err != nil {
 			return configError{Field: "bandwidth.down", Err: err}
 		}
@@ -369,7 +370,7 @@ func runClient(cmd *cobra.Command, args []string) {
 	uri := config.URI()
 	logger.Info("use this URI to share your server", zap.String("uri", uri))
 	if showQR {
-		printQR(uri)
+		utils.PrintQR(uri)
 	}
 
 	// Modes
@@ -592,6 +593,15 @@ func parseServerAddrString(addrStr string) (host, hostPort string) {
 		return addrStr, net.JoinHostPort(addrStr, "443")
 	}
 	return h, addrStr
+}
+
+// normalizeCertHash normalizes a certificate hash string.
+// It converts all characters to lowercase and removes possible separators such as ":" and "-".
+func normalizeCertHash(hash string) string {
+	r := strings.ToLower(hash)
+	r = strings.ReplaceAll(r, ":", "")
+	r = strings.ReplaceAll(r, "-", "")
+	return r
 }
 
 // obfsConnFactory adds obfuscation to a function that creates net.PacketConn.
