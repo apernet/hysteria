@@ -367,6 +367,9 @@ func runClient(cmd *cobra.Command, args []string) {
 	}
 	defer c.Close()
 
+	// TODO: add option to disable update checking
+	go runCheckUpdateClient(c) // TODO: fix lazy mode
+
 	uri := config.URI()
 	logger.Info("use this URI to share your server", zap.String("uri", uri))
 	if showQR {

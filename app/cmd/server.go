@@ -606,6 +606,8 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 	logger.Info("server up and running")
 
+	go runCheckUpdateServer()
+
 	if err := s.Serve(); err != nil {
 		logger.Fatal("failed to serve", zap.Error(err))
 	}

@@ -128,11 +128,16 @@ def get_app_commit():
     return app_commit
 
 
+def get_current_os_arch():
+    d_os = subprocess.check_output(["go", "env", "GOOS"]).decode().strip()
+    d_arch = subprocess.check_output(["go", "env", "GOARCH"]).decode().strip()
+    return (d_os, d_arch)
+
+
 def get_app_platforms():
     platforms = os.environ.get("HY_APP_PLATFORMS")
     if not platforms:
-        d_os = subprocess.check_output(["go", "env", "GOOS"]).decode().strip()
-        d_arch = subprocess.check_output(["go", "env", "GOARCH"]).decode().strip()
+        d_os, d_arch = get_current_os_arch()
         return [(d_os, d_arch)]
 
     result = []
@@ -190,13 +195,19 @@ def cmd_build(pprof=False, release=False):
         else:
             env["GOARCH"] = arch
 
+        plat_ldflags = ldflags.copy()
+        plat_ldflags.append("-X")
+        plat_ldflags.append(APP_SRC_CMD_PKG + ".appPlatform=" + os_name)
+        plat_ldflags.append("-X")
+        plat_ldflags.append(APP_SRC_CMD_PKG + ".appArch=" + arch)
+
         cmd = [
             "go",
             "build",
             "-o",
             os.path.join(BUILD_DIR, out_name),
             "-ldflags",
-            " ".join(ldflags),
+            " ".join(plat_ldflags),
         ]
         if pprof:
             cmd.append("-tags")
@@ -222,6 +233,8 @@ def cmd_run(args, pprof=False):
     app_date = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     app_commit = get_app_commit()
 
+    current_os, current_arch = get_current_os_arch()
+
     ldflags = [
         "-X",
         APP_SRC_CMD_PKG + ".appVersion=" + app_version,
@@ -231,6 +244,10 @@ def cmd_run(args, pprof=False):
         APP_SRC_CMD_PKG + ".appType=dev-run",
         "-X",
         APP_SRC_CMD_PKG + ".appCommit=" + app_commit,
+        "-X",
+        APP_SRC_CMD_PKG + ".appPlatform=" + current_os,
+        "-X",
+        APP_SRC_CMD_PKG + ".appArch=" + current_arch,
     ]
 
     cmd = ["go", "run", "-ldflags", " ".join(ldflags)]

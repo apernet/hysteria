@@ -26,13 +26,22 @@ const (
 
 var (
 	// These values will be injected by the build system
-	appVersion = "Unknown"
-	appDate    = "Unknown"
-	appType    = "Unknown"
-	appCommit  = "Unknown"
+	appVersion  = "Unknown"
+	appDate     = "Unknown"
+	appType     = "Unknown" // aka channel
+	appCommit   = "Unknown"
+	appPlatform = "Unknown"
+	appArch     = "Unknown"
 
-	appVersionLong = fmt.Sprintf("Version:\t%s\nBuildDate:\t%s\nBuildType:\t%s\nCommitHash:\t%s",
-		appVersion, appDate, appType, appCommit)
+	appVersionLong = fmt.Sprintf("Version:\t%s\n"+
+		"BuildDate:\t%s\n"+
+		"BuildType:\t%s\n"+
+		"CommitHash:\t%s\n"+
+		"Platform:\t%s\n"+
+		"Architecture:\t%s",
+		appVersion, appDate, appType, appCommit, appPlatform, appArch)
+
+	appAboutLong = fmt.Sprintf("%s\n%s\n%s\n\n%s", appLogo, appDesc, appAuthors, appVersionLong)
 )
 
 var logger *zap.Logger
@@ -47,7 +56,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "hysteria",
 	Short: appDesc,
-	Long:  fmt.Sprintf("%s\n%s\n%s\n\n%s", appLogo, appDesc, appAuthors, appVersionLong),
+	Long:  appAboutLong,
 	Run:   runClient, // Default to client mode
 }
 
