@@ -13,12 +13,12 @@ type reconnectableClientImpl struct {
 	config        *Config
 	client        Client
 	count         int
-	connectedFunc func(int) // called when successfully connected
+	connectedFunc func(Client, int) // called when successfully connected
 	m             sync.Mutex
 	closed        bool // permanent close
 }
 
-func NewReconnectableClient(config *Config, connectedFunc func(int), lazy bool) (Client, error) {
+func NewReconnectableClient(config *Config, connectedFunc func(Client, int), lazy bool) (Client, error) {
 	// Make sure we capture any error in config and return it here,
 	// so that the caller doesn't have to wait until the first call
 	// to TCP() or UDP() to get the error (when lazy is true).
@@ -48,7 +48,7 @@ func (rc *reconnectableClientImpl) reconnect() error {
 	} else {
 		rc.count++
 		if rc.connectedFunc != nil {
-			rc.connectedFunc(rc.count)
+			rc.connectedFunc(rc, rc.count)
 		}
 		return nil
 	}

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -20,8 +21,9 @@ const (
 	appDesc    = "a powerful, censorship-resistant proxy tool optimized for lossy networks"
 	appAuthors = "Aperture Internet Laboratory <https://github.com/apernet>"
 
-	appLogLevelEnv  = "HYSTERIA_LOG_LEVEL"
-	appLogFormatEnv = "HYSTERIA_LOG_FORMAT"
+	appLogLevelEnv           = "HYSTERIA_LOG_LEVEL"
+	appLogFormatEnv          = "HYSTERIA_LOG_FORMAT"
+	appDisableUpdateCheckEnv = "HYSTERIA_DISABLE_UPDATE_CHECK"
 )
 
 var (
@@ -48,9 +50,10 @@ var logger *zap.Logger
 
 // Flags
 var (
-	cfgFile   string
-	logLevel  string
-	logFormat string
+	cfgFile            string
+	logLevel           string
+	logFormat          string
+	disableUpdateCheck bool
 )
 
 var rootCmd = &cobra.Command{
@@ -105,8 +108,9 @@ func init() {
 
 func initFlags() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file")
-	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", envOrDefault(appLogLevelEnv, "info"), "log level")
-	rootCmd.PersistentFlags().StringVarP(&logFormat, "log-format", "f", envOrDefault(appLogFormatEnv, "console"), "log format")
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", envOrDefaultString(appLogLevelEnv, "info"), "log level")
+	rootCmd.PersistentFlags().StringVarP(&logFormat, "log-format", "f", envOrDefaultString(appLogFormatEnv, "console"), "log format")
+	rootCmd.PersistentFlags().BoolVar(&disableUpdateCheck, "disable-update-check", envOrDefaultBool(appDisableUpdateCheckEnv, false), "disable update check")
 }
 
 func initConfig() {
@@ -149,9 +153,17 @@ func initLogger() {
 	}
 }
 
-func envOrDefault(key, def string) string {
+func envOrDefaultString(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
+	}
+	return def
+}
+
+func envOrDefaultBool(key string, def bool) bool {
+	if v := os.Getenv(key); v != "" {
+		b, _ := strconv.ParseBool(v)
+		return b
 	}
 	return def
 }
