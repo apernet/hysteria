@@ -21,6 +21,7 @@ type UpdateChecker struct {
 	Platform       string
 	Architecture   string
 	Channel        string
+	Side           string
 	Client         *http.Client
 }
 
@@ -30,6 +31,7 @@ func NewServerUpdateChecker(currentVersion, platform, architecture, channel stri
 		Platform:       platform,
 		Architecture:   architecture,
 		Channel:        channel,
+		Side:           "server",
 		Client: &http.Client{
 			Timeout: updateCheckTimeout,
 		},
@@ -47,6 +49,7 @@ func NewClientUpdateChecker(currentVersion, platform, architecture, channel stri
 		Platform:       platform,
 		Architecture:   architecture,
 		Channel:        channel,
+		Side:           "client",
 		Client: &http.Client{
 			Timeout: updateCheckTimeout,
 			Transport: &http.Transport{
@@ -67,12 +70,13 @@ type UpdateResponse struct {
 }
 
 func (uc *UpdateChecker) Check() (*UpdateResponse, error) {
-	url := fmt.Sprintf("%s?cver=%s&plat=%s&arch=%s&chan=%s",
+	url := fmt.Sprintf("%s?cver=%s&plat=%s&arch=%s&chan=%s&side=%s",
 		updateCheckEndpoint,
 		uc.CurrentVersion,
 		uc.Platform,
 		uc.Architecture,
 		uc.Channel,
+		uc.Side,
 	)
 	resp, err := uc.Client.Get(url)
 	if err != nil {
