@@ -1,12 +1,11 @@
-name: "Build WIP Hysteria 2"
+name: "Build Hysteria 2"
 
 on:
   push:
     branches:
-      - 'wip-hy2'
+      - "wip-hy2"
 
 jobs:
-
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -14,24 +13,23 @@ jobs:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
     steps:
-
       - name: Check out
         uses: actions/checkout@v3
 
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20'
+          go-version: "1.21"
 
       - name: Setup Python # This is for the build script
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Run build script
-        env:
-          HY_APP_PLATFORMS: 'windows/amd64,linux/amd64,linux/arm64,darwin/amd64,darwin/arm64'
-        run: 'python hyperbole.py build -r'
+        run: |
+          export HY_APP_PLATFORMS=$(sed 's/\r$//' platforms.txt | awk '!/^#/ && !/^$/' | paste -sd ",")
+          python hyperbole.py build -r
 
       - name: Archive
         uses: actions/upload-artifact@v3

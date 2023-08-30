@@ -1,0 +1,30 @@
+# This file controls what platform/architecture combinations we build for a release.
+
+# Windows
+windows/amd64
+windows/amd64-avx
+windows/386
+windows/arm64
+
+# macOS
+darwin/amd64
+darwin/amd64-avx
+darwin/arm64
+
+# Linux
+linux/amd64
+linux/amd64-avx
+linux/386
+linux/arm
+linux/armv5
+linux/arm64
+linux/s390x
+linux/mipsle
+linux/mipsle-sf
+
+# FreeBSD
+freebsd/amd64
+freebsd/amd64-avx
+freebsd/386
+freebsd/arm
+freebsd/arm64
