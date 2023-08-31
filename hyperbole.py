@@ -310,6 +310,25 @@ def cmd_tidy():
         print("Failed to sync go work")
 
 
+def cmd_test(module=None):
+    if not check_build_env():
+        return
+
+    if module:
+        print("Testing %s..." % module)
+        try:
+            subprocess.check_call(["go", "test", "-v", "./..."], cwd=module)
+        except Exception:
+            print("Failed to test %s" % module)
+    else:
+        for dir in MODULE_SRC_DIRS:
+            print("Testing %s..." % dir)
+            try:
+                subprocess.check_call(["go", "test", "-v", "./..."], cwd=dir)
+            except Exception:
+                print("Failed to test %s" % dir)
+
+
 def cmd_clean():
     shutil.rmtree(BUILD_DIR, ignore_errors=True)
 
@@ -350,6 +369,10 @@ def main():
     # Tidy
     p_cmd.add_parser("tidy", help="Tidy the go modules")
 
+    # Test
+    p_test = p_cmd.add_parser("test", help="Test the code")
+    p_test.add_argument("module", nargs="?", help="Module to test")
+
     # Clean
     p_cmd.add_parser("clean", help="Clean the build directory")
 
@@ -368,6 +391,8 @@ def main():
         cmd_mockgen()
     elif args.command == "tidy":
         cmd_tidy()
+    elif args.command == "test":
+        cmd_test(args.module)
     elif args.command == "clean":
         cmd_clean()
     elif args.command == "about":
