@@ -40,6 +40,7 @@ type udpPacket struct {
 	Buf  []byte
 	N    int
 	Addr net.Addr
+	Err  error
 }
 
 func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration) (net.PacketConn, error) {
@@ -81,10 +82,13 @@ func (u *udpHopPacketConn) recvLoop(conn net.PacketConn) {
 		buf := u.bufPool.Get().([]byte)
 		n, addr, err := conn.ReadFrom(buf)
 		if err != nil {
+			u.bufPool.Put(buf)
+			u.recvQueue <- &udpPacket{nil, 0, nil, err}
 			return
 		}
 		select {
-		case u.recvQueue <- &udpPacket{buf, n, addr}:
+		case u.recvQueue <- &udpPacket{buf, n, addr, nil}:
+			// Packet successfully queued
 		default:
 			// Queue is full, drop the packet
 			u.bufPool.Put(buf)
@@ -145,6 +149,9 @@ func (u *udpHopPacketConn) ReadFrom(b []byte) (n int, addr net.Addr, err error) 
 	for {
 		select {
 		case p := <-u.recvQueue:
+			if p.Err != nil {
+				return 0, nil, p.Err
+			}
 			// Currently we do not check whether the packet is from
 			// the server or not due to performance reasons.
 			n := copy(b, p.Buf[:p.N])
@@ -193,18 +200,30 @@ func (u *udpHopPacketConn) LocalAddr() net.Addr {
 }
 
 func (u *udpHopPacketConn) SetDeadline(t time.Time) error {
-	// Not implemented
-	return nil
+	u.connMutex.RLock()
+	defer u.connMutex.RUnlock()
+	if u.prevConn != nil {
+		_ = u.prevConn.SetDeadline(t)
+	}
+	return u.currentConn.SetDeadline(t)
 }
 
 func (u *udpHopPacketConn) SetReadDeadline(t time.Time) error {
-	// Not implemented
-	return nil
+	u.connMutex.RLock()
+	defer u.connMutex.RUnlock()
+	if u.prevConn != nil {
+		_ = u.prevConn.SetReadDeadline(t)
+	}
+	return u.currentConn.SetReadDeadline(t)
 }
 
 func (u *udpHopPacketConn) SetWriteDeadline(t time.Time) error {
-	// Not implemented
-	return nil
+	u.connMutex.RLock()
+	defer u.connMutex.RUnlock()
+	if u.prevConn != nil {
+		_ = u.prevConn.SetWriteDeadline(t)
+	}
+	return u.currentConn.SetWriteDeadline(t)
 }
 
 // UDP-specific methods below
