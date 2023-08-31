@@ -1,13 +1,19 @@
 package udphop
 
 import (
-	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
 )
 
-var ErrInvalidPort = errors.New("invalid port")
+type InvalidPortError struct {
+	PortStr string
+}
+
+func (e InvalidPortError) Error() string {
+	return fmt.Sprintf("%s is not a valid port number or range", e.PortStr)
+}
 
 // UDPHopAddr contains an IP address and a list of ports.
 type UDPHopAddr struct {
@@ -57,15 +63,15 @@ func ResolveUDPHopAddr(addr string) (*UDPHopAddr, error) {
 			// Port range
 			portRange := strings.Split(portStr, "-")
 			if len(portRange) != 2 {
-				return nil, ErrInvalidPort
+				return nil, InvalidPortError{portStr}
 			}
 			start, err := strconv.ParseUint(portRange[0], 10, 16)
 			if err != nil {
-				return nil, ErrInvalidPort
+				return nil, InvalidPortError{portStr}
 			}
 			end, err := strconv.ParseUint(portRange[1], 10, 16)
 			if err != nil {
-				return nil, ErrInvalidPort
+				return nil, InvalidPortError{portStr}
 			}
 			if start > end {
 				start, end = end, start
@@ -77,7 +83,7 @@ func ResolveUDPHopAddr(addr string) (*UDPHopAddr, error) {
 			// Single port
 			port, err := strconv.ParseUint(portStr, 10, 16)
 			if err != nil {
-				return nil, ErrInvalidPort
+				return nil, InvalidPortError{portStr}
 			}
 			result.Ports = append(result.Ports, uint16(port))
 		}

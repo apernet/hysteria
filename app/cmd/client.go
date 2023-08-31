@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apernet/hysteria/extras/transport/udphop"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -26,6 +24,7 @@ import (
 	"github.com/apernet/hysteria/app/internal/utils"
 	"github.com/apernet/hysteria/core/client"
 	"github.com/apernet/hysteria/extras/obfs"
+	"github.com/apernet/hysteria/extras/transport/udphop"
 )
 
 // Client flags
