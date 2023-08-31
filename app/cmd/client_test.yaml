@@ -2,6 +2,11 @@ server: example.com
 
 auth: weak_ahh_password
 
+transport:
+  type: udp
+  udp:
+    hopInterval: 30s
+
 obfs:
   type: salamander
   salamander:

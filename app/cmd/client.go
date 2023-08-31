@@ -6,12 +6,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"net"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/apernet/hysteria/extras/transport/udphop"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -21,6 +22,7 @@ import (
 	"github.com/apernet/hysteria/app/internal/http"
 	"github.com/apernet/hysteria/app/internal/socks5"
 	"github.com/apernet/hysteria/app/internal/tproxy"
+	"github.com/apernet/hysteria/app/internal/url"
 	"github.com/apernet/hysteria/app/internal/utils"
 	"github.com/apernet/hysteria/core/client"
 	"github.com/apernet/hysteria/extras/obfs"
@@ -49,6 +51,7 @@ func initClientFlags() {
 type clientConfig struct {
 	Server        string                `mapstructure:"server"`
 	Auth          string                `mapstructure:"auth"`
+	Transport     clientConfigTransport `mapstructure:"transport"`
 	Obfs          clientConfigObfs      `mapstructure:"obfs"`
 	TLS           clientConfigTLS       `mapstructure:"tls"`
 	QUIC          clientConfigQUIC      `mapstructure:"quic"`
@@ -61,6 +64,15 @@ type clientConfig struct {
 	UDPForwarding []udpForwardingEntry  `mapstructure:"udpForwarding"`
 	TCPTProxy     *tcpTProxyConfig      `mapstructure:"tcpTProxy"`
 	UDPTProxy     *udpTProxyConfig      `mapstructure:"udpTProxy"`
+}
+
+type clientConfigTransportUDP struct {
+	HopInterval time.Duration `mapstructure:"hopInterval"`
+}
+
+type clientConfigTransport struct {
+	Type string                   `mapstructure:"type"`
+	UDP  clientConfigTransportUDP `mapstructure:"udp"`
 }
 
 type clientConfigObfsSalamander struct {
@@ -128,34 +140,18 @@ type udpTProxyConfig struct {
 	Timeout time.Duration `mapstructure:"timeout"`
 }
 
-func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
-	switch strings.ToLower(c.Obfs.Type) {
-	case "", "plain":
-		// Default, do nothing
-		return nil
-	case "salamander":
-		ob, err := obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
-		if err != nil {
-			return configError{Field: "obfs.salamander.password", Err: err}
-		}
-		hyConfig.ConnFactory = &obfsConnFactory{
-			NewFunc: func(addr net.Addr) (net.PacketConn, error) {
-				return net.ListenUDP("udp", nil)
-			},
-			Obfuscator: ob,
-		}
-		return nil
-	default:
-		return configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
-	}
-}
-
 func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
 	if c.Server == "" {
 		return configError{Field: "server", Err: errors.New("server address is empty")}
 	}
-	host, hostPort := parseServerAddrString(c.Server)
-	addr, err := net.ResolveUDPAddr("udp", hostPort)
+	var addr net.Addr
+	var err error
+	host, port, hostPort := parseServerAddrString(c.Server)
+	if !isPortHoppingPort(port) {
+		addr, err = net.ResolveUDPAddr("udp", hostPort)
+	} else {
+		addr, err = udphop.ResolveUDPHopAddr(hostPort)
+	}
 	if err != nil {
 		return configError{Field: "server", Err: err}
 	}
@@ -164,6 +160,47 @@ func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
 	if c.TLS.SNI == "" {
 		// Use server hostname as SNI
 		hyConfig.TLSConfig.ServerName = host
+	}
+	return nil
+}
+
+// fillConnFactory must be called after fillServerAddr, as we have different logic
+// for ConnFactory depending on whether we have a port hopping address.
+func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
+	// Inner PacketConn
+	var newFunc func(addr net.Addr) (net.PacketConn, error)
+	switch strings.ToLower(c.Transport.Type) {
+	case "", "udp":
+		if hyConfig.ServerAddr.Network() == "udphop" {
+			hopAddr := hyConfig.ServerAddr.(*udphop.UDPHopAddr)
+			newFunc = func(addr net.Addr) (net.PacketConn, error) {
+				return udphop.NewUDPHopPacketConn(hopAddr, c.Transport.UDP.HopInterval)
+			}
+		} else {
+			newFunc = func(addr net.Addr) (net.PacketConn, error) {
+				return net.ListenUDP("udp", nil)
+			}
+		}
+	default:
+		return configError{Field: "transport.type", Err: errors.New("unsupported transport type")}
+	}
+	// Obfuscation
+	var ob obfs.Obfuscator
+	var err error
+	switch strings.ToLower(c.Obfs.Type) {
+	case "", "plain":
+		// Keep it nil
+	case "salamander":
+		ob, err = obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
+		if err != nil {
+			return configError{Field: "obfs.salamander.password", Err: err}
+		}
+	default:
+		return configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
+	}
+	hyConfig.ConnFactory = &adaptiveConnFactory{
+		NewFunc:    newFunc,
+		Obfuscator: ob,
 	}
 	return nil
 }
@@ -330,8 +367,8 @@ func (c *clientConfig) Config() (*client.Config, error) {
 	c.parseURI()
 	hyConfig := &client.Config{}
 	fillers := []func(*client.Config) error{
-		c.fillConnFactory,
 		c.fillServerAddr,
+		c.fillConnFactory,
 		c.fillAuth,
 		c.fillTLSConfig,
 		c.fillQUICConfig,
@@ -596,12 +633,18 @@ func clientUDPTProxy(config udpTProxyConfig, c client.Client) error {
 
 // parseServerAddrString parses server address string.
 // Server address can be in either "host:port" or "host" format (in which case we assume port 443).
-func parseServerAddrString(addrStr string) (host, hostPort string) {
-	h, _, err := net.SplitHostPort(addrStr)
+func parseServerAddrString(addrStr string) (host, port, hostPort string) {
+	h, p, err := net.SplitHostPort(addrStr)
 	if err != nil {
-		return addrStr, net.JoinHostPort(addrStr, "443")
+		return addrStr, "443", net.JoinHostPort(addrStr, "443")
 	}
-	return h, addrStr
+	return h, p, addrStr
+}
+
+// isPortHoppingPort returns whether the port string is a port hopping port.
+// We consider a port string to be a port hopping port if it contains "-" or ",".
+func isPortHoppingPort(port string) bool {
+	return strings.Contains(port, "-") || strings.Contains(port, ",")
 }
 
 // normalizeCertHash normalizes a certificate hash string.
@@ -613,18 +656,21 @@ func normalizeCertHash(hash string) string {
 	return r
 }
 
-// obfsConnFactory adds obfuscation to a function that creates net.PacketConn.
-type obfsConnFactory struct {
+type adaptiveConnFactory struct {
 	NewFunc    func(addr net.Addr) (net.PacketConn, error)
-	Obfuscator obfs.Obfuscator
+	Obfuscator obfs.Obfuscator // nil if no obfuscation
 }
 
-func (f *obfsConnFactory) New(addr net.Addr) (net.PacketConn, error) {
-	conn, err := f.NewFunc(addr)
-	if err != nil {
-		return nil, err
+func (f *adaptiveConnFactory) New(addr net.Addr) (net.PacketConn, error) {
+	if f.Obfuscator == nil {
+		return f.NewFunc(addr)
+	} else {
+		conn, err := f.NewFunc(addr)
+		if err != nil {
+			return nil, err
+		}
+		return obfs.WrapPacketConn(conn, f.Obfuscator), nil
 	}
-	return obfs.WrapPacketConn(conn, f.Obfuscator), nil
 }
 
 func connectLog(count int) {

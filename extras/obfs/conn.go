@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const udpBufSize = 2048 // QUIC packets are at most 1500 bytes long, so 2k should be more than enough
+const udpBufferSize = 2048 // QUIC packets are at most 1500 bytes long, so 2k should be more than enough
 
 // Obfuscator is the interface that wraps the Obfuscate and Deobfuscate methods.
 // Both methods return the number of bytes written to out.
@@ -45,8 +45,8 @@ func WrapPacketConn(conn net.PacketConn, obfs Obfuscator) net.PacketConn {
 	opc := &obfsPacketConn{
 		Conn:     conn,
 		Obfs:     obfs,
-		readBuf:  make([]byte, udpBufSize),
-		writeBuf: make([]byte, udpBufSize),
+		readBuf:  make([]byte, udpBufferSize),
+		writeBuf: make([]byte, udpBufferSize),
 	}
 	if udpConn, ok := conn.(*net.UDPConn); ok {
 		return &obfsPacketConnUDP{

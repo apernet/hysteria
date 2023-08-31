@@ -20,6 +20,12 @@ func TestClientConfig(t *testing.T) {
 	assert.Equal(t, config, clientConfig{
 		Server: "example.com",
 		Auth:   "weak_ahh_password",
+		Transport: clientConfigTransport{
+			Type: "udp",
+			UDP: clientConfigTransportUDP{
+				HopInterval: 30 * time.Second,
+			},
+		},
 		Obfs: clientConfigObfs{
 			Type: "salamander",
 			Salamander: clientConfigObfsSalamander{
@@ -98,11 +104,19 @@ func TestClientConfigURI(t *testing.T) {
 			},
 		},
 		{
-			uri:   "hysteria2://john:wick@continental.org/",
+			uri:   "hysteria2://john:wick@continental.org:4443/",
 			uriOK: true,
 			config: &clientConfig{
-				Server: "continental.org",
+				Server: "continental.org:4443",
 				Auth:   "john:wick",
+			},
+		},
+		{
+			uri:   "hysteria2://saul@better.call:7000-10000,20000/",
+			uriOK: true,
+			config: &clientConfig{
+				Server: "better.call:7000-10000,20000",
+				Auth:   "saul",
 			},
 		},
 		{
