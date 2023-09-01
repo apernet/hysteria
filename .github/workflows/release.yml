@@ -1,9 +1,9 @@
-name: "Build Hysteria 2"
+name: "Build release"
 
 on:
   push:
-    branches:
-      - "wip-hy2"
+    tags:
+      - app/v*.*.*
 
 jobs:
   build:
@@ -31,8 +31,13 @@ jobs:
           export HY_APP_PLATFORMS=$(sed 's/\r$//' platforms.txt | awk '!/^#/ && !/^$/' | paste -sd ",")
           python hyperbole.py build -r
 
-      - name: Archive
-        uses: actions/upload-artifact@v3
+      - name: Generate hashes
+        run: |
+          for file in build/*; do
+            sha256sum $file >> build/hashes.txt
+          done
+
+      - name: Upload
+        uses: softprops/action-gh-release@v1
         with:
-          name: hy2-wip-${{ github.sha }}
-          path: build
+          files: build/*
