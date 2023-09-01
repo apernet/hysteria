@@ -83,7 +83,13 @@ func (u *udpHopPacketConn) recvLoop(conn net.PacketConn) {
 		n, addr, err := conn.ReadFrom(buf)
 		if err != nil {
 			u.bufPool.Put(buf)
-			u.recvQueue <- &udpPacket{nil, 0, nil, err}
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
+				// Only pass through timeout errors here, not permanent errors
+				// like connection closed. Connection close is normal as we close
+				// the old connection to exit this loop every time we hop.
+				u.recvQueue <- &udpPacket{nil, 0, nil, netErr}
+			}
 			return
 		}
 		select {
