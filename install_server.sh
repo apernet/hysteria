@@ -770,6 +770,14 @@ get_latest_version() {
   return
 }
 
+show_hysteria_deprecated_warning() {
+  echo -e "$(tbold)$(tyellow)Hysteria 1 will no longer receive feature updates, please consider upgrading to Hysteria 2.$(treset)"
+  echo
+  echo -e "\t+ Check out the latest Hysteria 2 at $(tblue)https://hysteria.network/$(treset)"
+  echo -e "\t+ Check out the new features & behavior changes in Hysteria 2 at $(tblue)https://hysteria.network/docs/misc/2-vs-1/$(treset)"
+  echo
+}
+
 download_hysteria() {
   local _version="$1"
   local _destination="$2"
@@ -940,12 +948,6 @@ perform_install() {
     echo -e "Check out the latest changelog $(tblue)https://github.com/apernet/hysteria/blob/hy1/CHANGELOG.md$(treset)"
     echo
   fi
-
-  echo -e "$(tbold)$(tyellow)Hysteria 1 will no longer receive feature updates, please consider upgrading to Hysteria 2.$(treset)"
-  echo
-  echo -e "\t+ Check out the latest Hysteria 2 at $(tblue)https://hysteria.network/$(treset)"
-  echo -e "\t+ Check out the new features & behavior changes in Hysteria 2 at $(tblue)https://hysteria.network/docs/misc/2-vs-1/$(treset)"
-  echo
 }
 
 perform_remove() {
@@ -998,12 +1000,14 @@ main() {
   case "$OPERATION" in
     "install")
       perform_install
+      show_hysteria_deprecated_warning
       ;;
     "remove")
       perform_remove
       ;;
     "check_update")
       perform_check_update
+      show_hysteria_deprecated_warning
       ;;
     *)
       error "Unknown operation '$OPERATION'."
