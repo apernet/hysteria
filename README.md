@@ -15,14 +15,11 @@
 
 <h2 style="text-align: center;">Hysteria is a powerful, lightning fast and censorship resistant proxy.</h2>
 
-<p align="center">
-  <a href="https://v2.hysteria.network/" style="padding: 14px 28px; background-color: #4A7B9D; color: white; border: none; border-radius: 8px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; cursor: pointer; box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.25);">
-    Get Started
-  </a>
-  <a href="https://v2.hysteria.network/zh/" style="padding: 14px 28px; background-color: #922D50; color: white; border: none; border-radius: 8px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; cursor: pointer; box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.25);">
-    中文文档
-  </a>
-</p>
+[<h3><kbd>Get Started</kbd></h3>][GS-En]
+[<h3><kbd>中文文档</kbd></h3>][GS-Zh]
+
+[GS-En]: https://v2.hysteria.network/
+[GS-Zh]: https://v2.hysteria.network/zh/
 
 ---
 
