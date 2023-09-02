@@ -961,7 +961,7 @@ perform_install() {
     echo
     echo -e "$(tred)Hysteria 2 uses a completely redesigned protocol & config, which is NOT compatible with the version 1.x.x in any way.$(treset)"
     echo
-    echo -e "\t+ Take a look at the changes from Hysteria 1 to Hysteria 2 at $(tblue)https://hysteria.network/docs/misc/2-vs-1/$(treset)"
+    echo -e "\t+ Take a look at the behavior changes in Hysteria 2 at $(tblue)https://hysteria.network/docs/misc/2-vs-1/$(treset)"
     echo -e "\t+ Check out the quick server configuration guide for Hysteria 2 at $(tblue)https://hysteria.network/docs/getting-started/Server/$(treset)"
     echo -e "\t+ Migrate server config file to the Hysteria 2 at $(tred)$CONFIG_DIR/config.yaml$(treset)"
     echo -e "\t+ Start your hysteria server with $(tred)systemctl restart hysteria-server.service$(treset)"
