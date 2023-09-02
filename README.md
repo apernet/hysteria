@@ -1,62 +1,59 @@
-# Hysteria 2 Prototype
+# Hysteria 2
 
-> **Warning**
-> The code on this branch is a work-in-progress prototype of what will become Hysteria 2.0. It is currently very
-> unfinished, and unless you know what you are doing, you should stick with the stable 1.x releases for now.
+![Logo](logo.svg)
 
-> **警告**
-> 此分支的代码是 Hysteria 2.0 的原型，目前仍在开发中，完成度十分有限。除非你十分确定自己在做什么，否则请继续使用稳定的 1.x
-> 版本。
+[![License][1]][2] [![Release][3]][4] [![Telegram][5]][6] [![Discussions][7]][8]
 
-## Build (编译)
+[1]: https://img.shields.io/badge/license-MIT-blue
+[2]: LICENSE.md
+[3]: https://img.shields.io/github/v/release/apernet/hysteria?style=flat-square
+[4]: https://github.com/apernet/hysteria/releases
+[5]: https://img.shields.io/badge/chat-Telegram-blue?style=flat-square
+[6]: https://t.me/hysteria_github
+[7]: https://img.shields.io/github/discussions/apernet/hysteria?style=flat-square
+[8]: https://github.com/apernet/hysteria/discussions
 
-Use the environment variable `HY_APP_PLATFORMS` to control which platforms to build for. For
-example: `"windows/amd64,linux/amd64,linux/arm"`
+<h2 style="text-align: center;">Hysteria is a powerful, lightning fast and censorship resistant proxy.</h2>
 
-用环境变量 `HY_APP_PLATFORMS` 来控制编译哪些平台的可执行文件。例如：`"windows/amd64,linux/amd64,linux/arm"`
+<p align="center">
+  <a href="https://v2.hysteria.network/" style="padding: 14px 28px; background-color: #4A7B9D; color: white; border: none; border-radius: 8px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; cursor: pointer; box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.25);">
+    Get Started
+  </a>
+  <a href="https://v2.hysteria.network/zh/" style="padding: 14px 28px; background-color: #922D50; color: white; border: none; border-radius: 8px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; cursor: pointer; box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.25);">
+    中文文档
+  </a>
+</p>
 
-```bash
-python ./hyperbole.py build
-```
+---
 
-Builds will be placed in `./build` (编译输出在 `./build` 目录下)
+<div class="feature-grid">
+  <div>
+    <h3>🛠️ Packed to the gills</h3>
+    <p>Expansive range of modes including SOCKS5, HTTP proxy, TCP/UDP forwarding, Linux TProxy - not to mention additional features continually being added.</p>
+  </div>
 
-## Usage (使用)
+  <div>
+    <h3>⚡ Lightning fast</h3>
+    <p>Powered by a custom QUIC protocol, Hysteria delivers unparalleled performance over even the most unreliable and lossy networks.</p>
+  </div>
 
-### Server
+  <div>
+    <h3>✊ Censorship resistant</h3>
+    <p>Our protocol is designed to masquerade as standard HTTP/3 traffic, making it very difficult to detect and block without widespread collateral damage.</p>
+  </div>
+  
+  <div>
+    <h3>💻 Cross-platform</h3>
+    <p>We have builds for all major platforms and architectures. Deploy anywhere & use everywhere.</p>
+  </div>
 
-```bash
-./hysteria server -c config.yaml
-```
-
-[Example sever config (示例服务器配置)](app/server.example.yaml)
-
-### Client
-
-```bash
-./hysteria client -c config.yaml
-```
-
-[Example client config (示例客户端配置)](app/client.example.yaml)
-
-## Logging (日志)
-
-The following environment variables for controlling logging are supported:
-
-- `HYSTERIA_LOG_LEVEL` - supported values are `debug`, `info`, `warn`, `error`
-
-- `HYSTERIA_LOG_FORMAT` - supported values are `console`, `json`
-
-支持通过以下环境变量来控制日志：
-
-- `HYSTERIA_LOG_LEVEL` - 支持的值有 `debug`, `info`, `warn`, `error`
-
-- `HYSTERIA_LOG_FORMAT` - 支持的值有 `console`, `json`
-
-## Test HTTP/3 masquerading (测试 HTTP/3 伪装)
-
-```bash
-chrome --origin-to-force-quic-on=example.com:443
-```
-
-Then visit `https://example.com/` in Chrome.
+  <div>
+    <h3>🔗 Easy integration</h3>
+    <p>With built-in support for custom authentication, traffic statistics & access control, Hysteria is easy to integrate into your infrastructure.</p>
+  </div>
+  
+  <div>
+    <h3>🤗 Open standards</h3>
+    <p>We have well-documented specifications and code for developers to contribute and build their own apps.</p>
+  </div>
+</div>
