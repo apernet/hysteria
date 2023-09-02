@@ -3,10 +3,12 @@
 
 import argparse
 import os
+import re
 import sys
 import subprocess
 import datetime
 import shutil
+import requests
 
 # Hyperbole is the official build script for Hysteria.
 # Available environment variables for controlling the build:
@@ -114,6 +116,22 @@ def get_app_version():
         except Exception:
             app_version = "Unknown"
     return app_version
+
+
+def get_app_version_code(str=None):
+    if not str:
+        str = get_app_version()
+
+    match = re.search(r"v(\d+)\.(\d+)\.(\d+)", str)
+
+    if match:
+        major, minor, patch = match.groups()
+        major = major.zfill(2)[:2]
+        minor = minor.zfill(2)[:2]
+        patch = patch.zfill(2)[:2]
+        return int(f"{major}{minor}{patch[:2]}")
+    else:
+        return 0
 
 
 def get_app_commit():
@@ -329,6 +347,35 @@ def cmd_test(module=None):
                 print("Failed to test %s" % dir)
 
 
+def cmd_publish(urgent=False):
+    if not check_build_env():
+        return
+
+    app_version = get_app_version()
+    app_version_code = get_app_version_code(app_version)
+    if app_version_code == 0:
+        print("Invalid app version")
+        return
+
+    payload = {
+        "code": app_version_code,
+        "ver": app_version,
+        "chan": "release",
+        "url": "https://github.com/apernet/hysteria/releases",
+        "urgent": urgent,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": os.environ.get("HY_API_POST_KEY"),
+    }
+    resp = requests.post("https://api.hy2.io/v1/update", json=payload, headers=headers)
+
+    if resp.status_code == 200:
+        print("Published %s" % app_version)
+    else:
+        print("Failed to publish %s, status code: %d" % (app_version, resp.status_code))
+
+
 def cmd_clean():
     shutil.rmtree(BUILD_DIR, ignore_errors=True)
 
@@ -373,6 +420,12 @@ def main():
     p_test = p_cmd.add_parser("test", help="Test the code")
     p_test.add_argument("module", nargs="?", help="Module to test")
 
+    # Publish
+    p_pub = p_cmd.add_parser("publish", help="Publish the current version")
+    p_pub.add_argument(
+        "-u", "--urgent", action="store_true", help="Publish as an urgent update"
+    )
+
     # Clean
     p_cmd.add_parser("clean", help="Clean the build directory")
 
@@ -393,6 +446,8 @@ def main():
         cmd_tidy()
     elif args.command == "test":
         cmd_test(args.module)
+    elif args.command == "publish":
+        cmd_publish(args.urgent)
     elif args.command == "clean":
         cmd_clean()
     elif args.command == "about":

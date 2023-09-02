@@ -41,5 +41,5 @@ jobs:
       - name: Archive
         uses: actions/upload-artifact@v3
         with:
-          name: hysteria-master
+          name: hysteria-master-${{ github.sha }}
           path: build

@@ -41,3 +41,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: build/*
+
+      - name: Publish to API
+        run: |
+          pip install requests
+          export HY_API_POST_KEY=${{ secrets.HY2_API_POST_KEY }}
+          python hyperbole.py publish
