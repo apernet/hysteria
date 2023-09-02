@@ -21,7 +21,7 @@ SCRIPT_NAME="$(basename "$0")"
 SCRIPT_ARGS=("$@")
 
 # Path for installing executable
-EXECUTABLE_INSTALL_PATH="/usr/local/bin/hysteria"
+EXECUTABLE_INSTALL_PATH="/usr/local/bin/hysteria1"
 
 # Paths to install systemd files
 SYSTEMD_SERVICES_DIR="/etc/systemd/system"
@@ -37,6 +37,10 @@ API_BASE_URL="https://api.github.com/repos/apernet/hysteria"
 # To using a proxy, please specify ALL_PROXY in the environ variable, such like:
 # export ALL_PROXY=socks5h://192.0.2.1:1080
 CURL_FLAGS=(-L -f -q --retry 5 --retry-delay 10 --retry-max-time 60)
+
+# Latest version of Hysteria 1
+# TODO: replace this with Hysteria API
+LATEST_VERSION_HYSTERIA1="v1.3.5"
 
 
 ###
@@ -182,12 +186,15 @@ install_content() {
   local _install_flags="$1"
   local _content="$2"
   local _destination="$3"
+  local _overwrite="$4"
 
   local _tmpfile="$(mktemp)"
 
   echo -ne "Install $_destination ... "
   echo "$_content" > "$_tmpfile"
-  if install "$_install_flags" "$_tmpfile" "$_destination"; then
+  if [[ -z "$_overwrite" && -e "$_destination" ]]; then
+    echo -e "exists"
+  elif install "$_install_flags" "$_tmpfile" "$_destination"; then
     echo -e "ok"
   fi
 
@@ -501,12 +508,12 @@ check_hysteria_user() {
     return
   fi
 
-  if [[ ! -e "$SYSTEMD_SERVICES_DIR/hysteria-server.service" ]]; then
+  if [[ ! -e "$SYSTEMD_SERVICES_DIR/hysteria1-server.service" ]]; then
     HYSTERIA_USER="$_default_hysteria_user"
     return
   fi
 
-  HYSTERIA_USER="$(grep -o '^User=\w*' "$SYSTEMD_SERVICES_DIR/hysteria-server.service" | tail -1 | cut -d '=' -f 2 || true)"
+  HYSTERIA_USER="$(grep -o '^User=\w*' "$SYSTEMD_SERVICES_DIR/hysteria1-server.service" | tail -1 | cut -d '=' -f 2 || true)"
 
   if [[ -z "$HYSTERIA_USER" ]]; then
     HYSTERIA_USER="$_default_hysteria_user"
@@ -575,7 +582,7 @@ parse_arguments() {
         fi
         shift
         if ! has_prefix "$VERSION" 'v'; then
-          show_argument_error_and_exit "Version numbers should begin with 'v' (such like 'v1.3.1'), got '$VERSION'"
+          show_argument_error_and_exit "Version numbers should begin with 'v' (such like 'v1.3.5'), got '$VERSION'"
         fi
         ;;
       '-c' | '--check')
@@ -631,13 +638,13 @@ parse_arguments() {
 # FILE TEMPLATES
 ###
 
-# /etc/systemd/system/hysteria-server.service
+# /etc/systemd/system/hysteria1-server.service
 tpl_hysteria_server_service_base() {
   local _config_name="$1"
 
   cat << EOF
 [Unit]
-Description=Hysteria Server Service (${_config_name}.json)
+Description=Hysteria (Legacy) Server Service (${_config_name}.json)
 After=network.target
 
 [Service]
@@ -656,12 +663,12 @@ WantedBy=multi-user.target
 EOF
 }
 
-# /etc/systemd/system/hysteria-server.service
+# /etc/systemd/system/hysteria1-server.service
 tpl_hysteria_server_service() {
   tpl_hysteria_server_service_base 'config'
 }
 
-# /etc/systemd/system/hysteria-server@.service
+# /etc/systemd/system/hysteria1-server@.service
 tpl_hysteria_server_x_service() {
   tpl_hysteria_server_service_base '%i'
 }
@@ -693,7 +700,7 @@ get_running_services() {
   fi
 
   systemctl list-units --state=active --plain --no-legend \
-    | grep -o "hysteria-server@*[^\s]*.service" || true
+    | grep -o "hysteria1-server@*[^\s]*.service" || true
 }
 
 restart_running_services() {
@@ -740,6 +747,12 @@ is_hysteria_installed() {
   return 1
 }
 
+is_hysteria1_version() {
+  local _version="$1"
+
+  has_prefix "$_version" "v1." || has_prefix "$_version" "v0."
+}
+
 get_installed_version() {
   if is_hysteria_installed; then
     "$EXECUTABLE_INSTALL_PATH" -v | cut -d ' ' -f 3
@@ -752,21 +765,9 @@ get_latest_version() {
     return
   fi
 
-  local _tmpfile=$(mktemp)
-  if ! curl -sS -H 'Accept: application/vnd.github.v3+json' "$API_BASE_URL/releases/latest" -o "$_tmpfile"; then
-    error "Failed to get latest release, please check your network."
-    exit 11
-  fi
-
-  local _latest_version=$(grep 'tag_name' "$_tmpfile" | head -1 | grep -o '"v.*"')
-  _latest_version=${_latest_version#'"'}
-  _latest_version=${_latest_version%'"'}
-
-  if [[ -n "$_latest_version" ]]; then
-    echo "$_latest_version"
-  fi
-
-  rm -f "$_tmpfile"
+  echo "$LATEST_VERSION_HYSTERIA1"
+  # TODO: query hysteria api for latest version of v1
+  return
 }
 
 download_hysteria() {
@@ -774,7 +775,7 @@ download_hysteria() {
   local _destination="$2"
 
   local _download_url="$REPO_URL/releases/download/$_version/hysteria-$OPERATING_SYSTEM-$ARCHITECTURE"
-  echo "Downloading hysteria archive: $_download_url ..."
+  echo "Downloading hysteria binary: $_download_url ..."
   if ! curl -R -H 'Cache-Control: no-cache' "$_download_url" -o "$_destination"; then
     error "Download failed! Please check your network and try again."
     return 11
@@ -856,9 +857,7 @@ perform_remove_hysteria_binary() {
 }
 
 perform_install_hysteria_example_config() {
-  if [[ ! -d "$CONFIG_DIR" ]]; then
-    install_content -Dm644 "$(tpl_etc_hysteria_config_json)" "$CONFIG_DIR/config.json"
-  fi
+  install_content -Dm644 "$(tpl_etc_hysteria_config_json)" "$CONFIG_DIR/config.json" ""
 }
 
 perform_install_hysteria_systemd() {
@@ -866,15 +865,15 @@ perform_install_hysteria_systemd() {
     return
   fi
 
-  install_content -Dm644 "$(tpl_hysteria_server_service)" "$SYSTEMD_SERVICES_DIR/hysteria-server.service"
-  install_content -Dm644 "$(tpl_hysteria_server_x_service)" "$SYSTEMD_SERVICES_DIR/hysteria-server@.service"
+  install_content -Dm644 "$(tpl_hysteria_server_service)" "$SYSTEMD_SERVICES_DIR/hysteria1-server.service" "1"
+  install_content -Dm644 "$(tpl_hysteria_server_x_service)" "$SYSTEMD_SERVICES_DIR/hysteria1-server@.service" "1"
 
   systemctl daemon-reload
 }
 
 perform_remove_hysteria_systemd() {
-  remove_file "$SYSTEMD_SERVICES_DIR/hysteria-server.service"
-  remove_file "$SYSTEMD_SERVICES_DIR/hysteria-server@.service"
+  remove_file "$SYSTEMD_SERVICES_DIR/hysteria1-server.service"
+  remove_file "$SYSTEMD_SERVICES_DIR/hysteria1-server@.service"
 
   systemctl daemon-reload
 }
@@ -911,6 +910,11 @@ perform_install() {
     return
   fi
 
+  if ! is_hysteria1_version "$VERSION"; then
+    error "This script can be only used to install the Hysteria 1"
+    exit 95
+  fi
+
   perform_install_hysteria_binary
   perform_install_hysteria_example_config
   perform_install_hysteria_home_legacy
@@ -918,24 +922,30 @@ perform_install() {
 
   if [[ -n "$_is_frash_install" ]]; then
     echo
-    echo -e "$(tbold)Congratulation! Hysteria has been successfully installed on your server.$(treset)"
+    echo -e "$(tbold)Congratulation! Hysteria 1 has been successfully installed on your server.$(treset)"
     echo
     echo -e "What's next?"
     echo
     echo -e "\t+ Check out the latest quick start guide at $(tblue)https://hysteria.network/docs/quick-start/$(treset)"
     echo -e "\t+ Edit server config file at $(tred)$CONFIG_DIR/config.json$(treset)"
-    echo -e "\t+ Start your hysteria server with $(tred)systemctl start hysteria-server.service$(treset)"
-    echo -e "\t+ Configure hysteria start on system boot with $(tred)systemctl enable hysteria-server.service$(treset)"
+    echo -e "\t+ Start your hysteria server with $(tred)systemctl start hysteria1-server.service$(treset)"
+    echo -e "\t+ Configure hysteria start on system boot with $(tred)systemctl enable hysteria1-server.service$(treset)"
     echo
   else
     restart_running_services
 
     echo
-    echo -e "$(tbold)Hysteria has been successfully update to $VERSION.$(treset)"
+    echo -e "$(tbold)Hysteria 1 has been successfully update to $VERSION.$(treset)"
     echo
-    echo -e "Check out the latest changelog $(tblue)https://github.com/apernet/hysteria/blob/master/CHANGELOG.md$(treset)"
+    echo -e "Check out the latest changelog $(tblue)https://github.com/apernet/hysteria/blob/hy1/CHANGELOG.md$(treset)"
     echo
   fi
+
+  echo -e "$(tbold)$(tyellow)Hysteria 1 will no longer receive feature updates, please consider upgrading to Hysteria 2.$(treset)"
+  echo
+  echo -e "\t+ Check out the latest Hysteria 2 at $(tblue)https://hysteria.network/$(treset)"
+  echo -e "\t+ Check out the new features & behavior changes in Hysteria 2 at $(tblue)https://hysteria.network/docs/misc/2-vs-1/$(treset)"
+  echo
 }
 
 perform_remove() {
@@ -956,8 +966,8 @@ perform_remove() {
     echo
     echo -e "You still might need to disable all related systemd services with the following commands:"
     echo
-    echo -e "\t$(tred)rm -f /etc/systemd/system/multi-user.target.wants/hysteria-server.service$(treset)"
-    echo -e "\t$(tred)rm -f /etc/systemd/system/multi-user.target.wants/hysteria-server@*.service$(treset)"
+    echo -e "\t$(tred)rm -f /etc/systemd/system/multi-user.target.wants/hysteria1-server.service$(treset)"
+    echo -e "\t$(tred)rm -f /etc/systemd/system/multi-user.target.wants/hysteria1-server@*.service$(treset)"
     echo -e "\t$(tred)systemctl daemon-reload$(treset)"
   fi
   echo
