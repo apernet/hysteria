@@ -1,6 +1,4 @@
-# Hysteria 2
-
-![Logo](logo.svg)
+# ![Hysteria 2](logo.svg)
 
 [![License][1]][2] [![Release][3]][4] [![Telegram][5]][6] [![Discussions][7]][8]
 
@@ -15,11 +13,11 @@
 
 <h2 style="text-align: center;">Hysteria is a powerful, lightning fast and censorship resistant proxy.</h2>
 
-[<h3><kbd>Get Started</kbd></h3>][GS-En]
-[<h3><kbd>中文文档</kbd></h3>][GS-Zh]
+### [Get Started](https://v2.hysteria.network/)
 
-[GS-En]: https://v2.hysteria.network/
-[GS-Zh]: https://v2.hysteria.network/zh/
+### [中文文档](https://v2.hysteria.network/zh/)
+
+### [Hysteria 1.x (legacy)](https://v1.hysteria.network/)
 
 ---
 
