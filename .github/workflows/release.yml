@@ -28,6 +28,7 @@ jobs:
 
       - name: Run build script
         run: |
+          pip install requests
           export HY_APP_PLATFORMS=$(sed 's/\r$//' platforms.txt | awk '!/^#/ && !/^$/' | paste -sd ",")
           python hyperbole.py build -r
 
@@ -44,6 +45,5 @@ jobs:
 
       - name: Publish to API
         run: |
-          pip install requests
           export HY_API_POST_KEY=${{ secrets.HY2_API_POST_KEY }}
           python hyperbole.py publish
