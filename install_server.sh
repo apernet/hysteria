@@ -934,7 +934,7 @@ perform_install() {
     echo
     echo -e "What's next?"
     echo
-    echo -e "\t+ Check out the latest quick start guide at $(tblue)https://hysteria.network/docs/quick-start/$(treset)"
+    echo -e "\t+ Check out the latest quick start guide at $(tblue)https://v1.hysteria.network/docs/quick-start/$(treset)"
     echo -e "\t+ Edit server config file at $(tred)$CONFIG_DIR/config.json$(treset)"
     echo -e "\t+ Start your hysteria server with $(tred)systemctl start hysteria1-server.service$(treset)"
     echo -e "\t+ Configure hysteria start on system boot with $(tred)systemctl enable hysteria1-server.service$(treset)"

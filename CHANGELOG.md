@@ -37,7 +37,7 @@
 ## 1.3.0
 
 - Connection migration: clients can now seamlessly switch between networks without losing their connection to the server
-- Dynamic port hopping: see https://hysteria.network/docs/port-hopping/ for more information
+- Dynamic port hopping: see https://v1.hysteria.network/docs/port-hopping/ for more information
 
 ## 1.2.2
 

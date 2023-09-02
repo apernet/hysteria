@@ -45,7 +45,7 @@ congested public Wi-Fi, connecting to foreign servers from China) powered by a c
 - TUN (TAP on Windows)
 - Still growing...
 
-## **[Documentation](https://hysteria.network/)**
+## **[Documentation](https://v1.hysteria.network/)**
 
 ----------
 
@@ -68,7 +68,7 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境（如卫星网络�
 - TUN (Windows 下为 TAP)
 - 仍在增加中...
 
-## **[中文文档](https://hysteria.network/zh/)**
+## **[中文文档](https://v1.hysteria.network/zh/)**
 
 ----------
 
