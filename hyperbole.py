@@ -8,7 +8,6 @@ import sys
 import subprocess
 import datetime
 import shutil
-import requests
 
 # Hyperbole is the official build script for Hysteria.
 # Available environment variables for controlling the build:
@@ -348,6 +347,8 @@ def cmd_test(module=None):
 
 
 def cmd_publish(urgent=False):
+    import requests
+
     if not check_build_env():
         return
 
