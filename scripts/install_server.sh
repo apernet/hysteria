@@ -646,7 +646,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=$EXECUTABLE_INSTALL_PATH server --config ${_config_name}.yaml
-WorkingDirectory=$CONFIG_DIR
+WorkingDirectory=$HYSTERIA_HOME_DIR
 User=$HYSTERIA_USER
 Group=$HYSTERIA_USER
 Environment=HYSTERIA_LOG_LEVEL=info
