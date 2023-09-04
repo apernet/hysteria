@@ -161,6 +161,10 @@ has_prefix() {
     [[ "x$_s" != "x${_s#"$_prefix"}" ]]
 }
 
+generate_random_password() {
+  dd if=/dev/random bs=18 count=1 status=none | base64
+}
+
 systemctl() {
   if [[ "x$FORCE_NO_SYSTEMD" == "x2" ]] || ! has_command systemctl; then
     warning "Ignored systemd command: systemctl $@"
@@ -681,7 +685,7 @@ acme:
 
 auth:
   type: password
-  password: Se7RAuFZ8Lzg
+  password: $(generate_random_password)
 
 masquerade:
   type: proxy
