@@ -649,7 +649,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=$EXECUTABLE_INSTALL_PATH server --config ${_config_name}.yaml
+ExecStart=$EXECUTABLE_INSTALL_PATH server --config ${CONFIG_DIR}/${_config_name}.yaml
 WorkingDirectory=$HYSTERIA_HOME_DIR
 User=$HYSTERIA_USER
 Group=$HYSTERIA_USER
