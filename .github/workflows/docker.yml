@@ -1,7 +1,6 @@
 name: "Build Docker Image"
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - app/v*.*.*
@@ -15,8 +14,6 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0 # fetch all tags
 
       - name: Get version
         id: get_version
