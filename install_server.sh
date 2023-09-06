@@ -95,7 +95,7 @@ curl() {
 }
 
 mktemp() {
-  command mktemp "$@" "hyservinst.XXXXXXXXXX"
+  command mktemp "$@" "/tmp/hyservinst.XXXXXXXXXX"
 }
 
 tput() {
@@ -287,6 +287,34 @@ is_user_exists() {
   id "$_user" > /dev/null 2>&1
 }
 
+rerun_with_sudo() {
+  if ! has_command sudo; then
+    return 13
+  fi
+
+  local _target_script
+
+  if has_prefix "$0" "/dev/fd/"; then
+    local _tmp_script="$(mktemp)"
+    chmod +x "$_tmp_script"
+
+    if has_command curl; then
+      curl -o "$_tmp_script" 'https://get.hy2.sh/'
+    elif has_command wget; then
+      wget -O "$_tmp_script" 'https://get.hy2.sh'
+    else
+      return 127
+    fi
+
+    _target_script="$_tmp_script"
+  else
+    _target_script="$0"
+  fi
+
+  note "Re-running this script with sudo, you can also specify FORCE_NO_ROOT=1 to force this script running with current user."
+  exec_sudo "$_target_script" "${SCRIPT_ARGS[@]}"
+}
+
 check_permission() {
   if [[ "$UID" -eq '0' ]]; then
     return
@@ -299,10 +327,7 @@ check_permission() {
       warning "FORCE_NO_ROOT=1 is specified, we will process without root and you may encounter the insufficient privilege error."
       ;;
     *)
-      if has_command sudo; then
-        note "Re-running this script with sudo, you can also specify FORCE_NO_ROOT=1 to force this script running with current user."
-        exec_sudo "$0" "${SCRIPT_ARGS[@]}"
-      else
+      if ! rerun_with_sudo; then
         error "Please run this script with root or specify FORCE_NO_ROOT=1 to force this script running with current user."
         exit 13
       fi
