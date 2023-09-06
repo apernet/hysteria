@@ -299,9 +299,9 @@ rerun_with_sudo() {
     chmod +x "$_tmp_script"
 
     if has_command curl; then
-      curl -o "$_tmp_script" 'https://get.hy2.sh/'
+      curl -o "$_tmp_script" 'https://raw.githubusercontent.com/apernet/hysteria/hy1/install_server.sh'
     elif has_command wget; then
-      wget -O "$_tmp_script" 'https://get.hy2.sh'
+      wget -O "$_tmp_script" 'https://raw.githubusercontent.com/apernet/hysteria/hy1/install_server.sh'
     else
       return 127
     fi
