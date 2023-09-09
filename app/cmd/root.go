@@ -18,7 +18,7 @@ const (
 ░█▀█░░█░░▀▀█░░█░░█▀▀░█▀▄░░█░░█▀█░░░▄▀░
 ░▀░▀░░▀░░▀▀▀░░▀░░▀▀▀░▀░▀░▀▀▀░▀░▀░░░▀▀▀
 `
-	appDesc    = "a powerful, censorship-resistant proxy tool optimized for lossy networks"
+	appDesc    = "a powerful, lightning fast and censorship resistant proxy"
 	appAuthors = "Aperture Internet Laboratory <https://github.com/apernet>"
 
 	appLogLevelEnv           = "HYSTERIA_LOG_LEVEL"
