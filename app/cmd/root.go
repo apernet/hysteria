@@ -24,6 +24,7 @@ const (
 	appLogLevelEnv           = "HYSTERIA_LOG_LEVEL"
 	appLogFormatEnv          = "HYSTERIA_LOG_FORMAT"
 	appDisableUpdateCheckEnv = "HYSTERIA_DISABLE_UPDATE_CHECK"
+	appACMEDirEnv            = "HYSTERIA_ACME_DIR"
 )
 
 var (

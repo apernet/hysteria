@@ -232,7 +232,11 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 		// ACME
 		dataDir := c.ACME.Dir
 		if dataDir == "" {
-			dataDir = "acme"
+			// If not specified in the config, check the environment variable
+			// before resorting to the default "acme" value. The main reason
+			// we have this is so that our setup script can set it to the
+			// user's home directory.
+			dataDir = envOrDefaultString(appACMEDirEnv, "acme")
 		}
 		cmCfg := &certmagic.Config{
 			RenewalWindowRatio: certmagic.DefaultRenewalWindowRatio,
