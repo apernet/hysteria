@@ -16,7 +16,7 @@ jobs:
     name: Publish scripts to Cloudflare Pages
     steps:
       - name: Check out
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
