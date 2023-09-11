@@ -85,6 +85,9 @@ func TestClientConfig(t *testing.T) {
 			Listen:  "127.0.0.1:2501",
 			Timeout: 20 * time.Second,
 		},
+		TCPRedirect: &tcpRedirectConfig{
+			Listen: "127.0.0.1:3500",
+		},
 	})
 }
 

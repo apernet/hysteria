@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/apernet/hysteria/app/internal/forwarding"
 	"github.com/apernet/hysteria/app/internal/http"
+	"github.com/apernet/hysteria/app/internal/redirect"
 	"github.com/apernet/hysteria/app/internal/socks5"
 	"github.com/apernet/hysteria/app/internal/tproxy"
 	"github.com/apernet/hysteria/app/internal/url"
@@ -63,6 +63,7 @@ type clientConfig struct {
 	UDPForwarding []udpForwardingEntry  `mapstructure:"udpForwarding"`
 	TCPTProxy     *tcpTProxyConfig      `mapstructure:"tcpTProxy"`
 	UDPTProxy     *udpTProxyConfig      `mapstructure:"udpTProxy"`
+	TCPRedirect   *tcpRedirectConfig    `mapstructure:"tcpRedirect"`
 }
 
 type clientConfigTransportUDP struct {
@@ -137,6 +138,10 @@ type tcpTProxyConfig struct {
 type udpTProxyConfig struct {
 	Listen  string        `mapstructure:"listen"`
 	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+type tcpRedirectConfig struct {
+	Listen string `mapstructure:"listen"`
 }
 
 func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
@@ -418,75 +423,81 @@ func runClient(cmd *cobra.Command, args []string) {
 		utils.PrintQR(uri)
 	}
 
-	// Modes
-	var wg sync.WaitGroup
-	hasMode := false
-
+	// Register modes
+	var runner clientModeRunner
 	if config.SOCKS5 != nil {
-		hasMode = true
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := clientSOCKS5(*config.SOCKS5, c); err != nil {
-				logger.Fatal("failed to run SOCKS5 server", zap.Error(err))
-			}
-		}()
+		runner.Add("SOCKS5 server", func() error {
+			return clientSOCKS5(*config.SOCKS5, c)
+		})
 	}
 	if config.HTTP != nil {
-		hasMode = true
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := clientHTTP(*config.HTTP, c); err != nil {
-				logger.Fatal("failed to run HTTP proxy server", zap.Error(err))
-			}
-		}()
+		runner.Add("HTTP proxy server", func() error {
+			return clientHTTP(*config.HTTP, c)
+		})
 	}
 	if len(config.TCPForwarding) > 0 {
-		hasMode = true
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := clientTCPForwarding(config.TCPForwarding, c); err != nil {
-				logger.Fatal("failed to run TCP forwarding", zap.Error(err))
-			}
-		}()
+		runner.Add("TCP forwarding", func() error {
+			return clientTCPForwarding(config.TCPForwarding, c)
+		})
 	}
 	if len(config.UDPForwarding) > 0 {
-		hasMode = true
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := clientUDPForwarding(config.UDPForwarding, c); err != nil {
-				logger.Fatal("failed to run UDP forwarding", zap.Error(err))
-			}
-		}()
+		runner.Add("UDP forwarding", func() error {
+			return clientUDPForwarding(config.UDPForwarding, c)
+		})
 	}
 	if config.TCPTProxy != nil {
-		hasMode = true
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := clientTCPTProxy(*config.TCPTProxy, c); err != nil {
-				logger.Fatal("failed to run TCP transparent proxy", zap.Error(err))
-			}
-		}()
+		runner.Add("TCP transparent proxy", func() error {
+			return clientTCPTProxy(*config.TCPTProxy, c)
+		})
 	}
 	if config.UDPTProxy != nil {
-		hasMode = true
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := clientUDPTProxy(*config.UDPTProxy, c); err != nil {
-				logger.Fatal("failed to run UDP transparent proxy", zap.Error(err))
-			}
-		}()
+		runner.Add("UDP transparent proxy", func() error {
+			return clientUDPTProxy(*config.UDPTProxy, c)
+		})
+	}
+	if config.TCPRedirect != nil {
+		runner.Add("TCP redirect", func() error {
+			return clientTCPRedirect(*config.TCPRedirect, c)
+		})
 	}
 
-	if !hasMode {
+	runner.Run()
+}
+
+type clientModeRunner struct {
+	ModeMap map[string]func() error
+}
+
+func (r *clientModeRunner) Add(name string, f func() error) {
+	if r.ModeMap == nil {
+		r.ModeMap = make(map[string]func() error)
+	}
+	r.ModeMap[name] = f
+}
+
+func (r *clientModeRunner) Run() {
+	if len(r.ModeMap) == 0 {
 		logger.Fatal("no mode specified")
 	}
-	wg.Wait()
+
+	type modeError struct {
+		Name string
+		Err  error
+	}
+	errChan := make(chan modeError, len(r.ModeMap))
+	for name, f := range r.ModeMap {
+		go func(name string, f func() error) {
+			err := f()
+			errChan <- modeError{name, err}
+		}(name, f)
+	}
+	// Fatal if any one of the modes fails
+	for i := 0; i < len(r.ModeMap); i++ {
+		e := <-errChan
+		if e.Err != nil {
+			logger.Fatal("failed to run "+e.Name, zap.Error(e.Err))
+		}
+	}
 }
 
 func clientSOCKS5(config socks5Config, c client.Client) error {
@@ -627,6 +638,22 @@ func clientUDPTProxy(config udpTProxyConfig, c client.Client) error {
 		EventLogger: &udpTProxyLogger{},
 	}
 	logger.Info("UDP transparent proxy listening", zap.String("addr", config.Listen))
+	return p.ListenAndServe(laddr)
+}
+
+func clientTCPRedirect(config tcpRedirectConfig, c client.Client) error {
+	if config.Listen == "" {
+		return configError{Field: "listen", Err: errors.New("listen address is empty")}
+	}
+	laddr, err := net.ResolveTCPAddr("tcp", config.Listen)
+	if err != nil {
+		return configError{Field: "listen", Err: err}
+	}
+	p := &redirect.TCPRedirect{
+		HyClient:    c,
+		EventLogger: &tcpRedirectLogger{},
+	}
+	logger.Info("TCP redirect listening", zap.String("addr", config.Listen))
 	return p.ListenAndServe(laddr)
 }
 
@@ -781,5 +808,19 @@ func (l *udpTProxyLogger) Error(addr, reqAddr net.Addr, err error) {
 		logger.Debug("UDP transparent proxy closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
 	} else {
 		logger.Error("UDP transparent proxy error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
+	}
+}
+
+type tcpRedirectLogger struct{}
+
+func (l *tcpRedirectLogger) Connect(addr, reqAddr net.Addr) {
+	logger.Debug("TCP redirect connect", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
+}
+
+func (l *tcpRedirectLogger) Error(addr, reqAddr net.Addr, err error) {
+	if err == nil {
+		logger.Debug("TCP redirect closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
+	} else {
+		logger.Error("TCP redirect error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
 	}
 }
