@@ -294,7 +294,7 @@ rerun_with_sudo() {
 
   local _target_script
 
-  if has_prefix "$0" "/dev/fd/"; then
+  if has_prefix "$0" "/dev/" || has_prefix "$0" "/proc/"; then
     local _tmp_script="$(mktemp)"
     chmod +x "$_tmp_script"
 
