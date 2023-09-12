@@ -675,10 +675,11 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=$EXECUTABLE_INSTALL_PATH server --config ${CONFIG_DIR}/${_config_name}.yaml
-WorkingDirectory=$HYSTERIA_HOME_DIR
+WorkingDirectory=$CONFIG_DIR
 User=$HYSTERIA_USER
 Group=$HYSTERIA_USER
 Environment=HYSTERIA_LOG_LEVEL=info
+Environment=HYSTERIA_ACME_DIR=$HYSTERIA_HOME_DIR/acme
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
 NoNewPrivileges=true
