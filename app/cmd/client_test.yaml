@@ -62,3 +62,6 @@ tcpTProxy:
 udpTProxy:
   listen: 127.0.0.1:2501
   timeout: 20s
+
+tcpRedirect:
+  listen: 127.0.0.1:3500
