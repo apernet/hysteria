@@ -525,16 +525,15 @@ func (c *serverConfig) fillTrafficLogger(hyConfig *server.Config) error {
 }
 
 func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
+	var handler http.Handler
 	switch strings.ToLower(c.Masquerade.Type) {
 	case "", "404":
-		hyConfig.MasqHandler = http.NotFoundHandler()
-		return nil
+		handler = http.NotFoundHandler()
 	case "file":
 		if c.Masquerade.File.Dir == "" {
 			return configError{Field: "masquerade.file.dir", Err: errors.New("empty file directory")}
 		}
-		hyConfig.MasqHandler = http.FileServer(http.Dir(c.Masquerade.File.Dir))
-		return nil
+		handler = http.FileServer(http.Dir(c.Masquerade.File.Dir))
 	case "proxy":
 		if c.Masquerade.Proxy.URL == "" {
 			return configError{Field: "masquerade.proxy.url", Err: errors.New("empty proxy url")}
@@ -543,7 +542,7 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 		if err != nil {
 			return configError{Field: "masquerade.proxy.url", Err: err}
 		}
-		hyConfig.MasqHandler = &httputil.ReverseProxy{
+		handler = &httputil.ReverseProxy{
 			Rewrite: func(r *httputil.ProxyRequest) {
 				r.SetURL(u)
 				// SetURL rewrites the Host header,
@@ -557,10 +556,11 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 				w.WriteHeader(http.StatusBadGateway)
 			},
 		}
-		return nil
 	default:
 		return configError{Field: "masquerade.type", Err: errors.New("unsupported masquerade type")}
 	}
+	hyConfig.MasqHandler = &masqHandlerLogWrapper{H: handler}
+	return nil
 }
 
 // Config validates the fields and returns a ready-to-use Hysteria server config
@@ -668,4 +668,13 @@ func (l *serverLogger) UDPError(addr net.Addr, id string, sessionID uint32, err 
 	} else {
 		logger.Error("UDP error", zap.String("addr", addr.String()), zap.String("id", id), zap.Uint32("sessionID", sessionID), zap.Error(err))
 	}
+}
+
+type masqHandlerLogWrapper struct {
+	H http.Handler
+}
+
+func (m *masqHandlerLogWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logger.Debug("masquerade request", zap.String("addr", r.RemoteAddr), zap.String("method", r.Method), zap.String("host", r.Host), zap.String("url", r.URL.String()))
+	m.H.ServeHTTP(w, r)
 }
