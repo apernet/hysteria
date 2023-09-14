@@ -168,6 +168,7 @@ def get_app_platforms():
         result.append((parts[0], parts[1]))
     return result
 
+
 def cmd_build(pprof=False, release=False):
     if not check_build_env():
         return
@@ -211,15 +212,21 @@ def cmd_build(pprof=False, release=False):
             env["GOARCH"] = arch
         if os_name == "android":
             env["CGO_ENABLED"] = "1"
-            ANDROID_NDK_HOME = os.environ.get("ANDROID_NDK_HOME") + "/toolchains/llvm/prebuilt/linux-x86_64/bin"
-            if arch == "arm64" :
+            ANDROID_NDK_HOME = (
+                os.environ.get("ANDROID_NDK_HOME")
+                + "/toolchains/llvm/prebuilt/linux-x86_64/bin"
+            )
+            if arch == "arm64":
                 env["CC"] = ANDROID_NDK_HOME + "/aarch64-linux-android33-clang"
-            if arch == "armv7" :
+            elif arch == "armv7":
                 env["CC"] = ANDROID_NDK_HOME + "/armv7a-linux-androideabi33-clang"
-            if arch == "386" :
+            elif arch == "386":
                 env["CC"] = ANDROID_NDK_HOME + "/i686-linux-android33-clang"
-            if arch == "amd64" :
+            elif arch == "amd64":
                 env["CC"] = ANDROID_NDK_HOME + "/x86_64-linux-android33-clang"
+            else:
+                print("Unsupported arch for android: %s" % arch)
+                return
         else:
             env["CGO_ENABLED"] = "0"
 
