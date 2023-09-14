@@ -28,3 +28,9 @@ freebsd/amd64-avx
 freebsd/386
 freebsd/arm
 freebsd/arm64
+
+# Android
+android/386
+android/amd64
+android/armv7
+android/arm64
