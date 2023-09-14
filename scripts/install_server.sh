@@ -31,7 +31,9 @@ CONFIG_DIR="/etc/hysteria"
 
 # URLs of GitHub
 REPO_URL="https://github.com/apernet/hysteria"
-API_BASE_URL="https://api.github.com/repos/apernet/hysteria"
+
+# URL of Hysteria 2 API
+HY2_API_BASE_URL="https://api.hy2.io/v1"
 
 # curl command line flags.
 # To using a proxy, please specify ALL_PROXY in the environ variable, such like:
@@ -803,13 +805,13 @@ get_latest_version() {
   fi
 
   local _tmpfile=$(mktemp)
-  if ! curl -sS -H 'Accept: application/vnd.github.v3+json' "$API_BASE_URL/releases/latest" -o "$_tmpfile"; then
-    error "Failed to get the latest version from GitHub API, please check your network and try again."
+  if ! curl -sS "$HY2_API_BASE_URL/update?cver=installscript&plat=${OPERATING_SYSTEM}&arch=${ARCHITECTURE}&chan=release&side=server" -o "$_tmpfile"; then
+    error "Failed to get the latest version from Hysteria 2 API, please check your network and try again."
     exit 11
   fi
 
-  local _latest_version=$(grep 'tag_name' "$_tmpfile" | head -1 | grep -o '"app/v.*"')
-  _latest_version=${_latest_version#'"app/'}
+  local _latest_version=$(grep 'lver' "$_tmpfile" | head -1 | grep -o '"v.*"')
+  _latest_version=${_latest_version#'"'}
   _latest_version=${_latest_version%'"'}
 
   if [[ -n "$_latest_version" ]]; then
