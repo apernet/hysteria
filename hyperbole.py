@@ -204,13 +204,31 @@ def cmd_build(pprof=False, release=False):
             out_name += ".exe"
 
         env = os.environ.copy()
-        env["CGO_ENABLED"] = "0"
         env["GOOS"] = os_name
         if arch in ARCH_ALIASES:
             for k, v in ARCH_ALIASES[arch].items():
                 env[k] = v
         else:
             env["GOARCH"] = arch
+        if os_name == "android":
+            env["CGO_ENABLED"] = "1"
+            ANDROID_NDK_HOME = (
+                os.environ.get("ANDROID_NDK_HOME")
+                + "/toolchains/llvm/prebuilt/linux-x86_64/bin"
+            )
+            if arch == "arm64":
+                env["CC"] = ANDROID_NDK_HOME + "/aarch64-linux-android33-clang"
+            elif arch == "armv7":
+                env["CC"] = ANDROID_NDK_HOME + "/armv7a-linux-androideabi33-clang"
+            elif arch == "386":
+                env["CC"] = ANDROID_NDK_HOME + "/i686-linux-android33-clang"
+            elif arch == "amd64":
+                env["CC"] = ANDROID_NDK_HOME + "/x86_64-linux-android33-clang"
+            else:
+                print("Unsupported arch for android: %s" % arch)
+                return
+        else:
+            env["CGO_ENABLED"] = "0"
 
         plat_ldflags = ldflags.copy()
         plat_ldflags.append("-X")

@@ -22,6 +22,12 @@ linux/s390x
 linux/mipsle
 linux/mipsle-sf
 
+# Android
+android/386
+android/amd64
+android/armv7
+android/arm64
+
 # FreeBSD
 freebsd/amd64
 freebsd/amd64-avx
