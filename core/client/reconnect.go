@@ -61,7 +61,7 @@ func (rc *reconnectableClientImpl) TCP(addr string) (net.Conn, error) {
 		return nil, coreErrs.ClosedError{}
 	}
 	if rc.client == nil {
-		// First time
+		// No active connection, connect first
 		if err := rc.reconnect(); err != nil {
 			return nil, err
 		}
@@ -86,7 +86,7 @@ func (rc *reconnectableClientImpl) UDP() (HyUDPConn, error) {
 		return nil, coreErrs.ClosedError{}
 	}
 	if rc.client == nil {
-		// First time
+		// No active connection, connect first
 		if err := rc.reconnect(); err != nil {
 			return nil, err
 		}
