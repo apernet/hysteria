@@ -120,9 +120,10 @@ func initConfig() {
 	} else {
 		viper.SetConfigName("config")
 		viper.SetConfigType("yaml")
-		viper.AddConfigPath("/etc/hysteria/")
-		viper.AddConfigPath("$HOME/.hysteria")
+		viper.SupportedExts = append([]string{"yaml", "yml"}, viper.SupportedExts...)
 		viper.AddConfigPath(".")
+		viper.AddConfigPath("$HOME/.hysteria")
+		viper.AddConfigPath("/etc/hysteria/")
 	}
 }
 
