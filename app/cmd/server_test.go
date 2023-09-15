@@ -136,6 +136,9 @@ func TestServerConfig(t *testing.T) {
 				URL:         "https://some.site.net",
 				RewriteHost: true,
 			},
+			ListenHTTP:  ":80",
+			ListenHTTPS: ":443",
+			ForceHTTPS:  true,
 		},
 	})
 }
