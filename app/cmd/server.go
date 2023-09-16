@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/apernet/hysteria/app/internal/utils"
 	"github.com/apernet/hysteria/core/server"
 	"github.com/apernet/hysteria/extras/auth"
+	"github.com/apernet/hysteria/extras/masq"
 	"github.com/apernet/hysteria/extras/obfs"
 	"github.com/apernet/hysteria/extras/outbounds"
 	"github.com/apernet/hysteria/extras/trafficlogger"
@@ -177,9 +179,12 @@ type serverConfigMasqueradeProxy struct {
 }
 
 type serverConfigMasquerade struct {
-	Type  string                      `mapstructure:"type"`
-	File  serverConfigMasqueradeFile  `mapstructure:"file"`
-	Proxy serverConfigMasqueradeProxy `mapstructure:"proxy"`
+	Type        string                      `mapstructure:"type"`
+	File        serverConfigMasqueradeFile  `mapstructure:"file"`
+	Proxy       serverConfigMasqueradeProxy `mapstructure:"proxy"`
+	ListenHTTP  string                      `mapstructure:"listenHTTP"`
+	ListenHTTPS string                      `mapstructure:"listenHTTPS"`
+	ForceHTTPS  bool                        `mapstructure:"forceHTTPS"`
 }
 
 func (c *serverConfig) fillConn(hyConfig *server.Config) error {
@@ -524,6 +529,8 @@ func (c *serverConfig) fillTrafficLogger(hyConfig *server.Config) error {
 	return nil
 }
 
+// fillMasqHandler must be called after fillConn, as we may need to extract the QUIC
+// port number from Conn for MasqTCPServer.
 func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 	var handler http.Handler
 	switch strings.ToLower(c.Masquerade.Type) {
@@ -559,7 +566,24 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 	default:
 		return configError{Field: "masquerade.type", Err: errors.New("unsupported masquerade type")}
 	}
-	hyConfig.MasqHandler = &masqHandlerLogWrapper{H: handler}
+	hyConfig.MasqHandler = &masqHandlerLogWrapper{H: handler, QUIC: true}
+
+	if c.Masquerade.ListenHTTP != "" || c.Masquerade.ListenHTTPS != "" {
+		if c.Masquerade.ListenHTTP != "" && c.Masquerade.ListenHTTPS == "" {
+			return configError{Field: "masquerade.listenHTTPS", Err: errors.New("having only HTTP server without HTTPS is not supported")}
+		}
+		s := masq.MasqTCPServer{
+			QUICPort:  extractPortFromAddr(hyConfig.Conn.LocalAddr().String()),
+			HTTPSPort: extractPortFromAddr(c.Masquerade.ListenHTTPS),
+			Handler:   &masqHandlerLogWrapper{H: handler, QUIC: false},
+			TLSConfig: &tls.Config{
+				Certificates:   hyConfig.TLSConfig.Certificates,
+				GetCertificate: hyConfig.TLSConfig.GetCertificate,
+			},
+			ForceHTTPS: c.Masquerade.ForceHTTPS,
+		}
+		go runMasqTCPServer(&s, c.Masquerade.ListenHTTP, c.Masquerade.ListenHTTPS)
+	}
 	return nil
 }
 
@@ -626,6 +650,26 @@ func runTrafficStatsServer(listen string, handler http.Handler) {
 	}
 }
 
+func runMasqTCPServer(s *masq.MasqTCPServer, httpAddr, httpsAddr string) {
+	errChan := make(chan error, 2)
+	if httpAddr != "" {
+		go func() {
+			logger.Info("masquerade HTTP server up and running", zap.String("listen", httpAddr))
+			errChan <- s.ListenAndServeHTTP(httpAddr)
+		}()
+	}
+	if httpsAddr != "" {
+		go func() {
+			logger.Info("masquerade HTTPS server up and running", zap.String("listen", httpsAddr))
+			errChan <- s.ListenAndServeHTTPS(httpsAddr)
+		}()
+	}
+	err := <-errChan
+	if err != nil {
+		logger.Fatal("failed to serve masquerade HTTP(S)", zap.Error(err))
+	}
+}
+
 func geoipDownloadFunc(filename, url string) {
 	logger.Info("downloading GeoIP database", zap.String("filename", filename), zap.String("url", url))
 }
@@ -671,10 +715,28 @@ func (l *serverLogger) UDPError(addr net.Addr, id string, sessionID uint32, err 
 }
 
 type masqHandlerLogWrapper struct {
-	H http.Handler
+	H    http.Handler
+	QUIC bool
 }
 
 func (m *masqHandlerLogWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger.Debug("masquerade request", zap.String("addr", r.RemoteAddr), zap.String("method", r.Method), zap.String("host", r.Host), zap.String("url", r.URL.String()))
+	logger.Debug("masquerade request",
+		zap.String("addr", r.RemoteAddr),
+		zap.String("method", r.Method),
+		zap.String("host", r.Host),
+		zap.String("url", r.URL.String()),
+		zap.Bool("quic", m.QUIC))
 	m.H.ServeHTTP(w, r)
+}
+
+func extractPortFromAddr(addr string) int {
+	_, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 0
+	}
+	return port
 }

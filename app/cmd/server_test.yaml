@@ -102,3 +102,6 @@ masquerade:
   proxy:
     url: https://some.site.net
     rewriteHost: true
+  listenHTTP: :80
+  listenHTTPS: :443
+  forceHTTPS: true
