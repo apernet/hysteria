@@ -17,7 +17,7 @@ require (
 )
 
 require (
-	github.com/apernet/quic-go v0.38.2-0.20230915194411-08d89f080c08 // indirect
+	github.com/apernet/quic-go v0.38.2-0.20230921233109-dde3133b1a51 // indirect
 	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect

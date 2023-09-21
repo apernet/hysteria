@@ -40,8 +40,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f h1:uVh0qpEslrWjgzx9vOcyCqsOY3c9kofDZ1n+qaw35ZY=
 github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f/go.mod h1:xkkq9D4ygcldQQhKS/w9CadiCKwCngU7K9E3DaKahpM=
-github.com/apernet/quic-go v0.38.2-0.20230915194411-08d89f080c08 h1:1h6o1bcBbL0WpsNanjd+S737/ueoDv7hVKeZmZiMIwo=
-github.com/apernet/quic-go v0.38.2-0.20230915194411-08d89f080c08/go.mod h1:fvdRzSh471BuwuMgc7Icl2E3i6C7FFBfpxZETVAfOeE=
+github.com/apernet/quic-go v0.38.2-0.20230921233109-dde3133b1a51 h1:kVhU1s8OEIbJzvyyhKANLD7iFY9BCbA56UODpqjv7Bo=
+github.com/apernet/quic-go v0.38.2-0.20230921233109-dde3133b1a51/go.mod h1:fvdRzSh471BuwuMgc7Icl2E3i6C7FFBfpxZETVAfOeE=
 github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6 h1:4NNbNM2Iq/k57qEu7WfL67UrbPq1uFWxW4qODCohi+0=
 github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6/go.mod h1:J29hk+f9lJrblVIfiJOtTFk+OblBawmib4uz/VdKzlg=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
