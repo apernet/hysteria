@@ -1,12 +1,12 @@
 module github.com/apernet/hysteria/core
 
-go 1.20
+go 1.21
 
 require (
-	github.com/apernet/quic-go v0.39.1-0.20230924223134-79ed77c4df4f
+	github.com/apernet/quic-go v0.39.1-0.20230930045547-13cecb45baa8
 	github.com/stretchr/testify v1.8.4
-	github.com/zhangyunhao116/fastrand v0.3.0
 	go.uber.org/goleak v1.2.1
+	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db
 	golang.org/x/time v0.3.0
 )
 
@@ -23,7 +23,6 @@ require (
 	github.com/stretchr/objx v0.5.0 // indirect
 	go.uber.org/mock v0.3.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
-	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect

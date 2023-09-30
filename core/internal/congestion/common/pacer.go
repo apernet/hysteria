@@ -8,10 +8,7 @@ import (
 )
 
 const (
-	InitMaxDatagramSize = 1252
-
 	maxBurstPackets = 10
-	minPacingDelay  = time.Millisecond
 )
 
 // Pacer implements a token bucket pacing algorithm.
@@ -24,8 +21,8 @@ type Pacer struct {
 
 func NewPacer(getBandwidth func() congestion.ByteCount) *Pacer {
 	p := &Pacer{
-		budgetAtLastSent: maxBurstPackets * InitMaxDatagramSize,
-		maxDatagramSize:  InitMaxDatagramSize,
+		budgetAtLastSent: maxBurstPackets * congestion.InitialPacketSizeIPv4,
+		maxDatagramSize:  congestion.InitialPacketSizeIPv4,
 		getBandwidth:     getBandwidth,
 	}
 	return p
@@ -51,7 +48,7 @@ func (p *Pacer) Budget(now time.Time) congestion.ByteCount {
 
 func (p *Pacer) maxBurstSize() congestion.ByteCount {
 	return maxByteCount(
-		congestion.ByteCount((minPacingDelay+time.Millisecond).Nanoseconds())*p.getBandwidth()/1e9,
+		congestion.ByteCount((congestion.MinPacingDelay+time.Millisecond).Nanoseconds())*p.getBandwidth()/1e9,
 		maxBurstPackets*p.maxDatagramSize,
 	)
 }
@@ -63,7 +60,7 @@ func (p *Pacer) TimeUntilSend() time.Time {
 		return time.Time{}
 	}
 	return p.lastSentTime.Add(maxDuration(
-		minPacingDelay,
+		congestion.MinPacingDelay,
 		time.Duration(math.Ceil(float64(p.maxDatagramSize-p.budgetAtLastSent)*1e9/
 			float64(p.getBandwidth())))*time.Nanosecond,
 	))
