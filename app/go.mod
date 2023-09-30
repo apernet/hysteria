@@ -8,6 +8,7 @@ require (
 	github.com/apernet/hysteria/extras v0.0.0-00010101000000-000000000000
 	github.com/caddyserver/certmagic v0.17.2
 	github.com/mdp/qrterminal/v3 v3.1.1
+	github.com/mholt/acmez v1.0.4
 	github.com/oschwald/geoip2-golang v1.9.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
@@ -29,7 +30,6 @@ require (
 	github.com/klauspost/cpuid/v2 v2.1.1 // indirect
 	github.com/libdns/libdns v0.2.1 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
-	github.com/mholt/acmez v1.0.4 // indirect
 	github.com/miekg/dns v1.1.55 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
