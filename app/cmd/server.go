@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	"github.com/caddyserver/certmagic"
+	"github.com/mholt/acmez/acme"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -264,6 +267,11 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 			cmIssuer.CA = certmagic.LetsEncryptProductionCA
 		case "zerossl", "zero":
 			cmIssuer.CA = certmagic.ZeroSSLProductionCA
+			eab, err := genZeroSSLEAB(c.ACME.Email)
+			if err != nil {
+				return configError{Field: "acme.ca", Err: err}
+			}
+			cmIssuer.ExternalAccount = eab
 		default:
 			return configError{Field: "acme.ca", Err: errors.New("unknown CA")}
 		}
@@ -286,6 +294,48 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 		hyConfig.TLSConfig.GetCertificate = cmCfg.GetCertificate
 	}
 	return nil
+}
+
+func genZeroSSLEAB(email string) (*acme.EAB, error) {
+	req, err := http.NewRequest(
+		http.MethodPost,
+		"https://api.zerossl.com/acme/eab-credentials-email",
+		strings.NewReader(url.Values{"email": []string{email}}.Encode()),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to creare ZeroSSL EAB request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", certmagic.UserAgent)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send ZeroSSL EAB request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var result struct {
+		Success bool `json:"success"`
+		Error   struct {
+			Code int    `json:"code"`
+			Type string `json:"type"`
+		} `json:"error"`
+		EABKID     string `json:"eab_kid"`
+		EABHMACKey string `json:"eab_hmac_key"`
+	}
+	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed decoding ZeroSSL EAB API response: %w", err)
+	}
+	if result.Error.Code != 0 {
+		return nil, fmt.Errorf("failed getting ZeroSSL EAB credentials: HTTP %d: %s (code %d)", resp.StatusCode, result.Error.Type, result.Error.Code)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed getting EAB credentials: HTTP %d", resp.StatusCode)
+	}
+
+	return &acme.EAB{
+		KeyID:  result.EABKID,
+		MACKey: result.EABHMACKey,
+	}, nil
 }
 
 func (c *serverConfig) fillQUICConfig(hyConfig *server.Config) error {
