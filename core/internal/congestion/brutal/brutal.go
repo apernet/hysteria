@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	pktInfoSlotCount = 4
+	pktInfoSlotCount = 5 // slot index is based on seconds, so this is basically how many seconds we sample
 	minSampleCount   = 50
 	minAckRate       = 0.8
 )
@@ -77,37 +77,28 @@ func (b *BrutalSender) OnPacketSent(sentTime time.Time, bytesInFlight congestion
 func (b *BrutalSender) OnPacketAcked(number congestion.PacketNumber, ackedBytes congestion.ByteCount,
 	priorInFlight congestion.ByteCount, eventTime time.Time,
 ) {
-	currentTimestamp := eventTime.Unix()
-	slot := currentTimestamp % pktInfoSlotCount
-	if b.pktInfoSlots[slot].Timestamp == currentTimestamp {
-		b.pktInfoSlots[slot].AckCount++
-	} else {
-		// uninitialized slot or too old, reset
-		b.pktInfoSlots[slot].Timestamp = currentTimestamp
-		b.pktInfoSlots[slot].AckCount = 1
-		b.pktInfoSlots[slot].LossCount = 0
-	}
-	b.updateAckRate(currentTimestamp)
+	// Stub
 }
 
 func (b *BrutalSender) OnCongestionEvent(number congestion.PacketNumber, lostBytes congestion.ByteCount,
 	priorInFlight congestion.ByteCount,
 ) {
-	currentTimestamp := time.Now().Unix()
-	slot := currentTimestamp % pktInfoSlotCount
-	if b.pktInfoSlots[slot].Timestamp == currentTimestamp {
-		b.pktInfoSlots[slot].LossCount++
-	} else {
-		// uninitialized slot or too old, reset
-		b.pktInfoSlots[slot].Timestamp = currentTimestamp
-		b.pktInfoSlots[slot].AckCount = 0
-		b.pktInfoSlots[slot].LossCount = 1
-	}
-	b.updateAckRate(currentTimestamp)
+	// Stub
 }
 
 func (b *BrutalSender) OnCongestionEventEx(priorInFlight congestion.ByteCount, eventTime time.Time, ackedPackets []congestion.AckedPacketInfo, lostPackets []congestion.LostPacketInfo) {
-	// Stub
+	currentTimestamp := eventTime.Unix()
+	slot := currentTimestamp % pktInfoSlotCount
+	if b.pktInfoSlots[slot].Timestamp == currentTimestamp {
+		b.pktInfoSlots[slot].LossCount += uint64(len(lostPackets))
+		b.pktInfoSlots[slot].AckCount += uint64(len(ackedPackets))
+	} else {
+		// uninitialized slot or too old, reset
+		b.pktInfoSlots[slot].Timestamp = currentTimestamp
+		b.pktInfoSlots[slot].AckCount = uint64(len(ackedPackets))
+		b.pktInfoSlots[slot].LossCount = uint64(len(lostPackets))
+	}
+	b.updateAckRate(currentTimestamp)
 }
 
 func (b *BrutalSender) SetMaxDatagramSize(size congestion.ByteCount) {
@@ -127,10 +118,12 @@ func (b *BrutalSender) updateAckRate(currentTimestamp int64) {
 	}
 	if ackCount+lossCount < minSampleCount {
 		b.ackRate = 1
+		return
 	}
 	rate := float64(ackCount) / float64(ackCount+lossCount)
 	if rate < minAckRate {
 		b.ackRate = minAckRate
+		return
 	}
 	b.ackRate = rate
 }
