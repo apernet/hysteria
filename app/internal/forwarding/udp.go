@@ -75,12 +75,13 @@ type UDPEventLogger interface {
 }
 
 func (t *UDPTunnel) Serve(pc net.PacketConn) error {
+	t.m = make(map[string]*sessionEntry)
+
 	stopCh := make(chan struct{})
 	go t.idleCleanupLoop(stopCh)
 	defer close(stopCh)
 	defer t.cleanup(false)
 
-	t.m = make(map[string]*sessionEntry)
 	buf := make([]byte, udpBufferSize)
 	for {
 		n, addr, err := pc.ReadFrom(buf)

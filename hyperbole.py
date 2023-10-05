@@ -169,7 +169,7 @@ def get_app_platforms():
     return result
 
 
-def cmd_build(pprof=False, release=False):
+def cmd_build(pprof=False, release=False, race=False):
     if not check_build_env():
         return
 
@@ -228,7 +228,7 @@ def cmd_build(pprof=False, release=False):
                 print("Unsupported arch for android: %s" % arch)
                 return
         else:
-            env["CGO_ENABLED"] = "0"
+            env["CGO_ENABLED"] = "1" if race else "0"  # Race detector requires cgo
 
         plat_ldflags = ldflags.copy()
         plat_ldflags.append("-X")
@@ -247,6 +247,8 @@ def cmd_build(pprof=False, release=False):
         if pprof:
             cmd.append("-tags")
             cmd.append("pprof")
+        if race:
+            cmd.append("-race")
         if release:
             cmd.append("-trimpath")
         cmd.append(APP_SRC_DIR)
@@ -260,7 +262,7 @@ def cmd_build(pprof=False, release=False):
         print("Built %s" % out_name)
 
 
-def cmd_run(args, pprof=False):
+def cmd_run(args, pprof=False, race=False):
     if not check_build_env():
         return
 
@@ -289,6 +291,8 @@ def cmd_run(args, pprof=False):
     if pprof:
         cmd.append("-tags")
         cmd.append("pprof")
+    if race:
+        cmd.append("-race")
     cmd.append(APP_SRC_DIR)
     cmd.extend(args)
 
@@ -415,6 +419,9 @@ def main():
     p_run.add_argument(
         "-p", "--pprof", action="store_true", help="Run with pprof enabled"
     )
+    p_run.add_argument(
+        "-d", "--race", action="store_true", help="Build with data race detection"
+    )
     p_run.add_argument("args", nargs=argparse.REMAINDER)
 
     # Build
@@ -424,6 +431,9 @@ def main():
     )
     p_build.add_argument(
         "-r", "--release", action="store_true", help="Build a release version"
+    )
+    p_build.add_argument(
+        "-d", "--race", action="store_true", help="Build with data race detection"
     )
 
     # Format
@@ -454,9 +464,9 @@ def main():
     args = parser.parse_args()
 
     if args.command == "run":
-        cmd_run(args.args, args.pprof)
+        cmd_run(args.args, args.pprof, args.race)
     elif args.command == "build":
-        cmd_build(args.pprof, args.release)
+        cmd_build(args.pprof, args.release, args.race)
     elif args.command == "format":
         cmd_format()
     elif args.command == "mockgen":
