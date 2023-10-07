@@ -134,7 +134,8 @@ func (b *BrutalSender) updateAckRate(currentTimestamp int64) {
 		b.ackRate = 1
 		if b.canPrintAckRate(currentTimestamp) {
 			b.lastAckPrintTimestamp = currentTimestamp
-			b.debugPrint("Not enough samples (total=%d, ack=%d, loss=%d)", ackCount+lossCount, ackCount, lossCount)
+			b.debugPrint("Not enough samples (total=%d, ack=%d, loss=%d, rtt=%d)",
+				ackCount+lossCount, ackCount, lossCount, b.rttStats.SmoothedRTT().Milliseconds())
 		}
 		return
 	}
@@ -143,14 +144,16 @@ func (b *BrutalSender) updateAckRate(currentTimestamp int64) {
 		b.ackRate = minAckRate
 		if b.canPrintAckRate(currentTimestamp) {
 			b.lastAckPrintTimestamp = currentTimestamp
-			b.debugPrint("ACK rate too low: %.2f, clamped to %.2f (total=%d, ack=%d, loss=%d)", rate, minAckRate, ackCount+lossCount, ackCount, lossCount)
+			b.debugPrint("ACK rate too low: %.2f, clamped to %.2f (total=%d, ack=%d, loss=%d, rtt=%d)",
+				rate, minAckRate, ackCount+lossCount, ackCount, lossCount, b.rttStats.SmoothedRTT().Milliseconds())
 		}
 		return
 	}
 	b.ackRate = rate
 	if b.canPrintAckRate(currentTimestamp) {
 		b.lastAckPrintTimestamp = currentTimestamp
-		b.debugPrint("ACK rate: %.2f (total=%d, ack=%d, loss=%d)", rate, ackCount+lossCount, ackCount, lossCount)
+		b.debugPrint("ACK rate: %.2f (total=%d, ack=%d, loss=%d, rtt=%d)",
+			rate, ackCount+lossCount, ackCount, lossCount, b.rttStats.SmoothedRTT().Milliseconds())
 	}
 }
 
