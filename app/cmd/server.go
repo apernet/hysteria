@@ -181,13 +181,20 @@ type serverConfigMasqueradeProxy struct {
 	RewriteHost bool   `mapstructure:"rewriteHost"`
 }
 
+type serverConfigMasqueradeString struct {
+	Content    string            `mapstructure:"content"`
+	Headers    map[string]string `mapstructure:"headers"`
+	StatusCode int               `mapstructure:"statusCode"`
+}
+
 type serverConfigMasquerade struct {
-	Type        string                      `mapstructure:"type"`
-	File        serverConfigMasqueradeFile  `mapstructure:"file"`
-	Proxy       serverConfigMasqueradeProxy `mapstructure:"proxy"`
-	ListenHTTP  string                      `mapstructure:"listenHTTP"`
-	ListenHTTPS string                      `mapstructure:"listenHTTPS"`
-	ForceHTTPS  bool                        `mapstructure:"forceHTTPS"`
+	Type        string                       `mapstructure:"type"`
+	File        serverConfigMasqueradeFile   `mapstructure:"file"`
+	Proxy       serverConfigMasqueradeProxy  `mapstructure:"proxy"`
+	String      serverConfigMasqueradeString `mapstructure:"string"`
+	ListenHTTP  string                       `mapstructure:"listenHTTP"`
+	ListenHTTPS string                       `mapstructure:"listenHTTPS"`
+	ForceHTTPS  bool                         `mapstructure:"forceHTTPS"`
 }
 
 func (c *serverConfig) fillConn(hyConfig *server.Config) error {
@@ -613,6 +620,25 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 				w.WriteHeader(http.StatusBadGateway)
 			},
 		}
+	case "string":
+		if c.Masquerade.String.Content == "" {
+			return configError{Field: "masquerade.string.content", Err: errors.New("empty string content")}
+		}
+		if c.Masquerade.String.StatusCode != 0 &&
+			(c.Masquerade.String.StatusCode < 200 || c.Masquerade.String.StatusCode > 599) {
+			return configError{Field: "masquerade.string.statusCode", Err: errors.New("invalid status code (must be 200-599)")}
+		}
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for k, v := range c.Masquerade.String.Headers {
+				w.Header().Set(k, v)
+			}
+			if c.Masquerade.String.StatusCode != 0 {
+				w.WriteHeader(c.Masquerade.String.StatusCode)
+			} else {
+				w.WriteHeader(http.StatusOK) // Use 200 OK by default
+			}
+			_, _ = w.Write([]byte(c.Masquerade.String.Content))
+		})
 	default:
 		return configError{Field: "masquerade.type", Err: errors.New("unsupported masquerade type")}
 	}

@@ -136,6 +136,14 @@ func TestServerConfig(t *testing.T) {
 				URL:         "https://some.site.net",
 				RewriteHost: true,
 			},
+			String: serverConfigMasqueradeString{
+				Content: "aint nothin here",
+				Headers: map[string]string{
+					"content-type": "text/plain",
+					"custom-haha":  "lol",
+				},
+				StatusCode: 418,
+			},
 			ListenHTTP:  ":80",
 			ListenHTTPS: ":443",
 			ForceHTTPS:  true,
