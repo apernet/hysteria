@@ -625,8 +625,11 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 			return configError{Field: "masquerade.string.content", Err: errors.New("empty string content")}
 		}
 		if c.Masquerade.String.StatusCode != 0 &&
-			(c.Masquerade.String.StatusCode < 200 || c.Masquerade.String.StatusCode > 599) {
-			return configError{Field: "masquerade.string.statusCode", Err: errors.New("invalid status code (must be 200-599)")}
+			(c.Masquerade.String.StatusCode < 200 ||
+				c.Masquerade.String.StatusCode > 599 ||
+				c.Masquerade.String.StatusCode == 233) {
+			// 233 is reserved for Hysteria authentication
+			return configError{Field: "masquerade.string.statusCode", Err: errors.New("invalid status code (must be 200-599, except 233)")}
 		}
 		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			for k, v := range c.Masquerade.String.Headers {
