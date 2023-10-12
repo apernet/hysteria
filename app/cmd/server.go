@@ -161,11 +161,17 @@ type serverConfigOutboundSOCKS5 struct {
 	Password string `mapstructure:"password"`
 }
 
+type serverConfigOutboundHTTP struct {
+	URL      string `mapstructure:"url"`
+	Insecure bool   `mapstructure:"insecure"`
+}
+
 type serverConfigOutboundEntry struct {
 	Name   string                     `mapstructure:"name"`
 	Type   string                     `mapstructure:"type"`
 	Direct serverConfigOutboundDirect `mapstructure:"direct"`
 	SOCKS5 serverConfigOutboundSOCKS5 `mapstructure:"socks5"`
+	HTTP   serverConfigOutboundHTTP   `mapstructure:"http"`
 }
 
 type serverConfigTrafficStats struct {
@@ -395,6 +401,13 @@ func serverConfigOutboundSOCKS5ToOutbound(c serverConfigOutboundSOCKS5) (outboun
 	return outbounds.NewSOCKS5Outbound(c.Addr, c.Username, c.Password), nil
 }
 
+func serverConfigOutboundHTTPToOutbound(c serverConfigOutboundHTTP) (outbounds.PluggableOutbound, error) {
+	if c.URL == "" {
+		return nil, configError{Field: "outbounds.http.url", Err: errors.New("empty http address")}
+	}
+	return outbounds.NewHTTPOutbound(c.URL, c.Insecure)
+}
+
 func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	// Resolver, ACL, actual outbound are all implemented through the Outbound interface.
 	// Depending on the config, we build a chain like this:
@@ -421,6 +434,8 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 				ob, err = serverConfigOutboundDirectToOutbound(entry.Direct)
 			case "socks5":
 				ob, err = serverConfigOutboundSOCKS5ToOutbound(entry.SOCKS5)
+			case "http":
+				ob, err = serverConfigOutboundHTTPToOutbound(entry.HTTP)
 			default:
 				err = configError{Field: "outbounds.type", Err: errors.New("unsupported outbound type")}
 			}

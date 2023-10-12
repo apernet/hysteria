@@ -123,6 +123,14 @@ func TestServerConfig(t *testing.T) {
 					Password: "Elliot Alderson",
 				},
 			},
+			{
+				Name: "weirdstuff",
+				Type: "http",
+				HTTP: serverConfigOutboundHTTP{
+					URL:      "https://eyy.lmao:4443/goofy",
+					Insecure: true,
+				},
+			},
 		},
 		TrafficStats: serverConfigTrafficStats{
 			Listen: ":9999",
