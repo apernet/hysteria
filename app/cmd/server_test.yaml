@@ -91,6 +91,11 @@ outbounds:
       addr: shady.proxy.ru:1080
       username: hackerman
       password: Elliot Alderson
+  - name: weirdstuff
+    type: http
+    http:
+      url: https://eyy.lmao:4443/goofy
+      insecure: true
 
 trafficStats:
   listen: :9999
