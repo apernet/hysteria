@@ -103,6 +103,7 @@ func Execute() {
 
 func init() {
 	initFlags()
+	cobra.MousetrapHelpText = "" // Disable the mousetrap so Windows users can run the exe directly by double-clicking
 	cobra.OnInitialize(initConfig)
 	cobra.OnInitialize(initLogger) // initLogger must come after initConfig as it depends on config
 }
