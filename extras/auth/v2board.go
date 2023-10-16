@@ -21,8 +21,8 @@ type V2boardApiProvider struct {
 
 // 用户列表
 var (
-	users []User
-	lock  sync.Mutex
+	usersMap map[string]User
+	lock     sync.Mutex
 )
 
 type User struct {
@@ -52,7 +52,7 @@ func getUserList(url string) ([]User, error) {
 
 func UpdateUsers(url string, interval time.Duration) {
 
-	fmt.Println("定时更新用户列表进程已开启")
+	fmt.Println("用户列表自动更新服务已激活")
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -66,7 +66,10 @@ func UpdateUsers(url string, interval time.Duration) {
 				continue
 			}
 			lock.Lock()
-			users = userList
+			usersMap = make(map[string]User)
+			for _, user := range userList {
+				usersMap[user.UUID] = user
+			}
 			lock.Unlock()
 		}
 	}
@@ -79,10 +82,8 @@ func (v *V2boardApiProvider) Authenticate(addr net.Addr, auth string, tx uint64)
 	lock.Lock()
 	defer lock.Unlock()
 
-	for _, s := range users {
-		if s.UUID == string(auth) {
-			return true, strconv.Itoa(s.ID)
-		}
+	if user, exists := usersMap[auth]; exists {
+		return true, strconv.Itoa(user.ID)
 	}
 	return false, ""
 }

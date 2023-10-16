@@ -37,7 +37,7 @@ type TrafficPushRequest struct {
 
 // 定时提交用户流量情况
 func (s *trafficStatsServerImpl) PushTrafficToV2boardInterval(url string, interval time.Duration) {
-	fmt.Println("提交用户流量情况进程已开启")
+	fmt.Println("用户流量情况监控已启动")
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -46,7 +46,7 @@ func (s *trafficStatsServerImpl) PushTrafficToV2boardInterval(url string, interv
 		select {
 		case <-ticker.C:
 			if err := s.PushTrafficToV2board(url); err != nil {
-				fmt.Println("提交用户流量情况失败:", err)
+				fmt.Println("用户流量信息提交失败:", err)
 			}
 		}
 	}
