@@ -60,7 +60,8 @@ jobs:
         with:
           aws_key_id: ${{ secrets.CF_KEY_ID }}
           aws_secret_access_key: ${{ secrets.CF_KEY }}
-          aws_bucket: "https://bea223c61d5a41250d127bd67f51dfec.r2.cloudflarestorage.com/hydownload"
+          aws_bucket: "hydownload"
+          endpoint: "https://bea223c61d5a41250d127bd67f51dfec.r2.cloudflarestorage.com/hydownload"
           source_dir: "build"
           destination_dir: "app/{{ steps.get_version.outputs.version }}"
 
