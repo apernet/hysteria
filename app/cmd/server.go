@@ -599,12 +599,9 @@ func (c *serverConfig) fillAuthenticator(hyConfig *server.Config) error {
 		}
 		// 创建一个url.Values来存储查询参数
 		queryParams := url.Values{}
-
-		// 添加token、node_id和node_type参数
 		queryParams.Add("token", v2boardConfig.ApiKey)
 		queryParams.Add("node_id", strconv.Itoa(int(v2boardConfig.NodeID)))
 		queryParams.Add("node_type", "hysteria")
-
 		// 创建完整的URL，包括查询参数
 		url := v2boardConfig.ApiHost + "/api/v1/server/UniProxy/user?" + queryParams.Encode()
 
@@ -753,8 +750,8 @@ type ResponseNodeInfo struct {
 	Host       string `json:"host"`
 	ServerPort uint   `json:"server_port"`
 	ServerName string `json:"server_name"`
-	UpMbps     uint   `json:"up_mbps"`
-	DownMbps   uint   `json:"down_mbps"`
+	UpMbps     uint   `json:"down_mbps"`
+	DownMbps   uint   `json:"up_mbps"`
 	Obfs       string `json:"obfs"`
 	BaseConfig struct {
 		PushInterval int `json:"push_interval"`
@@ -822,17 +819,6 @@ func runServer(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatal("failed to load server config", zap.Error(err))
 	}
-
-	// // 添加定时更新用户使用流量协程
-	// if config.V2board != nil && config.V2board.ApiHost != "" {
-	// 	// 创建一个url.Values来存储查询参数
-	// 	queryParams := url.Values{}
-	// 	queryParams.Add("token", config.V2board.ApiKey)
-	// 	queryParams.Add("node_id", strconv.Itoa(int(config.V2board.NodeID)))
-	// 	queryParams.Add("node_type", "hysteria")
-
-	// 	go hyConfig.TrafficLogger.PushTrafficToV2boardInterval(config.V2board.ApiHost+"/api/v1/server/UniProxy/push?"+queryParams.Encode(), time.Second*10)
-	// }
 
 	s, err := server.NewServer(hyConfig)
 	if err != nil {
