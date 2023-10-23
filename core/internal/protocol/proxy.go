@@ -212,6 +212,10 @@ func ParseUDPMessage(msg []byte) (*UDPMessage, error) {
 		return nil, errors.ProtocolError{Message: "invalid address length"}
 	}
 	bs := buf.Bytes()
+	if len(bs) <= int(lAddr) {
+		// We use <= instead of < here as we expect at least one byte of data after the address
+		return nil, errors.ProtocolError{Message: "invalid message length"}
+	}
 	m.Addr = string(bs[:lAddr])
 	m.Data = bs[lAddr:]
 	return m, nil

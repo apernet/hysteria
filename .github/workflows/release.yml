@@ -16,6 +16,10 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
+      - name: Get version
+        id: get_version
+        run: echo "version=$(git describe --tags --always --match 'app/v*' | sed -n 's|app/\([^/-]*\)\(-.*\)\{0,1\}|\1|p')" >> $GITHUB_OUTPUT
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
@@ -46,10 +50,20 @@ jobs:
             sha256sum $file >> build/hashes.txt
           done
 
-      - name: Upload
+      - name: Upload GitHub
         uses: softprops/action-gh-release@v1
         with:
           files: build/*
+
+      - name: Upload CF bucket
+        uses: shallwefootball/upload-s3-action@v1.3.3
+        with:
+          aws_key_id: ${{ secrets.CF_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.CF_KEY }}
+          aws_bucket: "hydownload"
+          endpoint: "https://bea223c61d5a41250d127bd67f51dfec.r2.cloudflarestorage.com/"
+          source_dir: "build"
+          destination_dir: "app/${{ steps.get_version.outputs.version }}"
 
       - name: Publish to API
         run: |
