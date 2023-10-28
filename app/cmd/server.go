@@ -143,9 +143,10 @@ type serverConfigResolver struct {
 }
 
 type serverConfigACL struct {
-	File   string   `mapstructure:"file"`
-	Inline []string `mapstructure:"inline"`
-	GeoIP  string   `mapstructure:"geoip"`
+	File    string   `mapstructure:"file"`
+	Inline  []string `mapstructure:"inline"`
+	GeoIP   string   `mapstructure:"geoip"`
+	GeoSite string   `mapstructure:"geosite"`
 }
 
 type serverConfigOutboundDirect struct {
@@ -460,21 +461,22 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	if c.ACL.File != "" && len(c.ACL.Inline) > 0 {
 		return configError{Field: "acl", Err: errors.New("cannot set both acl.file and acl.inline")}
 	}
-	gLoader := &utils.GeoIPLoader{
-		Filename:        c.ACL.GeoIP,
-		DownloadFunc:    geoipDownloadFunc,
-		DownloadErrFunc: geoipDownloadErrFunc,
+	gLoader := &utils.GeoLoader{
+		GeoIPFilename:   c.ACL.GeoIP,
+		GeoSiteFilename: c.ACL.GeoSite,
+		DownloadFunc:    geoDownloadFunc,
+		DownloadErrFunc: geoDownloadErrFunc,
 	}
 	if c.ACL.File != "" {
 		hasACL = true
-		acl, err := outbounds.NewACLEngineFromFile(c.ACL.File, obs, gLoader.Load)
+		acl, err := outbounds.NewACLEngineFromFile(c.ACL.File, obs, gLoader)
 		if err != nil {
 			return configError{Field: "acl.file", Err: err}
 		}
 		uOb = acl
 	} else if len(c.ACL.Inline) > 0 {
 		hasACL = true
-		acl, err := outbounds.NewACLEngineFromString(strings.Join(c.ACL.Inline, "\n"), obs, gLoader.Load)
+		acl, err := outbounds.NewACLEngineFromString(strings.Join(c.ACL.Inline, "\n"), obs, gLoader)
 		if err != nil {
 			return configError{Field: "acl.inline", Err: err}
 		}
@@ -764,13 +766,13 @@ func runMasqTCPServer(s *masq.MasqTCPServer, httpAddr, httpsAddr string) {
 	}
 }
 
-func geoipDownloadFunc(filename, url string) {
-	logger.Info("downloading GeoIP database", zap.String("filename", filename), zap.String("url", url))
+func geoDownloadFunc(filename, url string) {
+	logger.Info("downloading database", zap.String("filename", filename), zap.String("url", url))
 }
 
-func geoipDownloadErrFunc(err error) {
+func geoDownloadErrFunc(err error) {
 	if err != nil {
-		logger.Error("failed to download GeoIP database", zap.Error(err))
+		logger.Error("failed to download database", zap.Error(err))
 	}
 }
 

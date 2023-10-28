@@ -6,8 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/apernet/hysteria/extras/outbounds/acl/v2geo"
+
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/oschwald/geoip2-golang"
 )
 
 type Protocol int
@@ -92,6 +93,11 @@ func (e *CompilationError) Error() string {
 	return fmt.Sprintf("error at line %d: %s", e.LineNum, e.Message)
 }
 
+type GeoLoader interface {
+	LoadGeoIP() (map[string]*v2geo.GeoIP, error)
+	LoadGeoSite() (map[string]*v2geo.GeoSite, error)
+}
+
 // Compile compiles TextRules into a CompiledRuleSet.
 // Names in the outbounds map MUST be in all lower case.
 // geoipFunc is a function that returns the GeoIP database needed by the GeoIP matcher.
@@ -99,7 +105,7 @@ func (e *CompilationError) Error() string {
 // be called if there is no GeoIP rule. We use a function here so that database loading
 // is on-demand (only required if used by rules).
 func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
-	cacheSize int, geoipFunc func() *geoip2.Reader,
+	cacheSize int, geoLoader GeoLoader,
 ) (CompiledRuleSet[O], error) {
 	compiledRules := make([]compiledRule[O], len(rules))
 	for i, rule := range rules {
@@ -107,7 +113,7 @@ func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
 		if !ok {
 			return nil, &CompilationError{rule.LineNum, fmt.Sprintf("outbound %s not found", rule.Outbound)}
 		}
-		hm, errStr := compileHostMatcher(rule.Address, geoipFunc)
+		hm, errStr := compileHostMatcher(rule.Address, geoLoader)
 		if errStr != "" {
 			return nil, &CompilationError{rule.LineNum, errStr}
 		}
@@ -184,7 +190,7 @@ func parseProtoPort(protoPort string) (Protocol, uint16, bool) {
 	}
 }
 
-func compileHostMatcher(addr string, geoipFunc func() *geoip2.Reader) (hostMatcher, string) {
+func compileHostMatcher(addr string, geoLoader GeoLoader) (hostMatcher, string) {
 	addr = strings.ToLower(addr) // Normalize to lower case
 	if addr == "*" || addr == "all" {
 		// Match all hosts
@@ -192,15 +198,43 @@ func compileHostMatcher(addr string, geoipFunc func() *geoip2.Reader) (hostMatch
 	}
 	if strings.HasPrefix(addr, "geoip:") {
 		// GeoIP matcher
-		country := strings.ToUpper(addr[6:])
-		if len(country) != 2 {
-			return nil, fmt.Sprintf("invalid country code: %s", country)
+		country := addr[6:]
+		if len(country) == 0 {
+			return nil, "empty GeoIP country code"
 		}
-		db := geoipFunc()
-		if db == nil {
-			return nil, "failed to load GeoIP database"
+		gMap, err := geoLoader.LoadGeoIP()
+		if err != nil {
+			return nil, err.Error()
 		}
-		return &geoipMatcher{db, country}, ""
+		list, ok := gMap[country]
+		if !ok || list == nil {
+			return nil, fmt.Sprintf("GeoIP country code %s not found", country)
+		}
+		m, err := newGeoIPMatcher(list)
+		if err != nil {
+			return nil, err.Error()
+		}
+		return m, ""
+	}
+	if strings.HasPrefix(addr, "geosite:") {
+		// GeoSite matcher
+		name, attrs := parseGeoSiteName(addr[8:])
+		if len(name) == 0 {
+			return nil, "empty GeoSite name"
+		}
+		gMap, err := geoLoader.LoadGeoSite()
+		if err != nil {
+			return nil, err.Error()
+		}
+		list, ok := gMap[name]
+		if !ok || list == nil {
+			return nil, fmt.Sprintf("GeoSite name %s not found", name)
+		}
+		m, err := newGeositeMatcher(list, attrs)
+		if err != nil {
+			return nil, err.Error()
+		}
+		return m, ""
 	}
 	if strings.Contains(addr, "/") {
 		// CIDR matcher
@@ -226,4 +260,14 @@ func compileHostMatcher(addr string, geoipFunc func() *geoip2.Reader) (hostMatch
 		Pattern:  addr,
 		Wildcard: false,
 	}, ""
+}
+
+func parseGeoSiteName(s string) (string, []string) {
+	parts := strings.Split(s, "@")
+	base := strings.TrimSpace(parts[0])
+	attrs := parts[1:]
+	for i := range attrs {
+		attrs[i] = strings.TrimSpace(attrs[i])
+	}
+	return base, attrs
 }

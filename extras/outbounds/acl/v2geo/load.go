@@ -7,13 +7,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type GeoIPMap map[string]*GeoIP
-
-type GeoSiteMap map[string]*GeoSite
-
 // LoadGeoIP loads a GeoIP data file and converts it to a map.
 // The keys of the map (country codes) are all normalized to lowercase.
-func LoadGeoIP(filename string) (GeoIPMap, error) {
+func LoadGeoIP(filename string) (map[string]*GeoIP, error) {
 	bs, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -22,7 +18,7 @@ func LoadGeoIP(filename string) (GeoIPMap, error) {
 	if err := proto.Unmarshal(bs, &list); err != nil {
 		return nil, err
 	}
-	m := make(GeoIPMap)
+	m := make(map[string]*GeoIP)
 	for _, entry := range list.Entry {
 		m[strings.ToLower(entry.CountryCode)] = entry
 	}
@@ -31,7 +27,7 @@ func LoadGeoIP(filename string) (GeoIPMap, error) {
 
 // LoadGeoSite loads a GeoSite data file and converts it to a map.
 // The keys of the map (site keys) are all normalized to lowercase.
-func LoadGeoSite(filename string) (GeoSiteMap, error) {
+func LoadGeoSite(filename string) (map[string]*GeoSite, error) {
 	bs, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -40,7 +36,7 @@ func LoadGeoSite(filename string) (GeoSiteMap, error) {
 	if err := proto.Unmarshal(bs, &list); err != nil {
 		return nil, err
 	}
-	m := make(GeoSiteMap)
+	m := make(map[string]*GeoSite)
 	for _, entry := range list.Entry {
 		m[strings.ToLower(entry.CountryCode)] = entry
 	}

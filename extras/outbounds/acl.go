@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/apernet/hysteria/extras/outbounds/acl"
-	"github.com/oschwald/geoip2-golang"
 )
 
 const (
@@ -34,25 +33,25 @@ type OutboundEntry struct {
 	Outbound PluggableOutbound
 }
 
-func NewACLEngineFromString(rules string, outbounds []OutboundEntry, geoipFunc func() *geoip2.Reader) (PluggableOutbound, error) {
+func NewACLEngineFromString(rules string, outbounds []OutboundEntry, geoLoader acl.GeoLoader) (PluggableOutbound, error) {
 	trs, err := acl.ParseTextRules(rules)
 	if err != nil {
 		return nil, err
 	}
 	obMap := outboundsToMap(outbounds)
-	rs, err := acl.Compile[PluggableOutbound](trs, obMap, aclCacheSize, geoipFunc)
+	rs, err := acl.Compile[PluggableOutbound](trs, obMap, aclCacheSize, geoLoader)
 	if err != nil {
 		return nil, err
 	}
 	return &aclEngine{rs, obMap["default"]}, nil
 }
 
-func NewACLEngineFromFile(filename string, outbounds []OutboundEntry, geoipFunc func() *geoip2.Reader) (PluggableOutbound, error) {
+func NewACLEngineFromFile(filename string, outbounds []OutboundEntry, geoLoader acl.GeoLoader) (PluggableOutbound, error) {
 	bs, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	return NewACLEngineFromString(string(bs), outbounds, geoipFunc)
+	return NewACLEngineFromString(string(bs), outbounds, geoLoader)
 }
 
 func outboundsToMap(outbounds []OutboundEntry) map[string]PluggableOutbound {

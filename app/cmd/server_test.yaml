@@ -75,7 +75,8 @@ acl:
   inline:
     - lmao(ok)
     - kek(cringe,boba,tea)
-  geoip: fake.mmdb
+  geoip: some.dat
+  geosite: some_site.dat
 
 outbounds:
   - name: goodstuff
