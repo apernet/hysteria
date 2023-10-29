@@ -331,6 +331,27 @@ def cmd_mockgen():
                 print("Failed to generate mocks for %s" % dirpath)
 
 
+def cmd_protogen():
+    if not check_command(["protoc", "--version"]):
+        print("protoc is not installed. Please install protoc and try again.")
+        return
+
+    for dirpath, dirnames, filenames in os.walk("."):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        proto_files = [f for f in filenames if f.endswith(".proto")]
+
+        if len(proto_files) > 0:
+            for proto_file in proto_files:
+                print("Generating protobuf for %s..." % proto_file)
+                try:
+                    subprocess.check_call(
+                        ["protoc", "--go_out=paths=source_relative:.", proto_file],
+                        cwd=dirpath,
+                    )
+                except Exception:
+                    print("Failed to generate protobuf for %s" % proto_file)
+
+
 def cmd_tidy():
     if not check_build_env():
         return
@@ -442,6 +463,9 @@ def main():
     # Mockgen
     p_cmd.add_parser("mockgen", help="Generate mock interfaces")
 
+    # Protogen
+    p_cmd.add_parser("protogen", help="Generate protobuf interfaces")
+
     # Tidy
     p_cmd.add_parser("tidy", help="Tidy the go modules")
 
@@ -471,6 +495,8 @@ def main():
         cmd_format()
     elif args.command == "mockgen":
         cmd_mockgen()
+    elif args.command == "protogen":
+        cmd_protogen()
     elif args.command == "tidy":
         cmd_tidy()
     elif args.command == "test":
