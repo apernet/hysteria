@@ -217,13 +217,13 @@ def cmd_build(pprof=False, release=False, race=False):
                 + "/toolchains/llvm/prebuilt/linux-x86_64/bin"
             )
             if arch == "arm64":
-                env["CC"] = ANDROID_NDK_HOME + "/aarch64-linux-android33-clang"
+                env["CC"] = ANDROID_NDK_HOME + "/aarch64-linux-android29-clang"
             elif arch == "armv7":
-                env["CC"] = ANDROID_NDK_HOME + "/armv7a-linux-androideabi33-clang"
+                env["CC"] = ANDROID_NDK_HOME + "/armv7a-linux-androideabi29-clang"
             elif arch == "386":
-                env["CC"] = ANDROID_NDK_HOME + "/i686-linux-android33-clang"
+                env["CC"] = ANDROID_NDK_HOME + "/i686-linux-android29-clang"
             elif arch == "amd64":
-                env["CC"] = ANDROID_NDK_HOME + "/x86_64-linux-android33-clang"
+                env["CC"] = ANDROID_NDK_HOME + "/x86_64-linux-android29-clang"
             else:
                 print("Unsupported arch for android: %s" % arch)
                 return
@@ -257,7 +257,7 @@ def cmd_build(pprof=False, release=False, race=False):
             subprocess.check_call(cmd, env=env)
         except Exception:
             print("Failed to build for %s/%s" % (os_name, arch))
-            return
+            sys.exit(1)
 
         print("Built %s" % out_name)
 

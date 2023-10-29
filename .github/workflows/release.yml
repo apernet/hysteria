@@ -33,7 +33,7 @@ jobs:
       - uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
-          ndk-version: r25b
+          ndk-version: r26b
           add-to-path: false
           local-cache: true
 
