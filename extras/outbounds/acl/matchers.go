@@ -2,6 +2,8 @@ package acl
 
 import (
 	"net"
+
+	"golang.org/x/net/idna"
 )
 
 type hostMatcher interface {
@@ -30,10 +32,14 @@ type domainMatcher struct {
 }
 
 func (m *domainMatcher) Match(host HostInfo) bool {
-	if m.Wildcard {
-		return deepMatchRune([]rune(host.Name), []rune(m.Pattern))
+	name, err := idna.ToUnicode(host.Name)
+	if err != nil {
+		name = host.Name
 	}
-	return m.Pattern == host.Name
+	if m.Wildcard {
+		return deepMatchRune([]rune(name), []rune(m.Pattern))
+	}
+	return name == m.Pattern
 }
 
 func deepMatchRune(str, pattern []rune) bool {

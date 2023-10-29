@@ -163,6 +163,17 @@ func Test_domainMatcher_Match(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "non-wildcard IDN match",
+			fields: fields{
+				Pattern:  "政府.中国",
+				Wildcard: false,
+			},
+			host: HostInfo{
+				Name: "xn--mxtq1m.xn--fiqs8s",
+			},
+			want: true,
+		},
+		{
 			name: "non-wildcard no match",
 			fields: fields{
 				Pattern:  "example.com",
@@ -170,6 +181,17 @@ func Test_domainMatcher_Match(t *testing.T) {
 			},
 			host: HostInfo{
 				Name: "example.org",
+			},
+			want: false,
+		},
+		{
+			name: "non-wildcard IDN no match",
+			fields: fields{
+				Pattern:  "政府.中国",
+				Wildcard: false,
+			},
+			host: HostInfo{
+				Name: "xn--mxtq1m.xn--yfro4i67o",
 			},
 			want: false,
 		},
@@ -196,6 +218,28 @@ func Test_domainMatcher_Match(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "wildcard IDN match 1",
+			fields: fields{
+				Pattern:  "战狼*.com",
+				Wildcard: true,
+			},
+			host: HostInfo{
+				Name: "xn--2-x14by21c.com",
+			},
+			want: true,
+		},
+		{
+			name: "wildcard IDN match 2",
+			fields: fields{
+				Pattern:  "*大学*",
+				Wildcard: true,
+			},
+			host: HostInfo{
+				Name: "xn--xkry9kk1bz66a.xn--ses554g",
+			},
+			want: true,
+		},
+		{
 			name: "wildcard no match",
 			fields: fields{
 				Pattern:  "*.example.com",
@@ -203,6 +247,17 @@ func Test_domainMatcher_Match(t *testing.T) {
 			},
 			host: HostInfo{
 				Name: "example.com",
+			},
+			want: false,
+		},
+		{
+			name: "wildcard IDN no match",
+			fields: fields{
+				Pattern:  "*呵呵*",
+				Wildcard: true,
+			},
+			host: HostInfo{
+				Name: "xn--6qqt7juua.cn",
 			},
 			want: false,
 		},
