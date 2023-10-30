@@ -177,6 +177,7 @@ type serverConfigOutboundEntry struct {
 
 type serverConfigTrafficStats struct {
 	Listen string `mapstructure:"listen"`
+	Secret string `mapstructure:"secret"`
 }
 
 type serverConfigMasqueradeFile struct {
@@ -596,7 +597,7 @@ func (c *serverConfig) fillEventLogger(hyConfig *server.Config) error {
 
 func (c *serverConfig) fillTrafficLogger(hyConfig *server.Config) error {
 	if c.TrafficStats.Listen != "" {
-		tss := trafficlogger.NewTrafficStatsServer()
+		tss := trafficlogger.NewTrafficStatsServer(c.TrafficStats.Secret)
 		hyConfig.TrafficLogger = tss
 		go runTrafficStatsServer(c.TrafficStats.Listen, tss)
 	}

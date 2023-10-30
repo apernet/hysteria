@@ -20,10 +20,11 @@ type TrafficStatsServer interface {
 	http.Handler
 }
 
-func NewTrafficStatsServer() TrafficStatsServer {
+func NewTrafficStatsServer(secret string) TrafficStatsServer {
 	return &trafficStatsServerImpl{
 		StatsMap: make(map[string]*trafficStatsEntry),
 		KickMap:  make(map[string]struct{}),
+		Secret:   secret,
 	}
 }
 
@@ -31,6 +32,7 @@ type trafficStatsServerImpl struct {
 	Mutex    sync.RWMutex
 	StatsMap map[string]*trafficStatsEntry
 	KickMap  map[string]struct{}
+	Secret   string
 }
 
 type trafficStatsEntry struct {
@@ -60,6 +62,10 @@ func (s *trafficStatsServerImpl) Log(id string, tx, rx uint64) (ok bool) {
 }
 
 func (s *trafficStatsServerImpl) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.Secret != "" && r.Header.Get("Authorization") != s.Secret {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	if r.Method == http.MethodGet && r.URL.Path == "/" {
 		_, _ = w.Write([]byte(indexHTML))
 		return
