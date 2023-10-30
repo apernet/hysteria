@@ -31,7 +31,6 @@ jobs:
         with:
           ndk-version: r26b
           add-to-path: false
-          local-cache: true
 
       - name: Run build script
         env:
