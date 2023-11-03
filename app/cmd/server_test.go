@@ -101,7 +101,8 @@ func TestServerConfig(t *testing.T) {
 				"lmao(ok)",
 				"kek(cringe,boba,tea)",
 			},
-			GeoIP: "fake.mmdb",
+			GeoIP:   "some.dat",
+			GeoSite: "some_site.dat",
 		},
 		Outbounds: []serverConfigOutboundEntry{
 			{
@@ -134,6 +135,7 @@ func TestServerConfig(t *testing.T) {
 		},
 		TrafficStats: serverConfigTrafficStats{
 			Listen: ":9999",
+			Secret: "its_me_mario",
 		},
 		Masquerade: serverConfigMasquerade{
 			Type: "proxy",

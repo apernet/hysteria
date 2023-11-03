@@ -3,7 +3,7 @@ package acl
 import (
 	"net"
 
-	"github.com/oschwald/geoip2-golang"
+	"golang.org/x/net/idna"
 )
 
 type hostMatcher interface {
@@ -32,10 +32,14 @@ type domainMatcher struct {
 }
 
 func (m *domainMatcher) Match(host HostInfo) bool {
-	if m.Wildcard {
-		return deepMatchRune([]rune(host.Name), []rune(m.Pattern))
+	name, err := idna.ToUnicode(host.Name)
+	if err != nil {
+		name = host.Name
 	}
-	return m.Pattern == host.Name
+	if m.Wildcard {
+		return deepMatchRune([]rune(name), []rune(m.Pattern))
+	}
+	return name == m.Pattern
 }
 
 func deepMatchRune(str, pattern []rune) bool {
@@ -53,27 +57,6 @@ func deepMatchRune(str, pattern []rune) bool {
 		pattern = pattern[1:]
 	}
 	return len(str) == 0 && len(pattern) == 0
-}
-
-type geoipMatcher struct {
-	DB      *geoip2.Reader
-	Country string // must be uppercase ISO 3166-1 alpha-2 code
-}
-
-func (m *geoipMatcher) Match(host HostInfo) bool {
-	if host.IPv4 != nil {
-		record, err := m.DB.Country(host.IPv4)
-		if err == nil && record.Country.IsoCode == m.Country {
-			return true
-		}
-	}
-	if host.IPv6 != nil {
-		record, err := m.DB.Country(host.IPv6)
-		if err == nil && record.Country.IsoCode == m.Country {
-			return true
-		}
-	}
-	return false
 }
 
 type allMatcher struct{}

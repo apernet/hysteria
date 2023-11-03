@@ -80,7 +80,8 @@ acl:
   inline:
     - lmao(ok)
     - kek(cringe,boba,tea)
-  geoip: fake.mmdb
+  geoip: some.dat
+  geosite: some_site.dat
 
 outbounds:
   - name: goodstuff
@@ -104,6 +105,7 @@ outbounds:
 
 trafficStats:
   listen: :9999
+  secret: its_me_mario
 
 masquerade:
   type: proxy
