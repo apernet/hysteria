@@ -809,7 +809,7 @@ get_latest_version() {
     exit 11
   fi
 
-  local _latest_version=$(grep 'lver' "$_tmpfile" | head -1 | grep -o '"v.*"')
+  local _latest_version=$(grep -oP '"lver":\s*\K"v.*?"' "$_tmpfile" | head -1)
   _latest_version=${_latest_version#'"'}
   _latest_version=${_latest_version%'"'}
 
