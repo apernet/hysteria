@@ -729,8 +729,11 @@ func runServer(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatal("failed to initialize server", zap.Error(err))
 	}
-	logger.Info("hysteria server up and running", zap.String("listen", config.Listen))
-
+	if config.Listen == "" {
+		logger.Info("hysteria server up and running on default address", zap.String("listen", ":443"))
+	} else {
+		logger.Info("hysteria server up and running", zap.String("listen", config.Listen))
+	}
 	if !disableUpdateCheck {
 		go runCheckUpdateServer()
 	}
