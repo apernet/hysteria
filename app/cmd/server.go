@@ -729,7 +729,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatal("failed to initialize server", zap.Error(err))
 	}
-	logger.Info("server up and running")
+	logger.Info("hysteria server up and running", zap.String("listen", config.Listen))
 
 	if !disableUpdateCheck {
 		go runCheckUpdateServer()
