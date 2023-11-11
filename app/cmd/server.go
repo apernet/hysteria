@@ -29,6 +29,10 @@ import (
 	"github.com/apernet/hysteria/extras/trafficlogger"
 )
 
+const (
+	defaultListenAddr = ":443"
+)
+
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Server mode",
@@ -208,7 +212,7 @@ type serverConfigMasquerade struct {
 func (c *serverConfig) fillConn(hyConfig *server.Config) error {
 	listenAddr := c.Listen
 	if listenAddr == "" {
-		listenAddr = ":443"
+		listenAddr = defaultListenAddr
 	}
 	uAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
@@ -729,11 +733,12 @@ func runServer(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatal("failed to initialize server", zap.Error(err))
 	}
-	if config.Listen == "" {
-		logger.Info("hysteria server up and running on default address", zap.String("listen", ":443"))
+	if config.Listen != "" {
+		logger.Info("server up and running", zap.String("listen", config.Listen))
 	} else {
-		logger.Info("hysteria server up and running", zap.String("listen", config.Listen))
+		logger.Info("server up and running", zap.String("listen", defaultListenAddr))
 	}
+
 	if !disableUpdateCheck {
 		go runCheckUpdateServer()
 	}
