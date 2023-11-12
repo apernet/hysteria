@@ -48,10 +48,20 @@ func (c DialError) Error() string {
 }
 
 // ClosedError is returned when the client attempts to use a closed connection.
-type ClosedError struct{}
+type ClosedError struct {
+	Err error // Can be nil
+}
 
 func (c ClosedError) Error() string {
-	return "connection closed"
+	if c.Err == nil {
+		return "connection closed"
+	} else {
+		return "connection closed: " + c.Err.Error()
+	}
+}
+
+func (c ClosedError) Unwrap() error {
+	return c.Err
 }
 
 // ProtocolError is returned when the server/client runs into an unexpected

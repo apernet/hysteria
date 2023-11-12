@@ -258,7 +258,7 @@ type udpIOImpl struct {
 
 func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
 	for {
-		msg, err := io.Conn.ReceiveMessage(context.Background())
+		msg, err := io.Conn.ReceiveDatagram(context.Background())
 		if err != nil {
 			// Connection error, this will stop the session manager
 			return nil, err
@@ -294,7 +294,7 @@ func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 		// Message larger than buffer, silent drop
 		return nil
 	}
-	return io.Conn.SendMessage(buf[:msgN])
+	return io.Conn.SendDatagram(buf[:msgN])
 }
 
 func (io *udpIOImpl) UDP(reqAddr string) (UDPConn, error) {

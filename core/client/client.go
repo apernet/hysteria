@@ -162,17 +162,13 @@ func (c *clientImpl) openStream() (quic.Stream, error) {
 func (c *clientImpl) TCP(addr string) (net.Conn, error) {
 	stream, err := c.openStream()
 	if err != nil {
-		if isQUICClosedError(err) {
-			// Connection is dead
-			return nil, coreErrs.ClosedError{}
-		}
-		return nil, err
+		return nil, maybeWrapQUICClosedError(err)
 	}
 	// Send request
 	err = protocol.WriteTCPRequest(stream, addr)
 	if err != nil {
 		_ = stream.Close()
-		return nil, err
+		return nil, maybeWrapQUICClosedError(err)
 	}
 	if c.config.FastOpen {
 		// Don't wait for the response when fast open is enabled.
@@ -189,7 +185,7 @@ func (c *clientImpl) TCP(addr string) (net.Conn, error) {
 	ok, msg, err := protocol.ReadTCPResponse(stream)
 	if err != nil {
 		_ = stream.Close()
-		return nil, err
+		return nil, maybeWrapQUICClosedError(err)
 	}
 	if !ok {
 		_ = stream.Close()
@@ -216,14 +212,15 @@ func (c *clientImpl) Close() error {
 	return nil
 }
 
-// isQUICClosedError checks if the error returned by OpenStream
-// indicates that the QUIC connection is permanently closed.
-func isQUICClosedError(err error) bool {
+// maybeWrapQUICClosedError checks if the error returned by quic-go
+// indicates that the QUIC connection is permanently closed,
+// and if so, wraps it with coreErrs.ClosedError.
+func maybeWrapQUICClosedError(err error) error {
 	netErr, ok := err.(net.Error)
-	if !ok {
-		return true
+	if ok && !netErr.Temporary() {
+		return coreErrs.ClosedError{Err: err}
 	} else {
-		return !netErr.Temporary()
+		return err
 	}
 }
 
@@ -283,7 +280,7 @@ type udpIOImpl struct {
 
 func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
 	for {
-		msg, err := io.Conn.ReceiveMessage(context.Background())
+		msg, err := io.Conn.ReceiveDatagram(context.Background())
 		if err != nil {
 			// Connection error, this will stop the session manager
 			return nil, err
@@ -303,5 +300,5 @@ func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 		// Message larger than buffer, silent drop
 		return nil
 	}
-	return io.Conn.SendMessage(buf[:msgN])
+	return io.Conn.SendDatagram(buf[:msgN])
 }
