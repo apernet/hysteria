@@ -39,7 +39,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: tobyxdd/hysteria:latest,tobyxdd/hysteria:v2,tobyxdd/hysteria:${{ steps.get_version.outputs.version }}
+          tags: cedar2025/hysteria:latest,cedar2025/hysteria:v2b,cedar2025/hysteria:v2b-${{ steps.get_version.outputs.version }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
