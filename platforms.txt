@@ -21,6 +21,7 @@ linux/arm64
 linux/s390x
 linux/mipsle
 linux/mipsle-sf
+linux/riscv64
 
 # Android
 android/386
