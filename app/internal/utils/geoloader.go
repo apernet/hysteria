@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/apernet/hysteria/extras/outbounds/acl"
 	"github.com/apernet/hysteria/extras/outbounds/acl/v2geo"
@@ -14,6 +15,8 @@ const (
 	geoipURL        = "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat"
 	geositeFilename = "geosite.dat"
 	geositeURL      = "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat"
+
+	geoDefaultUpdateInterval = 7 * 24 * time.Hour // 7 days
 )
 
 var _ acl.GeoLoader = (*GeoLoader)(nil)
@@ -24,12 +27,26 @@ var _ acl.GeoLoader = (*GeoLoader)(nil)
 type GeoLoader struct {
 	GeoIPFilename   string
 	GeoSiteFilename string
+	UpdateInterval  time.Duration
 
 	DownloadFunc    func(filename, url string)
 	DownloadErrFunc func(err error)
 
 	geoipMap   map[string]*v2geo.GeoIP
 	geositeMap map[string]*v2geo.GeoSite
+}
+
+func (l *GeoLoader) shouldDownload(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return true
+	}
+	dt := time.Now().Sub(info.ModTime())
+	if l.UpdateInterval == 0 {
+		return dt > geoDefaultUpdateInterval
+	} else {
+		return dt > l.UpdateInterval
+	}
 }
 
 func (l *GeoLoader) download(filename, url string) error {
@@ -64,15 +81,13 @@ func (l *GeoLoader) LoadGeoIP() (map[string]*v2geo.GeoIP, error) {
 		autoDL = true
 		filename = geoipFilename
 	}
-	m, err := v2geo.LoadGeoIP(filename)
-	if os.IsNotExist(err) && autoDL {
-		// It's ok, we will download it.
-		err = l.download(filename, geoipURL)
+	if autoDL && l.shouldDownload(filename) {
+		err := l.download(filename, geoipURL)
 		if err != nil {
 			return nil, err
 		}
-		m, err = v2geo.LoadGeoIP(filename)
 	}
+	m, err := v2geo.LoadGeoIP(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -90,15 +105,13 @@ func (l *GeoLoader) LoadGeoSite() (map[string]*v2geo.GeoSite, error) {
 		autoDL = true
 		filename = geositeFilename
 	}
-	m, err := v2geo.LoadGeoSite(filename)
-	if os.IsNotExist(err) && autoDL {
-		// It's ok, we will download it.
-		err = l.download(filename, geositeURL)
+	if autoDL && l.shouldDownload(filename) {
+		err := l.download(filename, geositeURL)
 		if err != nil {
 			return nil, err
 		}
-		m, err = v2geo.LoadGeoSite(filename)
 	}
+	m, err := v2geo.LoadGeoSite(filename)
 	if err != nil {
 		return nil, err
 	}
