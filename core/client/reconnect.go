@@ -12,7 +12,6 @@ import (
 type reconnectableClientImpl struct {
 	config        *Config
 	client        Client
-	info          *HandshakeInfo
 	count         int
 	connectedFunc func(Client, *HandshakeInfo, int) // called when successfully connected
 	m             sync.Mutex
@@ -43,13 +42,14 @@ func (rc *reconnectableClientImpl) reconnect() error {
 		_ = rc.client.Close()
 	}
 	var err error
-	rc.client, rc.info, err = NewClient(rc.config)
+	var info *HandshakeInfo
+	rc.client, info, err = NewClient(rc.config)
 	if err != nil {
 		return err
 	} else {
 		rc.count++
 		if rc.connectedFunc != nil {
-			rc.connectedFunc(rc, rc.info, rc.count)
+			rc.connectedFunc(rc, info, rc.count)
 		}
 		return nil
 	}
