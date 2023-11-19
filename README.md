@@ -10,16 +10,19 @@
 欢迎加入交流群 [点击加入](https://t.me/+DcRt8AB2VbI2Yzc1)
 
 准备工作：安装docker，docker compose
+```
 curl -fsSL https://get.docker.com | bash -s docker
 sudo systemctl start docker
 sudo systemctl enable docker
 docker --version
 docker compose version
-```
-下载并修改配置文件docker-compose.yml,server.yaml,包括前端信息和后端域名
-git clone https://github.com/isisno/hysteria2-v2b.git hysteria && cd /hysteria
 
+下载并修改配置文件docker-compose.yml,server.yaml,包括前端信息和后端域名
+```
+git clone https://github.com/isisno/hysteria2-v2b.git hysteria && cd /hysteria
+```
 ---配置文件docker-compose.yml参考
+```
 version: "3.9"
 services:
   hysteria:
@@ -32,8 +35,9 @@ services:
       - ./example.com.crt:/etc/hysteria/example.com.crt #example.com 换成你自己的后端vps绑定域名
       - ./example.com.key:/etc/hysteria/example.com.key #example.com 可以共用 XrayR/V2bX 申请的证书
     command: ["server", "-c", "/etc/hysteria/server.yaml"]
-
+```
 ---配置文件server.yaml参考
+```
 v2board:
   apiHost: https://example.com #v2board面板域名
   apiKey: 123456789 #通讯密钥
@@ -49,10 +53,16 @@ trafficStats:
 acl: 
   inline: 
     - reject(pincong.rocks) #acl规则自行查阅hysteria2文档
-
+```
 启动docker compose
+```
 docker compose up -d
+```
 查看日志：
+```
 docker logs -f hysteria
+```
 更新
+```
 docker compose down && docker compose pull && docker compose up -d
+```
