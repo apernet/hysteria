@@ -36,5 +36,5 @@ acl:
 
 ### docker 仓库
 ```
-docker pull ghcr.io/cedar2025/xboard:latest
+docker pull ghcr.io/cedar2025/hysteria:v1.0.5
 ```
