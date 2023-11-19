@@ -34,17 +34,23 @@ type HyUDPConn interface {
 	Close() error
 }
 
-func NewClient(config *Config) (Client, error) {
+type HandshakeInfo struct {
+	UDPEnabled bool
+	Tx         uint64 // 0 if using BBR
+}
+
+func NewClient(config *Config) (Client, *HandshakeInfo, error) {
 	if err := config.verifyAndFill(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	c := &clientImpl{
 		config: config,
 	}
-	if err := c.connect(); err != nil {
-		return nil, err
+	info, err := c.connect()
+	if err != nil {
+		return nil, nil, err
 	}
-	return c, nil
+	return c, info, nil
 }
 
 type clientImpl struct {
@@ -56,10 +62,10 @@ type clientImpl struct {
 	udpSM *udpSessionManager
 }
 
-func (c *clientImpl) connect() error {
+func (c *clientImpl) connect() (*HandshakeInfo, error) {
 	pktConn, err := c.config.ConnFactory.New(c.config.ServerAddr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// Convert config to TLS config & QUIC config
 	tlsConfig := &tls.Config{
@@ -113,22 +119,23 @@ func (c *clientImpl) connect() error {
 			_ = conn.CloseWithError(closeErrCodeProtocolError, "")
 		}
 		_ = pktConn.Close()
-		return coreErrs.ConnectError{Err: err}
+		return nil, coreErrs.ConnectError{Err: err}
 	}
 	if resp.StatusCode != protocol.StatusAuthOK {
 		_ = conn.CloseWithError(closeErrCodeProtocolError, "")
 		_ = pktConn.Close()
-		return coreErrs.AuthError{StatusCode: resp.StatusCode}
+		return nil, coreErrs.AuthError{StatusCode: resp.StatusCode}
 	}
 	// Auth OK
 	authResp := protocol.AuthResponseFromHeader(resp.Header)
+	var actualTx uint64
 	if authResp.RxAuto {
 		// Server asks client to use bandwidth detection,
 		// ignore local bandwidth config and use BBR
 		congestion.UseBBR(conn)
 	} else {
 		// actualTx = min(serverRx, clientTx)
-		actualTx := authResp.Rx
+		actualTx = authResp.Rx
 		if actualTx == 0 || actualTx > c.config.BandwidthConfig.MaxTx {
 			// Server doesn't have a limit, or our clientTx is smaller than serverRx
 			actualTx = c.config.BandwidthConfig.MaxTx
@@ -147,7 +154,10 @@ func (c *clientImpl) connect() error {
 	if authResp.UDPEnabled {
 		c.udpSM = newUDPSessionManager(&udpIOImpl{Conn: conn})
 	}
-	return nil
+	return &HandshakeInfo{
+		UDPEnabled: authResp.UDPEnabled,
+		Tx:         actualTx,
+	}, nil
 }
 
 // openStream wraps the stream with QStream, which handles Close() properly

@@ -19,7 +19,7 @@ import (
 // TestClientNoServer tests how the client handles a server address it cannot connect to.
 // NewClient should return a ConnectError.
 func TestClientNoServer(t *testing.T) {
-	c, err := client.NewClient(&client.Config{
+	c, _, err := client.NewClient(&client.Config{
 		ServerAddr: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 55666},
 	})
 	assert.Nil(t, c)
@@ -46,7 +46,7 @@ func TestClientServerBadAuth(t *testing.T) {
 	go s.Serve()
 
 	// Create client
-	c, err := client.NewClient(&client.Config{
+	c, _, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
 		Auth:       "badpassword",
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
@@ -75,7 +75,7 @@ func TestClientServerUDPDisabled(t *testing.T) {
 	go s.Serve()
 
 	// Create client
-	c, err := client.NewClient(&client.Config{
+	c, _, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
@@ -113,7 +113,7 @@ func TestClientServerTCPEcho(t *testing.T) {
 	go echoServer.Serve()
 
 	// Create client
-	c, err := client.NewClient(&client.Config{
+	c, _, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
@@ -160,7 +160,7 @@ func TestClientServerUDPEcho(t *testing.T) {
 	go echoServer.Serve()
 
 	// Create client
-	c, err := client.NewClient(&client.Config{
+	c, _, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
@@ -180,4 +180,101 @@ func TestClientServerUDPEcho(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, sData, rData)
 	assert.Equal(t, echoAddr, rAddr)
+}
+
+// TestClientServerHandshakeInfo tests that the client returns the correct handshake info.
+func TestClientServerHandshakeInfo(t *testing.T) {
+	// Create server 1, UDP enabled, unlimited bandwidth
+	udpConn, udpAddr, err := serverConn()
+	assert.NoError(t, err)
+	auth := mocks.NewMockAuthenticator(t)
+	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
+	s, err := server.NewServer(&server.Config{
+		TLSConfig:     serverTLSConfig(),
+		Conn:          udpConn,
+		Authenticator: auth,
+	})
+	assert.NoError(t, err)
+	go s.Serve()
+
+	// Create client 1, with specified tx bandwidth
+	c, info, err := client.NewClient(&client.Config{
+		ServerAddr: udpAddr,
+		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
+		BandwidthConfig: client.BandwidthConfig{
+			MaxTx: 123456,
+		},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, &client.HandshakeInfo{
+		UDPEnabled: true,
+		Tx:         123456,
+	}, info)
+
+	// Close server 1 and client 1
+	_ = s.Close()
+	_ = c.Close()
+
+	// Create server 2, UDP disabled, limited rx bandwidth
+	udpConn, udpAddr, err = serverConn()
+	assert.NoError(t, err)
+	s, err = server.NewServer(&server.Config{
+		TLSConfig: serverTLSConfig(),
+		Conn:      udpConn,
+		BandwidthConfig: server.BandwidthConfig{
+			MaxRx: 100000,
+		},
+		DisableUDP:    true,
+		Authenticator: auth,
+	})
+	assert.NoError(t, err)
+	go s.Serve()
+
+	// Create client 2, with specified tx bandwidth
+	c, info, err = client.NewClient(&client.Config{
+		ServerAddr: udpAddr,
+		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
+		BandwidthConfig: client.BandwidthConfig{
+			MaxTx: 123456,
+		},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, &client.HandshakeInfo{
+		UDPEnabled: false,
+		Tx:         100000,
+	}, info)
+
+	// Close server 2 and client 2
+	_ = s.Close()
+	_ = c.Close()
+
+	// Create server 3, UDP enabled, ignore client bandwidth
+	udpConn, udpAddr, err = serverConn()
+	assert.NoError(t, err)
+	s, err = server.NewServer(&server.Config{
+		TLSConfig:             serverTLSConfig(),
+		Conn:                  udpConn,
+		IgnoreClientBandwidth: true,
+		Authenticator:         auth,
+	})
+	assert.NoError(t, err)
+	go s.Serve()
+
+	// Create client 3, with specified tx bandwidth
+	c, info, err = client.NewClient(&client.Config{
+		ServerAddr: udpAddr,
+		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
+		BandwidthConfig: client.BandwidthConfig{
+			MaxTx: 123456,
+		},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, &client.HandshakeInfo{
+		UDPEnabled: true,
+		Tx:         0,
+	}, info)
+
+	// Close server 3 and client 3
+	_ = s.Close()
+	_ = c.Close()
 }

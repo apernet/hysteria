@@ -34,7 +34,7 @@ func TestClientServerTCPClose(t *testing.T) {
 	go s.Serve()
 
 	// Create client
-	c, err := client.NewClient(&client.Config{
+	c, _, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
@@ -116,7 +116,7 @@ func TestClientServerUDPIdleTimeout(t *testing.T) {
 	go s.Serve()
 
 	// Create client
-	c, err := client.NewClient(&client.Config{
+	c, _, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
@@ -194,7 +194,7 @@ func TestClientServerClientShutdown(t *testing.T) {
 	go s.Serve()
 
 	// Create client
-	c, err := client.NewClient(&client.Config{
+	c, _, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 	})
@@ -223,7 +223,7 @@ func TestClientServerServerShutdown(t *testing.T) {
 	go s.Serve()
 
 	// Create client
-	c, err := client.NewClient(&client.Config{
+	c, _, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
 		QUICConfig: client.QUICConfig{
