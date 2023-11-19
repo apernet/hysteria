@@ -82,6 +82,7 @@ acl:
     - kek(cringe,boba,tea)
   geoip: some.dat
   geosite: some_site.dat
+  geoUpdateInterval: 168h
 
 outbounds:
   - name: goodstuff

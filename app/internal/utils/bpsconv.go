@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	Byte = 1.0 << (10 * iota)
-	Kilobyte
-	Megabyte
-	Gigabyte
-	Terabyte
+	Byte     = 1
+	Kilobyte = Byte * 1000
+	Megabyte = Kilobyte * 1000
+	Gigabyte = Megabyte * 1000
+	Terabyte = Gigabyte * 1000
 )
 
 // StringToBps converts a string to a bandwidth value in bytes per second.

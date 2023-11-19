@@ -42,13 +42,16 @@ func runPing(cmd *cobra.Command, args []string) {
 		logger.Fatal("failed to load client config", zap.Error(err))
 	}
 
-	c, err := client.NewClient(hyConfig)
+	c, info, err := client.NewClient(hyConfig)
 	if err != nil {
 		logger.Fatal("failed to initialize client", zap.Error(err))
 	}
 	defer c.Close()
+	logger.Info("connected to server",
+		zap.Bool("udpEnabled", info.UDPEnabled),
+		zap.Uint64("tx", info.Tx))
 
-	logger.Info("connecting", zap.String("address", addr))
+	logger.Info("connecting", zap.String("addr", addr))
 	start := time.Now()
 	conn, err := c.TCP(addr)
 	if err != nil {

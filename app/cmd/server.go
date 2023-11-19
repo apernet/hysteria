@@ -155,10 +155,11 @@ type serverConfigResolver struct {
 }
 
 type serverConfigACL struct {
-	File    string   `mapstructure:"file"`
-	Inline  []string `mapstructure:"inline"`
-	GeoIP   string   `mapstructure:"geoip"`
-	GeoSite string   `mapstructure:"geosite"`
+	File              string        `mapstructure:"file"`
+	Inline            []string      `mapstructure:"inline"`
+	GeoIP             string        `mapstructure:"geoip"`
+	GeoSite           string        `mapstructure:"geosite"`
+	GeoUpdateInterval time.Duration `mapstructure:"geoUpdateInterval"`
 }
 
 type serverConfigOutboundDirect struct {
@@ -477,6 +478,7 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	gLoader := &utils.GeoLoader{
 		GeoIPFilename:   c.ACL.GeoIP,
 		GeoSiteFilename: c.ACL.GeoSite,
+		UpdateInterval:  c.ACL.GeoUpdateInterval,
 		DownloadFunc:    geoDownloadFunc,
 		DownloadErrFunc: geoDownloadErrFunc,
 	}

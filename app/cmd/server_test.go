@@ -101,8 +101,9 @@ func TestServerConfig(t *testing.T) {
 				"lmao(ok)",
 				"kek(cringe,boba,tea)",
 			},
-			GeoIP:   "some.dat",
-			GeoSite: "some_site.dat",
+			GeoIP:             "some.dat",
+			GeoSite:           "some_site.dat",
+			GeoUpdateInterval: 168 * time.Hour,
 		},
 		Outbounds: []serverConfigOutboundEntry{
 			{
