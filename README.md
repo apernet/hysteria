@@ -19,7 +19,7 @@ docker compose version
 ```
 下载并修改配置文件docker-compose.yml,server.yaml,包括前端信息和后端域名
 ```
-git clone https://github.com/cedar2025/hysteria2-v2b.git hysteria && cd /hysteria
+git clone https://github.com/cedar2025/hysteria.git hysteria && cd /hysteria
 ```
 ---配置文件docker-compose.yml参考
 ```
