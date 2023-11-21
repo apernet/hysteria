@@ -34,9 +34,9 @@ services:
     restart: always
     network_mode: "host"
     volumes:
-      - ./server.yaml:/etc/hysteria/server.yaml
-      - ./example.com.crt:/etc/hysteria/example.com.crt #example.com 换成你自己的后端vps绑定域名,可以共用 XrayR/V2bX 申请的证书
-      - ./example.com.key:/etc/hysteria/example.com.key #example.com ./表示当前目录，/etc/XrayR/证书目录/ 表示对应其他目录证书。
+      - ./server.yaml:/etc/hysteria/server.yaml         # 前面是真实路径，后面是挂载容器内的路径以及名称。
+      - ./example.com.crt:/etc/hysteria/example.com.crt # ./表示当前目录，/etc/XrayR/证书目录/ 表示对应其他目录证书。
+      - ./example.com.key:/etc/hysteria/example.com.key # example.com 换成你自己的后端vps绑定域名,可以共用 XrayR/V2bX 申请的证书
     command: ["server", "-c", "/etc/hysteria/server.yaml"]
 ```
 ---配置文件server.yaml参考
