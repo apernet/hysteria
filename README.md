@@ -3,7 +3,7 @@
 # 支持对接Xboard/V2board面板的Hysteria2后端
 
 ### 项目说明
-本项目基于hysteria官方内核二次开发，添加了从v2b获取节点信息、用户鉴权信息与上报用户流量的功能。
+本项目基于hysteria官方内核二次开发，添加了从 Xboard/V2board 获取节点信息、用户鉴权信息与上报用户流量的功能。
 性能方面已经由hysteria2内核作者亲自指导优化过了。
 
 ### TG交流群
@@ -21,6 +21,9 @@ docker compose version
 ```
 git clone https://github.com/cedar2025/hysteria.git hysteria && cd hysteria
 ```
+```
+apt install vim -y && vim docker-compose.yml
+```
 ---配置文件docker-compose.yml参考
 ```
 version: "3.9"
@@ -32,8 +35,8 @@ services:
     network_mode: "host"
     volumes:
       - ./server.yaml:/etc/hysteria/server.yaml
-      - ./example.com.crt:/etc/hysteria/example.com.crt #example.com 换成你自己的后端vps绑定域名
-      - ./example.com.key:/etc/hysteria/example.com.key #example.com 可以共用 XrayR/V2bX 申请的证书
+      - ./example.com.crt:/etc/hysteria/example.com.crt #example.com 换成你自己的后端vps绑定域名,可以共用 XrayR/V2bX 申请的证书
+      - ./example.com.key:/etc/hysteria/example.com.key #example.com ./表示当前目录，/etc/XrayR/证书目录/ 表示对应其他目录证书。
     command: ["server", "-c", "/etc/hysteria/server.yaml"]
 ```
 ---配置文件server.yaml参考
@@ -62,7 +65,7 @@ docker compose up -d
 ```
 docker logs -f hysteria
 ```
-更新
+容器停止，更新，后台启动。
 ```
 docker compose down && docker compose pull && docker compose up -d
 ```
