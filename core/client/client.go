@@ -172,13 +172,13 @@ func (c *clientImpl) openStream() (quic.Stream, error) {
 func (c *clientImpl) TCP(addr string) (net.Conn, error) {
 	stream, err := c.openStream()
 	if err != nil {
-		return nil, maybeWrapQUICClosedError(err)
+		return nil, wrapIfConnectionClosed(err)
 	}
 	// Send request
 	err = protocol.WriteTCPRequest(stream, addr)
 	if err != nil {
 		_ = stream.Close()
-		return nil, maybeWrapQUICClosedError(err)
+		return nil, wrapIfConnectionClosed(err)
 	}
 	if c.config.FastOpen {
 		// Don't wait for the response when fast open is enabled.
@@ -195,7 +195,7 @@ func (c *clientImpl) TCP(addr string) (net.Conn, error) {
 	ok, msg, err := protocol.ReadTCPResponse(stream)
 	if err != nil {
 		_ = stream.Close()
-		return nil, maybeWrapQUICClosedError(err)
+		return nil, wrapIfConnectionClosed(err)
 	}
 	if !ok {
 		_ = stream.Close()
@@ -222,12 +222,14 @@ func (c *clientImpl) Close() error {
 	return nil
 }
 
-// maybeWrapQUICClosedError checks if the error returned by quic-go
-// indicates that the QUIC connection is permanently closed,
-// and if so, wraps it with coreErrs.ClosedError.
-func maybeWrapQUICClosedError(err error) error {
+// wrapIfConnectionClosed checks if the error returned by quic-go
+// indicates that the QUIC connection has been permanently closed,
+// and if so, wraps the error with coreErrs.ClosedError.
+// PITFALL: sometimes quic-go has "internal errors" that are not net.Error,
+// but we still need to treat them as ClosedError.
+func wrapIfConnectionClosed(err error) error {
 	netErr, ok := err.(net.Error)
-	if ok && !netErr.Temporary() {
+	if !ok || !netErr.Temporary() {
 		return coreErrs.ClosedError{Err: err}
 	} else {
 		return err
