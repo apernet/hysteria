@@ -236,6 +236,17 @@ func compileHostMatcher(addr string, geoLoader GeoLoader) (hostMatcher, string) 
 		}
 		return m, ""
 	}
+	if strings.HasPrefix(addr, "suffix:") {
+		// Domain suffix matcher
+		suffix := addr[7:]
+		if len(suffix) == 0 {
+			return nil, "empty domain suffix"
+		}
+		return &domainMatcher{
+			Pattern: suffix,
+			Mode:    domainMatchSuffix,
+		}, ""
+	}
 	if strings.Contains(addr, "/") {
 		// CIDR matcher
 		_, ipnet, err := net.ParseCIDR(addr)
@@ -251,14 +262,14 @@ func compileHostMatcher(addr string, geoLoader GeoLoader) (hostMatcher, string) 
 	if strings.Contains(addr, "*") {
 		// Wildcard domain matcher
 		return &domainMatcher{
-			Pattern:  addr,
-			Wildcard: true,
+			Pattern: addr,
+			Mode:    domainMatchWildcard,
 		}, ""
 	}
 	// Nothing else matched, treat it as a non-wildcard domain
 	return &domainMatcher{
-		Pattern:  addr,
-		Wildcard: false,
+		Pattern: addr,
+		Mode:    domainMatchExact,
 	}, ""
 }
 

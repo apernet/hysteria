@@ -2,8 +2,15 @@ package acl
 
 import (
 	"net"
+	"strings"
 
 	"golang.org/x/net/idna"
+)
+
+const (
+	domainMatchExact = uint8(iota)
+	domainMatchWildcard
+	domainMatchSuffix
 )
 
 type hostMatcher interface {
@@ -27,8 +34,8 @@ func (m *cidrMatcher) Match(host HostInfo) bool {
 }
 
 type domainMatcher struct {
-	Pattern  string
-	Wildcard bool
+	Pattern string
+	Mode    uint8
 }
 
 func (m *domainMatcher) Match(host HostInfo) bool {
@@ -36,10 +43,16 @@ func (m *domainMatcher) Match(host HostInfo) bool {
 	if err != nil {
 		name = host.Name
 	}
-	if m.Wildcard {
+	switch m.Mode {
+	case domainMatchExact:
+		return name == m.Pattern
+	case domainMatchWildcard:
 		return deepMatchRune([]rune(name), []rune(m.Pattern))
+	case domainMatchSuffix:
+		return name == m.Pattern || strings.HasSuffix(name, "."+m.Pattern)
+	default:
+		return false // Invalid mode
 	}
-	return name == m.Pattern
 }
 
 func deepMatchRune(str, pattern []rune) bool {
