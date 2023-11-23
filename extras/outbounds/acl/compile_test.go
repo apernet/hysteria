@@ -22,7 +22,7 @@ func (l *testGeoLoader) LoadGeoSite() (map[string]*v2geo.GeoSite, error) {
 }
 
 func TestCompile(t *testing.T) {
-	ob1, ob2, ob3, ob4 := 1, 2, 3, 4
+	ob1, ob2, ob3, ob4, ob5 := 1, 2, 3, 4, 5
 	rules := []TextRule{
 		{
 			Outbound:      "ob1",
@@ -84,12 +84,19 @@ func TestCompile(t *testing.T) {
 			ProtoPort:     "*/*",
 			HijackAddress: "",
 		},
+		{
+			Outbound:      "ob5",
+			Address:       "suffix:microsoft.com",
+			ProtoPort:     "*/*",
+			HijackAddress: "",
+		},
 	}
 	comp, err := Compile[int](rules, map[string]int{
 		"ob1": ob1,
 		"ob2": ob2,
 		"ob3": ob3,
 		"ob4": ob4,
+		"ob5": ob5,
 	}, 100, &testGeoLoader{})
 	assert.NoError(t, err)
 
@@ -205,6 +212,33 @@ func TestCompile(t *testing.T) {
 			},
 			proto:        ProtocolUDP,
 			port:         9999,
+			wantOutbound: 0, // no match default
+			wantIP:       nil,
+		},
+		{
+			host: HostInfo{
+				Name: "microsoft.com",
+			},
+			proto:        ProtocolTCP,
+			port:         6000,
+			wantOutbound: ob5,
+			wantIP:       nil,
+		},
+		{
+			host: HostInfo{
+				Name: "real.microsoft.com",
+			},
+			proto:        ProtocolUDP,
+			port:         5353,
+			wantOutbound: ob5,
+			wantIP:       nil,
+		},
+		{
+			host: HostInfo{
+				Name: "fakemicrosoft.com",
+			},
+			proto:        ProtocolTCP,
+			port:         5000,
 			wantOutbound: 0, // no match default
 			wantIP:       nil,
 		},
