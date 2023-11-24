@@ -142,8 +142,8 @@ func Test_cidrMatcher_Match(t *testing.T) {
 
 func Test_domainMatcher_Match(t *testing.T) {
 	type fields struct {
-		Pattern  string
-		Wildcard bool
+		Pattern string
+		Mode    uint8
 	}
 	tests := []struct {
 		name   string
@@ -154,8 +154,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 		{
 			name: "non-wildcard match",
 			fields: fields{
-				Pattern:  "example.com",
-				Wildcard: false,
+				Pattern: "example.com",
+				Mode:    domainMatchExact,
 			},
 			host: HostInfo{
 				Name: "example.com",
@@ -165,8 +165,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 		{
 			name: "non-wildcard IDN match",
 			fields: fields{
-				Pattern:  "政府.中国",
-				Wildcard: false,
+				Pattern: "政府.中国",
+				Mode:    domainMatchExact,
 			},
 			host: HostInfo{
 				Name: "xn--mxtq1m.xn--fiqs8s",
@@ -176,8 +176,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 		{
 			name: "non-wildcard no match",
 			fields: fields{
-				Pattern:  "example.com",
-				Wildcard: false,
+				Pattern: "example.com",
+				Mode:    domainMatchExact,
 			},
 			host: HostInfo{
 				Name: "example.org",
@@ -187,8 +187,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 		{
 			name: "non-wildcard IDN no match",
 			fields: fields{
-				Pattern:  "政府.中国",
-				Wildcard: false,
+				Pattern: "政府.中国",
+				Mode:    domainMatchExact,
 			},
 			host: HostInfo{
 				Name: "xn--mxtq1m.xn--yfro4i67o",
@@ -198,8 +198,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 		{
 			name: "wildcard match 1",
 			fields: fields{
-				Pattern:  "*.example.com",
-				Wildcard: true,
+				Pattern: "*.example.com",
+				Mode:    domainMatchWildcard,
 			},
 			host: HostInfo{
 				Name: "www.example.com",
@@ -209,8 +209,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 		{
 			name: "wildcard match 2",
 			fields: fields{
-				Pattern:  "example*.com",
-				Wildcard: true,
+				Pattern: "example*.com",
+				Mode:    domainMatchWildcard,
 			},
 			host: HostInfo{
 				Name: "example2.com",
@@ -220,8 +220,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 		{
 			name: "wildcard IDN match 1",
 			fields: fields{
-				Pattern:  "战狼*.com",
-				Wildcard: true,
+				Pattern: "战狼*.com",
+				Mode:    domainMatchWildcard,
 			},
 			host: HostInfo{
 				Name: "xn--2-x14by21c.com",
@@ -231,8 +231,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 		{
 			name: "wildcard IDN match 2",
 			fields: fields{
-				Pattern:  "*大学*",
-				Wildcard: true,
+				Pattern: "*大学*",
+				Mode:    domainMatchWildcard,
 			},
 			host: HostInfo{
 				Name: "xn--xkry9kk1bz66a.xn--ses554g",
@@ -242,8 +242,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 		{
 			name: "wildcard no match",
 			fields: fields{
-				Pattern:  "*.example.com",
-				Wildcard: true,
+				Pattern: "*.example.com",
+				Mode:    domainMatchWildcard,
 			},
 			host: HostInfo{
 				Name: "example.com",
@@ -253,8 +253,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 		{
 			name: "wildcard IDN no match",
 			fields: fields{
-				Pattern:  "*呵呵*",
-				Wildcard: true,
+				Pattern: "*呵呵*",
+				Mode:    domainMatchWildcard,
 			},
 			host: HostInfo{
 				Name: "xn--6qqt7juua.cn",
@@ -262,10 +262,74 @@ func Test_domainMatcher_Match(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "suffix match 1",
+			fields: fields{
+				Pattern: "apple.com",
+				Mode:    domainMatchSuffix,
+			},
+			host: HostInfo{
+				Name: "apple.com",
+			},
+			want: true,
+		},
+		{
+			name: "suffix match 2",
+			fields: fields{
+				Pattern: "apple.com",
+				Mode:    domainMatchSuffix,
+			},
+			host: HostInfo{
+				Name: "store.apple.com",
+			},
+			want: true,
+		},
+		{
+			name: "suffix IDN match 1",
+			fields: fields{
+				Pattern: "中国",
+				Mode:    domainMatchSuffix,
+			},
+			host: HostInfo{
+				Name: "中国",
+			},
+			want: true,
+		},
+		{
+			name: "suffix IDN match 2",
+			fields: fields{
+				Pattern: "中国",
+				Mode:    domainMatchSuffix,
+			},
+			host: HostInfo{
+				Name: "天安门.中国",
+			},
+			want: true,
+		},
+		{
+			name: "suffix no match",
+			fields: fields{
+				Pattern: "news.com",
+			},
+			host: HostInfo{
+				Name: "fakenews.com",
+			},
+			want: false,
+		},
+		{
+			name: "suffix IDN no match",
+			fields: fields{
+				Pattern: "冲浪",
+			},
+			host: HostInfo{
+				Name: "666.网上冲浪",
+			},
+			want: false,
+		},
+		{
 			name: "empty",
 			fields: fields{
-				Pattern:  "*.example.com",
-				Wildcard: true,
+				Pattern: "*.example.com",
+				Mode:    domainMatchWildcard,
 			},
 			host: HostInfo{
 				Name: "",
@@ -276,8 +340,8 @@ func Test_domainMatcher_Match(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &domainMatcher{
-				Pattern:  tt.fields.Pattern,
-				Wildcard: tt.fields.Wildcard,
+				Pattern: tt.fields.Pattern,
+				Mode:    tt.fields.Mode,
 			}
 			if got := m.Match(tt.host); got != tt.want {
 				t.Errorf("Match() = %v, want %v", got, tt.want)
