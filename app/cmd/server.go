@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/apernet/hysteria/extras/correctnet"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -219,7 +220,7 @@ func (c *serverConfig) fillConn(hyConfig *server.Config) error {
 	if err != nil {
 		return configError{Field: "listen", Err: err}
 	}
-	conn, err := net.ListenUDP("udp", uAddr)
+	conn, err := correctnet.ListenUDP("udp", uAddr)
 	if err != nil {
 		return configError{Field: "listen", Err: err}
 	}
@@ -752,7 +753,7 @@ func runServer(cmd *cobra.Command, args []string) {
 
 func runTrafficStatsServer(listen string, handler http.Handler) {
 	logger.Info("traffic stats server up and running", zap.String("listen", listen))
-	if err := http.ListenAndServe(listen, handler); err != nil {
+	if err := correctnet.HTTPListenAndServe(listen, handler); err != nil {
 		logger.Fatal("failed to serve traffic stats", zap.Error(err))
 	}
 }
