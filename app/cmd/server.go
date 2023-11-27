@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apernet/hysteria/extras/correctnet"
-
 	"github.com/caddyserver/certmagic"
 	"github.com/mholt/acmez/acme"
 	"github.com/spf13/cobra"
@@ -25,6 +23,7 @@ import (
 	"github.com/apernet/hysteria/app/internal/utils"
 	"github.com/apernet/hysteria/core/server"
 	"github.com/apernet/hysteria/extras/auth"
+	"github.com/apernet/hysteria/extras/correctnet"
 	"github.com/apernet/hysteria/extras/masq"
 	"github.com/apernet/hysteria/extras/obfs"
 	"github.com/apernet/hysteria/extras/outbounds"
