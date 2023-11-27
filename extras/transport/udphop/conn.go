@@ -129,6 +129,9 @@ func (u *udpHopPacketConn) hop() {
 		// Could be temporary, just skip this hop
 		return
 	}
+	// we can not use u as callback parameters,
+	// it may cause dead lock.
+	u.ConnHopped(newConn)
 	// We need to keep receiving packets from the previous connection,
 	// because otherwise there will be packet loss due to the time gap
 	// between we hop to a new port and the server acknowledges this change.
@@ -152,7 +155,6 @@ func (u *udpHopPacketConn) hop() {
 	go u.recvLoop(newConn)
 	// Update addrIndex to a new random value
 	u.addrIndex = rand.Intn(len(u.Addrs))
-	u.ConnHopped(u)
 }
 
 func (u *udpHopPacketConn) ReadFrom(b []byte) (n int, addr net.Addr, err error) {
