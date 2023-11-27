@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"crypto/tls"
 	"fmt"
-	"github.com/apernet/hysteria/extras/correctnet"
 	"net"
 	"net/http"
+
+	"github.com/apernet/hysteria/extras/correctnet"
 )
 
 // MasqTCPServer covers the TCP parts of a standard web server (TCP based HTTP/HTTPS).

@@ -38,7 +38,7 @@ func ipAddrNetwork(addr *net.IPAddr) (network string) {
 	return "ip" + extractIPFamily(addr.IP)
 }
 
-func Listen(network string, address string) (net.Listener, error) {
+func Listen(network, address string) (net.Listener, error) {
 	if network == "tcp" {
 		tcpAddr, err := net.ResolveTCPAddr(network, address)
 		if err != nil {
@@ -56,7 +56,7 @@ func ListenTCP(network string, laddr *net.TCPAddr) (*net.TCPListener, error) {
 	return net.ListenTCP(network, laddr)
 }
 
-func ListenPacket(network string, address string) (listener net.PacketConn, err error) {
+func ListenPacket(network, address string) (listener net.PacketConn, err error) {
 	if network == "udp" {
 		udpAddr, err := net.ResolveUDPAddr(network, address)
 		if err != nil {
@@ -82,7 +82,7 @@ func ListenUDP(network string, laddr *net.UDPAddr) (*net.UDPConn, error) {
 	return net.ListenUDP(network, laddr)
 }
 
-func HTTPListenAndServe(address string, handler http.Handler) (err error) {
+func HTTPListenAndServe(address string, handler http.Handler) error {
 	listener, err := Listen("tcp", address)
 	if err != nil {
 		return err

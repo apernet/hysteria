@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/apernet/hysteria/extras/correctnet"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -14,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/apernet/hysteria/extras/correctnet"
 
 	"github.com/caddyserver/certmagic"
 	"github.com/mholt/acmez/acme"

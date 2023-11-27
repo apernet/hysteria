@@ -5,12 +5,13 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
-	"github.com/apernet/hysteria/extras/correctnet"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/apernet/hysteria/extras/correctnet"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
