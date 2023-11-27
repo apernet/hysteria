@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+
+	"github.com/apernet/hysteria/extras/correctnet"
 )
 
 // MasqTCPServer covers the TCP parts of a standard web server (TCP based HTTP/HTTPS).
@@ -20,7 +22,7 @@ type MasqTCPServer struct {
 }
 
 func (s *MasqTCPServer) ListenAndServeHTTP(addr string) error {
-	return http.ListenAndServe(addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return correctnet.HTTPListenAndServe(addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.ForceHTTPS {
 			if s.HTTPSPort == 0 || s.HTTPSPort == 443 {
 				// Omit port if it's the default
@@ -42,7 +44,12 @@ func (s *MasqTCPServer) ListenAndServeHTTPS(addr string) error {
 		}),
 		TLSConfig: s.TLSConfig,
 	}
-	return server.ListenAndServeTLS("", "")
+	listener, err := correctnet.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+	return server.ServeTLS(listener, "", "")
 }
 
 var _ http.ResponseWriter = (*altSvcHijackResponseWriter)(nil)
