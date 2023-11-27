@@ -26,6 +26,9 @@ type Config struct {
 	FastOpen        bool
 
 	filled bool // whether the fields have been verified and filled
+
+	// do extra operations on conn
+	ConnController func(fd uintptr)
 }
 
 // verifyAndFill fills the fields that are not set by the user with default values when possible,

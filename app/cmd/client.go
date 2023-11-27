@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -172,6 +173,9 @@ func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
 // fillConnFactory must be called after fillServerAddr, as we have different logic
 // for ConnFactory depending on whether we have a port hopping address.
 func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
+	connFactory := &adaptiveConnFactory{
+		ConnController: hyConfig.ConnController,
+	}
 	// Inner PacketConn
 	var newFunc func(addr net.Addr) (net.PacketConn, error)
 	switch strings.ToLower(c.Transport.Type) {
@@ -179,7 +183,9 @@ func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
 		if hyConfig.ServerAddr.Network() == "udphop" {
 			hopAddr := hyConfig.ServerAddr.(*udphop.UDPHopAddr)
 			newFunc = func(addr net.Addr) (net.PacketConn, error) {
-				return udphop.NewUDPHopPacketConn(hopAddr, c.Transport.UDP.HopInterval)
+				return udphop.NewUDPHopPacketConn(hopAddr, c.Transport.UDP.HopInterval, func(conn syscall.Conn) {
+					connFactory.runConnController(conn)
+				})
 			}
 		} else {
 			newFunc = func(addr net.Addr) (net.PacketConn, error) {
@@ -189,6 +195,8 @@ func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
 	default:
 		return configError{Field: "transport.type", Err: errors.New("unsupported transport type")}
 	}
+	connFactory.NewFunc = newFunc
+
 	// Obfuscation
 	var ob obfs.Obfuscator
 	var err error
@@ -203,10 +211,9 @@ func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
 	default:
 		return configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
 	}
-	hyConfig.ConnFactory = &adaptiveConnFactory{
-		NewFunc:    newFunc,
-		Obfuscator: ob,
-	}
+	connFactory.Obfuscator = ob
+
+	hyConfig.ConnFactory = connFactory
 	return nil
 }
 
@@ -368,9 +375,11 @@ func (c *clientConfig) parseURI() bool {
 }
 
 // Config validates the fields and returns a ready-to-use Hysteria client config
-func (c *clientConfig) Config() (*client.Config, error) {
+func (c *clientConfig) Config(connController func(fd uintptr)) (*client.Config, error) {
 	c.parseURI()
-	hyConfig := &client.Config{}
+	hyConfig := &client.Config{
+		ConnController: connController,
+	}
 	fillers := []func(*client.Config) error{
 		c.fillServerAddr,
 		c.fillConnFactory,
@@ -398,7 +407,7 @@ func runClient(cmd *cobra.Command, args []string) {
 	if err := viper.Unmarshal(&config); err != nil {
 		logger.Fatal("failed to parse client config", zap.Error(err))
 	}
-	hyConfig, err := config.Config()
+	hyConfig, err := config.Config(nil)
 	if err != nil {
 		logger.Fatal("failed to load client config", zap.Error(err))
 	}
@@ -684,19 +693,49 @@ func normalizeCertHash(hash string) string {
 }
 
 type adaptiveConnFactory struct {
-	NewFunc    func(addr net.Addr) (net.PacketConn, error)
-	Obfuscator obfs.Obfuscator // nil if no obfuscation
+	NewFunc        func(addr net.Addr) (net.PacketConn, error)
+	Obfuscator     obfs.Obfuscator // nil if no obfuscation
+	ConnController func(fd uintptr)
 }
 
 func (f *adaptiveConnFactory) New(addr net.Addr) (net.PacketConn, error) {
 	if f.Obfuscator == nil {
-		return f.NewFunc(addr)
+		conn, err := f.NewFunc(addr)
+		if err != nil {
+			return nil, err
+		}
+		f.runPktConnController(conn)
+		return conn, nil
 	} else {
 		conn, err := f.NewFunc(addr)
 		if err != nil {
 			return nil, err
 		}
+		f.runPktConnController(conn)
 		return obfs.WrapPacketConn(conn, f.Obfuscator), nil
+	}
+}
+
+func (f *adaptiveConnFactory) runPktConnController(pktConn net.PacketConn) {
+	conn, ok := pktConn.(syscall.Conn)
+	if ok {
+		f.runConnController(conn)
+	} else {
+		logger.Error("runPktConnController: pktConn is not syscall.Conn")
+	}
+}
+
+func (f *adaptiveConnFactory) runConnController(conn syscall.Conn) {
+	if f.ConnController == nil {
+		return
+	}
+	rawConn, err := conn.SyscallConn()
+	if err != nil {
+		return
+	}
+	err = rawConn.Control(f.ConnController)
+	if err != nil {
+		logger.Error("runConnController ", zap.Error(err))
 	}
 }
 

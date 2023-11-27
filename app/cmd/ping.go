@@ -37,7 +37,7 @@ func runPing(cmd *cobra.Command, args []string) {
 	if err := viper.Unmarshal(&config); err != nil {
 		logger.Fatal("failed to parse client config", zap.Error(err))
 	}
-	hyConfig, err := config.Config()
+	hyConfig, err := config.Config(nil)
 	if err != nil {
 		logger.Fatal("failed to load client config", zap.Error(err))
 	}

@@ -34,6 +34,8 @@ type udpHopPacketConn struct {
 	closed    bool
 
 	bufPool sync.Pool
+
+	ConnHopped func(conn syscall.Conn)
 }
 
 type udpPacket struct {
@@ -43,7 +45,7 @@ type udpPacket struct {
 	Err  error
 }
 
-func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration) (net.PacketConn, error) {
+func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration, connHopped func(conn syscall.Conn)) (net.PacketConn, error) {
 	if hopInterval == 0 {
 		hopInterval = defaultHopInterval
 	} else if hopInterval < 5*time.Second {
@@ -71,6 +73,7 @@ func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration) (net.Packe
 				return make([]byte, udpBufferSize)
 			},
 		},
+		ConnHopped: connHopped,
 	}
 	go hConn.recvLoop(curConn)
 	go hConn.hopLoop()
@@ -149,6 +152,7 @@ func (u *udpHopPacketConn) hop() {
 	go u.recvLoop(newConn)
 	// Update addrIndex to a new random value
 	u.addrIndex = rand.Intn(len(u.Addrs))
+	u.ConnHopped(u)
 }
 
 func (u *udpHopPacketConn) ReadFrom(b []byte) (n int, addr net.Addr, err error) {
