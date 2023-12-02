@@ -22,7 +22,10 @@ docker compose version
 git clone https://github.com/cedar2025/hysteria.git hysteria && cd hysteria
 ```
 ```
-apt install vim -y && vim docker-compose.yml
+apt install vim -y
+```
+```
+vim docker-compose.yml
 ```
 ---配置文件docker-compose.yml参考
 ```
@@ -40,6 +43,9 @@ services:
     command: ["server", "-c", "/etc/hysteria/server.yaml"]
 ```
 ---配置文件server.yaml参考
+```
+vim server.yaml
+```
 ```
 v2board:
   apiHost: https://example.com #v2board面板域名
