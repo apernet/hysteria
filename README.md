@@ -10,7 +10,7 @@
 欢迎加入交流群 [点击加入](https://t.me/+DcRt8AB2VbI2Yzc1)
 
 准备工作：申请证书
-配置ssl证书，使用acme配置证书要占用80端口
+配置ssl证书，使用acme配置证书要占用80端口，CentOS自行把`apt`改成`yum`。
 ```
 apt install -y vim openssl curl socat
 ```
@@ -21,7 +21,7 @@ curl https://get.acme.sh | sh -s email=rebecca554owen@gmail.com
 ~/.acme.sh/acme.sh --upgrade --auto-upgrade
 ```
 可选：切换申请letsencrypt的证书，`~/.acme.sh/acme.sh --set-default-ca --server letsencrypt`
-example.com换成你自己的后端vps绑定域名
+example.com 换成你解析到 vps 的域名
 ```
 ~/.acme.sh/acme.sh --issue -d example.com --standalone
 ~/.acme.sh/acme.sh --install-cert -d example.com --key-file /root/hysteria/example.com.key
@@ -30,12 +30,11 @@ example.com换成你自己的后端vps绑定域名
 安装docker，docker compose
 ```
 curl -fsSL https://get.docker.com | bash -s docker
-sudo systemctl start docker
-sudo systemctl enable docker
-docker --version
-docker compose version
+systemctl start docker
+systemctl enable docker
 ```
-下载并修改配置文件docker-compose.yml,server.yaml,包括前端信息和后端域名
+下载并修改配置文件 docker-compose.yml, server.yaml 。  
+Finalshell 注意：直接新建文件，复制粘贴过去，用终端粘贴不了符号。
 ```
 git clone https://github.com/cedar2025/hysteria.git hysteria && cd hysteria
 ```
@@ -52,9 +51,9 @@ services:
     restart: always
     network_mode: "host"
     volumes:
-      - ./server.yaml:/etc/hysteria/server.yaml         # 前面是真实路径，后面是挂载容器内的路径以及名称。
-      - ./example.com.crt:/etc/hysteria/example.com.crt # ./表示当前目录，/etc/XrayR/证书目录/ 表示对应其他目录证书。
-      - ./example.com.key:/etc/hysteria/example.com.key # example.com 换成你自己的后端vps绑定域名,可以共用 XrayR/V2bX 申请的证书
+      - ./server.yaml:/etc/hysteria/server.yaml         # ./表示当前目录，其他路径就改成如 /root/hysteria/server.yaml ；冒号前面是真实路径，后面是挂载到容器内的路径以及名称。
+      - ./example.com.crt:/etc/hysteria/example.com.crt # 冒号前面的 example.com 换成你自己的后端vps绑定域名。
+      - ./example.com.key:/etc/hysteria/example.com.key # 冒号后面的保留 example.com ，这样server.yaml 就不用改tls参数了。
     command: ["server", "-c", "/etc/hysteria/server.yaml"]
 ```
 ---配置文件server.yaml参考
@@ -63,13 +62,13 @@ vim server.yaml
 ```
 ```
 v2board:
-  apiHost: https://example.com #v2board面板域名
-  apiKey: 123456789 #通讯密钥
-  nodeID: 1 #节点id
+  apiHost: https://example.com # v2board面板域名
+  apiKey: 123456789 # 通讯密钥
+  nodeID: 1 # 节点id
 tls:
   type: tls
-  cert: /etc/hysteria/example.com.crt #example.com换成你自己的后端vps绑定域名
-  key: /etc/hysteria/example.com.key #example.com换成你自己的后端vps绑定域名
+  cert: /etc/hysteria/example.com.crt #
+  key: /etc/hysteria/example.com.key  #
 auth:
   type: v2board
 trafficStats:
@@ -86,7 +85,7 @@ docker compose up -d
 ```
 docker logs -f hysteria
 ```
-容器停止，更新，后台启动。
+更新，在 hysteria 目录执行。
 ```
-docker compose down && docker compose pull && docker compose up -d
+docker compose pull && docker compose up -d
 ```
