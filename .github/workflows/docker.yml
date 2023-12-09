@@ -78,7 +78,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ env.REGISTRY }}/cedar2025/hysteria:latest,${{ env.REGISTRY }}/cedar2025/hysteria,${{ env.REGISTRY }}/cedar2025/hysteria:${{ steps.get_version.outputs.version }}
+          tags: ${{ env.REGISTRY }}/rebecca554owen/hysteria:latest,${{ env.REGISTRY }}/rebecca554owen/hysteria,${{ env.REGISTRY }}/rebecca554owen/hysteria:${{ steps.get_version.outputs.version }}
 
       # Sign the resulting Docker image digest except on PRs.
       # This will only write to the public Rekor transparency log when the Docker
