@@ -36,7 +36,7 @@ systemctl enable docker
 下载并修改配置文件 docker-compose.yml, server.yaml 。  
 Finalshell 注意：直接新建文件，复制粘贴过去，用终端粘贴不了符号。
 ```
-git clone https://github.com/cedar2025/hysteria.git hysteria && cd hysteria
+mkdir hysteria && cd hysteria
 ```
 ```
 vim docker-compose.yml
