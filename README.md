@@ -9,10 +9,10 @@
 ### TG交流群
 欢迎加入交流群 [点击加入](https://t.me/+DcRt8AB2VbI2Yzc1)
 
-准备工作：申请证书
+准备工作：默认在root目录下开始。
 配置ssl证书，使用acme配置证书要占用80端口，CentOS自行把`apt`改成`yum`。
 ```
-apt install -y vim openssl curl socat
+apt install -y vim openssl curl socat && mkdir hysteria
 ```
 ```
 curl https://get.acme.sh | sh -s email=rebecca554owen@gmail.com
@@ -21,7 +21,8 @@ curl https://get.acme.sh | sh -s email=rebecca554owen@gmail.com
 ~/.acme.sh/acme.sh --upgrade --auto-upgrade
 ```
 可选：切换申请letsencrypt的证书，`~/.acme.sh/acme.sh --set-default-ca --server letsencrypt`
-example.com 换成你解析到 vps 的域名
+
+中间的 example.com 换成你解析到 vps 的域名。可选：后面的 example.com 可以不用自定义，待会docker-compose.yml就不用改了。
 ```
 ~/.acme.sh/acme.sh --issue -d example.com --standalone
 ~/.acme.sh/acme.sh --install-cert -d example.com --key-file /root/hysteria/example.com.key
@@ -33,10 +34,10 @@ curl -fsSL https://get.docker.com | bash -s docker
 systemctl start docker
 systemctl enable docker
 ```
-下载并修改配置文件 docker-compose.yml, server.yaml 。  
+修改 docker-compose.yml, server.yaml 配置文件。  
 Finalshell 注意：直接新建文件，复制粘贴过去，用终端粘贴不了符号。
 ```
-mkdir hysteria && cd hysteria
+cd hysteria
 ```
 ```
 vim docker-compose.yml
