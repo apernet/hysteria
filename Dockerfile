@@ -36,4 +36,4 @@ RUN set -ex \
 
 COPY --from=builder /go/bin/hysteria /usr/local/bin/hysteria
 
-ENTRYPOINT ["hysteria"]
+ENTRYPOINT ["hysteria" , "server", "-c", "/etc/hysteria/server.yaml"]
