@@ -398,21 +398,19 @@ func runClient(cmd *cobra.Command, args []string) {
 	if err := viper.Unmarshal(&config); err != nil {
 		logger.Fatal("failed to parse client config", zap.Error(err))
 	}
-	hyConfig, err := config.Config()
-	if err != nil {
-		logger.Fatal("failed to load client config", zap.Error(err))
-	}
 
-	c, err := client.NewReconnectableClient(hyConfig, func(c client.Client, info *client.HandshakeInfo, count int) {
-		connectLog(info, count)
-		// On the client side, we start checking for updates after we successfully connect
-		// to the server, which, depending on whether lazy mode is enabled, may or may not
-		// be immediately after the client starts. We don't want the update check request
-		// to interfere with the lazy mode option.
-		if count == 1 && !disableUpdateCheck {
-			go runCheckUpdateClient(c)
-		}
-	}, config.Lazy)
+	c, err := client.NewReconnectableClient(
+		config.Config,
+		func(c client.Client, info *client.HandshakeInfo, count int) {
+			connectLog(info, count)
+			// On the client side, we start checking for updates after we successfully connect
+			// to the server, which, depending on whether lazy mode is enabled, may or may not
+			// be immediately after the client starts. We don't want the update check request
+			// to interfere with the lazy mode option.
+			if count == 1 && !disableUpdateCheck {
+				go runCheckUpdateClient(c)
+			}
+		}, config.Lazy)
 	if err != nil {
 		logger.Fatal("failed to initialize client", zap.Error(err))
 	}
