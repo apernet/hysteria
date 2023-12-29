@@ -252,11 +252,12 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 		if c.TLS.Cert == "" || c.TLS.Key == "" {
 			return configError{Field: "tls", Err: errors.New("empty cert or key path")}
 		}
-		cert, err := tls.LoadX509KeyPair(c.TLS.Cert, c.TLS.Key)
-		if err != nil {
-			return configError{Field: "tls", Err: err}
+		// Use GetCertificate instead of Certificates so that
+		// users can update the cert without restarting the server.
+		hyConfig.TLSConfig.GetCertificate = func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			cert, err := tls.LoadX509KeyPair(c.TLS.Cert, c.TLS.Key)
+			return &cert, err
 		}
-		hyConfig.TLSConfig.Certificates = []tls.Certificate{cert}
 	} else {
 		// ACME
 		dataDir := c.ACME.Dir
