@@ -47,7 +47,7 @@ vim docker-compose.yml
 version: "3.9"
 services:
   hysteria:
-    image: ghcr.io/cedar2025/hysteria:latest
+    image: ghcr.io/wo5zhidaoa/hysteria:latest
     container_name: hysteria
     restart: always
     network_mode: "host"
