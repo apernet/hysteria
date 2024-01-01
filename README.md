@@ -6,8 +6,6 @@
 本项目基于hysteria官方内核二次开发，添加了从 Xboard/V2board 获取节点信息、用户鉴权信息与上报用户流量的功能。
 性能方面已经由hysteria2内核作者亲自指导优化过了。
 
-### TG交流群
-欢迎加入交流群 [点击加入](https://t.me/+DcRt8AB2VbI2Yzc1)
 
 准备工作：默认在root目录下开始。
 配置ssl证书，使用acme配置证书要占用80端口，CentOS自行把`apt`改成`yum`。
