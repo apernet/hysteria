@@ -78,7 +78,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.repository }}:latest,${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.repository }},${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.repository }}:${{ steps.get_version.outputs.version }}
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}:latest,${{ env.REGISTRY }}/${{ github.repository }},${{ env.REGISTRY }}/${{ github.repository }}:${{ steps.get_version.outputs.version }}
 
       # Sign the resulting Docker image digest except on PRs.
       # This will only write to the public Rekor transparency log when the Docker
