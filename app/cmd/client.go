@@ -66,6 +66,9 @@ type clientConfig struct {
 	TCPTProxy     *tcpTProxyConfig      `mapstructure:"tcpTProxy"`
 	UDPTProxy     *udpTProxyConfig      `mapstructure:"udpTProxy"`
 	TCPRedirect   *tcpRedirectConfig    `mapstructure:"tcpRedirect"`
+
+	// do extra operations on conn
+	ConnController func(fd uintptr) `mapstructure:"connController"`
 }
 
 type clientConfigTransportUDP struct {
@@ -375,10 +378,10 @@ func (c *clientConfig) parseURI() bool {
 }
 
 // Config validates the fields and returns a ready-to-use Hysteria client config
-func (c *clientConfig) Config(connController func(fd uintptr)) (*client.Config, error) {
+func (c *clientConfig) Config() (*client.Config, error) {
 	c.parseURI()
 	hyConfig := &client.Config{
-		ConnController: connController,
+		ConnController: c.ConnController,
 	}
 	fillers := []func(*client.Config) error{
 		c.fillServerAddr,
