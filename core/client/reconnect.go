@@ -58,52 +58,60 @@ func (rc *reconnectableClientImpl) reconnect() error {
 
 func (rc *reconnectableClientImpl) TCP(addr string) (net.Conn, error) {
 	rc.m.Lock()
-	defer rc.m.Unlock()
 	if rc.closed {
+		rc.m.Unlock()
 		return nil, coreErrs.ClosedError{}
 	}
 	if rc.client == nil {
 		// No active connection, connect first
 		if err := rc.reconnect(); err != nil {
+			rc.m.Unlock()
 			return nil, err
 		}
 	}
-	conn, err := rc.client.TCP(addr)
+	client := rc.client
+	rc.m.Unlock()
+
+	conn, err := client.TCP(addr)
 	if _, ok := err.(coreErrs.ClosedError); ok {
-		// Connection closed, reconnect
-		if err := rc.reconnect(); err != nil {
-			return nil, err
+		// Connection closed, set client to nil for reconnect next time
+		rc.m.Lock()
+		// In case the client has already been reconnected by another goroutine
+		if rc.client == client {
+			rc.client = nil
 		}
-		return rc.client.TCP(addr)
-	} else {
-		// OK or some other temporary error
-		return conn, err
+		rc.m.Unlock()
 	}
+	return conn, err
 }
 
 func (rc *reconnectableClientImpl) UDP() (HyUDPConn, error) {
 	rc.m.Lock()
-	defer rc.m.Unlock()
 	if rc.closed {
+		rc.m.Unlock()
 		return nil, coreErrs.ClosedError{}
 	}
 	if rc.client == nil {
 		// No active connection, connect first
 		if err := rc.reconnect(); err != nil {
+			rc.m.Unlock()
 			return nil, err
 		}
 	}
-	conn, err := rc.client.UDP()
+	client := rc.client
+	rc.m.Unlock()
+
+	conn, err := client.UDP()
 	if _, ok := err.(coreErrs.ClosedError); ok {
-		// Connection closed, reconnect
-		if err := rc.reconnect(); err != nil {
-			return nil, err
+		// Connection closed, set client to nil for reconnect next time
+		rc.m.Lock()
+		// In case the client has already been reconnected by another goroutine
+		if rc.client == client {
+			rc.client = nil
 		}
-		return rc.client.UDP()
-	} else {
-		// OK or some other temporary error
-		return conn, err
+		rc.m.Unlock()
 	}
+	return conn, err
 }
 
 func (rc *reconnectableClientImpl) Close() error {
