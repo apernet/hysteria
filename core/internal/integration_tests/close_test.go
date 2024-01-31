@@ -236,7 +236,7 @@ func TestClientServerServerShutdown(t *testing.T) {
 	// Close the server - expect the client to return ClosedError for both TCP & UDP calls.
 	_ = s.Close()
 
-	_, err = c.TCP("whatever")
+	_, err = c.TCP("google.com:443")
 	_, ok := err.(errors.ClosedError)
 	assert.True(t, ok)
 

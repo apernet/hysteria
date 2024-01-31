@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	udpBufferSize = 4096
+	udpBufferSize              = 4096
 	defaultStreamReceiveWindow = 8388608                            // 8MB
 	defaultConnReceiveWindow   = defaultStreamReceiveWindow * 5 / 2 // 20MB
 	defaultMaxIdleTimeout      = 30 * time.Second
@@ -84,8 +84,8 @@ type Config struct {
 	FastOpen        bool
 	Outbound        Outbound
 	Outbounds       []outbounds.OutboundEntry
-	GeoLoader		acl.GeoLoader
-	ACLs			string
+	GeoLoader       acl.GeoLoader
+	ACLs            string
 
 	filled bool // whether the fields have been verified and filled
 }

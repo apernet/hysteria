@@ -43,13 +43,13 @@ func TestUDPSessionManager(t *testing.T) {
 		Addr:      "random.site.com:9000",
 		Data:      []byte("hello friend"),
 	}
-	host, port, err := net.SplitHostPort(msg1.Addr)
+	msg1_host, msg1_port, err := net.SplitHostPort(msg1.Addr)
 	assert.NoError(t, err)
-	portInt, err := strconv.Atoi(port)
+	msg1_portInt, err := strconv.Atoi(msg1_port)
 	assert.NoError(t, err)
 	addr := &outbounds.AddrEx{
-		Host: host,
-		Port: uint16(portInt),
+		Host: msg1_host,
+		Port: uint16(msg1_portInt),
 	}
 	io.EXPECT().SendMessage(mock.Anything, msg1).Return(nil).Once()
 	_, err = udpConn1.WriteTo(msg1.Data, addr)
@@ -63,13 +63,13 @@ func TestUDPSessionManager(t *testing.T) {
 		Addr:      "another.site.org:8000",
 		Data:      []byte("mr robot"),
 	}
-	host, port, err = net.SplitHostPort(msg2.Addr)
+	msg2_host, msg2_port, err := net.SplitHostPort(msg2.Addr)
 	assert.NoError(t, err)
-	portInt, err = strconv.Atoi(port)
+	msg2_portInt, err := strconv.Atoi(msg2_port)
 	assert.NoError(t, err)
 	addr = &outbounds.AddrEx{
-		Host: host,
-		Port: uint16(portInt),
+		Host: msg2_host,
+		Port: uint16(msg2_portInt),
 	}
 	io.EXPECT().SendMessage(mock.Anything, msg2).Return(nil).Once()
 	_, err = udpConn2.WriteTo(msg2.Data, addr)
@@ -88,7 +88,8 @@ func TestUDPSessionManager(t *testing.T) {
 	n, addr, err := udpConn1.ReadFrom(buf)
 	assert.NoError(t, err)
 	assert.Equal(t, buf[:n], respMsg1.Data)
-	assert.Equal(t, addr, respMsg1.Addr)
+	assert.Equal(t, addr.Host, msg1_host)
+	assert.Equal(t, int(addr.Port), msg1_portInt)
 
 	respMsg2 := &protocol.UDPMessage{
 		SessionID: 2,
@@ -102,7 +103,8 @@ func TestUDPSessionManager(t *testing.T) {
 	n, addr, err = udpConn2.ReadFrom(buf)
 	assert.NoError(t, err)
 	assert.Equal(t, buf[:n], respMsg2.Data)
-	assert.Equal(t, addr, respMsg2.Addr)
+	assert.Equal(t, addr.Host, msg2_host)
+	assert.Equal(t, int(addr.Port), msg2_portInt)
 
 	respMsg3 := &protocol.UDPMessage{
 		SessionID: 55, // Bogus session ID that doesn't exist

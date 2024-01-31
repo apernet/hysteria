@@ -157,8 +157,13 @@ func (ob *Hy2ClientOutbound) connect() (*HandshakeInfo, error) {
 			}
 		}
 
-		// we use the first entry of the outbound by default
-		uOb = ob.config.Outbounds[0].Outbound
+		if ob.config.Outbounds == nil {
+			// fallback
+			uOb = ob
+		} else {
+			// we use the first entry of the outbound by default
+			uOb = ob.config.Outbounds[0].Outbound
+		}
 
 		// ACL
 		if ob.config.ACLs != "" {
