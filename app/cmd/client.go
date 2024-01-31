@@ -328,12 +328,13 @@ func (c *clientConfig) fillOutbounds(hyConfig *client.Config) error {
 		// will have their traffic proxied by remote hysteria server
 		obs = []outbounds.OutboundEntry{
 			{
-				Name:     "direct",
-				Outbound: outbounds.NewDirectOutboundSimple(outbounds.DirectOutboundModeAuto),
-			},
-			{
 				Name:     "default",
 				Outbound: nil,
+			},
+			{
+				Name: "direct",
+				Outbound: outbounds.NewDirectOutboundSimple(outbounds.
+					DirectOutboundModeAuto),
 			},
 		}
 	} else {

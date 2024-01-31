@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -170,8 +169,6 @@ func (ob *Hy2ClientOutbound) connect() (*HandshakeInfo, error) {
 				panic(err)
 			}
 		}
-
-		fmt.Println(ob.config.ACLs)
 
 		ob.config.Outbound = &PluggableClientOutboundAdapter{PluggableOutbound: uOb}
 	}
