@@ -3,18 +3,76 @@ package client
 import (
 	"crypto/x509"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/apernet/hysteria/core/errors"
 	"github.com/apernet/hysteria/core/internal/pmtud"
+	"github.com/apernet/hysteria/extras/outbounds"
+	"github.com/apernet/hysteria/extras/outbounds/acl"
 )
 
 const (
+	udpBufferSize = 4096
 	defaultStreamReceiveWindow = 8388608                            // 8MB
 	defaultConnReceiveWindow   = defaultStreamReceiveWindow * 5 / 2 // 20MB
 	defaultMaxIdleTimeout      = 30 * time.Second
 	defaultKeepAlivePeriod     = 10 * time.Second
 )
+
+// Outbound provides the implementation of how the server should connect to remote servers.
+// Although UDP includes a reqAddr, the implementation does not necessarily have to use it
+// to make a "connected" UDP connection that does not accept packets from other addresses.
+// In fact, the default implementation simply uses net.ListenUDP for a "full-cone" behavior.
+type Outbound interface {
+	TCP(reqAddr string) (net.Conn, error)
+	UDP(reqAddr string) (UDPConn, error)
+}
+
+// UDPConn is like net.PacketConn, but uses string for addresses.
+type UDPConn interface {
+	ReadFrom(b []byte) (int, string, error)
+	WriteTo(b []byte, addr string) (int, error)
+	Close() error
+}
+
+type PluggableClientOutboundAdapter struct {
+	outbounds.PluggableOutbound
+}
+
+func (a *PluggableClientOutboundAdapter) TCP(reqAddr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(reqAddr)
+	if err != nil {
+		return nil, err
+	}
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, err
+	}
+	return a.PluggableOutbound.TCP(&outbounds.AddrEx{
+		Host: host,
+		Port: uint16(portInt),
+	})
+}
+
+func (a *PluggableClientOutboundAdapter) UDP(reqAddr string) (UDPConn, error) {
+	host, port, err := net.SplitHostPort(reqAddr)
+	if err != nil {
+		return nil, err
+	}
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := a.PluggableOutbound.UDP(&outbounds.AddrEx{
+		Host: host,
+		Port: uint16(portInt),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &outbounds.UdpConnAdapter{UDPConn: conn}, nil
+}
 
 type Config struct {
 	ConnFactory     ConnFactory
@@ -24,6 +82,10 @@ type Config struct {
 	QUICConfig      QUICConfig
 	BandwidthConfig BandwidthConfig
 	FastOpen        bool
+	Outbound        Outbound
+	Outbounds       []outbounds.OutboundEntry
+	GeoLoader		acl.GeoLoader
+	ACLs			string
 
 	filled bool // whether the fields have been verified and filled
 }

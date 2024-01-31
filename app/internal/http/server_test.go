@@ -24,11 +24,19 @@ func (c *mockHyClient) TCP(addr string) (net.Conn, error) {
 	return net.Dial("tcp", addr)
 }
 
-func (c *mockHyClient) UDP() (client.HyUDPConn, error) {
+func (c *mockHyClient) UDP() (client.UDPConn, error) {
 	return nil, errors.New("not implemented")
 }
 
 func (c *mockHyClient) Close() error {
+	return nil
+}
+
+func (rc *mockHyClient) Outbound() *client.Hy2ClientOutbound {
+	return nil
+}
+
+func (c *mockHyClient) Config() *client.Config {
 	return nil
 }
 

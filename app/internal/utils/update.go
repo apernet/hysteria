@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/apernet/hysteria/core/client"
+	"github.com/apernet/hysteria/extras/outbounds"
 )
 
 const (
@@ -55,7 +57,13 @@ func NewClientUpdateChecker(currentVersion, platform, architecture, channel stri
 			Transport: &http.Transport{
 				DialContext: func(_ context.Context, network, addr string) (net.Conn, error) {
 					// Unfortunately HyClient doesn't support context for now
-					return hyClient.TCP(addr)
+					host, port, _ := net.SplitHostPort(addr)
+					portInt, _ := strconv.Atoi(port)
+
+					return hyClient.Outbound().TCP(&outbounds.AddrEx{
+						Host: host,
+						Port: uint16(portInt),
+					})
 				},
 			},
 		},

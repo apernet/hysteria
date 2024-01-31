@@ -63,7 +63,7 @@ func (s *tcpStressor) Run(t *testing.T) {
 }
 
 type udpStressor struct {
-	ListenFunc func() (client.HyUDPConn, error)
+	ListenFunc func() (client.UDPConn, error)
 	ServerAddr string
 	Size       int
 	Count      int
@@ -100,19 +100,20 @@ func (s *udpStressor) Run(t *testing.T) {
 					// Sending routine
 					for i := 0; i < s.Count; i++ {
 						_ = limiter.WaitN(context.Background(), len(sData))
-						_ = conn.Send(sData, s.ServerAddr)
+						_, _ = conn.WriteTo(sData, s.ServerAddr)
 					}
 				}()
 
 				minCount := s.Count * 8 / 10 // Tolerate 20% packet loss
+				buf := make([]byte, udpBufferSize)
 				for i := 0; i < minCount; i++ {
-					rData, _, err := conn.Receive()
+					n, _, err := conn.ReadFrom(buf)
 					if err != nil {
 						errChan <- err
 						return
 					}
-					if len(rData) != len(sData) {
-						errChan <- fmt.Errorf("incomplete data received: %d/%d bytes", len(rData), len(sData))
+					if len(buf[:n]) != len(sData) {
+						errChan <- fmt.Errorf("incomplete data received: %d/%d bytes", len(buf[:n]), len(sData))
 						return
 					}
 				}

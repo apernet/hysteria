@@ -148,7 +148,7 @@ func TestClientServerUDPIdleTimeout(t *testing.T) {
 	assert.NoError(t, err)
 	// Client sends 4 packets
 	for i := 0; i < 4; i++ {
-		err = cu.Send([]byte("happy"), addr)
+		_, err = cu.WriteTo([]byte("happy"), addr)
 		assert.NoError(t, err)
 		time.Sleep(1 * time.Second)
 	}
@@ -159,10 +159,11 @@ func TestClientServerUDPIdleTimeout(t *testing.T) {
 			time.Sleep(1 * time.Second)
 		}
 	}()
+	buf := make([]byte, udpBufferSize)
 	for i := 0; i < 4; i++ {
-		bs, rAddr, err := cu.Receive()
+		n, rAddr, err := cu.ReadFrom(buf)
 		assert.NoError(t, err)
-		assert.Equal(t, "sad", string(bs))
+		assert.Equal(t, "sad", string(buf[:n]))
 		assert.Equal(t, addr, rAddr)
 	}
 	// Now we wait for 3 seconds, the server should close the UDP session.

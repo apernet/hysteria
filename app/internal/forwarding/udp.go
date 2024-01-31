@@ -35,23 +35,25 @@ func (t *atomicTime) Get() time.Time {
 }
 
 type sessionEntry struct {
-	HyConn  client.HyUDPConn
+	HyConn  client.UDPConn
 	Last    *atomicTime
 	Timeout bool // true if the session is closed due to timeout
 }
 
 func (e *sessionEntry) Feed(data []byte, addr string) error {
 	e.Last.Set(time.Now())
-	return e.HyConn.Send(data, addr)
+	_, err := e.HyConn.WriteTo(data, addr)
+	return err
 }
 
 func (e *sessionEntry) ReceiveLoop(pc net.PacketConn, addr net.Addr) error {
+	buf := make([]byte, udpBufferSize)
 	for {
-		data, _, err := e.HyConn.Receive()
+		n, _, err := e.HyConn.ReadFrom(buf)
 		if err != nil {
 			return err
 		}
-		_, err = pc.WriteTo(data, addr)
+		_, err = pc.WriteTo(buf[:n], addr)
 		if err != nil {
 			return err
 		}

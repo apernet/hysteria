@@ -173,12 +173,13 @@ func TestClientServerUDPEcho(t *testing.T) {
 	defer conn.Close()
 
 	// Send and receive data
+	buf := make([]byte, udpBufferSize)
 	sData := []byte("hello world")
-	err = conn.Send(sData, echoAddr)
+	_, err = conn.WriteTo(sData, echoAddr)
 	assert.NoError(t, err)
-	rData, rAddr, err := conn.Receive()
+	n, rAddr, err := conn.ReadFrom(buf)
 	assert.NoError(t, err)
-	assert.Equal(t, sData, rData)
+	assert.Equal(t, sData, buf[:n])
 	assert.Equal(t, echoAddr, rAddr)
 }
 

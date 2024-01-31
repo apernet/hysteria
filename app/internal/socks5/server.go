@@ -220,7 +220,7 @@ func (s *Server) handleUDP(conn net.Conn, req *socks5.Request) {
 	closeErr = <-errChan
 }
 
-func (s *Server) udpServer(udpConn *net.UDPConn, hyUDP client.HyUDPConn) error {
+func (s *Server) udpServer(udpConn *net.UDPConn, hyUDP client.UDPConn) error {
 	var clientAddr *net.UDPAddr
 	buf := make([]byte, udpBufferSize)
 	// local -> remote
@@ -243,8 +243,9 @@ func (s *Server) udpServer(udpConn *net.UDPConn, hyUDP client.HyUDPConn) error {
 			// Now that we know the client's address, we can start the
 			// remote -> local direction.
 			go func() {
+				buf := make([]byte, udpBufferSize)
 				for {
-					bs, from, err := hyUDP.Receive()
+					n, from, err := hyUDP.ReadFrom(buf)
 					if err != nil {
 						// Close the UDP conn so that the local -> remote direction will exit
 						_ = udpConn.Close()
@@ -260,7 +261,7 @@ func (s *Server) udpServer(udpConn *net.UDPConn, hyUDP client.HyUDPConn) error {
 						// So we must remove it here.
 						addr = addr[1:]
 					}
-					d := socks5.NewDatagram(atyp, addr, port, bs)
+					d := socks5.NewDatagram(atyp, addr, port, buf[:n])
 					_, _ = udpConn.WriteToUDP(d.Bytes(), clientAddr)
 				}
 			}()
@@ -269,7 +270,7 @@ func (s *Server) udpServer(udpConn *net.UDPConn, hyUDP client.HyUDPConn) error {
 			continue
 		}
 		// Send to remote
-		_ = hyUDP.Send(d.Data, d.Address())
+		_, _ = hyUDP.WriteTo(d.Data, d.Address())
 	}
 }
 

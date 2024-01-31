@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"github.com/apernet/hysteria/core/internal/congestion"
 	"github.com/apernet/hysteria/core/internal/protocol"
 	"github.com/apernet/hysteria/core/internal/utils"
+	"github.com/apernet/hysteria/extras/outbounds"
 
 	"github.com/apernet/quic-go"
 	"github.com/apernet/quic-go/http3"
@@ -24,13 +26,9 @@ const (
 
 type Client interface {
 	TCP(addr string) (net.Conn, error)
-	UDP() (HyUDPConn, error)
-	Close() error
-}
-
-type HyUDPConn interface {
-	Receive() ([]byte, string, error)
-	Send([]byte, string) error
+	UDP() (UDPConn, error)
+	Config() *Config
+	Outbound() *Hy2ClientOutbound
 	Close() error
 }
 
@@ -43,8 +41,10 @@ func NewClient(config *Config) (Client, *HandshakeInfo, error) {
 	if err := config.verifyAndFill(); err != nil {
 		return nil, nil, err
 	}
-	c := &clientImpl{
-		config: config,
+	c := &ClientImpl{
+		Hy2ClientOutbound{
+			config: config,
+		},
 	}
 	info, err := c.connect()
 	if err != nil {
@@ -53,7 +53,7 @@ func NewClient(config *Config) (Client, *HandshakeInfo, error) {
 	return c, info, nil
 }
 
-type clientImpl struct {
+type Hy2ClientOutbound struct {
 	config *Config
 
 	pktConn net.PacketConn
@@ -62,26 +62,26 @@ type clientImpl struct {
 	udpSM *udpSessionManager
 }
 
-func (c *clientImpl) connect() (*HandshakeInfo, error) {
-	pktConn, err := c.config.ConnFactory.New(c.config.ServerAddr)
+func (ob *Hy2ClientOutbound) connect() (*HandshakeInfo, error) {
+	pktConn, err := ob.config.ConnFactory.New(ob.config.ServerAddr)
 	if err != nil {
 		return nil, err
 	}
 	// Convert config to TLS config & QUIC config
 	tlsConfig := &tls.Config{
-		ServerName:            c.config.TLSConfig.ServerName,
-		InsecureSkipVerify:    c.config.TLSConfig.InsecureSkipVerify,
-		VerifyPeerCertificate: c.config.TLSConfig.VerifyPeerCertificate,
-		RootCAs:               c.config.TLSConfig.RootCAs,
+		ServerName:            ob.config.TLSConfig.ServerName,
+		InsecureSkipVerify:    ob.config.TLSConfig.InsecureSkipVerify,
+		VerifyPeerCertificate: ob.config.TLSConfig.VerifyPeerCertificate,
+		RootCAs:               ob.config.TLSConfig.RootCAs,
 	}
 	quicConfig := &quic.Config{
-		InitialStreamReceiveWindow:     c.config.QUICConfig.InitialStreamReceiveWindow,
-		MaxStreamReceiveWindow:         c.config.QUICConfig.MaxStreamReceiveWindow,
-		InitialConnectionReceiveWindow: c.config.QUICConfig.InitialConnectionReceiveWindow,
-		MaxConnectionReceiveWindow:     c.config.QUICConfig.MaxConnectionReceiveWindow,
-		MaxIdleTimeout:                 c.config.QUICConfig.MaxIdleTimeout,
-		KeepAlivePeriod:                c.config.QUICConfig.KeepAlivePeriod,
-		DisablePathMTUDiscovery:        c.config.QUICConfig.DisablePathMTUDiscovery,
+		InitialStreamReceiveWindow:     ob.config.QUICConfig.InitialStreamReceiveWindow,
+		MaxStreamReceiveWindow:         ob.config.QUICConfig.MaxStreamReceiveWindow,
+		InitialConnectionReceiveWindow: ob.config.QUICConfig.InitialConnectionReceiveWindow,
+		MaxConnectionReceiveWindow:     ob.config.QUICConfig.MaxConnectionReceiveWindow,
+		MaxIdleTimeout:                 ob.config.QUICConfig.MaxIdleTimeout,
+		KeepAlivePeriod:                ob.config.QUICConfig.KeepAlivePeriod,
+		DisablePathMTUDiscovery:        ob.config.QUICConfig.DisablePathMTUDiscovery,
 		EnableDatagrams:                true,
 	}
 	// Prepare RoundTripper
@@ -91,7 +91,7 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 		TLSClientConfig: tlsConfig,
 		QuicConfig:      quicConfig,
 		Dial: func(ctx context.Context, _ string, tlsCfg *tls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
-			qc, err := quic.DialEarly(ctx, pktConn, c.config.ServerAddr, tlsCfg, cfg)
+			qc, err := quic.DialEarly(ctx, pktConn, ob.config.ServerAddr, tlsCfg, cfg)
 			if err != nil {
 				return nil, err
 			}
@@ -110,8 +110,8 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 		Header: make(http.Header),
 	}
 	protocol.AuthRequestToHeader(req.Header, protocol.AuthRequest{
-		Auth: c.config.Auth,
-		Rx:   c.config.BandwidthConfig.MaxRx,
+		Auth: ob.config.Auth,
+		Rx:   ob.config.BandwidthConfig.MaxRx,
 	})
 	resp, err := rt.RoundTrip(req)
 	if err != nil {
@@ -136,9 +136,9 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 	} else {
 		// actualTx = min(serverRx, clientTx)
 		actualTx = authResp.Rx
-		if actualTx == 0 || actualTx > c.config.BandwidthConfig.MaxTx {
+		if actualTx == 0 || actualTx > ob.config.BandwidthConfig.MaxTx {
 			// Server doesn't have a limit, or our clientTx is smaller than serverRx
-			actualTx = c.config.BandwidthConfig.MaxTx
+			actualTx = ob.config.BandwidthConfig.MaxTx
 		}
 		if actualTx > 0 {
 			congestion.UseBrutal(conn, actualTx)
@@ -149,10 +149,37 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 	}
 	_ = resp.Body.Close()
 
-	c.pktConn = pktConn
-	c.conn = conn
+	if ob.config.Outbound == nil {
+		var uOb outbounds.PluggableOutbound // "unified" outbound
+
+		for n, entry := range ob.config.Outbounds {
+			if entry.Outbound == nil {
+				ob.config.Outbounds[n].Outbound = ob
+			}
+		}
+
+		// we use the first entry of the outbound by default
+		uOb = ob.config.Outbounds[0].Outbound
+
+		// ACL
+		if ob.config.ACLs != "" {
+			acl, err := outbounds.NewACLEngineFromString(ob.config.ACLs, ob.config.Outbounds, ob.config.GeoLoader)
+			if err == nil {
+				uOb = acl
+			} else {
+				panic(err)
+			}
+		}
+
+		fmt.Println(ob.config.ACLs)
+
+		ob.config.Outbound = &PluggableClientOutboundAdapter{PluggableOutbound: uOb}
+	}
+
+	ob.pktConn = pktConn
+	ob.conn = conn
 	if authResp.UDPEnabled {
-		c.udpSM = newUDPSessionManager(&udpIOImpl{Conn: conn})
+		ob.udpSM = newUDPSessionManager(&udpIOImpl{Conn: conn})
 	}
 	return &HandshakeInfo{
 		UDPEnabled: authResp.UDPEnabled,
@@ -161,33 +188,33 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 }
 
 // openStream wraps the stream with QStream, which handles Close() properly
-func (c *clientImpl) openStream() (quic.Stream, error) {
-	stream, err := c.conn.OpenStream()
+func (ob *Hy2ClientOutbound) openStream() (quic.Stream, error) {
+	stream, err := ob.conn.OpenStream()
 	if err != nil {
 		return nil, err
 	}
 	return &utils.QStream{Stream: stream}, nil
 }
 
-func (c *clientImpl) TCP(addr string) (net.Conn, error) {
-	stream, err := c.openStream()
+func (ob *Hy2ClientOutbound) TCP(reqAddr *outbounds.AddrEx) (net.Conn, error) {
+	stream, err := ob.openStream()
 	if err != nil {
 		return nil, wrapIfConnectionClosed(err)
 	}
 	// Send request
-	err = protocol.WriteTCPRequest(stream, addr)
+	err = protocol.WriteTCPRequest(stream, reqAddr.String())
 	if err != nil {
 		_ = stream.Close()
 		return nil, wrapIfConnectionClosed(err)
 	}
-	if c.config.FastOpen {
+	if ob.config.FastOpen {
 		// Don't wait for the response when fast open is enabled.
 		// Return the connection immediately, defer the response handling
 		// to the first Read() call.
 		return &tcpConn{
 			Orig:             stream,
-			PseudoLocalAddr:  c.conn.LocalAddr(),
-			PseudoRemoteAddr: c.conn.RemoteAddr(),
+			PseudoLocalAddr:  ob.conn.LocalAddr(),
+			PseudoRemoteAddr: ob.conn.RemoteAddr(),
 			Established:      false,
 		}, nil
 	}
@@ -203,23 +230,52 @@ func (c *clientImpl) TCP(addr string) (net.Conn, error) {
 	}
 	return &tcpConn{
 		Orig:             stream,
-		PseudoLocalAddr:  c.conn.LocalAddr(),
-		PseudoRemoteAddr: c.conn.RemoteAddr(),
+		PseudoLocalAddr:  ob.conn.LocalAddr(),
+		PseudoRemoteAddr: ob.conn.RemoteAddr(),
 		Established:      true,
 	}, nil
 }
 
-func (c *clientImpl) UDP() (HyUDPConn, error) {
-	if c.udpSM == nil {
+func (ob *Hy2ClientOutbound) UDP(reqAddr *outbounds.AddrEx) (outbounds.UDPConn, error) {
+	if ob.udpSM == nil {
 		return nil, coreErrs.DialError{Message: "UDP not enabled"}
 	}
-	return c.udpSM.NewUDP()
+	return ob.udpSM.NewUDP()
 }
 
-func (c *clientImpl) Close() error {
-	_ = c.conn.CloseWithError(closeErrCodeOK, "")
-	_ = c.pktConn.Close()
+func (ob *Hy2ClientOutbound) Close() error {
+	_ = ob.conn.CloseWithError(closeErrCodeOK, "")
+	_ = ob.pktConn.Close()
 	return nil
+}
+
+type ClientImpl struct {
+	ob Hy2ClientOutbound
+}
+
+// Outbound implements Client.
+func (c *ClientImpl) Outbound() *Hy2ClientOutbound {
+	return &c.ob
+}
+
+func (c *ClientImpl) connect() (*HandshakeInfo, error) {
+	return c.ob.connect()
+}
+
+func (c *ClientImpl) Config() *Config {
+	return c.ob.config
+}
+
+func (c *ClientImpl) TCP(addr string) (net.Conn, error) {
+	return c.ob.config.Outbound.TCP(addr)
+}
+
+func (c *ClientImpl) UDP() (UDPConn, error) {
+	return c.ob.config.Outbound.UDP("localhost:0")
+}
+
+func (c *ClientImpl) Close() error {
+	return c.ob.Close()
 }
 
 // wrapIfConnectionClosed checks if the error returned by quic-go

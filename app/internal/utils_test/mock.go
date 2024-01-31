@@ -16,13 +16,21 @@ func (c *MockEchoHyClient) TCP(addr string) (net.Conn, error) {
 	}, nil
 }
 
-func (c *MockEchoHyClient) UDP() (client.HyUDPConn, error) {
+func (c *MockEchoHyClient) UDP() (client.UDPConn, error) {
 	return &mockEchoUDPConn{
 		BufChan: make(chan mockEchoUDPPacket, 10),
 	}, nil
 }
 
 func (c *MockEchoHyClient) Close() error {
+	return nil
+}
+
+func (rc *MockEchoHyClient) Outbound() *client.Hy2ClientOutbound {
+	return nil
+}
+
+func (c *MockEchoHyClient) Config() *client.Config {
 	return nil
 }
 
@@ -83,21 +91,22 @@ type mockEchoUDPConn struct {
 	BufChan chan mockEchoUDPPacket
 }
 
-func (c *mockEchoUDPConn) Receive() ([]byte, string, error) {
+func (c *mockEchoUDPConn) ReadFrom(d []byte) (int, string, error) {
 	p := <-c.BufChan
 	if p.Data == nil {
 		// EOF
-		return nil, "", io.EOF
+		return 0, "", io.EOF
 	}
-	return p.Data, p.Addr, nil
+	copy(d, p.Data)
+	return len(d), p.Addr, nil
 }
 
-func (c *mockEchoUDPConn) Send(bytes []byte, s string) error {
+func (c *mockEchoUDPConn) WriteTo(bytes []byte, s string) (int, error) {
 	c.BufChan <- mockEchoUDPPacket{
 		Data: bytes,
 		Addr: s,
 	}
-	return nil
+	return len(bytes), nil
 }
 
 func (c *mockEchoUDPConn) Close() error {

@@ -68,7 +68,7 @@ func (r *UDPTProxy) newPair(srcAddr, dstAddr *net.UDPAddr, initPkt []byte) {
 		return
 	}
 	// Send the first packet
-	err = hyConn.Send(initPkt, dstAddr.String())
+	_, err = hyConn.WriteTo(initPkt, dstAddr.String())
 	if err != nil {
 		_ = conn.Close()
 		_ = hyConn.Close()
@@ -91,17 +91,18 @@ func (r *UDPTProxy) newPair(srcAddr, dstAddr *net.UDPAddr, initPkt []byte) {
 	}()
 }
 
-func (r *UDPTProxy) forwarding(conn *net.UDPConn, hyConn client.HyUDPConn, dst string) error {
+func (r *UDPTProxy) forwarding(conn *net.UDPConn, hyConn client.UDPConn, dst string) error {
 	errChan := make(chan error, 2)
 	// Local <- Remote
 	go func() {
+		buf := make([]byte, udpBufferSize)
 		for {
-			bs, _, err := hyConn.Receive()
+			n, _, err := hyConn.ReadFrom(buf)
 			if err != nil {
 				errChan <- err
 				return
 			}
-			_, err = conn.Write(bs)
+			_, err = conn.Write(buf[:n])
 			if err != nil {
 				errChan <- err
 				return
@@ -116,7 +117,7 @@ func (r *UDPTProxy) forwarding(conn *net.UDPConn, hyConn client.HyUDPConn, dst s
 			_ = r.updateConnDeadline(conn)
 			n, err := conn.Read(buf)
 			if n > 0 {
-				err := hyConn.Send(buf[:n], dst)
+				_, err := hyConn.WriteTo(buf[:n], dst)
 				if err != nil {
 					errChan <- err
 					return

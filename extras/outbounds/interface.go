@@ -97,14 +97,14 @@ func (a *PluggableOutboundAdapter) UDP(reqAddr string) (server.UDPConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &udpConnAdapter{conn}, nil
+	return &UdpConnAdapter{conn}, nil
 }
 
-type udpConnAdapter struct {
+type UdpConnAdapter struct {
 	UDPConn
 }
 
-func (u *udpConnAdapter) ReadFrom(b []byte) (int, string, error) {
+func (u *UdpConnAdapter) ReadFrom(b []byte) (int, string, error) {
 	n, addr, err := u.UDPConn.ReadFrom(b)
 	if addr != nil {
 		return n, addr.String(), err
@@ -113,7 +113,7 @@ func (u *udpConnAdapter) ReadFrom(b []byte) (int, string, error) {
 	}
 }
 
-func (u *udpConnAdapter) WriteTo(b []byte, addr string) (int, error) {
+func (u *UdpConnAdapter) WriteTo(b []byte, addr string) (int, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return 0, err
@@ -128,6 +128,6 @@ func (u *udpConnAdapter) WriteTo(b []byte, addr string) (int, error) {
 	})
 }
 
-func (u *udpConnAdapter) Close() error {
+func (u *UdpConnAdapter) Close() error {
 	return u.UDPConn.Close()
 }

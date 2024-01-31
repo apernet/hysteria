@@ -18,6 +18,14 @@ type reconnectableClientImpl struct {
 	closed        bool // permanent close
 }
 
+func (rc *reconnectableClientImpl) Outbound() *Hy2ClientOutbound {
+	return rc.client.Outbound()
+}
+
+func (rc *reconnectableClientImpl) Config() *Config {
+	return rc.client.Config()
+}
+
 // NewReconnectableClient creates a reconnectable client.
 // If lazy is true, the client will not connect until the first call to TCP() or UDP().
 // We use a function for config mainly to delay config evaluation
@@ -99,13 +107,13 @@ func (rc *reconnectableClientImpl) TCP(addr string) (net.Conn, error) {
 	}
 }
 
-func (rc *reconnectableClientImpl) UDP() (HyUDPConn, error) {
+func (rc *reconnectableClientImpl) UDP() (UDPConn, error) {
 	if c, err := rc.clientDo(func(client Client) (interface{}, error) {
 		return client.UDP()
 	}); err != nil {
 		return nil, err
 	} else {
-		return c.(HyUDPConn), nil
+		return c.(UDPConn), nil
 	}
 }
 

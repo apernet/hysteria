@@ -11,6 +11,7 @@ import (
 // This file provides utilities for the integration tests.
 
 const (
+	udpBufferSize = 4096
 	testCertFile = "test.crt"
 	testKeyFile  = "test.key"
 )

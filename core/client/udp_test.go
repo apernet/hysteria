@@ -3,6 +3,8 @@ package client
 import (
 	"errors"
 	io2 "io"
+	"net"
+	"strconv"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 
 	coreErrs "github.com/apernet/hysteria/core/errors"
 	"github.com/apernet/hysteria/core/internal/protocol"
+	"github.com/apernet/hysteria/extras/outbounds"
 )
 
 func TestUDPSessionManager(t *testing.T) {
@@ -40,8 +43,16 @@ func TestUDPSessionManager(t *testing.T) {
 		Addr:      "random.site.com:9000",
 		Data:      []byte("hello friend"),
 	}
+	host, port, err := net.SplitHostPort(msg1.Addr)
+	assert.NoError(t, err)
+	portInt, err := strconv.Atoi(port)
+	assert.NoError(t, err)
+	addr := &outbounds.AddrEx{
+		Host: host,
+		Port: uint16(portInt),
+	}
 	io.EXPECT().SendMessage(mock.Anything, msg1).Return(nil).Once()
-	err = udpConn1.Send(msg1.Data, msg1.Addr)
+	_, err = udpConn1.WriteTo(msg1.Data, addr)
 	assert.NoError(t, err)
 
 	msg2 := &protocol.UDPMessage{
@@ -52,8 +63,16 @@ func TestUDPSessionManager(t *testing.T) {
 		Addr:      "another.site.org:8000",
 		Data:      []byte("mr robot"),
 	}
+	host, port, err = net.SplitHostPort(msg2.Addr)
+	assert.NoError(t, err)
+	portInt, err = strconv.Atoi(port)
+	assert.NoError(t, err)
+	addr = &outbounds.AddrEx{
+		Host: host,
+		Port: uint16(portInt),
+	}
 	io.EXPECT().SendMessage(mock.Anything, msg2).Return(nil).Once()
-	err = udpConn2.Send(msg2.Data, msg2.Addr)
+	_, err = udpConn2.WriteTo(msg2.Data, addr)
 	assert.NoError(t, err)
 
 	respMsg1 := &protocol.UDPMessage{
@@ -65,9 +84,10 @@ func TestUDPSessionManager(t *testing.T) {
 		Data:      []byte("goodbye captain price"),
 	}
 	receiveCh <- respMsg1
-	data, addr, err := udpConn1.Receive()
+	buf := make([]byte, udpBufferSize)
+	n, addr, err := udpConn1.ReadFrom(buf)
 	assert.NoError(t, err)
-	assert.Equal(t, data, respMsg1.Data)
+	assert.Equal(t, buf[:n], respMsg1.Data)
 	assert.Equal(t, addr, respMsg1.Addr)
 
 	respMsg2 := &protocol.UDPMessage{
@@ -79,9 +99,9 @@ func TestUDPSessionManager(t *testing.T) {
 		Data:      []byte("white rose"),
 	}
 	receiveCh <- respMsg2
-	data, addr, err = udpConn2.Receive()
+	n, addr, err = udpConn2.ReadFrom(buf)
 	assert.NoError(t, err)
-	assert.Equal(t, data, respMsg2.Data)
+	assert.Equal(t, buf[:n], respMsg2.Data)
 	assert.Equal(t, addr, respMsg2.Addr)
 
 	respMsg3 := &protocol.UDPMessage{
@@ -98,7 +118,8 @@ func TestUDPSessionManager(t *testing.T) {
 	// Test close UDP connection unblocks Receive()
 	errChan := make(chan error, 1)
 	go func() {
-		_, _, err := udpConn1.Receive()
+		buf := make([]byte, udpBufferSize)
+		_, _, err := udpConn1.ReadFrom(buf)
 		errChan <- err
 	}()
 	assert.NoError(t, udpConn1.Close())
@@ -107,7 +128,8 @@ func TestUDPSessionManager(t *testing.T) {
 	// Test close IO unblocks Receive() and blocks new UDP creation
 	errChan = make(chan error, 1)
 	go func() {
-		_, _, err := udpConn2.Receive()
+		buf := make([]byte, udpBufferSize)
+		_, _, err := udpConn2.ReadFrom(buf)
 		errChan <- err
 	}()
 	close(receiveCh)

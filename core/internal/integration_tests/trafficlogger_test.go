@@ -145,25 +145,26 @@ func TestClientServerTrafficLoggerUDP(t *testing.T) {
 	// Client writes to server
 	trafficLogger.EXPECT().Log("nobody", uint64(9), uint64(0)).Return(true).Once()
 	sobConn.EXPECT().WriteTo([]byte("small sad"), addr).Return(9, nil).Once()
-	err = conn.Send([]byte("small sad"), addr)
+	_, err = conn.WriteTo([]byte("small sad"), addr)
 	assert.NoError(t, err)
 	time.Sleep(1 * time.Second) // Need some time for the server to receive the data
 
+	buf := make([]byte, udpBufferSize)
 	// Client reads from server
 	trafficLogger.EXPECT().Log("nobody", uint64(0), uint64(7)).Return(true).Once()
 	sobConnCh <- []byte("big mad")
-	bs, rAddr, err := conn.Receive()
+	n, rAddr, err := conn.ReadFrom(buf)
 	assert.NoError(t, err)
 	assert.Equal(t, rAddr, addr)
-	assert.Equal(t, "big mad", string(bs))
+	assert.Equal(t, "big mad", string(buf[:n]))
 
 	// Client reads from server again but blocked
 	trafficLogger.EXPECT().Log("nobody", uint64(0), uint64(4)).Return(false).Once()
 	sobConnCh <- []byte("nope")
-	bs, rAddr, err = conn.Receive()
+	n, rAddr, err = conn.ReadFrom(buf)
 	assert.Equal(t, err, io.EOF)
 	assert.Empty(t, rAddr)
-	assert.Empty(t, bs)
+	assert.Empty(t, buf[:n])
 
 	// The client should be disconnected
 	_, err = c.UDP()

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"io"
 	"math/rand"
+	"net"
+	"strconv"
 	"sync"
 
 	"github.com/apernet/quic-go"
@@ -11,6 +13,7 @@ import (
 	coreErrs "github.com/apernet/hysteria/core/errors"
 	"github.com/apernet/hysteria/core/internal/frag"
 	"github.com/apernet/hysteria/core/internal/protocol"
+	"github.com/apernet/hysteria/extras/outbounds"
 )
 
 const (
@@ -30,6 +33,38 @@ type udpConn struct {
 	SendFunc  func([]byte, *protocol.UDPMessage) error
 	CloseFunc func()
 	Closed    bool
+}
+
+func (u *udpConn) ReadFrom(b []byte) (n int, src *outbounds.AddrEx, err error) {
+	dfData, addr, err := u.Receive()
+	if err != nil {
+		return 0, nil, err
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0, nil, err
+	}
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		return 0, nil, err
+	}
+	src = &outbounds.AddrEx{
+		Host: host,
+		Port: uint16(portInt),
+	}
+	if err != nil {
+		return 0, src, err
+	}
+	n = copy(b, dfData)
+	return n, src, nil
+}
+
+func (u *udpConn) WriteTo(b []byte, dst *outbounds.AddrEx) (int, error) {
+	err := u.Send(b, dst.String())
+	if err != nil {
+		return 0, err
+	}
+	return len(b), nil
 }
 
 func (u *udpConn) Receive() ([]byte, string, error) {
@@ -142,7 +177,7 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 }
 
 // NewUDP creates a new UDP session.
-func (m *udpSessionManager) NewUDP() (HyUDPConn, error) {
+func (m *udpSessionManager) NewUDP() (outbounds.UDPConn, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 

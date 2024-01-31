@@ -58,7 +58,6 @@ type clientConfig struct {
 	QUIC          clientConfigQUIC            `mapstructure:"quic"`
 	Bandwidth     clientConfigBandwidth       `mapstructure:"bandwidth"`
 	ACL           clientConfigACL             `mapstructure:"acl"`
-	Resolver      clientConfigResolver        `mapstructure:"resolver"`
 	FastOpen      bool                        `mapstructure:"fastOpen"`
 	Lazy          bool                        `mapstructure:"lazy"`
 	SOCKS5        *socks5Config               `mapstructure:"socks5"`
@@ -143,38 +142,6 @@ type clientConfigOutboundSOCKS5 struct {
 type clientConfigOutboundHTTP struct {
 	URL      string `mapstructure:"url"`
 	Insecure bool   `mapstructure:"insecure"`
-}
-
-type clientConfigResolverTCP struct {
-	Addr    string        `mapstructure:"addr"`
-	Timeout time.Duration `mapstructure:"timeout"`
-}
-
-type clientConfigResolverUDP struct {
-	Addr    string        `mapstructure:"addr"`
-	Timeout time.Duration `mapstructure:"timeout"`
-}
-
-type clientConfigResolverTLS struct {
-	Addr     string        `mapstructure:"addr"`
-	Timeout  time.Duration `mapstructure:"timeout"`
-	SNI      string        `mapstructure:"sni"`
-	Insecure bool          `mapstructure:"insecure"`
-}
-
-type clientConfigResolverHTTPS struct {
-	Addr     string        `mapstructure:"addr"`
-	Timeout  time.Duration `mapstructure:"timeout"`
-	SNI      string        `mapstructure:"sni"`
-	Insecure bool          `mapstructure:"insecure"`
-}
-
-type clientConfigResolver struct {
-	Type  string                    `mapstructure:"type"`
-	TCP   clientConfigResolverTCP   `mapstructure:"tcp"`
-	UDP   clientConfigResolverUDP   `mapstructure:"udp"`
-	TLS   clientConfigResolverTLS   `mapstructure:"tls"`
-	HTTPS clientConfigResolverHTTPS `mapstructure:"https"`
 }
 
 type socks5Config struct {
@@ -354,6 +321,76 @@ func (c *clientConfig) fillFastOpen(hyConfig *client.Config) error {
 	return nil
 }
 
+func (c *clientConfig) fillOutbounds(hyConfig *client.Config) error {
+	var obs []outbounds.OutboundEntry
+	if len(c.Outbounds) == 0 {
+		// The items for which 'outbound' is set to 'nil'
+		// will have their traffic proxied by remote hysteria server
+		obs = []outbounds.OutboundEntry{
+			{
+				Name:     "direct",
+				Outbound: outbounds.NewDirectOutboundSimple(outbounds.DirectOutboundModeAuto),
+			},
+			{
+				Name:     "default",
+				Outbound: nil,
+			},
+		}
+	} else {
+		obs = make([]outbounds.OutboundEntry, len(c.Outbounds))
+		for i, entry := range c.Outbounds {
+			if entry.Name == "" {
+				return configError{Field: "outbounds.name", Err: errors.New("empty outbound name")}
+			}
+			var ob outbounds.PluggableOutbound
+			var err error
+			switch strings.ToLower(entry.Type) {
+			case "default":
+			case "hysteria":
+				ob, err = nil, nil
+			case "direct":
+				ob, err = clientConfigOutboundDirectToOutbound(entry.Direct)
+			case "socks5":
+				ob, err = clientConfigOutboundSOCKS5ToOutbound(entry.SOCKS5)
+			case "http":
+				ob, err = clientConfigOutboundHTTPToOutbound(entry.HTTP)
+			default:
+				err = configError{Field: "outbounds.type", Err: errors.New("unsupported outbound type")}
+			}
+			if err != nil {
+				return err
+			}
+			obs[i] = outbounds.OutboundEntry{Name: entry.Name, Outbound: ob}
+		}
+	}
+	hyConfig.Outbounds = obs
+	return nil
+}
+
+func (c *clientConfig) fillACLs(hyConfig *client.Config) error {
+	// ACL
+	if c.ACL.File != "" && len(c.ACL.Inline) > 0 {
+		return configError{Field: "acl", Err: errors.New("cannot set both acl.file and acl.inline")}
+	}
+	hyConfig.GeoLoader = &utils.GeoLoader{
+		GeoIPFilename:   c.ACL.GeoIP,
+		GeoSiteFilename: c.ACL.GeoSite,
+		UpdateInterval:  c.ACL.GeoUpdateInterval,
+		DownloadFunc:    geoDownloadFunc,
+		DownloadErrFunc: geoDownloadErrFunc,
+	}
+	if c.ACL.File != "" {
+		bs, err := os.ReadFile(c.ACL.File)
+		if err != nil {
+			return configError{Field: "acl", Err: errors.New("cannot load acl file")}
+		}
+		hyConfig.ACLs = string(bs)
+	} else if len(c.ACL.Inline) > 0 {
+		hyConfig.ACLs = strings.Join(c.ACL.Inline, "\n")
+	}
+	return nil
+}
+
 // URI generates a URI for sharing the config with others.
 // Note that only the bare minimum of information required to
 // connect to the server is included in the URI, specifically:
@@ -500,6 +537,8 @@ func (c *clientConfig) Config() (*client.Config, error) {
 		c.fillQUICConfig,
 		c.fillBandwidthConfig,
 		c.fillFastOpen,
+		c.fillOutbounds,
+		c.fillACLs,
 	}
 	for _, f := range fillers {
 		if err := f(hyConfig); err != nil {
