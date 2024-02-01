@@ -12,8 +12,8 @@ import (
 
 const (
 	udpBufferSize = 4096
-	testCertFile = "test.crt"
-	testKeyFile  = "test.key"
+	testCertFile  = "test.crt"
+	testKeyFile   = "test.key"
 )
 
 func serverTLSConfig() server.TLSConfig {
