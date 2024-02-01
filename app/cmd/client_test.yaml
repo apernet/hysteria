@@ -31,6 +31,33 @@ bandwidth:
   up: 200 mbps
   down: 1 gbps
 
+outbounds:
+  - name: default 
+    type: hysteria
+  - name: ob1
+    type: direct
+    direct: 
+      mode: auto
+  - name: ob2
+    type: socks5
+    socks5:
+      addr: 127.0.0.1:1024
+      username: ui 
+      password: PassWord
+  - name: ob3
+    type: http
+    http:
+      url: http://username:password@localhost:8081
+      insecure: false
+
+acl:
+  inline:
+    - reject(all, udp/443)
+    - default(all)
+  geoip: geoip.dat
+  geosite: geosite.dat
+  geoUpdateInterval: 24h
+
 fastOpen: true
 
 lazy: true

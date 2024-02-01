@@ -51,6 +51,42 @@ func TestClientConfig(t *testing.T) {
 			Up:   "200 mbps",
 			Down: "1 gbps",
 		},
+		Outbounds: []clientConfigOutboundEntry{
+			{
+				Name: "default",
+				Type: "hysteria",
+			},
+			{
+				Name: "ob1",
+				Type: "direct",
+				Direct: clientConfigOutboundDirect{
+					Mode: "auto",
+				},
+			},
+			{
+				Name: "ob2",
+				Type: "socks5",
+				SOCKS5: clientConfigOutboundSOCKS5{
+					Addr:     "127.0.0.1:1024",
+					Username: "ui",
+					Password: "PassWord",
+				},
+			},
+			{
+				Name: "ob3",
+				Type: "http",
+				HTTP: clientConfigOutboundHTTP{
+					URL:      "http://username:password@localhost:8081",
+					Insecure: false,
+				},
+			},
+		},
+		ACL: clientConfigACL{
+			Inline:            []string{"reject(all, udp/443)", "default(all)"},
+			GeoIP:             "geoip.dat",
+			GeoSite:           "geosite.dat",
+			GeoUpdateInterval: 24 * time.Hour,
+		},
 		FastOpen: true,
 		Lazy:     true,
 		SOCKS5: &socks5Config{
