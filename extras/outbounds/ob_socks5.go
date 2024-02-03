@@ -31,7 +31,31 @@ type errSOCKS5RequestFailed struct {
 }
 
 func (e errSOCKS5RequestFailed) Error() string {
-	return fmt.Sprintf("SOCKS5 request failed: %d", e.Rep)
+	var msg string
+	// RFC 1928
+	switch e.Rep {
+	case 0x00:
+		msg = "succeeded"
+	case 0x01:
+		msg = "general SOCKS server failure"
+	case 0x02:
+		msg = "connection not allowed by ruleset"
+	case 0x03:
+		msg = "Network unreachable"
+	case 0x04:
+		msg = "Host unreachable"
+	case 0x05:
+		msg = "Connection refused"
+	case 0x06:
+		msg = "TTL expired"
+	case 0x07:
+		msg = "Command not supported"
+	case 0x08:
+		msg = "Address type not supported"
+	default:
+		msg = "undefined"
+	}
+	return fmt.Sprintf("SOCKS5 request failed: %s (%d)", msg, e.Rep)
 }
 
 // socks5Outbound is a PluggableOutbound that connects to the target using
