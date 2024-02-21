@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	github.com/apernet/quic-go v0.40.1-0.20231112225043-e7f3af208dee // indirect
+	github.com/apernet/quic-go v0.41.1-0.20240122005439-5bf4609c416f // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
@@ -23,7 +23,6 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf // indirect
 	go.uber.org/mock v0.3.0 // indirect
