@@ -43,6 +43,10 @@ func (l *GeoLoader) shouldDownload(filename string) bool {
 	if os.IsNotExist(err) {
 		return true
 	}
+	if info.Size() == 0 {
+		// empty files are loadable by v2geo, but we consider it broken
+		return true
+	}
 	dt := time.Now().Sub(info.ModTime())
 	if l.UpdateInterval == 0 {
 		return dt > geoDefaultUpdateInterval
@@ -101,7 +105,15 @@ func (l *GeoLoader) LoadGeoIP() (map[string]*v2geo.GeoIP, error) {
 		autoDL = true
 		filename = geoipFilename
 	}
-	if autoDL && l.shouldDownload(filename) {
+	if autoDL {
+		if !l.shouldDownload(filename) {
+			m, err := v2geo.LoadGeoIP(filename)
+			if err == nil {
+				l.geoipMap = m
+				return m, nil
+			}
+			// file is broken, download it again
+		}
 		err := l.downloadAndCheck(filename, geoipURL, func(filename string) error {
 			_, err := v2geo.LoadGeoIP(filename)
 			return err
@@ -128,7 +140,15 @@ func (l *GeoLoader) LoadGeoSite() (map[string]*v2geo.GeoSite, error) {
 		autoDL = true
 		filename = geositeFilename
 	}
-	if autoDL && l.shouldDownload(filename) {
+	if autoDL {
+		if !l.shouldDownload(filename) {
+			m, err := v2geo.LoadGeoSite(filename)
+			if err == nil {
+				l.geositeMap = m
+				return m, nil
+			}
+			// file is broken, download it again
+		}
 		err := l.downloadAndCheck(filename, geositeURL, func(filename string) error {
 			_, err := v2geo.LoadGeoSite(filename)
 			return err
