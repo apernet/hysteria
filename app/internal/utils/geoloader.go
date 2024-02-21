@@ -119,7 +119,10 @@ func (l *GeoLoader) LoadGeoIP() (map[string]*v2geo.GeoIP, error) {
 			return err
 		})
 		if err != nil {
-			return nil, err
+			// as long as the previous download exists, fallback to it
+			if _, serr := os.Stat(filename); os.IsNotExist(serr) {
+				return nil, err
+			}
 		}
 	}
 	m, err := v2geo.LoadGeoIP(filename)
@@ -154,7 +157,10 @@ func (l *GeoLoader) LoadGeoSite() (map[string]*v2geo.GeoSite, error) {
 			return err
 		})
 		if err != nil {
-			return nil, err
+			// as long as the previous download exists, fallback to it
+			if _, serr := os.Stat(filename); os.IsNotExist(serr) {
+				return nil, err
+			}
 		}
 	}
 	m, err := v2geo.LoadGeoSite(filename)
