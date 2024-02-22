@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -15,6 +16,7 @@ const (
 	geoipURL        = "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat"
 	geositeFilename = "geosite.dat"
 	geositeURL      = "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat"
+	geoDlTmpPattern = ".hysteria-geoloader.dlpart.*"
 
 	geoDefaultUpdateInterval = 7 * 24 * time.Hour // 7 days
 )
@@ -41,6 +43,10 @@ func (l *GeoLoader) shouldDownload(filename string) bool {
 	if os.IsNotExist(err) {
 		return true
 	}
+	if info.Size() == 0 {
+		// empty files are loadable by v2geo, but we consider it broken
+		return true
+	}
 	dt := time.Now().Sub(info.ModTime())
 	if l.UpdateInterval == 0 {
 		return dt > geoDefaultUpdateInterval
@@ -49,7 +55,7 @@ func (l *GeoLoader) shouldDownload(filename string) bool {
 	}
 }
 
-func (l *GeoLoader) download(filename, url string) error {
+func (l *GeoLoader) downloadAndCheck(filename, url string, checkFunc func(filename string) error) error {
 	l.DownloadFunc(filename, url)
 
 	resp, err := http.Get(url)
@@ -59,16 +65,34 @@ func (l *GeoLoader) download(filename, url string) error {
 	}
 	defer resp.Body.Close()
 
-	f, err := os.Create(filename)
+	f, err := os.CreateTemp(".", geoDlTmpPattern)
 	if err != nil {
 		l.DownloadErrFunc(err)
 		return err
 	}
-	defer f.Close()
+	defer os.Remove(f.Name())
 
 	_, err = io.Copy(f, resp.Body)
-	l.DownloadErrFunc(err)
-	return err
+	if err != nil {
+		f.Close()
+		l.DownloadErrFunc(err)
+		return err
+	}
+	f.Close()
+
+	err = checkFunc(f.Name())
+	if err != nil {
+		l.DownloadErrFunc(fmt.Errorf("integrity check failed: %w", err))
+		return err
+	}
+
+	err = os.Rename(f.Name(), filename)
+	if err != nil {
+		l.DownloadErrFunc(fmt.Errorf("rename failed: %w", err))
+		return err
+	}
+
+	return nil
 }
 
 func (l *GeoLoader) LoadGeoIP() (map[string]*v2geo.GeoIP, error) {
@@ -81,10 +105,24 @@ func (l *GeoLoader) LoadGeoIP() (map[string]*v2geo.GeoIP, error) {
 		autoDL = true
 		filename = geoipFilename
 	}
-	if autoDL && l.shouldDownload(filename) {
-		err := l.download(filename, geoipURL)
+	if autoDL {
+		if !l.shouldDownload(filename) {
+			m, err := v2geo.LoadGeoIP(filename)
+			if err == nil {
+				l.geoipMap = m
+				return m, nil
+			}
+			// file is broken, download it again
+		}
+		err := l.downloadAndCheck(filename, geoipURL, func(filename string) error {
+			_, err := v2geo.LoadGeoIP(filename)
+			return err
+		})
 		if err != nil {
-			return nil, err
+			// as long as the previous download exists, fallback to it
+			if _, serr := os.Stat(filename); os.IsNotExist(serr) {
+				return nil, err
+			}
 		}
 	}
 	m, err := v2geo.LoadGeoIP(filename)
@@ -105,10 +143,24 @@ func (l *GeoLoader) LoadGeoSite() (map[string]*v2geo.GeoSite, error) {
 		autoDL = true
 		filename = geositeFilename
 	}
-	if autoDL && l.shouldDownload(filename) {
-		err := l.download(filename, geositeURL)
+	if autoDL {
+		if !l.shouldDownload(filename) {
+			m, err := v2geo.LoadGeoSite(filename)
+			if err == nil {
+				l.geositeMap = m
+				return m, nil
+			}
+			// file is broken, download it again
+		}
+		err := l.downloadAndCheck(filename, geositeURL, func(filename string) error {
+			_, err := v2geo.LoadGeoSite(filename)
+			return err
+		})
 		if err != nil {
-			return nil, err
+			// as long as the previous download exists, fallback to it
+			if _, serr := os.Stat(filename); os.IsNotExist(serr) {
+				return nil, err
+			}
 		}
 	}
 	m, err := v2geo.LoadGeoSite(filename)
