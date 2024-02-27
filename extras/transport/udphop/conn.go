@@ -20,13 +20,6 @@ type udpHopPacketConn struct {
 	closed bool
 }
 
-type udpPacket struct {
-	Buf  []byte
-	N    int
-	Addr net.Addr
-	Err  error
-}
-
 func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration) (net.PacketConn, error) {
 	if hopInterval == 0 {
 		hopInterval = defaultHopInterval
@@ -56,11 +49,9 @@ func (u *udpHopPacketConn) hopLoop() {
 	ticker := time.NewTicker(u.HopInterval)
 	defer ticker.Stop()
 	for {
-		select {
-		case <-ticker.C:
-			if u.hop() {
-				return
-			}
+		<-ticker.C
+		if u.hop() {
+			return
 		}
 	}
 }
