@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/apernet/hysteria/core/client"
+	hyErrors "github.com/apernet/hysteria/core/errors"
 	"github.com/apernet/hysteria/extras/outbounds"
 	"github.com/apernet/hysteria/extras/outbounds/speedtest"
 )
@@ -78,7 +80,11 @@ func runDownloadTest(c client.Client) {
 	logger.Info("performing download test")
 	downConn, err := c.TCP(speedtestAddr)
 	if err != nil {
-		logger.Fatal("failed to connect", zap.Error(err))
+		if errors.As(err, &hyErrors.DialError{}) {
+			logger.Fatal("failed to connect (server may not support speed test)", zap.Error(err))
+		} else {
+			logger.Fatal("failed to connect", zap.Error(err))
+		}
 	}
 	defer downConn.Close()
 
@@ -107,7 +113,11 @@ func runUploadTest(c client.Client) {
 	logger.Info("performing upload test")
 	upConn, err := c.TCP(speedtestAddr)
 	if err != nil {
-		logger.Fatal("failed to connect", zap.Error(err))
+		if errors.As(err, &hyErrors.DialError{}) {
+			logger.Fatal("failed to connect (server may not support speed test)", zap.Error(err))
+		} else {
+			logger.Fatal("failed to connect", zap.Error(err))
+		}
 	}
 	defer upConn.Close()
 
