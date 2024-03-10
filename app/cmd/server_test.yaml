@@ -36,6 +36,8 @@ bandwidth:
 
 ignoreClientBandwidth: true
 
+speedTest: true
+
 disableUDP: true
 udpIdleTimeout: 120s
 

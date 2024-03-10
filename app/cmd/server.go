@@ -52,6 +52,7 @@ type serverConfig struct {
 	QUIC                  serverConfigQUIC            `mapstructure:"quic"`
 	Bandwidth             serverConfigBandwidth       `mapstructure:"bandwidth"`
 	IgnoreClientBandwidth bool                        `mapstructure:"ignoreClientBandwidth"`
+	SpeedTest             bool                        `mapstructure:"speedTest"`
 	DisableUDP            bool                        `mapstructure:"disableUDP"`
 	UDPIdleTimeout        time.Duration               `mapstructure:"udpIdleTimeout"`
 	Auth                  serverConfigAuth            `mapstructure:"auth"`
@@ -526,6 +527,11 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 		uOb = outbounds.NewDoHResolver(c.Resolver.HTTPS.Addr, c.Resolver.HTTPS.Timeout, c.Resolver.HTTPS.SNI, c.Resolver.HTTPS.Insecure, uOb)
 	default:
 		return configError{Field: "resolver.type", Err: errors.New("unsupported resolver type")}
+	}
+
+	// Speed test
+	if c.SpeedTest {
+		uOb = outbounds.NewSpeedtestHandler(uOb)
 	}
 
 	hyConfig.Outbound = &outbounds.PluggableOutboundAdapter{PluggableOutbound: uOb}
