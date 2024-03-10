@@ -37,7 +37,7 @@ func runCheckUpdate(cmd *cobra.Command, args []string) {
 	checker := utils.NewServerUpdateChecker(appVersion, appPlatform, appArch, appType)
 	resp, err := checker.Check()
 	if err != nil {
-		logger.Fatal("failed to check for updates", zap.Error(err))
+		logger.Error("failed to check for updates", zap.Error(err))
 	}
 	if resp.HasUpdate {
 		logger.Info("update available",
