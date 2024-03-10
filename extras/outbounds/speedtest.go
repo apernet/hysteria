@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	SpeedtestDest = "_SpeedTest"
+	SpeedtestDest = "@SpeedTest"
 )
 
 // speedtestHandler is a PluggableOutbound that handles speed test requests.
