@@ -108,7 +108,7 @@ func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
 	cacheSize int, geoLoader GeoLoader,
 ) (CompiledRuleSet[O], error) {
 	for _, rule := range rules {
-		if extra, rangeLen := splitPortRangeRules(&rule); rangeLen > 0 {
+		if extra := splitPortRangeRules(&rule); extra != nil {
 			rules = append(rules, extra...)
 		}
 	}
@@ -288,31 +288,38 @@ func parseGeoSiteName(s string) (string, []string) {
 	return base, attrs
 }
 
-func splitPortRangeRules(rule *TextRule) ([]TextRule, int) {
+// splitPortRangeRules splits a rule containing a port range and divides it into multiple rules, each specifying a single port.
+//
+//		 If protoPort has a port range, such as "tcp/80-90",
+//		 the function splits this into individual rules for each port in the range,
+//		 here resulting in rules for ports 80 through 90.
+//		 the original protoPort  will be changed to "tcp/80", and the returned rules will have the same Outbound, Address, and HijackAddress.
+//	     but the ProtoPort will be changed to "tcp/81", "tcp/82", ..., "tcp/90".
+func splitPortRangeRules(rule *TextRule) []TextRule {
 	protoPort := strings.ToLower(rule.ProtoPort)
 	if protoPort == "" || protoPort == "*" || protoPort == "*/*" {
-		return nil, 0
+		return nil
 	}
 	parts := strings.SplitN(protoPort, "/", 2)
 	if len(parts) != 2 {
-		return nil, 0
+		return nil
 	}
 	ports := strings.SplitN(strings.TrimSpace(parts[1]), "-", 2)
 	if len(ports) != 2 {
-		return nil, 0
+		return nil
 	}
 	minPorts, err := strconv.Atoi(ports[0])
 	if err != nil {
-		return nil, 0
+		return nil
 	}
 	maxPorts, err := strconv.Atoi(ports[1])
 	if err != nil {
-		return nil, 0
+		return nil
 	}
 
 	portLength := maxPorts - minPorts
 	if portLength <= 0 || minPorts == 0 {
-		return nil, 0
+		return nil
 	}
 
 	// port range: minPort < port <= MaxPort
@@ -321,6 +328,7 @@ func splitPortRangeRules(rule *TextRule) ([]TextRule, int) {
 		extraRules[i] = *rule
 		extraRules[i].ProtoPort = fmt.Sprintf("%s/%d", parts[0], minPorts+i+1)
 	}
+	// edit ProtoPort from port range to a single port that value is minPort. For example, 80-90 -> 80
 	rule.ProtoPort = fmt.Sprintf("%s/%d", parts[0], minPorts)
-	return extraRules, portLength
+	return extraRules
 }
