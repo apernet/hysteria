@@ -107,6 +107,11 @@ type GeoLoader interface {
 func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
 	cacheSize int, geoLoader GeoLoader,
 ) (CompiledRuleSet[O], error) {
+	for _, rule := range rules {
+		if extra, rangeLen := splitPortRangeRules(&rule); rangeLen > 0 {
+			rules = append(rules, extra...)
+		}
+	}
 	compiledRules := make([]compiledRule[O], len(rules))
 	for i, rule := range rules {
 		outbound, ok := outbounds[strings.ToLower(rule.Outbound)]
@@ -281,4 +286,41 @@ func parseGeoSiteName(s string) (string, []string) {
 		attrs[i] = strings.TrimSpace(attrs[i])
 	}
 	return base, attrs
+}
+
+func splitPortRangeRules(rule *TextRule) ([]TextRule, int) {
+	protoPort := strings.ToLower(rule.ProtoPort)
+	if protoPort == "" || protoPort == "*" || protoPort == "*/*" {
+		return nil, 0
+	}
+	parts := strings.SplitN(protoPort, "/", 2)
+	if len(parts) != 2 {
+		return nil, 0
+	}
+	ports := strings.SplitN(strings.TrimSpace(parts[1]), "-", 2)
+	if len(ports) != 2 {
+		return nil, 0
+	}
+	minPorts, err := strconv.Atoi(ports[0])
+	if err != nil {
+		return nil, 0
+	}
+	maxPorts, err := strconv.Atoi(ports[1])
+	if err != nil {
+		return nil, 0
+	}
+
+	portLength := maxPorts - minPorts
+	if portLength <= 0 || minPorts == 0 {
+		return nil, 0
+	}
+
+	// port range: minPort < port <= MaxPort
+	extraRules := make([]TextRule, portLength)
+	for i := range extraRules {
+		extraRules[i] = *rule
+		extraRules[i].ProtoPort = fmt.Sprintf("%s/%d", parts[0], minPorts+i+1)
+	}
+	rule.ProtoPort = fmt.Sprintf("%s/%d", parts[0], minPorts)
+	return extraRules, portLength
 }
