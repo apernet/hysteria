@@ -304,75 +304,72 @@ func Test_parseGeoSiteName(t *testing.T) {
 	}
 }
 
-func Test_splitPortRangeRules(t *testing.T) {
+func TestCompileRangePort(t *testing.T) {
+	ob1, ob2, ob3, ob4 := 1, 2, 3, 4
 	rules := []TextRule{
-		{
-			Outbound:      "ob1",
-			Address:       "1.2.3.4",
-			ProtoPort:     "tcp/1-1024",
-			HijackAddress: "",
-		},
-		{
-			Outbound:      "ob1",
-			Address:       "1.2.3.4",
-			ProtoPort:     "udp/1-1024",
-			HijackAddress: "",
-		},
-		{
-			Outbound:      "ob1",
-			Address:       "1.2.3.4",
-			ProtoPort:     "*/1-1024",
-			HijackAddress: "",
-		},
-		{
-			Outbound:      "ob1",
-			Address:       "1.2.3.4",
-			ProtoPort:     "tcp/0-222",
-			HijackAddress: "",
-		},
-		{
-			Outbound:      "ob1",
-			Address:       "1.2.3.4",
-			ProtoPort:     "tcp/1024",
-			HijackAddress: "",
-		},
-		{
-			Outbound:      "ob1",
-			Address:       "1.2.3.4",
-			ProtoPort:     "tcp/-1-9",
-			HijackAddress: "",
-		},
 		{
 			Outbound:      "ob1",
 			Address:       "1.2.3.4",
 			ProtoPort:     "tcp/6881-6889",
 			HijackAddress: "",
 		},
+		{
+			Outbound:      "ob2",
+			Address:       "8.8.8.0/24",
+			ProtoPort:     "udp/2525-3333",
+			HijackAddress: "1.1.1.1",
+		},
+		{
+			Outbound:      "ob3",
+			Address:       "1.1.1.0/24",
+			ProtoPort:     "*/1-65535",
+			HijackAddress: "",
+		},
+		{
+			Outbound:      "ob4",
+			Address:       "1.1.1.0/24",
+			ProtoPort:     "*/22",
+			HijackAddress: "",
+		},
 	}
-	_, rangeLen0 := splitPortRangeRules(&rules[0])
-	assert.Equal(t, 1023, rangeLen0)
+	_, err := Compile[int](rules, map[string]int{
+		"ob1": ob1,
+		"ob2": ob2,
+		"ob3": ob3,
+		"ob4": ob4,
+	}, 100, &testGeoLoader{})
+	assert.NoError(t, err)
 
-	_, rangeLen1 := splitPortRangeRules(&rules[1])
-	assert.Equal(t, 1023, rangeLen1)
+	ob11 := 1
+	rules2 := []TextRule{
 
-	_, rangeLen2 := splitPortRangeRules(&rules[2])
-	assert.Equal(t, 1023, rangeLen2)
-
-	_, rangeLen3 := splitPortRangeRules(&rules[3])
-	assert.Equal(t, 0, rangeLen3)
-
-	_, rangeLen4 := splitPortRangeRules(&rules[4])
-	assert.Equal(t, 0, rangeLen4)
-
-	_, rangeLen5 := splitPortRangeRules(&rules[5])
-	assert.Equal(t, 0, rangeLen5)
-
-	rangeRule, _ := splitPortRangeRules(&rules[6])
-	for _, rule := range rangeRule {
-		assert.Equal(t, "ob1", rule.Outbound)
-		assert.Equal(t, "1.2.3.4", rule.Address)
-		t.Log(rule.ProtoPort)
-		assert.Equal(t, "", rule.HijackAddress)
+		{
+			Outbound:      "ob11",
+			Address:       "1.1.2.0/24",
+			ProtoPort:     "*/3-1", // invalid range
+			HijackAddress: "",
+		},
 	}
-	assert.Equal(t, "tcp/6881", rules[6].ProtoPort)
+
+	_, err = Compile[int](rules2, map[string]int{
+		"ob11": ob11,
+	}, 100, &testGeoLoader{})
+	assert.Error(t, err)
+
+	ob21 := 1
+	rules3 := []TextRule{
+
+		{
+			Outbound:      "ob21",
+			Address:       "1.1.2.0/24",
+			ProtoPort:     "*/-114-514", // invalid range
+			HijackAddress: "",
+		},
+	}
+
+	_, err = Compile[int](rules3, map[string]int{
+		"ob21": ob21,
+	}, 100, &testGeoLoader{})
+	assert.Error(t, err)
+
 }
