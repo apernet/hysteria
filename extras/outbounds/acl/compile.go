@@ -42,7 +42,7 @@ type compiledRule[O Outbound] struct {
 	HostMatcher   hostMatcher
 	Protocol      Protocol
 	StartPort     uint16
-	EndPoint      uint16
+	EndPort       uint16
 	HijackAddress net.IP
 }
 
@@ -50,7 +50,7 @@ func (r *compiledRule[O]) Match(host HostInfo, proto Protocol, port uint16) bool
 	if r.Protocol != ProtocolBoth && r.Protocol != proto {
 		return false
 	}
-	if r.StartPort != 0 && (port < r.StartPort || port > r.EndPoint) {
+	if r.StartPort != 0 && (port < r.StartPort || port > r.EndPort) {
 		return false
 	}
 	return r.HostMatcher.Match(host)
