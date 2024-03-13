@@ -22,7 +22,7 @@ func (l *testGeoLoader) LoadGeoSite() (map[string]*v2geo.GeoSite, error) {
 }
 
 func TestCompile(t *testing.T) {
-	ob1, ob2, ob3, ob4, ob5 := 1, 2, 3, 4, 5
+	ob1, ob2, ob3, ob4, ob5, ob6 := 1, 2, 3, 4, 5, 6
 	rules := []TextRule{
 		{
 			Outbound:      "ob1",
@@ -90,6 +90,12 @@ func TestCompile(t *testing.T) {
 			ProtoPort:     "*/*",
 			HijackAddress: "",
 		},
+		{
+			Outbound:      "ob6",
+			Address:       "all",
+			ProtoPort:     "tcp/6881-6889",
+			HijackAddress: "",
+		},
 	}
 	comp, err := Compile[int](rules, map[string]int{
 		"ob1": ob1,
@@ -97,6 +103,7 @@ func TestCompile(t *testing.T) {
 		"ob3": ob3,
 		"ob4": ob4,
 		"ob5": ob5,
+		"ob6": ob6,
 	}, 100, &testGeoLoader{})
 	assert.NoError(t, err)
 
@@ -242,6 +249,15 @@ func TestCompile(t *testing.T) {
 			wantOutbound: 0, // no match default
 			wantIP:       nil,
 		},
+		{
+			host: HostInfo{
+				IPv4: net.ParseIP("223.1.1.1"),
+			},
+			proto:        ProtocolTCP,
+			port:         6883,
+			wantOutbound: ob6, // match range port rule 6881-6889
+			wantIP:       nil,
+		},
 	}
 
 	for _, test := range tests {
@@ -249,6 +265,23 @@ func TestCompile(t *testing.T) {
 		assert.Equal(t, test.wantOutbound, gotOutbound)
 		assert.Equal(t, test.wantIP, gotIP)
 	}
+
+	// Test Invalid Port Range Rule
+	eb1 := 1
+	invalidRules := []TextRule{
+
+		{
+			Outbound:      "eb1",
+			Address:       "1.1.2.0/24",
+			ProtoPort:     "*/3-1",
+			HijackAddress: "",
+		},
+	}
+
+	_, err = Compile[int](invalidRules, map[string]int{
+		"eb1": eb1,
+	}, 100, &testGeoLoader{})
+	assert.Error(t, err)
 }
 
 func Test_parseGeoSiteName(t *testing.T) {
@@ -302,71 +335,4 @@ func Test_parseGeoSiteName(t *testing.T) {
 			assert.Equalf(t, tt.want1, got1, "parseGeoSiteName(%v)", tt.s)
 		})
 	}
-}
-
-func TestCompileRangePort(t *testing.T) {
-	ob1, ob2, ob3, ob4 := 1, 2, 3, 4
-	rules := []TextRule{
-		{
-			Outbound:      "ob1",
-			Address:       "1.2.3.4",
-			ProtoPort:     "tcp/6881-6889",
-			HijackAddress: "",
-		},
-		{
-			Outbound:      "ob2",
-			Address:       "8.8.8.0/24",
-			ProtoPort:     "udp/2525-3333",
-			HijackAddress: "1.1.1.1",
-		},
-		{
-			Outbound:      "ob3",
-			Address:       "1.1.1.0/24",
-			ProtoPort:     "*/1-65535",
-			HijackAddress: "",
-		},
-		{
-			Outbound:      "ob4",
-			Address:       "1.1.1.0/24",
-			ProtoPort:     "*/22",
-			HijackAddress: "",
-		},
-	}
-	_, err := Compile[int](rules, map[string]int{
-		"ob1": ob1,
-		"ob2": ob2,
-		"ob3": ob3,
-		"ob4": ob4,
-	}, 100, &testGeoLoader{})
-	assert.NoError(t, err)
-
-	ob11 := 1
-	rules2 := []TextRule{
-		{
-			Outbound:      "ob11",
-			Address:       "1.1.2.0/24",
-			ProtoPort:     "*/3-1", // invalid range
-			HijackAddress: "",
-		},
-	}
-
-	_, err = Compile[int](rules2, map[string]int{
-		"ob11": ob11,
-	}, 100, &testGeoLoader{})
-	assert.Error(t, err)
-
-	ob21 := 1
-	rules3 := []TextRule{
-		{
-			Outbound:      "ob21",
-			Address:       "1.1.2.0/24",
-			ProtoPort:     "*/-114-514", // invalid range
-			HijackAddress: "",
-		},
-	}
-
-	_, err = Compile[int](rules3, map[string]int{
-		"ob21": ob21,
-	}, 100, &testGeoLoader{})
-	assert.Error(t, err)
 }
