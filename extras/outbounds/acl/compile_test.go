@@ -342,7 +342,6 @@ func TestCompileRangePort(t *testing.T) {
 
 	ob11 := 1
 	rules2 := []TextRule{
-
 		{
 			Outbound:      "ob11",
 			Address:       "1.1.2.0/24",
@@ -358,7 +357,6 @@ func TestCompileRangePort(t *testing.T) {
 
 	ob21 := 1
 	rules3 := []TextRule{
-
 		{
 			Outbound:      "ob21",
 			Address:       "1.1.2.0/24",
@@ -371,5 +369,4 @@ func TestCompileRangePort(t *testing.T) {
 		"ob21": ob21,
 	}, 100, &testGeoLoader{})
 	assert.Error(t, err)
-
 }
