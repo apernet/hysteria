@@ -101,10 +101,9 @@ type GeoLoader interface {
 
 // Compile compiles TextRules into a CompiledRuleSet.
 // Names in the outbounds map MUST be in all lower case.
-// geoipFunc is a function that returns the GeoIP database needed by the GeoIP matcher.
-// It will be called every time a GeoIP matcher is used during compilation, but won't
-// be called if there is no GeoIP rule. We use a function here so that database loading
-// is on-demand (only required if used by rules).
+// We want on-demand loading of GeoIP/GeoSite databases, so instead of passing the
+// databases directly, we use a GeoLoader interface to load them. This way, they are
+// only loaded when there are at least one rule that uses them.
 func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
 	cacheSize int, geoLoader GeoLoader,
 ) (CompiledRuleSet[O], error) {
@@ -181,6 +180,7 @@ func parseProtoPort(protoPort string) (Protocol, uint16, uint16, bool) {
 			return ProtocolBoth, 0, 0, false
 		}
 		if parts[1] != "*" {
+			// We allow either a single port or a range (e.g. "1000-2000")
 			ports := strings.SplitN(strings.TrimSpace(parts[1]), "-", 2)
 			if len(ports) == 1 {
 				p64, err := strconv.ParseUint(parts[1], 10, 16)
