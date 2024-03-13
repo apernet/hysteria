@@ -102,8 +102,8 @@ type GeoLoader interface {
 // Compile compiles TextRules into a CompiledRuleSet.
 // Names in the outbounds map MUST be in all lower case.
 // We want on-demand loading of GeoIP/GeoSite databases, so instead of passing the
-// databases directly, we use a GeoLoader interface to load them. This way, they are
-// only loaded when there are at least one rule that uses them.
+// databases directly, we use a GeoLoader interface to load them only when needed
+// by at least one rule.
 func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
 	cacheSize int, geoLoader GeoLoader,
 ) (CompiledRuleSet[O], error) {

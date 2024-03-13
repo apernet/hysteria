@@ -269,7 +269,6 @@ func TestCompile(t *testing.T) {
 	// Test Invalid Port Range Rule
 	eb1 := 1
 	invalidRules := []TextRule{
-
 		{
 			Outbound:      "eb1",
 			Address:       "1.1.2.0/24",
