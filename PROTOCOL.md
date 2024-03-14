@@ -66,7 +66,7 @@ After (and only after) a client passes authentication, the server MUST consider 
 
 ### TCP
 
-For each TCP connection, the client MUST create a new QUIC unidirectional stream and send the following TCPRequest message:
+For each TCP connection, the client MUST create a new QUIC bidirectional stream and send the following TCPRequest message:
 
 ```
 [varint] 0x401 (TCPRequest ID)
