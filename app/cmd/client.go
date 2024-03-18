@@ -6,10 +6,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/apernet/hysteria/app/internal/tun"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -65,6 +68,7 @@ type clientConfig struct {
 	TCPTProxy     *tcpTProxyConfig      `mapstructure:"tcpTProxy"`
 	UDPTProxy     *udpTProxyConfig      `mapstructure:"udpTProxy"`
 	TCPRedirect   *tcpRedirectConfig    `mapstructure:"tcpRedirect"`
+	TUN           *tunConfig            `mapstructure:"tun"`
 }
 
 type clientConfigTransportUDP struct {
@@ -143,6 +147,14 @@ type udpTProxyConfig struct {
 
 type tcpRedirectConfig struct {
 	Listen string `mapstructure:"listen"`
+}
+
+type tunConfig struct {
+	Name       string `mapstructure:"name"`
+	MTU        uint32 `mapstructure:"mtu"`
+	UDPTimeout int64  `mapstructure:"udpTimeout"`
+	Prefix4    string `mapstructure:"prefix4"`
+	Prefix6    string `mapstructure:"prefix6"`
 }
 
 func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
@@ -459,6 +471,11 @@ func runClient(cmd *cobra.Command, args []string) {
 			return clientTCPRedirect(*config.TCPRedirect, c)
 		})
 	}
+	if config.TUN != nil {
+		runner.Add("TUN", func() error {
+			return clientTUN(*config.TUN, c)
+		})
+	}
 
 	runner.Run()
 }
@@ -656,6 +673,49 @@ func clientTCPRedirect(config tcpRedirectConfig, c client.Client) error {
 	return p.ListenAndServe(laddr)
 }
 
+func clientTUN(config tunConfig, c client.Client) error {
+	if config.Name == "" {
+		return configError{Field: "name", Err: errors.New("name is empty")}
+	}
+	if config.MTU == 0 {
+		config.MTU = 1500
+	}
+	if config.UDPTimeout == 0 {
+		config.UDPTimeout = 300
+	}
+	if config.Prefix4 == "" {
+		config.Prefix4 = "100.100.100.101/30"
+	}
+	prefix4, err := netip.ParsePrefix(config.Prefix4)
+	if err != nil {
+		return configError{Field: "prefix4", Err: err}
+	}
+	if config.Prefix6 == "" {
+		config.Prefix6 = "2001::ffff:ffff:ffff:fff0/127"
+	}
+	prefix6, err := netip.ParsePrefix(config.Prefix6)
+	if err != nil {
+		return configError{Field: "prefix6", Err: err}
+	}
+	server := &tun.Server{
+		HyClient:     c,
+		EventLogger:  &tunLogger{},
+		Logger:       logger,
+		IfName:       config.Name,
+		MTU:          config.MTU,
+		UDPTimeout:   config.UDPTimeout,
+		Inet4Address: []netip.Prefix{prefix4},
+		Inet6Address: []netip.Prefix{prefix6},
+	}
+	err = server.Start()
+	if err != nil {
+		return err
+	}
+	logger.Info("TUN listening", zap.String("interface", config.Name))
+	// Block forever as sing-tun routine is running in the background
+	select {}
+}
+
 // parseServerAddrString parses server address string.
 // Server address can be in either "host:port" or "host" format (in which case we assume port 443).
 func parseServerAddrString(addrStr string) (host, port, hostPort string) {
@@ -824,5 +884,31 @@ func (l *tcpRedirectLogger) Error(addr, reqAddr net.Addr, err error) {
 		logger.Debug("TCP redirect closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
 	} else {
 		logger.Error("TCP redirect error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
+	}
+}
+
+type tunLogger struct{}
+
+func (l *tunLogger) TCPRequest(addr, reqAddr string) {
+	logger.Debug("TUN TCP request", zap.String("addr", addr), zap.String("reqAddr", reqAddr))
+}
+
+func (l *tunLogger) TCPError(addr, reqAddr string, err error) {
+	if err == nil {
+		logger.Debug("TUN TCP closed", zap.String("addr", addr), zap.String("reqAddr", reqAddr))
+	} else {
+		logger.Error("TUN TCP error", zap.String("addr", addr), zap.String("reqAddr", reqAddr), zap.Error(err))
+	}
+}
+
+func (l *tunLogger) UDPRequest(addr string) {
+	logger.Debug("TUN UDP request", zap.String("addr", addr))
+}
+
+func (l *tunLogger) UDPError(addr string, err error) {
+	if err == nil {
+		logger.Debug("TUN UDP closed", zap.String("addr", addr))
+	} else {
+		logger.Error("TUN UDP error", zap.String("addr", addr), zap.Error(err))
 	}
 }
