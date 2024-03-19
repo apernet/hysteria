@@ -692,7 +692,7 @@ func clientTUN(config tunConfig, c client.Client) error {
 		return configError{Field: "prefix4", Err: err}
 	}
 	if config.Prefix6 == "" {
-		config.Prefix6 = "2001::ffff:ffff:ffff:fff0/127"
+		config.Prefix6 = "2001::ffff:ffff:ffff:fff1/126"
 	}
 	prefix6, err := netip.ParsePrefix(config.Prefix6)
 	if err != nil {
