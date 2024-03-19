@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/sagernet/sing/common/control"
+
 	"github.com/apernet/hysteria/core/client"
 	tun "github.com/apernet/sing-tun"
 	"github.com/sagernet/sing/common/buf"
@@ -66,6 +68,8 @@ func (s *Server) Serve() error {
 			tag:       "tun-stack",
 			zapLogger: s.Logger,
 		},
+		ForwarderBindInterface: true,
+		InterfaceFinder:        &interfaceFinder{},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create tun stack: %w", err)
@@ -189,4 +193,24 @@ func (t *tunHandler) NewPacketConnection(ctx context.Context, conn network.Packe
 
 func (t *tunHandler) NewError(ctx context.Context, err error) {
 	// unused
+}
+
+type interfaceFinder struct{}
+
+var _ control.InterfaceFinder = (*interfaceFinder)(nil)
+
+func (f *interfaceFinder) InterfaceIndexByName(name string) (int, error) {
+	ifce, err := net.InterfaceByName(name)
+	if err != nil {
+		return -1, err
+	}
+	return ifce.Index, nil
+}
+
+func (f *interfaceFinder) InterfaceNameByIndex(index int) (string, error) {
+	ifce, err := net.InterfaceByIndex(index)
+	if err != nil {
+		return "", err
+	}
+	return ifce.Name, nil
 }
