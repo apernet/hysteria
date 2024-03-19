@@ -150,11 +150,11 @@ type tcpRedirectConfig struct {
 }
 
 type tunConfig struct {
-	Name       string `mapstructure:"name"`
-	MTU        uint32 `mapstructure:"mtu"`
-	UDPTimeout int64  `mapstructure:"udpTimeout"`
-	Prefix4    string `mapstructure:"prefix4"`
-	Prefix6    string `mapstructure:"prefix6"`
+	Name    string        `mapstructure:"name"`
+	MTU     uint32        `mapstructure:"mtu"`
+	Timeout time.Duration `mapstructure:"timeout"`
+	Prefix4 string        `mapstructure:"prefix4"`
+	Prefix6 string        `mapstructure:"prefix6"`
 }
 
 func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
@@ -680,8 +680,9 @@ func clientTUN(config tunConfig, c client.Client) error {
 	if config.MTU == 0 {
 		config.MTU = 1500
 	}
-	if config.UDPTimeout == 0 {
-		config.UDPTimeout = 300
+	timeout := int64(config.Timeout.Seconds())
+	if timeout == 0 {
+		timeout = 300
 	}
 	if config.Prefix4 == "" {
 		config.Prefix4 = "100.100.100.101/30"
@@ -703,7 +704,7 @@ func clientTUN(config tunConfig, c client.Client) error {
 		Logger:       logger,
 		IfName:       config.Name,
 		MTU:          config.MTU,
-		UDPTimeout:   config.UDPTimeout,
+		Timeout:      timeout,
 		Inet4Address: []netip.Prefix{prefix4},
 		Inet6Address: []netip.Prefix{prefix6},
 	}

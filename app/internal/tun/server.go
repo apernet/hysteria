@@ -22,9 +22,9 @@ type Server struct {
 	// for debugging
 	Logger *zap.Logger
 
-	IfName     string
-	MTU        uint32
-	UDPTimeout int64 // in seconds
+	IfName  string
+	MTU     uint32
+	Timeout int64 // in seconds, also applied to TCP in system stack
 
 	// required by system stack
 	Inet4Address []netip.Prefix
@@ -60,7 +60,7 @@ func (s *Server) Serve() error {
 		Context:    context.Background(),
 		Tun:        tunIf,
 		TunOptions: tunOpts,
-		UDPTimeout: s.UDPTimeout,
+		UDPTimeout: s.Timeout,
 		Handler:    &tunHandler{s},
 		Logger: &singLogger{
 			tag:       "tun-stack",
