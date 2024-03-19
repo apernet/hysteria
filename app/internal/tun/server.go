@@ -2,14 +2,13 @@ package tun
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/netip"
 
 	"github.com/apernet/hysteria/core/client"
-	tun "github.com/sagernet/sing-tun"
+	tun "github.com/apernet/sing-tun"
 	"github.com/sagernet/sing/common/buf"
 	"github.com/sagernet/sing/common/metadata"
 	"github.com/sagernet/sing/common/network"
@@ -30,9 +29,6 @@ type Server struct {
 	// required by system stack
 	Inet4Address []netip.Prefix
 	Inet6Address []netip.Prefix
-
-	tunIf    tun.Tun
-	tunStack tun.Stack
 }
 
 type EventLogger interface {
@@ -42,7 +38,7 @@ type EventLogger interface {
 	UDPError(addr string, err error)
 }
 
-func (s *Server) Start() error {
+func (s *Server) Serve() error {
 	tunOpts := tun.Options{
 		Name:         s.IfName,
 		Inet4Address: s.Inet4Address,
@@ -58,9 +54,9 @@ func (s *Server) Start() error {
 	if err != nil {
 		return fmt.Errorf("failed to create tun interface: %w", err)
 	}
-	s.tunIf = tunIf
+	defer tunIf.Close()
 
-	tunStack, err := tun.NewStack("system", tun.StackOptions{
+	tunStack, err := tun.NewSystem(tun.StackOptions{
 		Context:    context.Background(),
 		Tun:        tunIf,
 		TunOptions: tunOpts,
@@ -74,23 +70,8 @@ func (s *Server) Start() error {
 	if err != nil {
 		return fmt.Errorf("failed to create tun stack: %w", err)
 	}
-	s.tunStack = tunStack
-	err = tunStack.Start()
-	if err != nil {
-		return fmt.Errorf("failed to start tun stack: %w", err)
-	}
-	return nil
-}
-
-func (s *Server) Close() error {
-	var ifErr, stackErr error
-	if s.tunIf != nil {
-		ifErr = s.tunIf.Close()
-	}
-	if s.tunStack != nil {
-		stackErr = s.tunStack.Close()
-	}
-	return errors.Join(ifErr, stackErr)
+	defer tunStack.Close()
+	return tunStack.(tun.StackRunner).Run()
 }
 
 type tunHandler struct {

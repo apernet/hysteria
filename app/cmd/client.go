@@ -707,13 +707,8 @@ func clientTUN(config tunConfig, c client.Client) error {
 		Inet4Address: []netip.Prefix{prefix4},
 		Inet6Address: []netip.Prefix{prefix6},
 	}
-	err = server.Start()
-	if err != nil {
-		return err
-	}
 	logger.Info("TUN listening", zap.String("interface", config.Name))
-	// Block forever as sing-tun routine is running in the background
-	select {}
+	return server.Serve()
 }
 
 // parseServerAddrString parses server address string.

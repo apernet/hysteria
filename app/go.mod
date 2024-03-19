@@ -6,11 +6,11 @@ require (
 	github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f
 	github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
 	github.com/apernet/hysteria/extras v0.0.0-00010101000000-000000000000
+	github.com/apernet/sing-tun v0.2.5-0.20240319071017-94362fc6c4cd
 	github.com/caddyserver/certmagic v0.17.2
 	github.com/mdp/qrterminal/v3 v3.1.1
 	github.com/mholt/acmez v1.0.4
 	github.com/sagernet/sing v0.3.2
-	github.com/sagernet/sing-tun v0.2.4
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.4
@@ -25,7 +25,6 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
-	github.com/google/btree v1.1.2 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.5 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -40,7 +39,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
-	github.com/sagernet/gvisor v0.0.0-20231209105102-8d27a30e436e // indirect
 	github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97 // indirect
 	github.com/scjalliance/comshim v0.0.0-20230315213746-5e51f40bd3b9 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
@@ -61,7 +59,6 @@ require (
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.11.1 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
