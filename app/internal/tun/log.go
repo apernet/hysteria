@@ -1,8 +1,6 @@
 package tun
 
 import (
-	"runtime/debug"
-
 	"github.com/sagernet/sing/common/logger"
 	"go.uber.org/zap"
 )
@@ -60,7 +58,6 @@ func (l *singLogger) Error(args ...any) {
 	}
 	extractSingExceptions(args)
 	l.zapLogger.Error(l.tag, zap.Any("args", args))
-	debug.PrintStack()
 }
 
 func (l *singLogger) Fatal(args ...any) {
