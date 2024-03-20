@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -684,6 +686,10 @@ func clientTCPRedirect(config tcpRedirectConfig, c client.Client) error {
 }
 
 func clientTUN(config tunConfig, c client.Client) error {
+	supportedPlatforms := []string{"linux", "darwin", "windows", "android"}
+	if !slices.Contains(supportedPlatforms, runtime.GOOS) {
+		logger.Error("TUN is not supported on this platform", zap.String("platform", runtime.GOOS))
+	}
 	if config.Name == "" {
 		return configError{Field: "name", Err: errors.New("name is empty")}
 	}
