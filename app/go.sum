@@ -46,6 +46,8 @@ github.com/apernet/sing-tun v0.2.5-0.20240319051541-59e6f4bd5d1e h1:yFDb2wKpWQmz
 github.com/apernet/sing-tun v0.2.5-0.20240319051541-59e6f4bd5d1e/go.mod h1:S5IydyLSN/QAfvY+r2GoomPJ6hidtXWm/Ad18sJVssk=
 github.com/apernet/sing-tun v0.2.5-0.20240319071017-94362fc6c4cd h1:2EOhAnrNARO2xt7doxlV8+6c6W0hi48hFHiqhlYqtDM=
 github.com/apernet/sing-tun v0.2.5-0.20240319071017-94362fc6c4cd/go.mod h1:S5IydyLSN/QAfvY+r2GoomPJ6hidtXWm/Ad18sJVssk=
+github.com/apernet/sing-tun v0.2.5-0.20240320024814-b1e6f9d4930f h1:IK/7rFSnRRLXCjcuWreyPzfPEfZd2Xz9v2+RsFoodbs=
+github.com/apernet/sing-tun v0.2.5-0.20240320024814-b1e6f9d4930f/go.mod h1:S5IydyLSN/QAfvY+r2GoomPJ6hidtXWm/Ad18sJVssk=
 github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6 h1:4NNbNM2Iq/k57qEu7WfL67UrbPq1uFWxW4qODCohi+0=
 github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6/go.mod h1:J29hk+f9lJrblVIfiJOtTFk+OblBawmib4uz/VdKzlg=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=

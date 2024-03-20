@@ -31,6 +31,14 @@ type Server struct {
 	// required by system stack
 	Inet4Address []netip.Prefix
 	Inet6Address []netip.Prefix
+
+	// auto route
+	AutoRoute                bool
+	StructRoute              bool
+	Inet4RouteAddress        []netip.Prefix
+	Inet6RouteAddress        []netip.Prefix
+	Inet4RouteExcludeAddress []netip.Prefix
+	Inet6RouteExcludeAddress []netip.Prefix
 }
 
 type EventLogger interface {
@@ -42,11 +50,17 @@ type EventLogger interface {
 
 func (s *Server) Serve() error {
 	tunOpts := tun.Options{
-		Name:         s.IfName,
-		Inet4Address: s.Inet4Address,
-		Inet6Address: s.Inet6Address,
-		MTU:          s.MTU,
-		GSO:          true,
+		Name:                     s.IfName,
+		Inet4Address:             s.Inet4Address,
+		Inet6Address:             s.Inet6Address,
+		MTU:                      s.MTU,
+		GSO:                      true,
+		AutoRoute:                s.AutoRoute,
+		StrictRoute:              s.StructRoute,
+		Inet4RouteAddress:        s.Inet4RouteAddress,
+		Inet6RouteAddress:        s.Inet6RouteAddress,
+		Inet4RouteExcludeAddress: s.Inet4RouteExcludeAddress,
+		Inet6RouteExcludeAddress: s.Inet6RouteExcludeAddress,
 		Logger: &singLogger{
 			tag:       "tun",
 			zapLogger: s.Logger,

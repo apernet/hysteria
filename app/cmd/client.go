@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
 	"net/netip"
 	"os"
@@ -153,8 +154,17 @@ type tunConfig struct {
 	Name    string        `mapstructure:"name"`
 	MTU     uint32        `mapstructure:"mtu"`
 	Timeout time.Duration `mapstructure:"timeout"`
-	Prefix4 string        `mapstructure:"prefix4"`
-	Prefix6 string        `mapstructure:"prefix6"`
+	Address struct {
+		IPv4 string `mapstructure:"ipv4"`
+		IPv6 string `mapstructure:"ipv6"`
+	} `mapstructure:"address"`
+	Route *struct {
+		Strict      bool     `mapstructure:"strict"`
+		IPv4        []string `mapstructure:"ipv4"`
+		IPv6        []string `mapstructure:"ipv6"`
+		IPv4Exclude []string `mapstructure:"ipv4Exclude"`
+		IPv6Exclude []string `mapstructure:"ipv6Exclude"`
+	} `mapstructure:"route"`
 }
 
 func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
@@ -684,19 +694,19 @@ func clientTUN(config tunConfig, c client.Client) error {
 	if timeout == 0 {
 		timeout = 300
 	}
-	if config.Prefix4 == "" {
-		config.Prefix4 = "100.100.100.101/30"
+	if config.Address.IPv4 == "" {
+		config.Address.IPv4 = "100.100.100.101/30"
 	}
-	prefix4, err := netip.ParsePrefix(config.Prefix4)
+	prefix4, err := netip.ParsePrefix(config.Address.IPv4)
 	if err != nil {
-		return configError{Field: "prefix4", Err: err}
+		return configError{Field: "address.ipv4", Err: err}
 	}
-	if config.Prefix6 == "" {
-		config.Prefix6 = "2001::ffff:ffff:ffff:fff1/126"
+	if config.Address.IPv6 == "" {
+		config.Address.IPv6 = "2001::ffff:ffff:ffff:fff1/126"
 	}
-	prefix6, err := netip.ParsePrefix(config.Prefix6)
+	prefix6, err := netip.ParsePrefix(config.Address.IPv6)
 	if err != nil {
-		return configError{Field: "prefix6", Err: err}
+		return configError{Field: "address.ipv6", Err: err}
 	}
 	server := &tun.Server{
 		HyClient:     c,
@@ -707,6 +717,39 @@ func clientTUN(config tunConfig, c client.Client) error {
 		Timeout:      timeout,
 		Inet4Address: []netip.Prefix{prefix4},
 		Inet6Address: []netip.Prefix{prefix6},
+	}
+	if config.Route != nil {
+		server.AutoRoute = true
+		server.StructRoute = config.Route.Strict
+
+		parsePrefixes := func(field string, s []string) ([]netip.Prefix, error) {
+			var prefixes []netip.Prefix
+			for i, s := range s {
+				p, err := netip.ParsePrefix(s)
+				if err != nil {
+					return nil, configError{Field: fmt.Sprintf("%s[%d]", field, i), Err: err}
+				}
+				prefixes = append(prefixes, p)
+			}
+			return prefixes, nil
+		}
+
+		server.Inet4RouteAddress, err = parsePrefixes("route.ipv4", config.Route.IPv4)
+		if err != nil {
+			return err
+		}
+		server.Inet6RouteAddress, err = parsePrefixes("route.ipv6", config.Route.IPv6)
+		if err != nil {
+			return err
+		}
+		server.Inet4RouteExcludeAddress, err = parsePrefixes("route.ipv4Exclude", config.Route.IPv4Exclude)
+		if err != nil {
+			return err
+		}
+		server.Inet6RouteExcludeAddress, err = parsePrefixes("route.ipv6Exclude", config.Route.IPv6Exclude)
+		if err != nil {
+			return err
+		}
 	}
 	logger.Info("TUN listening", zap.String("interface", config.Name))
 	return server.Serve()
