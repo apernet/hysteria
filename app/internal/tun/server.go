@@ -7,14 +7,14 @@ import (
 	"net"
 	"net/netip"
 
-	"github.com/sagernet/sing/common/control"
-
-	"github.com/apernet/hysteria/core/client"
 	tun "github.com/apernet/sing-tun"
 	"github.com/sagernet/sing/common/buf"
+	"github.com/sagernet/sing/common/control"
 	"github.com/sagernet/sing/common/metadata"
 	"github.com/sagernet/sing/common/network"
 	"go.uber.org/zap"
+
+	"github.com/apernet/hysteria/core/client"
 )
 
 type Server struct {
