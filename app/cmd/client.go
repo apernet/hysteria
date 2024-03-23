@@ -829,7 +829,7 @@ func (l *socks5Logger) TCPError(addr net.Addr, reqAddr string, err error) {
 	if err == nil {
 		logger.Debug("SOCKS5 TCP closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr))
 	} else {
-		logger.Error("SOCKS5 TCP error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr), zap.Error(err))
+		logger.Warn("SOCKS5 TCP error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr), zap.Error(err))
 	}
 }
 
@@ -841,7 +841,7 @@ func (l *socks5Logger) UDPError(addr net.Addr, err error) {
 	if err == nil {
 		logger.Debug("SOCKS5 UDP closed", zap.String("addr", addr.String()))
 	} else {
-		logger.Error("SOCKS5 UDP error", zap.String("addr", addr.String()), zap.Error(err))
+		logger.Warn("SOCKS5 UDP error", zap.String("addr", addr.String()), zap.Error(err))
 	}
 }
 
@@ -855,7 +855,7 @@ func (l *httpLogger) ConnectError(addr net.Addr, reqAddr string, err error) {
 	if err == nil {
 		logger.Debug("HTTP CONNECT closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr))
 	} else {
-		logger.Error("HTTP CONNECT error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr), zap.Error(err))
+		logger.Warn("HTTP CONNECT error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr), zap.Error(err))
 	}
 }
 
@@ -867,7 +867,7 @@ func (l *httpLogger) HTTPError(addr net.Addr, reqURL string, err error) {
 	if err == nil {
 		logger.Debug("HTTP closed", zap.String("addr", addr.String()), zap.String("reqURL", reqURL))
 	} else {
-		logger.Error("HTTP error", zap.String("addr", addr.String()), zap.String("reqURL", reqURL), zap.Error(err))
+		logger.Warn("HTTP error", zap.String("addr", addr.String()), zap.String("reqURL", reqURL), zap.Error(err))
 	}
 }
 
@@ -881,7 +881,7 @@ func (l *tcpLogger) Error(addr net.Addr, err error) {
 	if err == nil {
 		logger.Debug("TCP forwarding closed", zap.String("addr", addr.String()))
 	} else {
-		logger.Error("TCP forwarding error", zap.String("addr", addr.String()), zap.Error(err))
+		logger.Warn("TCP forwarding error", zap.String("addr", addr.String()), zap.Error(err))
 	}
 }
 
@@ -895,7 +895,7 @@ func (l *udpLogger) Error(addr net.Addr, err error) {
 	if err == nil {
 		logger.Debug("UDP forwarding closed", zap.String("addr", addr.String()))
 	} else {
-		logger.Error("UDP forwarding error", zap.String("addr", addr.String()), zap.Error(err))
+		logger.Warn("UDP forwarding error", zap.String("addr", addr.String()), zap.Error(err))
 	}
 }
 
@@ -909,7 +909,7 @@ func (l *tcpTProxyLogger) Error(addr, reqAddr net.Addr, err error) {
 	if err == nil {
 		logger.Debug("TCP transparent proxy closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
 	} else {
-		logger.Error("TCP transparent proxy error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
+		logger.Warn("TCP transparent proxy error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
 	}
 }
 
@@ -923,7 +923,7 @@ func (l *udpTProxyLogger) Error(addr, reqAddr net.Addr, err error) {
 	if err == nil {
 		logger.Debug("UDP transparent proxy closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
 	} else {
-		logger.Error("UDP transparent proxy error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
+		logger.Warn("UDP transparent proxy error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
 	}
 }
 
@@ -937,7 +937,7 @@ func (l *tcpRedirectLogger) Error(addr, reqAddr net.Addr, err error) {
 	if err == nil {
 		logger.Debug("TCP redirect closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
 	} else {
-		logger.Error("TCP redirect error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
+		logger.Warn("TCP redirect error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
 	}
 }
 
@@ -951,7 +951,7 @@ func (l *tunLogger) TCPError(addr, reqAddr string, err error) {
 	if err == nil {
 		logger.Debug("TUN TCP closed", zap.String("addr", addr), zap.String("reqAddr", reqAddr))
 	} else {
-		logger.Error("TUN TCP error", zap.String("addr", addr), zap.String("reqAddr", reqAddr), zap.Error(err))
+		logger.Warn("TUN TCP error", zap.String("addr", addr), zap.String("reqAddr", reqAddr), zap.Error(err))
 	}
 }
 
@@ -963,6 +963,6 @@ func (l *tunLogger) UDPError(addr string, err error) {
 	if err == nil {
 		logger.Debug("TUN UDP closed", zap.String("addr", addr))
 	} else {
-		logger.Error("TUN UDP error", zap.String("addr", addr), zap.Error(err))
+		logger.Warn("TUN UDP error", zap.String("addr", addr), zap.Error(err))
 	}
 }
