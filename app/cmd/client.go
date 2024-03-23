@@ -5,8 +5,12 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
+	"net/netip"
 	"os"
+	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +24,7 @@ import (
 	"github.com/apernet/hysteria/app/internal/redirect"
 	"github.com/apernet/hysteria/app/internal/socks5"
 	"github.com/apernet/hysteria/app/internal/tproxy"
+	"github.com/apernet/hysteria/app/internal/tun"
 	"github.com/apernet/hysteria/app/internal/url"
 	"github.com/apernet/hysteria/app/internal/utils"
 	"github.com/apernet/hysteria/core/client"
@@ -65,6 +70,7 @@ type clientConfig struct {
 	TCPTProxy     *tcpTProxyConfig      `mapstructure:"tcpTProxy"`
 	UDPTProxy     *udpTProxyConfig      `mapstructure:"udpTProxy"`
 	TCPRedirect   *tcpRedirectConfig    `mapstructure:"tcpRedirect"`
+	TUN           *tunConfig            `mapstructure:"tun"`
 }
 
 type clientConfigTransportUDP struct {
@@ -143,6 +149,23 @@ type udpTProxyConfig struct {
 
 type tcpRedirectConfig struct {
 	Listen string `mapstructure:"listen"`
+}
+
+type tunConfig struct {
+	Name    string        `mapstructure:"name"`
+	MTU     uint32        `mapstructure:"mtu"`
+	Timeout time.Duration `mapstructure:"timeout"`
+	Address struct {
+		IPv4 string `mapstructure:"ipv4"`
+		IPv6 string `mapstructure:"ipv6"`
+	} `mapstructure:"address"`
+	Route *struct {
+		Strict      bool     `mapstructure:"strict"`
+		IPv4        []string `mapstructure:"ipv4"`
+		IPv6        []string `mapstructure:"ipv6"`
+		IPv4Exclude []string `mapstructure:"ipv4Exclude"`
+		IPv6Exclude []string `mapstructure:"ipv6Exclude"`
+	} `mapstructure:"route"`
 }
 
 func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
@@ -459,6 +482,11 @@ func runClient(cmd *cobra.Command, args []string) {
 			return clientTCPRedirect(*config.TCPRedirect, c)
 		})
 	}
+	if config.TUN != nil {
+		runner.Add("TUN", func() error {
+			return clientTUN(*config.TUN, c)
+		})
+	}
 
 	runner.Run()
 }
@@ -656,6 +684,92 @@ func clientTCPRedirect(config tcpRedirectConfig, c client.Client) error {
 	return p.ListenAndServe(laddr)
 }
 
+func clientTUN(config tunConfig, c client.Client) error {
+	supportedPlatforms := []string{"linux", "darwin", "windows", "android"}
+	if !slices.Contains(supportedPlatforms, runtime.GOOS) {
+		logger.Error("TUN is not supported on this platform", zap.String("platform", runtime.GOOS))
+	}
+	if config.Name == "" {
+		return configError{Field: "name", Err: errors.New("name is empty")}
+	}
+	if config.MTU == 0 {
+		config.MTU = 1500
+	}
+	timeout := int64(config.Timeout.Seconds())
+	if timeout == 0 {
+		timeout = 300
+	}
+	if config.Address.IPv4 == "" {
+		config.Address.IPv4 = "100.100.100.101/30"
+	}
+	prefix4, err := netip.ParsePrefix(config.Address.IPv4)
+	if err != nil {
+		return configError{Field: "address.ipv4", Err: err}
+	}
+	if config.Address.IPv6 == "" {
+		config.Address.IPv6 = "2001::ffff:ffff:ffff:fff1/126"
+	}
+	prefix6, err := netip.ParsePrefix(config.Address.IPv6)
+	if err != nil {
+		return configError{Field: "address.ipv6", Err: err}
+	}
+	server := &tun.Server{
+		HyClient:     c,
+		EventLogger:  &tunLogger{},
+		Logger:       logger,
+		IfName:       config.Name,
+		MTU:          config.MTU,
+		Timeout:      timeout,
+		Inet4Address: []netip.Prefix{prefix4},
+		Inet6Address: []netip.Prefix{prefix6},
+	}
+	if config.Route != nil {
+		server.AutoRoute = true
+		server.StructRoute = config.Route.Strict
+
+		parsePrefixes := func(field string, ss []string) ([]netip.Prefix, error) {
+			var prefixes []netip.Prefix
+			for i, s := range ss {
+				var p netip.Prefix
+				if strings.Contains(s, "/") {
+					var err error
+					p, err = netip.ParsePrefix(s)
+					if err != nil {
+						return nil, configError{Field: fmt.Sprintf("%s[%d]", field, i), Err: err}
+					}
+				} else {
+					pa, err := netip.ParseAddr(s)
+					if err != nil {
+						return nil, configError{Field: fmt.Sprintf("%s[%d]", field, i), Err: err}
+					}
+					p = netip.PrefixFrom(pa, pa.BitLen())
+				}
+				prefixes = append(prefixes, p)
+			}
+			return prefixes, nil
+		}
+
+		server.Inet4RouteAddress, err = parsePrefixes("route.ipv4", config.Route.IPv4)
+		if err != nil {
+			return err
+		}
+		server.Inet6RouteAddress, err = parsePrefixes("route.ipv6", config.Route.IPv6)
+		if err != nil {
+			return err
+		}
+		server.Inet4RouteExcludeAddress, err = parsePrefixes("route.ipv4Exclude", config.Route.IPv4Exclude)
+		if err != nil {
+			return err
+		}
+		server.Inet6RouteExcludeAddress, err = parsePrefixes("route.ipv6Exclude", config.Route.IPv6Exclude)
+		if err != nil {
+			return err
+		}
+	}
+	logger.Info("TUN listening", zap.String("interface", config.Name))
+	return server.Serve()
+}
+
 // parseServerAddrString parses server address string.
 // Server address can be in either "host:port" or "host" format (in which case we assume port 443).
 func parseServerAddrString(addrStr string) (host, port, hostPort string) {
@@ -824,5 +938,31 @@ func (l *tcpRedirectLogger) Error(addr, reqAddr net.Addr, err error) {
 		logger.Debug("TCP redirect closed", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()))
 	} else {
 		logger.Error("TCP redirect error", zap.String("addr", addr.String()), zap.String("reqAddr", reqAddr.String()), zap.Error(err))
+	}
+}
+
+type tunLogger struct{}
+
+func (l *tunLogger) TCPRequest(addr, reqAddr string) {
+	logger.Debug("TUN TCP request", zap.String("addr", addr), zap.String("reqAddr", reqAddr))
+}
+
+func (l *tunLogger) TCPError(addr, reqAddr string, err error) {
+	if err == nil {
+		logger.Debug("TUN TCP closed", zap.String("addr", addr), zap.String("reqAddr", reqAddr))
+	} else {
+		logger.Error("TUN TCP error", zap.String("addr", addr), zap.String("reqAddr", reqAddr), zap.Error(err))
+	}
+}
+
+func (l *tunLogger) UDPRequest(addr string) {
+	logger.Debug("TUN UDP request", zap.String("addr", addr))
+}
+
+func (l *tunLogger) UDPError(addr string, err error) {
+	if err == nil {
+		logger.Debug("TUN UDP closed", zap.String("addr", addr))
+	} else {
+		logger.Error("TUN UDP error", zap.String("addr", addr), zap.Error(err))
 	}
 }
