@@ -3,11 +3,11 @@ module github.com/apernet/hysteria/core
 go 1.21
 
 require (
-	github.com/apernet/quic-go v0.41.1-0.20240301003057-e18162de481d
+	github.com/apernet/quic-go v0.42.1-0.20240323215309-32a339817822
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/goleak v1.2.1
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db
-	golang.org/x/time v0.4.0
+	golang.org/x/time v0.5.0
 )
 
 require (
@@ -20,7 +20,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
-	go.uber.org/mock v0.3.0 // indirect
+	go.uber.org/mock v0.4.0 // indirect
 	golang.org/x/crypto v0.19.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.21.0 // indirect

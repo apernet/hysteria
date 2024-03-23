@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	github.com/apernet/quic-go v0.41.1-0.20240301003057-e18162de481d // indirect
+	github.com/apernet/quic-go v0.42.1-0.20240323215309-32a339817822 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
@@ -25,7 +25,7 @@ require (
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf // indirect
-	go.uber.org/mock v0.3.0 // indirect
+	go.uber.org/mock v0.4.0 // indirect
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sys v0.17.0 // indirect
