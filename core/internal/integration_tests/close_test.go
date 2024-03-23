@@ -2,6 +2,7 @@ package integration_tests
 
 import (
 	"io"
+	"sync"
 	"testing"
 	"time"
 
@@ -48,13 +49,14 @@ func TestClientServerTCPClose(t *testing.T) {
 	// Server outbound connection should write the same thing, then close.
 	sobConn := mocks.NewMockConn(t)
 	sobConnCh := make(chan struct{}) // For close signal only
+	sobConnChCloseFunc := sync.OnceFunc(func() { close(sobConnCh) })
 	sobConn.EXPECT().Read(mock.Anything).RunAndReturn(func(bs []byte) (int, error) {
 		<-sobConnCh
 		return 0, io.EOF
 	})
 	sobConn.EXPECT().Write([]byte("happy")).Return(5, nil)
 	sobConn.EXPECT().Close().RunAndReturn(func() error {
-		close(sobConnCh)
+		sobConnChCloseFunc()
 		return nil
 	})
 	serverOb.EXPECT().TCP(addr).Return(sobConn, nil).Once()
@@ -133,6 +135,7 @@ func TestClientServerUDPIdleTimeout(t *testing.T) {
 	// to trigger the server's UDP idle timeout.
 	sobConn := mocks.NewMockUDPConn(t)
 	sobConnCh := make(chan []byte, 1)
+	sobConnChCloseFunc := sync.OnceFunc(func() { close(sobConnCh) })
 	sobConn.EXPECT().ReadFrom(mock.Anything).RunAndReturn(func(bs []byte) (int, string, error) {
 		d := <-sobConnCh
 		if d == nil {
@@ -167,7 +170,7 @@ func TestClientServerUDPIdleTimeout(t *testing.T) {
 	}
 	// Now we wait for 3 seconds, the server should close the UDP session.
 	sobConn.EXPECT().Close().RunAndReturn(func() error {
-		close(sobConnCh)
+		sobConnChCloseFunc()
 		return nil
 	})
 	eventLogger.EXPECT().UDPError(mock.Anything, mock.Anything, uint32(1), nil).Once()
