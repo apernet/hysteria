@@ -727,12 +727,22 @@ func clientTUN(config tunConfig, c client.Client) error {
 		server.AutoRoute = true
 		server.StructRoute = config.Route.Strict
 
-		parsePrefixes := func(field string, s []string) ([]netip.Prefix, error) {
+		parsePrefixes := func(field string, ss []string) ([]netip.Prefix, error) {
 			var prefixes []netip.Prefix
-			for i, s := range s {
-				p, err := netip.ParsePrefix(s)
-				if err != nil {
-					return nil, configError{Field: fmt.Sprintf("%s[%d]", field, i), Err: err}
+			for i, s := range ss {
+				var p netip.Prefix
+				if strings.Contains(s, "/") {
+					var err error
+					p, err = netip.ParsePrefix(s)
+					if err != nil {
+						return nil, configError{Field: fmt.Sprintf("%s[%d]", field, i), Err: err}
+					}
+				} else {
+					pa, err := netip.ParseAddr(s)
+					if err != nil {
+						return nil, configError{Field: fmt.Sprintf("%s[%d]", field, i), Err: err}
+					}
+					p = netip.PrefixFrom(pa, pa.BitLen())
 				}
 				prefixes = append(prefixes, p)
 			}
