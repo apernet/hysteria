@@ -2,6 +2,7 @@ package integration_tests
 
 import (
 	"io"
+	"sync"
 	"testing"
 	"time"
 
@@ -46,6 +47,7 @@ func TestClientServerTrafficLoggerTCP(t *testing.T) {
 
 	sobConn := mocks.NewMockConn(t)
 	sobConnCh := make(chan []byte, 1)
+	sobConnChCloseFunc := sync.OnceFunc(func() { close(sobConnCh) })
 	sobConn.EXPECT().Read(mock.Anything).RunAndReturn(func(bs []byte) (int, error) {
 		b := <-sobConnCh
 		if b == nil {
@@ -55,9 +57,9 @@ func TestClientServerTrafficLoggerTCP(t *testing.T) {
 		}
 	})
 	sobConn.EXPECT().Close().RunAndReturn(func() error {
-		close(sobConnCh)
+		sobConnChCloseFunc()
 		return nil
-	}).Once()
+	})
 	serverOb.EXPECT().TCP(addr).Return(sobConn, nil).Once()
 
 	conn, err := c.TCP(addr)
@@ -125,6 +127,7 @@ func TestClientServerTrafficLoggerUDP(t *testing.T) {
 
 	sobConn := mocks.NewMockUDPConn(t)
 	sobConnCh := make(chan []byte, 1)
+	sobConnChCloseFunc := sync.OnceFunc(func() { close(sobConnCh) })
 	sobConn.EXPECT().ReadFrom(mock.Anything).RunAndReturn(func(bs []byte) (int, string, error) {
 		b := <-sobConnCh
 		if b == nil {
@@ -134,9 +137,9 @@ func TestClientServerTrafficLoggerUDP(t *testing.T) {
 		}
 	})
 	sobConn.EXPECT().Close().RunAndReturn(func() error {
-		close(sobConnCh)
+		sobConnChCloseFunc()
 		return nil
-	}).Once()
+	})
 	serverOb.EXPECT().UDP(addr).Return(sobConn, nil).Once()
 
 	conn, err := c.UDP()
