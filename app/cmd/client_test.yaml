@@ -35,6 +35,13 @@ fastOpen: true
 
 lazy: true
 
+mixed:
+  listen: 127.0.0.1:1080
+  username: anon
+  password: bro
+  disableUDP: true
+  realm: martian
+
 socks5:
   listen: 127.0.0.1:1080
   username: anon
