@@ -23,23 +23,23 @@
 
 <div class="feature-grid">
   <div>
-    <h3>🛠️ Packed to the gills</h3>
-    <p>Expansive range of modes including SOCKS5, HTTP proxy, TCP/UDP forwarding, Linux TProxy - not to mention additional features continually being added.</p>
+    <h3>🛠️ Jack of all trades</h3>
+    <p>Wide range of modes including SOCKS5, HTTP Proxy, TCP/UDP Forwarding, Linux TProxy, TUN - with more features being added constantly.</p>
   </div>
 
   <div>
-    <h3>⚡ Lightning fast</h3>
-    <p>Powered by a custom QUIC protocol, Hysteria delivers unparalleled performance over even the most unreliable and lossy networks.</p>
+    <h3>⚡ Blazing fast</h3>
+    <p>Powered by a customized QUIC protocol, Hysteria is designed to deliver unparalleled performance over unreliable and lossy networks.</p>
   </div>
 
   <div>
     <h3>✊ Censorship resistant</h3>
-    <p>Our protocol is designed to masquerade as standard HTTP/3 traffic, making it very difficult to detect and block without widespread collateral damage.</p>
+    <p>The protocol masquerades as standard HTTP/3 traffic, making it very difficult for censors to detect and block without widespread collateral damage.</p>
   </div>
   
   <div>
     <h3>💻 Cross-platform</h3>
-    <p>We have builds for all major platforms and architectures. Deploy anywhere & use everywhere.</p>
+    <p>We have builds for every major platform and architecture. Deploy anywhere & use everywhere. Not to mention the long list of 3rd party apps.</p>
   </div>
 
   <div>
@@ -48,8 +48,8 @@
   </div>
   
   <div>
-    <h3>🤗 Open standards</h3>
-    <p>We have well-documented specifications and code for developers to contribute and build their own apps.</p>
+    <h3>🤗 Cards on the table</h3>
+    <p>We have well-documented specifications and code for developers to contribute and build their own apps. And a helpful community, too.</p>
   </div>
 </div>
 
