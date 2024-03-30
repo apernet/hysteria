@@ -236,6 +236,7 @@ detect_package_manager() {
   fi
 
   if has_command apt; then
+    apt update
     PACKAGE_MANAGEMENT_INSTALL='apt -y --no-install-recommends install'
     return 0
   fi
