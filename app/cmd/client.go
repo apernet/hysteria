@@ -30,6 +30,7 @@ import (
 	"github.com/apernet/hysteria/core/client"
 	"github.com/apernet/hysteria/extras/correctnet"
 	"github.com/apernet/hysteria/extras/obfs"
+	"github.com/apernet/hysteria/extras/protect"
 	"github.com/apernet/hysteria/extras/transport/udphop"
 )
 
@@ -55,6 +56,7 @@ func initClientFlags() {
 
 type clientConfig struct {
 	Server        string                `mapstructure:"server"`
+	ProtectPath   string                `mapstructure:"protectPath"`
 	Auth          string                `mapstructure:"auth"`
 	Transport     clientConfigTransport `mapstructure:"transport"`
 	Obfs          clientConfigObfs      `mapstructure:"obfs"`
@@ -202,11 +204,11 @@ func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
 		if hyConfig.ServerAddr.Network() == "udphop" {
 			hopAddr := hyConfig.ServerAddr.(*udphop.UDPHopAddr)
 			newFunc = func(addr net.Addr) (net.PacketConn, error) {
-				return udphop.NewUDPHopPacketConn(hopAddr, c.Transport.UDP.HopInterval, nil)
+				return udphop.NewUDPHopPacketConn(hopAddr, c.Transport.UDP.HopInterval, protect.ListenUDP(c.ProtectPath))
 			}
 		} else {
 			newFunc = func(addr net.Addr) (net.PacketConn, error) {
-				return net.ListenUDP("udp", nil)
+				return protect.ListenUDP(c.ProtectPath)()
 			}
 		}
 	default:

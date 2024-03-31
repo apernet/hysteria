@@ -7,6 +7,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/apernet/hysteria/extras/protect"
 )
 
 const (
@@ -20,7 +22,7 @@ type udpHopPacketConn struct {
 	Addr          net.Addr
 	Addrs         []net.Addr
 	HopInterval   time.Duration
-	ListenUDPFunc ListenUDPFunc
+	ListenUDPFunc protect.ListenUDPFunc
 
 	connMutex   sync.RWMutex
 	prevConn    net.PacketConn
@@ -44,9 +46,7 @@ type udpPacket struct {
 	Err  error
 }
 
-type ListenUDPFunc func() (net.PacketConn, error)
-
-func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration, listenUDPFunc ListenUDPFunc) (net.PacketConn, error) {
+func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration, listenUDPFunc protect.ListenUDPFunc) (net.PacketConn, error) {
 	if hopInterval == 0 {
 		hopInterval = defaultHopInterval
 	} else if hopInterval < 5*time.Second {
