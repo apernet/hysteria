@@ -5,6 +5,7 @@ package protect
 import (
 	"errors"
 	"net"
+	"reflect"
 
 	"golang.org/x/sys/unix"
 )
@@ -13,6 +14,7 @@ const (
 	timevalSec = 3
 )
 
+// protect try to connect with path by unix socket, then send the conn's fd to it.
 func protect(connFd int, path string) error {
 	if path == "" {
 		return nil
@@ -56,12 +58,7 @@ func ListenUDP(protectPath string) ListenUDPFunc {
 			return nil, err
 		}
 
-		udpFile, err := udpConn.File()
-		if err != nil {
-			return nil, err
-		}
-
-		err = protect(int(udpFile.Fd()), protectPath)
+		err = protect(fdFromConn(udpConn), protectPath)
 		if err != nil {
 			_ = udpConn.Close()
 			return nil, err
@@ -69,4 +66,13 @@ func ListenUDP(protectPath string) ListenUDPFunc {
 
 		return udpConn, nil
 	}
+}
+
+// fdFromConn get net.Conn's file descriptor.
+func fdFromConn(conn net.Conn) int {
+	v := reflect.ValueOf(conn)
+	netFD := reflect.Indirect(reflect.Indirect(v).FieldByName("fd"))
+	pfd := reflect.Indirect(netFD.FieldByName("pfd"))
+	fd := int(pfd.FieldByName("Sysfd").Int())
+	return fd
 }
