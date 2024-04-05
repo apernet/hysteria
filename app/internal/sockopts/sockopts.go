@@ -58,18 +58,21 @@ func (o *SocketOptions) applyToUDPConn(c *net.UDPConn) (err error) {
 		err = bindInterfaceFunc(c, *o.BindInterface)
 		if err != nil {
 			err = fmt.Errorf("failed to bind to interface: %w", err)
+			return
 		}
 	}
 	if o.FirewallMark != nil && firewallMarkFunc != nil {
 		err = firewallMarkFunc(c, *o.FirewallMark)
 		if err != nil {
 			err = fmt.Errorf("failed to set fwmark: %w", err)
+			return
 		}
 	}
 	if o.FdControlUnixSocket != nil && fdControlUnixSocketFunc != nil {
 		err = fdControlUnixSocketFunc(c, *o.FdControlUnixSocket)
 		if err != nil {
 			err = fmt.Errorf("failed to send fd to control unix socket: %w", err)
+			return
 		}
 	}
 	return
