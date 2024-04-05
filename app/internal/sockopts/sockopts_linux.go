@@ -7,6 +7,8 @@ import (
 	"net"
 	"time"
 
+	"golang.org/x/exp/constraints"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -58,7 +60,11 @@ func fdControlUnixSocketImpl(c *net.UDPConn, path string) error {
 		}
 		defer unix.Close(socketFd)
 
-		timeout := unixTimeval()
+		var timeout unix.Timeval
+		timeUsec := fdControlUnixTimeout.Microseconds()
+		castAssignInteger(timeUsec/1e6, &timeout.Sec)
+		// Specifying the type explicitly is not necessary here, but it makes GoLand happy.
+		castAssignInteger[int64](timeUsec%1e6, &timeout.Usec)
 
 		_ = unix.SetsockoptTimeval(socketFd, unix.SOL_SOCKET, unix.SO_RCVTIMEO, &timeout)
 		_ = unix.SetsockoptTimeval(socketFd, unix.SOL_SOCKET, unix.SO_SNDTIMEO, &timeout)
@@ -84,4 +90,8 @@ func fdControlUnixSocketImpl(c *net.UDPConn, path string) error {
 
 		return nil
 	})
+}
+
+func castAssignInteger[F, T constraints.Integer](from F, to *T) {
+	*to = T(from)
 }
