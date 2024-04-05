@@ -46,6 +46,11 @@ func TestClientConfig(t *testing.T) {
 			MaxIdleTimeout:              10 * time.Second,
 			KeepAlivePeriod:             4 * time.Second,
 			DisablePathMTUDiscovery:     true,
+			Sockopts: clientConfigQUICSockopts{
+				BindInterface:       stringRef("eth0"),
+				FirewallMark:        uint32Ref(1234),
+				FdControlUnixSocket: stringRef("test.sock"),
+			},
 		},
 		Bandwidth: clientConfigBandwidth{
 			Up:   "200 mbps",
@@ -188,4 +193,12 @@ func TestClientConfigURI(t *testing.T) {
 			}
 		})
 	}
+}
+
+func stringRef(s string) *string {
+	return &s
+}
+
+func uint32Ref(i uint32) *uint32 {
+	return &i
 }
