@@ -58,11 +58,7 @@ func fdControlUnixSocketImpl(c *net.UDPConn, path string) error {
 		}
 		defer unix.Close(socketFd)
 
-		timeoutUsec := fdControlUnixTimeout.Microseconds()
-		timeout := unix.Timeval{
-			Sec:  timeoutUsec / 1e6,
-			Usec: timeoutUsec % 1e6,
-		}
+		timeout := unixTimeval()
 
 		_ = unix.SetsockoptTimeval(socketFd, unix.SOL_SOCKET, unix.SO_RCVTIMEO, &timeout)
 		_ = unix.SetsockoptTimeval(socketFd, unix.SOL_SOCKET, unix.SO_SNDTIMEO, &timeout)
