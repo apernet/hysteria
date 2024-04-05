@@ -53,27 +53,24 @@ func (o *SocketOptions) ListenUDP() (uconn net.PacketConn, err error) {
 	return
 }
 
-func (o *SocketOptions) applyToUDPConn(c *net.UDPConn) (err error) {
+func (o *SocketOptions) applyToUDPConn(c *net.UDPConn) error {
 	if o.BindInterface != nil && bindInterfaceFunc != nil {
-		err = bindInterfaceFunc(c, *o.BindInterface)
+		err := bindInterfaceFunc(c, *o.BindInterface)
 		if err != nil {
-			err = fmt.Errorf("failed to bind to interface: %w", err)
-			return
+			return fmt.Errorf("failed to bind to interface: %w", err)
 		}
 	}
 	if o.FirewallMark != nil && firewallMarkFunc != nil {
-		err = firewallMarkFunc(c, *o.FirewallMark)
+		err := firewallMarkFunc(c, *o.FirewallMark)
 		if err != nil {
-			err = fmt.Errorf("failed to set fwmark: %w", err)
-			return
+			return fmt.Errorf("failed to set fwmark: %w", err)
 		}
 	}
 	if o.FdControlUnixSocket != nil && fdControlUnixSocketFunc != nil {
-		err = fdControlUnixSocketFunc(c, *o.FdControlUnixSocket)
+		err := fdControlUnixSocketFunc(c, *o.FdControlUnixSocket)
 		if err != nil {
-			err = fmt.Errorf("failed to send fd to control unix socket: %w", err)
-			return
+			return fmt.Errorf("failed to send fd to control unix socket: %w", err)
 		}
 	}
-	return
+	return nil
 }
