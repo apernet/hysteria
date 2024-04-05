@@ -52,7 +52,7 @@ func firewallMarkImpl(c *net.UDPConn, fwmark uint32) error {
 
 func fdControlUnixSocketImpl(c *net.UDPConn, path string) error {
 	return controlUDPConn(c, func(fd int) error {
-		socketFd, err := unix.Socket(unix.AF_UNIX, unix.SOCK_STREAM, unix.PROT_NONE)
+		socketFd, err := unix.Socket(unix.AF_UNIX, unix.SOCK_STREAM, 0)
 		if err != nil {
 			return fmt.Errorf("failed to create unix socket: %w", err)
 		}
