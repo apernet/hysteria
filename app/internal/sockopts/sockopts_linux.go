@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"golang.org/x/exp/constraints"
-
 	"golang.org/x/sys/unix"
 )
 
