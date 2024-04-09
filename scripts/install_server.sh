@@ -60,6 +60,9 @@ HYSTERIA_USER="${HYSTERIA_USER:-}"
 # Directory for ACME certificates storage
 HYSTERIA_HOME_DIR="${HYSTERIA_HOME_DIR:-}"
 
+# SELinux context of systemd unit files
+SECONTEXT_SYSTEMD_UNIT="${SECONTEXT_SYSTEMD_UNIT:-}"
+
 
 ###
 # ARGUMENTS
@@ -176,6 +179,14 @@ systemctl() {
   command systemctl "$@"
 }
 
+chcon() {
+  if ! has_command chcon || [[ "x$FORCE_NO_SELINUX" == "x1" ]]; then
+    return
+  fi
+
+  command chcon "$@"
+}
+
 show_argument_error_and_exit() {
   local _error_msg="$1"
 
@@ -221,6 +232,7 @@ exec_sudo() {
     $(env | grep "^OPERATING_SYSTEM=" || true)
     $(env | grep "^ARCHITECTURE=" || true)
     $(env | grep "^HYSTERIA_\w*=" || true)
+    $(env | grep "^SECONTEXT_SYSTEMD_UNIT=" || true)
     $(env | grep "^FORCE_\w*=" || true)
   )
   IFS="$_saved_ifs"
@@ -407,6 +419,30 @@ check_environment_systemd() {
   esac
 }
 
+check_environment_selinux() {
+  if ! has_command chcon; then
+    return
+  fi
+
+  note "SELinux is detected"
+
+  if [[ "x$FORCE_NO_SELINUX" == "x1" ]]; then
+    warning "FORCE_NO_SELINUX=1, we will skip all SELinux related commands."
+    return
+  fi
+
+  if [[ -z "$SECONTEXT_SYSTEMD_UNIT" ]]; then
+    if [[ -z "$FORCE_NO_SYSTEMD" ]] && [[ -e "$SYSTEMD_SERVICES_DIR" ]]; then
+      local _sectx="$(ls -ldZ "$SYSTEMD_SERVICES_DIR" | cut -d ' ' -f 5)"
+      if [[ "x$_sectx" == "x?" ]]; then
+        warning "Failed to obtain SEContext of $SYSTEMD_SERVICES_DIR"
+      else
+        SECONTEXT_SYSTEMD_UNIT="$_sectx"
+      fi
+    fi
+  fi
+}
+
 check_environment_curl() {
   if has_command curl; then
     return
@@ -427,6 +463,7 @@ check_environment() {
   check_environment_operating_system
   check_environment_architecture
   check_environment_systemd
+  check_environment_selinux
   check_environment_curl
   check_environment_grep
 }
@@ -918,6 +955,10 @@ perform_install_hysteria_systemd() {
 
   install_content -Dm644 "$(tpl_hysteria_server_service)" "$SYSTEMD_SERVICES_DIR/hysteria-server.service" "1"
   install_content -Dm644 "$(tpl_hysteria_server_x_service)" "$SYSTEMD_SERVICES_DIR/hysteria-server@.service" "1"
+  if [[ -n "$SECONTEXT_SYSTEMD_UNIT" ]]; then
+    chcon "$SECONTEXT_SYSTEMD_UNIT" "$SYSTEMD_SERVICES_DIR/hysteria-server.service"
+    chcon "$SECONTEXT_SYSTEMD_UNIT" "$SYSTEMD_SERVICES_DIR/hysteria-server@.service"
+  fi
 
   systemctl daemon-reload
 }
