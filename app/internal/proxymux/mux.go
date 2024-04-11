@@ -248,6 +248,11 @@ func (l *subListener) Addr() net.Addr {
 // Close implements net.Listener.Close.
 // Upstream should use close(l.acceptChan) instead.
 func (l *subListener) Close() error {
+	select {
+	case <-l.closeChan:
+		return nil
+	default:
+	}
 	close(l.closeChan)
 	return nil
 }
