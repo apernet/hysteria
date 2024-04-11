@@ -53,13 +53,6 @@ func TestClientConfig(t *testing.T) {
 		},
 		FastOpen: true,
 		Lazy:     true,
-		Mixed: &mixedConfig{
-			Listen:     "127.0.0.1:1080",
-			Username:   "anon",
-			Password:   "bro",
-			DisableUDP: true,
-			Realm:      "martian",
-		},
 		SOCKS5: &socks5Config{
 			Listen:     "127.0.0.1:1080",
 			Username:   "anon",

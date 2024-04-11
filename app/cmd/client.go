@@ -15,13 +15,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apernet/hysteria/app/internal/proxymux"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	"github.com/apernet/hysteria/app/internal/forwarding"
 	"github.com/apernet/hysteria/app/internal/http"
-	"github.com/apernet/hysteria/app/internal/proxymux"
 	"github.com/apernet/hysteria/app/internal/redirect"
 	"github.com/apernet/hysteria/app/internal/socks5"
 	"github.com/apernet/hysteria/app/internal/tproxy"
@@ -64,7 +65,6 @@ type clientConfig struct {
 	Bandwidth     clientConfigBandwidth `mapstructure:"bandwidth"`
 	FastOpen      bool                  `mapstructure:"fastOpen"`
 	Lazy          bool                  `mapstructure:"lazy"`
-	Mixed         *mixedConfig          `mapstructure:"mixed"`
 	SOCKS5        *socks5Config         `mapstructure:"socks5"`
 	HTTP          *httpConfig           `mapstructure:"http"`
 	TCPForwarding []tcpForwardingEntry  `mapstructure:"tcpForwarding"`
@@ -113,14 +113,6 @@ type clientConfigQUIC struct {
 type clientConfigBandwidth struct {
 	Up   string `mapstructure:"up"`
 	Down string `mapstructure:"down"`
-}
-
-type mixedConfig struct {
-	Listen     string `mapstructure:"listen"`
-	Username   string `mapstructure:"username"`
-	Password   string `mapstructure:"password"`
-	DisableUDP bool   `mapstructure:"disableUDP"`
-	Realm      string `mapstructure:"realm"`
 }
 
 type socks5Config struct {
@@ -457,11 +449,6 @@ func runClient(cmd *cobra.Command, args []string) {
 
 	// Register modes
 	var runner clientModeRunner
-	if config.Mixed != nil {
-		runner.Add("Mixed server", func() error {
-			return clientMixed(*config.Mixed, c)
-		})
-	}
 	if config.SOCKS5 != nil {
 		runner.Add("SOCKS5 server", func() error {
 			return clientSOCKS5(*config.SOCKS5, c)
@@ -542,50 +529,11 @@ func (r *clientModeRunner) Run() {
 	}
 }
 
-func clientMixed(config mixedConfig, c client.Client) error {
-	if config.Listen == "" {
-		return configError{Field: "listen", Err: errors.New("listen address is empty")}
-	}
-	l, err := correctnet.Listen("tcp", config.Listen)
-	if err != nil {
-		return configError{Field: "listen", Err: err}
-	}
-	var authFunc func(username, password string) bool
-	username, password := config.Username, config.Password
-	if username != "" && password != "" {
-		authFunc = func(u, p string) bool {
-			return u == username && p == password
-		}
-	}
-	s := socks5.Server{
-		HyClient:    c,
-		AuthFunc:    authFunc,
-		DisableUDP:  config.DisableUDP,
-		EventLogger: &socks5Logger{},
-	}
-	logger.Info("SOCKS5 server listening", zap.String("addr", config.Listen))
-
-	h := http.Server{
-		HyClient:    c,
-		AuthFunc:    authFunc,
-		AuthRealm:   config.Realm,
-		EventLogger: &httpLogger{},
-	}
-	logger.Info("HTTP proxy server listening", zap.String("addr", config.Listen))
-	socks5Ln, httpLn := proxymux.SplitSOCKSAndHTTP(l)
-	go func() {
-		if err = h.Serve(httpLn); err != nil {
-			logger.Fatal(err.Error())
-		}
-	}()
-	return s.Serve(socks5Ln)
-}
-
 func clientSOCKS5(config socks5Config, c client.Client) error {
 	if config.Listen == "" {
 		return configError{Field: "listen", Err: errors.New("listen address is empty")}
 	}
-	l, err := correctnet.Listen("tcp", config.Listen)
+	l, err := proxymux.ListenSOCKS(config.Listen)
 	if err != nil {
 		return configError{Field: "listen", Err: err}
 	}
@@ -610,7 +558,7 @@ func clientHTTP(config httpConfig, c client.Client) error {
 	if config.Listen == "" {
 		return configError{Field: "listen", Err: errors.New("listen address is empty")}
 	}
-	l, err := correctnet.Listen("tcp", config.Listen)
+	l, err := proxymux.ListenHTTP(config.Listen)
 	if err != nil {
 		return configError{Field: "listen", Err: err}
 	}
