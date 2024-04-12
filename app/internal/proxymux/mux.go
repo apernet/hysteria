@@ -91,14 +91,20 @@ func (l *muxListener) mainLoop() {
 			go l.dispatch(conn)
 		case <-socksCloseChan:
 			l.lock.Lock()
-			l.socksListener = nil
+			if socksCloseChan == l.socksListener.closeChan {
+				// not replaced by another ListenSOCKS()
+				l.socksListener = nil
+			}
 			l.lock.Unlock()
 			if l.checkIdle() {
 				return
 			}
 		case <-httpCloseChan:
 			l.lock.Lock()
-			l.httpListener = nil
+			if httpCloseChan == l.httpListener.closeChan {
+				// not replaced by another ListenHTTP()
+				l.httpListener = nil
+			}
 			l.lock.Unlock()
 			if l.checkIdle() {
 				return
@@ -160,12 +166,21 @@ func (l *muxListener) ListenHTTP() (net.Listener, error) {
 	defer l.lock.Unlock()
 
 	if l.httpListener != nil {
-		return nil, OpErr{
-			Addr:     l.base.Addr(),
-			Protocol: "http",
-			Op:       "bind-protocol",
-			Err:      ErrProtocolInUse,
+		subListenerPendingClosed := false
+		select {
+		case <-l.httpListener.closeChan:
+			subListenerPendingClosed = true
+		default:
 		}
+		if !subListenerPendingClosed {
+			return nil, OpErr{
+				Addr:     l.base.Addr(),
+				Protocol: "http",
+				Op:       "bind-protocol",
+				Err:      ErrProtocolInUse,
+			}
+		}
+		l.httpListener = nil
 	}
 
 	select {
@@ -184,12 +199,21 @@ func (l *muxListener) ListenSOCKS() (net.Listener, error) {
 	defer l.lock.Unlock()
 
 	if l.socksListener != nil {
-		return nil, OpErr{
-			Addr:     l.base.Addr(),
-			Protocol: "socks",
-			Op:       "bind-protocol",
-			Err:      ErrProtocolInUse,
+		subListenerPendingClosed := false
+		select {
+		case <-l.socksListener.closeChan:
+			subListenerPendingClosed = true
+		default:
 		}
+		if !subListenerPendingClosed {
+			return nil, OpErr{
+				Addr:     l.base.Addr(),
+				Protocol: "socks",
+				Op:       "bind-protocol",
+				Err:      ErrProtocolInUse,
+			}
+		}
+		l.socksListener = nil
 	}
 
 	select {
