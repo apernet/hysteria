@@ -15,14 +15,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apernet/hysteria/app/internal/proxymux"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	"github.com/apernet/hysteria/app/internal/forwarding"
 	"github.com/apernet/hysteria/app/internal/http"
+	"github.com/apernet/hysteria/app/internal/proxymux"
 	"github.com/apernet/hysteria/app/internal/redirect"
 	"github.com/apernet/hysteria/app/internal/socks5"
 	"github.com/apernet/hysteria/app/internal/tproxy"

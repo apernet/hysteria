@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/apernet/hysteria/app/internal/proxymux/internal/mocks"
-	"github.com/stretchr/testify/mock"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 //go:generate mockery
