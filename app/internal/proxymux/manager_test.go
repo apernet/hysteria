@@ -31,9 +31,6 @@ func TestListenSOCKS(t *testing.T) {
 	}
 	sl.Close()
 
-	// Wait for muxListener.socksListener released
-	time.Sleep(time.Second)
-
 	sl, err = ListenSOCKS(address)
 	if !assert.NoError(t, err) {
 		return
@@ -62,9 +59,6 @@ func TestListenHTTP(t *testing.T) {
 		return
 	}
 	hl.Close()
-
-	// Wait for muxListener.socksListener released
-	time.Sleep(time.Second)
 
 	hl, err = ListenHTTP(address)
 	if !assert.NoError(t, err) {
