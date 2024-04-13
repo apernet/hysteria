@@ -44,7 +44,7 @@ type udpPacket struct {
 	Err  error
 }
 
-type ListenUDPFunc func() (net.PacketConn, error)
+type ListenUDPFunc = func() (net.PacketConn, error)
 
 func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration, listenUDPFunc ListenUDPFunc) (net.PacketConn, error) {
 	if hopInterval == 0 {
