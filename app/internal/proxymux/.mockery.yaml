@@ -1,0 +1,12 @@
+with-expecter: true
+dir: internal/mocks
+outpkg: mocks
+packages:
+  net:
+    interfaces:
+      Listener:
+        config:
+          mockname: MockListener
+      Conn:
+        config:
+          mockname: MockConn

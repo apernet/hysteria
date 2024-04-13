@@ -21,6 +21,7 @@ import (
 
 	"github.com/apernet/hysteria/app/internal/forwarding"
 	"github.com/apernet/hysteria/app/internal/http"
+	"github.com/apernet/hysteria/app/internal/proxymux"
 	"github.com/apernet/hysteria/app/internal/redirect"
 	"github.com/apernet/hysteria/app/internal/socks5"
 	"github.com/apernet/hysteria/app/internal/tproxy"
@@ -531,7 +532,7 @@ func clientSOCKS5(config socks5Config, c client.Client) error {
 	if config.Listen == "" {
 		return configError{Field: "listen", Err: errors.New("listen address is empty")}
 	}
-	l, err := correctnet.Listen("tcp", config.Listen)
+	l, err := proxymux.ListenSOCKS(config.Listen)
 	if err != nil {
 		return configError{Field: "listen", Err: err}
 	}
@@ -556,7 +557,7 @@ func clientHTTP(config httpConfig, c client.Client) error {
 	if config.Listen == "" {
 		return configError{Field: "listen", Err: errors.New("listen address is empty")}
 	}
-	l, err := correctnet.Listen("tcp", config.Listen)
+	l, err := proxymux.ListenHTTP(config.Listen)
 	if err != nil {
 		return configError{Field: "listen", Err: err}
 	}
