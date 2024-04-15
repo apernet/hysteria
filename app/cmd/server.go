@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -253,6 +254,20 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 		// Local TLS cert
 		if c.TLS.Cert == "" || c.TLS.Key == "" {
 			return configError{Field: "tls", Err: errors.New("empty cert or key path")}
+		}
+		// Try loading the cert-key pair here to catch errors early
+		// (e.g. invalid files or insufficient permissions)
+		certPEMBlock, err := os.ReadFile(c.TLS.Cert)
+		if err != nil {
+			return configError{Field: "tls.cert", Err: err}
+		}
+		keyPEMBlock, err := os.ReadFile(c.TLS.Key)
+		if err != nil {
+			return configError{Field: "tls.key", Err: err}
+		}
+		_, err = tls.X509KeyPair(certPEMBlock, keyPEMBlock)
+		if err != nil {
+			return configError{Field: "tls", Err: fmt.Errorf("invalid cert-key pair: %w", err)}
 		}
 		// Use GetCertificate instead of Certificates so that
 		// users can update the cert without restarting the server.
