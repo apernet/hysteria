@@ -255,7 +255,8 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 		if c.TLS.Cert == "" || c.TLS.Key == "" {
 			return configError{Field: "tls", Err: errors.New("empty cert or key path")}
 		}
-		// Load cert-key pair here for early error reporting (especially permission denied)
+		// Try loading the cert-key pair here to catch errors early
+		// (e.g. invalid files or insufficient permissions)
 		certPEMBlock, err := os.ReadFile(c.TLS.Cert)
 		if err != nil {
 			return configError{Field: "tls.cert", Err: err}
