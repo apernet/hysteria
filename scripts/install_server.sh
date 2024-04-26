@@ -187,6 +187,29 @@ chcon() {
   command chcon "$@"
 }
 
+get_selinux_context() {
+  local _file="$1"
+
+  local _lsres="$(ls -dZ "$_file" | head -1)"
+  local _sectx=''
+  case "$(echo "$_lsres" | wc -w)" in
+    2)
+      _sectx="$(echo "$_lsres" | cut -d ' ' -f 1)"
+      ;;
+    5)
+      _sectx="$(echo "$_lsres" | cut -d ' ' -f 4)"
+      ;;
+    *)
+      ;;
+  esac
+
+  if [[ "x$_sectx" == "x?" ]]; then
+    _sectx=""
+  fi
+
+  echo "$_sectx"
+}
+
 show_argument_error_and_exit() {
   local _error_msg="$1"
 
@@ -433,8 +456,8 @@ check_environment_selinux() {
 
   if [[ -z "$SECONTEXT_SYSTEMD_UNIT" ]]; then
     if [[ -z "$FORCE_NO_SYSTEMD" ]] && [[ -e "$SYSTEMD_SERVICES_DIR" ]]; then
-      local _sectx="$(ls -ldZ "$SYSTEMD_SERVICES_DIR" | cut -d ' ' -f 5)"
-      if [[ "x$_sectx" == "x?" ]]; then
+      local _sectx="$(get_selinux_context "$SYSTEMD_SERVICES_DIR")"
+      if [[ -z "$_sectx" ]]; then
         warning "Failed to obtain SEContext of $SYSTEMD_SERVICES_DIR"
       else
         SECONTEXT_SYSTEMD_UNIT="$_sectx"
