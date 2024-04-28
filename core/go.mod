@@ -3,7 +3,7 @@ module github.com/apernet/hysteria/core
 go 1.21
 
 require (
-	github.com/apernet/quic-go v0.42.1-0.20240323215309-32a339817822
+	github.com/apernet/quic-go v0.43.1-0.20240427194602-3797cae21bac
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/goleak v1.2.1
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db
