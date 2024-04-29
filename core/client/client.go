@@ -87,7 +87,6 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 	// Prepare RoundTripper
 	var conn quic.EarlyConnection
 	rt := &http3.RoundTripper{
-		EnableDatagrams: true,
 		TLSClientConfig: tlsConfig,
 		QUICConfig:      quicConfig,
 		Dial: func(ctx context.Context, _ string, tlsCfg *tls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {

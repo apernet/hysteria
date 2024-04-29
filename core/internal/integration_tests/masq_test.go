@@ -41,7 +41,6 @@ func TestServerMasquerade(t *testing.T) {
 	// QUIC connection & RoundTripper
 	var conn quic.EarlyConnection
 	rt := &http3.RoundTripper{
-		EnableDatagrams: true,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},

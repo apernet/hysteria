@@ -77,9 +77,8 @@ func (s *serverImpl) Close() error {
 func (s *serverImpl) handleClient(conn quic.Connection) {
 	handler := newH3sHandler(s.config, conn)
 	h3s := http3.Server{
-		EnableDatagrams: true,
-		Handler:         handler,
-		StreamHijacker:  handler.ProxyStreamHijacker,
+		Handler:        handler,
+		StreamHijacker: handler.ProxyStreamHijacker,
 	}
 	err := h3s.ServeQUICConn(conn)
 	// If the client is authenticated, we need to log the disconnect event
