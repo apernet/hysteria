@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/apernet/hysteria/core/server"
 )
@@ -22,17 +23,19 @@ type TrafficStatsServer interface {
 
 func NewTrafficStatsServer(secret string) TrafficStatsServer {
 	return &trafficStatsServerImpl{
-		StatsMap: make(map[string]*trafficStatsEntry),
-		KickMap:  make(map[string]struct{}),
-		Secret:   secret,
+		StatsMap:  make(map[string]*trafficStatsEntry),
+		KickMap:   make(map[string]struct{}),
+		OnlineMap: make(map[string]int64),
+		Secret:    secret,
 	}
 }
 
 type trafficStatsServerImpl struct {
-	Mutex    sync.RWMutex
-	StatsMap map[string]*trafficStatsEntry
-	KickMap  map[string]struct{}
-	Secret   string
+	Mutex     sync.RWMutex
+	StatsMap  map[string]*trafficStatsEntry
+	OnlineMap map[string]int64
+	KickMap   map[string]struct{}
+	Secret    string
 }
 
 type trafficStatsEntry struct {
@@ -58,6 +61,8 @@ func (s *trafficStatsServerImpl) Log(id string, tx, rx uint64) (ok bool) {
 	entry.Tx += tx
 	entry.Rx += rx
 
+	s.OnlineMap[id] = time.Now().Unix()
+
 	return true
 }
 
@@ -78,6 +83,10 @@ func (s *trafficStatsServerImpl) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		s.kick(w, r)
 		return
 	}
+	if r.Method == http.MethodPost && r.URL.Path == "/online" {
+		s.getOnline(w, r)
+		return
+	}
 	http.NotFound(w, r)
 }
 
@@ -95,6 +104,30 @@ func (s *trafficStatsServerImpl) getTraffic(w http.ResponseWriter, r *http.Reque
 		jb, err = json.Marshal(s.StatsMap)
 		s.Mutex.RUnlock()
 	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write(jb)
+}
+
+func (s *trafficStatsServerImpl) getOnline(w http.ResponseWriter, r *http.Request) {
+	var jb []byte
+	var err error
+
+	timeNow := time.Now().Unix()
+
+	for id, lastSeen := range s.OnlineMap {
+		if timeNow-lastSeen > 180 {
+			delete(s.OnlineMap, id)
+		}
+	}
+
+	s.Mutex.RLock()
+	jb, err = json.Marshal(s.OnlineMap)
+	s.Mutex.RUnlock()
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
