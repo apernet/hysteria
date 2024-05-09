@@ -83,6 +83,7 @@ func (s *serverImpl) handleClient(conn quic.Connection) {
 	err := h3s.ServeQUICConn(conn)
 	// If the client is authenticated, we need to log the disconnect event
 	if handler.authenticated && s.config.EventLogger != nil {
+		s.config.TrafficLogger.LogOffline(handler.authID, conn.RemoteAddr())
 		s.config.EventLogger.Disconnect(conn.RemoteAddr(), handler.authID, err)
 	}
 	_ = conn.CloseWithError(closeErrCodeOK, "")
@@ -154,6 +155,7 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(protocol.StatusAuthOK)
 			// Call event logger
 			if h.config.EventLogger != nil {
+				h.config.TrafficLogger.LogOnline(id, h.conn.RemoteAddr())
 				h.config.EventLogger.Connect(h.conn.RemoteAddr(), id, actualTx)
 			}
 			// Initialize UDP session manager (if UDP is enabled)

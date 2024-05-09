@@ -2,12 +2,11 @@ package trafficlogger
 
 import (
 	"encoding/json"
+	"github.com/apernet/hysteria/core/server"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
-
-	"github.com/apernet/hysteria/core/server"
 )
 
 const (
@@ -25,7 +24,7 @@ func NewTrafficStatsServer(secret string) TrafficStatsServer {
 	return &trafficStatsServerImpl{
 		StatsMap:  make(map[string]*trafficStatsEntry),
 		KickMap:   make(map[string]struct{}),
-		OnlineMap: make(map[string]int64),
+		OnlineMap: make(map[string]map[string]bool),
 		Secret:    secret,
 	}
 }
@@ -33,7 +32,7 @@ func NewTrafficStatsServer(secret string) TrafficStatsServer {
 type trafficStatsServerImpl struct {
 	Mutex     sync.RWMutex
 	StatsMap  map[string]*trafficStatsEntry
-	OnlineMap map[string]int64
+	OnlineMap map[string]map[string]bool
 	KickMap   map[string]struct{}
 	Secret    string
 }
@@ -61,9 +60,43 @@ func (s *trafficStatsServerImpl) Log(id string, tx, rx uint64) (ok bool) {
 	entry.Tx += tx
 	entry.Rx += rx
 
-	s.OnlineMap[id] = time.Now().Unix()
-
 	return true
+}
+
+// LogOnline adds the user to the online map.
+func (s *trafficStatsServerImpl) LogOnline(id string, addr net.Addr) {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+	if _, ok := s.OnlineMap[id]; !ok {
+		s.OnlineMap[id] = make(map[string]bool)
+	}
+	userIp, _, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		return
+	}
+	s.OnlineMap[id][userIp] = true
+}
+
+// LogOffline removes the user from the online map.
+func (s *trafficStatsServerImpl) LogOffline(id string, addr net.Addr) {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+	userIp, _, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		return
+	}
+	if onlineUsers, ok := s.OnlineMap[id]; ok {
+		if !onlineUsers[userIp] {
+			//if the user's ip is not in the online map, delete the whole entry
+			delete(s.OnlineMap, id)
+			return
+		}
+		delete(onlineUsers, userIp)
+		if len(onlineUsers) == 0 {
+			delete(s.OnlineMap, id)
+		}
+	}
+
 }
 
 func (s *trafficStatsServerImpl) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -116,17 +149,30 @@ func (s *trafficStatsServerImpl) getOnline(w http.ResponseWriter, r *http.Reques
 	var jb []byte
 	var err error
 
-	timeNow := time.Now().Unix()
+	bClear, _ := strconv.ParseBool(r.URL.Query().Get("clear"))
+	OnlineSet := make(map[string][]string)
 
-	for id, lastSeen := range s.OnlineMap {
-		if timeNow-lastSeen > 180 {
-			delete(s.OnlineMap, id)
+	if bClear {
+		s.Mutex.Lock()
+		for id, addrs := range s.OnlineMap {
+			for addr := range addrs {
+				OnlineSet[id] = append(OnlineSet[id], addr)
+			}
 		}
+		s.OnlineMap = make(map[string]map[string]bool)
+		s.Mutex.Unlock()
+
+	} else {
+		s.Mutex.RLock()
+		for id, addrs := range s.OnlineMap {
+			for addr := range addrs {
+				OnlineSet[id] = append(OnlineSet[id], addr)
+			}
+		}
+		s.Mutex.RUnlock()
 	}
 
-	s.Mutex.RLock()
-	jb, err = json.Marshal(s.OnlineMap)
-	s.Mutex.RUnlock()
+	jb, err = json.Marshal(OnlineSet)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
