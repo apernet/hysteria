@@ -83,7 +83,7 @@ func (s *trafficStatsServerImpl) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		s.kick(w, r)
 		return
 	}
-	if r.Method == http.MethodPost && r.URL.Path == "/online" {
+	if r.Method == http.MethodGet && r.URL.Path == "/online" {
 		s.getOnline(w, r)
 		return
 	}
