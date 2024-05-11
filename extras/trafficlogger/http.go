@@ -22,17 +22,19 @@ type TrafficStatsServer interface {
 
 func NewTrafficStatsServer(secret string) TrafficStatsServer {
 	return &trafficStatsServerImpl{
-		StatsMap: make(map[string]*trafficStatsEntry),
-		KickMap:  make(map[string]struct{}),
-		Secret:   secret,
+		StatsMap:  make(map[string]*trafficStatsEntry),
+		KickMap:   make(map[string]struct{}),
+		OnlineMap: make(map[string]int),
+		Secret:    secret,
 	}
 }
 
 type trafficStatsServerImpl struct {
-	Mutex    sync.RWMutex
-	StatsMap map[string]*trafficStatsEntry
-	KickMap  map[string]struct{}
-	Secret   string
+	Mutex     sync.RWMutex
+	StatsMap  map[string]*trafficStatsEntry
+	OnlineMap map[string]int
+	KickMap   map[string]struct{}
+	Secret    string
 }
 
 type trafficStatsEntry struct {
@@ -40,7 +42,7 @@ type trafficStatsEntry struct {
 	Rx uint64 `json:"rx"`
 }
 
-func (s *trafficStatsServerImpl) Log(id string, tx, rx uint64) (ok bool) {
+func (s *trafficStatsServerImpl) LogTraffic(id string, tx, rx uint64) (ok bool) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
@@ -61,6 +63,21 @@ func (s *trafficStatsServerImpl) Log(id string, tx, rx uint64) (ok bool) {
 	return true
 }
 
+// LogOnlineStateChanged updates the online state to the online map.
+func (s *trafficStatsServerImpl) LogOnlineState(id string, online bool) {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	if online {
+		s.OnlineMap[id]++
+	} else {
+		s.OnlineMap[id]--
+		if s.OnlineMap[id] <= 0 {
+			delete(s.OnlineMap, id)
+		}
+	}
+}
+
 func (s *trafficStatsServerImpl) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.Secret != "" && r.Header.Get("Authorization") != s.Secret {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -76,6 +93,10 @@ func (s *trafficStatsServerImpl) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	}
 	if r.Method == http.MethodPost && r.URL.Path == "/kick" {
 		s.kick(w, r)
+		return
+	}
+	if r.Method == http.MethodGet && r.URL.Path == "/online" {
+		s.getOnline(w, r)
 		return
 	}
 	http.NotFound(w, r)
@@ -95,6 +116,19 @@ func (s *trafficStatsServerImpl) getTraffic(w http.ResponseWriter, r *http.Reque
 		jb, err = json.Marshal(s.StatsMap)
 		s.Mutex.RUnlock()
 	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write(jb)
+}
+
+func (s *trafficStatsServerImpl) getOnline(w http.ResponseWriter, r *http.Request) {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+
+	jb, err := json.Marshal(s.OnlineMap)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

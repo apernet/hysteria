@@ -35,12 +35,12 @@ func copyTwoWayWithLogger(id string, serverRw, remoteRw io.ReadWriter, l Traffic
 	errChan := make(chan error, 2)
 	go func() {
 		errChan <- copyBufferLog(serverRw, remoteRw, func(n uint64) bool {
-			return l.Log(id, 0, n)
+			return l.LogTraffic(id, 0, n)
 		})
 	}()
 	go func() {
 		errChan <- copyBufferLog(remoteRw, serverRw, func(n uint64) bool {
-			return l.Log(id, n, 0)
+			return l.LogTraffic(id, n, 0)
 		})
 	}()
 	// Block until one of the two goroutines returns

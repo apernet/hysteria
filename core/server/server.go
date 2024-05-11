@@ -82,8 +82,13 @@ func (s *serverImpl) handleClient(conn quic.Connection) {
 	}
 	err := h3s.ServeQUICConn(conn)
 	// If the client is authenticated, we need to log the disconnect event
-	if handler.authenticated && s.config.EventLogger != nil {
-		s.config.EventLogger.Disconnect(conn.RemoteAddr(), handler.authID, err)
+	if handler.authenticated {
+		if tl := s.config.TrafficLogger; tl != nil {
+			tl.LogOnlineState(handler.authID, false)
+		}
+		if el := s.config.EventLogger; el != nil {
+			el.Disconnect(conn.RemoteAddr(), handler.authID, err)
+		}
 	}
 	_ = conn.CloseWithError(closeErrCodeOK, "")
 }
@@ -153,8 +158,11 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			})
 			w.WriteHeader(protocol.StatusAuthOK)
 			// Call event logger
-			if h.config.EventLogger != nil {
-				h.config.EventLogger.Connect(h.conn.RemoteAddr(), id, actualTx)
+			if tl := h.config.TrafficLogger; tl != nil {
+				tl.LogOnlineState(id, true)
+			}
+			if el := h.config.EventLogger; el != nil {
+				el.Connect(h.conn.RemoteAddr(), id, actualTx)
 			}
 			// Initialize UDP session manager (if UDP is enabled)
 			// We use sync.Once to make sure that only one goroutine is started,
@@ -268,7 +276,7 @@ func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
 			continue
 		}
 		if io.TrafficLogger != nil {
-			ok := io.TrafficLogger.Log(io.AuthID, uint64(len(udpMsg.Data)), 0)
+			ok := io.TrafficLogger.LogTraffic(io.AuthID, uint64(len(udpMsg.Data)), 0)
 			if !ok {
 				// TrafficLogger requested to disconnect the client
 				_ = io.Conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
@@ -281,7 +289,7 @@ func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
 
 func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 	if io.TrafficLogger != nil {
-		ok := io.TrafficLogger.Log(io.AuthID, 0, uint64(len(msg.Data)))
+		ok := io.TrafficLogger.LogTraffic(io.AuthID, 0, uint64(len(msg.Data)))
 		if !ok {
 			// TrafficLogger requested to disconnect the client
 			_ = io.Conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
