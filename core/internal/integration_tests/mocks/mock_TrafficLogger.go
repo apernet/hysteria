@@ -17,12 +17,46 @@ func (_m *MockTrafficLogger) EXPECT() *MockTrafficLogger_Expecter {
 	return &MockTrafficLogger_Expecter{mock: &_m.Mock}
 }
 
-// Log provides a mock function with given fields: id, tx, rx
-func (_m *MockTrafficLogger) Log(id string, tx uint64, rx uint64) bool {
+// LogOnlineState provides a mock function with given fields: id, online
+func (_m *MockTrafficLogger) LogOnlineState(id string, online bool) {
+	_m.Called(id, online)
+}
+
+// MockTrafficLogger_LogOnlineState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LogOnlineState'
+type MockTrafficLogger_LogOnlineState_Call struct {
+	*mock.Call
+}
+
+// LogOnlineState is a helper method to define mock.On call
+//   - id string
+//   - online bool
+func (_e *MockTrafficLogger_Expecter) LogOnlineState(id interface{}, online interface{}) *MockTrafficLogger_LogOnlineState_Call {
+	return &MockTrafficLogger_LogOnlineState_Call{Call: _e.mock.On("LogOnlineState", id, online)}
+}
+
+func (_c *MockTrafficLogger_LogOnlineState_Call) Run(run func(id string, online bool)) *MockTrafficLogger_LogOnlineState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(bool))
+	})
+	return _c
+}
+
+func (_c *MockTrafficLogger_LogOnlineState_Call) Return() *MockTrafficLogger_LogOnlineState_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockTrafficLogger_LogOnlineState_Call) RunAndReturn(run func(string, bool)) *MockTrafficLogger_LogOnlineState_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// LogTraffic provides a mock function with given fields: id, tx, rx
+func (_m *MockTrafficLogger) LogTraffic(id string, tx uint64, rx uint64) bool {
 	ret := _m.Called(id, tx, rx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Log")
+		panic("no return value specified for LogTraffic")
 	}
 
 	var r0 bool
@@ -35,66 +69,32 @@ func (_m *MockTrafficLogger) Log(id string, tx uint64, rx uint64) bool {
 	return r0
 }
 
-// MockTrafficLogger_Log_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Log'
-type MockTrafficLogger_Log_Call struct {
+// MockTrafficLogger_LogTraffic_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LogTraffic'
+type MockTrafficLogger_LogTraffic_Call struct {
 	*mock.Call
 }
 
-// Log is a helper method to define mock.On call
+// LogTraffic is a helper method to define mock.On call
 //   - id string
 //   - tx uint64
 //   - rx uint64
-func (_e *MockTrafficLogger_Expecter) Log(id interface{}, tx interface{}, rx interface{}) *MockTrafficLogger_Log_Call {
-	return &MockTrafficLogger_Log_Call{Call: _e.mock.On("Log", id, tx, rx)}
+func (_e *MockTrafficLogger_Expecter) LogTraffic(id interface{}, tx interface{}, rx interface{}) *MockTrafficLogger_LogTraffic_Call {
+	return &MockTrafficLogger_LogTraffic_Call{Call: _e.mock.On("LogTraffic", id, tx, rx)}
 }
 
-func (_c *MockTrafficLogger_Log_Call) Run(run func(id string, tx uint64, rx uint64)) *MockTrafficLogger_Log_Call {
+func (_c *MockTrafficLogger_LogTraffic_Call) Run(run func(id string, tx uint64, rx uint64)) *MockTrafficLogger_LogTraffic_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string), args[1].(uint64), args[2].(uint64))
 	})
 	return _c
 }
 
-func (_c *MockTrafficLogger_Log_Call) Return(ok bool) *MockTrafficLogger_Log_Call {
+func (_c *MockTrafficLogger_LogTraffic_Call) Return(ok bool) *MockTrafficLogger_LogTraffic_Call {
 	_c.Call.Return(ok)
 	return _c
 }
 
-func (_c *MockTrafficLogger_Log_Call) RunAndReturn(run func(string, uint64, uint64) bool) *MockTrafficLogger_Log_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// LogOnlineStateChanged provides a mock function with given fields: id, online
-func (_m *MockTrafficLogger) LogOnlineStateChanged(id string, online bool) {
-	_m.Called(id, online)
-}
-
-// MockTrafficLogger_LogOnlineStateChanged_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LogOnlineStateChanged'
-type MockTrafficLogger_LogOnlineStateChanged_Call struct {
-	*mock.Call
-}
-
-// LogOnlineStateChanged is a helper method to define mock.On call
-//   - id string
-//   - online bool
-func (_e *MockTrafficLogger_Expecter) LogOnlineStateChanged(id interface{}, online interface{}) *MockTrafficLogger_LogOnlineStateChanged_Call {
-	return &MockTrafficLogger_LogOnlineStateChanged_Call{Call: _e.mock.On("LogOnlineStateChanged", id, online)}
-}
-
-func (_c *MockTrafficLogger_LogOnlineStateChanged_Call) Run(run func(id string, online bool)) *MockTrafficLogger_LogOnlineStateChanged_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(bool))
-	})
-	return _c
-}
-
-func (_c *MockTrafficLogger_LogOnlineStateChanged_Call) Return() *MockTrafficLogger_LogOnlineStateChanged_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockTrafficLogger_LogOnlineStateChanged_Call) RunAndReturn(run func(string, bool)) *MockTrafficLogger_LogOnlineStateChanged_Call {
+func (_c *MockTrafficLogger_LogTraffic_Call) RunAndReturn(run func(string, uint64, uint64) bool) *MockTrafficLogger_LogTraffic_Call {
 	_c.Call.Return(run)
 	return _c
 }

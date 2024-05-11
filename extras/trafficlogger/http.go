@@ -42,7 +42,7 @@ type trafficStatsEntry struct {
 	Rx uint64 `json:"rx"`
 }
 
-func (s *trafficStatsServerImpl) Log(id string, tx, rx uint64) (ok bool) {
+func (s *trafficStatsServerImpl) LogTraffic(id string, tx, rx uint64) (ok bool) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
@@ -64,7 +64,7 @@ func (s *trafficStatsServerImpl) Log(id string, tx, rx uint64) (ok bool) {
 }
 
 // LogOnlineStateChanged updates the online state to the online map.
-func (s *trafficStatsServerImpl) LogOnlineStateChanged(id string, online bool) {
+func (s *trafficStatsServerImpl) LogOnlineState(id string, online bool) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
