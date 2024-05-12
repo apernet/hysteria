@@ -11,8 +11,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/caddyserver/certmagic"
@@ -770,9 +772,20 @@ func runServer(cmd *cobra.Command, args []string) {
 		go runCheckUpdateServer()
 	}
 
-	if err := s.Serve(); err != nil {
-		logger.Fatal("failed to serve", zap.Error(err))
-	}
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	defer signal.Stop(signalChan)
+
+	go func() {
+		if err := s.Serve(); err != nil {
+			logger.Fatal("failed to serve", zap.Error(err))
+			os.Exit(1)
+			return
+		}
+	}()
+
+	<-signalChan
+	_ = s.Close()
 }
 
 func runTrafficStatsServer(listen string, handler http.Handler) {
