@@ -9,10 +9,12 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"os/signal"
 	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -512,11 +514,40 @@ func runClient(cmd *cobra.Command, args []string) {
 		})
 	}
 
-	runner.Run()
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signalChan)
+
+	runnerChan := make(chan clientModeRunnerResult, 1)
+	go func() {
+		runnerChan <- runner.Run()
+	}()
+
+	select {
+	case <-signalChan:
+		logger.Info("received signal, shutting down gracefully")
+	case r := <-runnerChan:
+		if r.OK {
+			logger.Info(r.Msg)
+		} else {
+			_ = c.Close() // Close the client here as Fatal will exit the program without running defer
+			if r.Err != nil {
+				logger.Fatal(r.Msg, zap.Error(r.Err))
+			} else {
+				logger.Fatal(r.Msg)
+			}
+		}
+	}
 }
 
 type clientModeRunner struct {
 	ModeMap map[string]func() error
+}
+
+type clientModeRunnerResult struct {
+	OK  bool
+	Msg string
+	Err error
 }
 
 func (r *clientModeRunner) Add(name string, f func() error) {
@@ -526,9 +557,9 @@ func (r *clientModeRunner) Add(name string, f func() error) {
 	r.ModeMap[name] = f
 }
 
-func (r *clientModeRunner) Run() {
+func (r *clientModeRunner) Run() clientModeRunnerResult {
 	if len(r.ModeMap) == 0 {
-		logger.Fatal("no mode specified")
+		return clientModeRunnerResult{OK: false, Msg: "no mode specified"}
 	}
 
 	type modeError struct {
@@ -546,9 +577,13 @@ func (r *clientModeRunner) Run() {
 	for i := 0; i < len(r.ModeMap); i++ {
 		e := <-errChan
 		if e.Err != nil {
-			logger.Fatal("failed to run "+e.Name, zap.Error(e.Err))
+			return clientModeRunnerResult{OK: false, Msg: "failed to run " + e.Name, Err: e.Err}
 		}
 	}
+
+	// We don't really have any such cases, as currently none of our modes would stop on themselves without error.
+	// But we leave the possibility here for future expansion.
+	return clientModeRunnerResult{OK: true, Msg: "finished without error"}
 }
 
 func clientSOCKS5(config socks5Config, c client.Client) error {
