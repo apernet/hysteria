@@ -4,7 +4,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/apernet/hysteria/core/server"
+	"github.com/apernet/hysteria/core/v2/server"
 )
 
 // The PluggableOutbound system is designed to function in a chain-like manner.

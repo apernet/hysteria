@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/apernet/hysteria/core/internal/congestion/common"
+	"github.com/apernet/hysteria/core/v2/internal/congestion/common"
 
 	"github.com/apernet/quic-go/congestion"
 )

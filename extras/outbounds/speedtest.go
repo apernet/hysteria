@@ -3,7 +3,7 @@ package outbounds
 import (
 	"net"
 
-	"github.com/apernet/hysteria/extras/outbounds/speedtest"
+	"github.com/apernet/hysteria/extras/v2/outbounds/speedtest"
 )
 
 const (

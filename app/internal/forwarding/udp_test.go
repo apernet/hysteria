@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/apernet/hysteria/app/internal/utils_test"
+	"github.com/apernet/hysteria/app/v2/internal/utils_test"
 )
 
 func TestUDPTunnel(t *testing.T) {

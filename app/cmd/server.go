@@ -21,14 +21,14 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/apernet/hysteria/app/internal/utils"
-	"github.com/apernet/hysteria/core/server"
-	"github.com/apernet/hysteria/extras/auth"
-	"github.com/apernet/hysteria/extras/correctnet"
-	"github.com/apernet/hysteria/extras/masq"
-	"github.com/apernet/hysteria/extras/obfs"
-	"github.com/apernet/hysteria/extras/outbounds"
-	"github.com/apernet/hysteria/extras/trafficlogger"
+	"github.com/apernet/hysteria/app/v2/internal/utils"
+	"github.com/apernet/hysteria/core/v2/server"
+	"github.com/apernet/hysteria/extras/v2/auth"
+	"github.com/apernet/hysteria/extras/v2/correctnet"
+	"github.com/apernet/hysteria/extras/v2/masq"
+	"github.com/apernet/hysteria/extras/v2/obfs"
+	"github.com/apernet/hysteria/extras/v2/outbounds"
+	"github.com/apernet/hysteria/extras/v2/trafficlogger"
 )
 
 const (

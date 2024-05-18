@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apernet/hysteria/core/errors"
+	"github.com/apernet/hysteria/core/v2/errors"
 
 	"github.com/apernet/quic-go/quicvarint"
 )
