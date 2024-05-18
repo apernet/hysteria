@@ -1,0 +1,104 @@
+name: "Create release tags for nested modules"
+
+on:
+  push:
+    tags:
+      - app/v*.*.*
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: "Create tags"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Extract tagbase"
+        id: extract_tagbase
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ref = context.ref;
+            core.info(`context.ref: ${ref}`);
+            const refPrefix = 'refs/tags/app/';
+            if (!ref.startsWith(refPrefix)) {
+              core.setFailed(`context.ref does not start with ${refPrefix}: ${ref}`);
+              return;
+            }
+            const tagbase = ref.slice(refPrefix.length);
+            core.info(`tagbase: ${tagbase}`);
+            core.setOutput('tagbase', tagbase);
+
+      - name: "Tagging core/*"
+        uses: actions/github-script@v7
+        env:
+          INPUT_TAGPREFIX: "core/"
+          INPUT_TAGBASE: ${{ steps.extract_tagbase.outputs.tagbase }}
+        with:
+          script: |
+            const tagbase = core.getInput('tagbase', { required: true });
+            const tagprefix = core.getInput('tagprefix', { required: true });
+            const refname = `tags/${tagprefix}${tagbase}`;
+            core.info(`creating ref ${refname}`);
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/${refname}`,
+                sha: context.sha
+              });
+              core.info(`created ref ${refname}`);
+              return;
+            } catch (error) {
+              core.info(`failed to create ref ${refname}: ${error}`);
+            }
+            core.info(`updating ref ${refname}`)
+            try {
+              await github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: refname,
+                sha: context.sha
+              });
+              core.info(`updated ref ${refname}`);
+              return;
+            } catch (error) {
+              core.setFailed(`failed to update ref ${refname}: ${error}`);
+            }
+
+      - name: "Tagging extras/*"
+        uses: actions/github-script@v7
+        env:
+          INPUT_TAGPREFIX: "extras/"
+          INPUT_TAGBASE: ${{ steps.extract_tagbase.outputs.tagbase }}
+        with:
+          script: |
+            const tagbase = core.getInput('tagbase', { required: true });
+            const tagprefix = core.getInput('tagprefix', { required: true });
+            const refname = `tags/${tagprefix}${tagbase}`;
+            core.info(`creating ref ${refname}`);
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/${refname}`,
+                sha: context.sha
+              });
+              core.info(`created ref ${refname}`);
+              return;
+            } catch (error) {
+              core.info(`failed to create ref ${refname}: ${error}`);
+            }
+            core.info(`updating ref ${refname}`)
+            try {
+              await github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: refname,
+                sha: context.sha
+              });
+              core.info(`updated ref ${refname}`);
+              return;
+            } catch (error) {
+              core.setFailed(`failed to update ref ${refname}: ${error}`);
+            }
