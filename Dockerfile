@@ -29,11 +29,12 @@ RUN if [ ! -e /etc/nsswitch.conf ]; then echo 'hosts: files dns' > /etc/nsswitch
 #
 # Do not try to add the "--no-cache" option when there are multiple "apk"
 # commands, this will cause the build process to become very slow.
+COPY ./entrypoint /usr/local/bin/entrypoint
 RUN set -ex \
     && apk upgrade \
     && apk add bash tzdata ca-certificates \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
+    && chmod +x /usr/local/bin/entrypoint
 
 COPY --from=builder /go/bin/hysteria /usr/local/bin/hysteria
-
-ENTRYPOINT ["hysteria"]
+CMD ["entrypoint"]
