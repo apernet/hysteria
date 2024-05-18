@@ -4,7 +4,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/apernet/hysteria/extras/correctnet"
+	"github.com/apernet/hysteria/extras/v2/correctnet"
 )
 
 type muxManager struct {

@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/apernet/hysteria/core/server"
+	"github.com/apernet/hysteria/core/v2/server"
 )
 
 const (

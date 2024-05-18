@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/apernet/hysteria/core/client"
+	"github.com/apernet/hysteria/core/v2/client"
 )
 
 // pingCmd represents the ping command

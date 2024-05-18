@@ -2,7 +2,7 @@ with-expecter: true
 inpackage: true
 dir: .
 packages:
-  github.com/apernet/hysteria/extras/outbounds:
+  github.com/apernet/hysteria/extras/v2/outbounds:
     interfaces:
       PluggableOutbound:
         config:

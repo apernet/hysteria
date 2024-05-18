@@ -3,7 +3,7 @@
 package client
 
 import (
-	protocol "github.com/apernet/hysteria/core/internal/protocol"
+	protocol "github.com/apernet/hysteria/core/v2/internal/protocol"
 	mock "github.com/stretchr/testify/mock"
 )
 

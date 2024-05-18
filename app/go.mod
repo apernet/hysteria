@@ -1,11 +1,11 @@
-module github.com/apernet/hysteria/app
+module github.com/apernet/hysteria/app/v2
 
 go 1.21
 
 require (
 	github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f
-	github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
-	github.com/apernet/hysteria/extras v0.0.0-00010101000000-000000000000
+	github.com/apernet/hysteria/core/v2 v2.0.0-00010101000000-000000000000
+	github.com/apernet/hysteria/extras/v2 v2.0.0-00010101000000-000000000000
 	github.com/apernet/sing-tun v0.2.6-0.20240323130332-b9f6511036ad
 	github.com/caddyserver/certmagic v0.17.2
 	github.com/mdp/qrterminal/v3 v3.1.1
@@ -66,6 +66,6 @@ require (
 	rsc.io/qr v0.2.0 // indirect
 )
 
-replace github.com/apernet/hysteria/core => ../core
+replace github.com/apernet/hysteria/core/v2 => ../core
 
-replace github.com/apernet/hysteria/extras => ../extras
+replace github.com/apernet/hysteria/extras/v2 => ../extras

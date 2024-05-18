@@ -7,7 +7,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/apernet/hysteria/extras/correctnet"
+	"github.com/apernet/hysteria/extras/v2/correctnet"
 )
 
 // MasqTCPServer covers the TCP parts of a standard web server (TCP based HTTP/HTTPS).
