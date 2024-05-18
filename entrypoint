@@ -1,0 +1,50 @@
+#!/bin/sh
+
+CONFIG_FILE="/etc/hysteria/server.yaml"
+
+# 判断配置文件是否存存在，如果不存在走不存在的逻辑
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "Creating configuration file $CONFIG_FILE"
+    mkdir -p /etc/hysteria
+    cat <<EOF >"$CONFIG_FILE"
+v2board:
+  apiHost: ${apiHost}
+  apiKey: ${apiKey}
+  nodeID: ${nodeID}
+acme:
+  domains:
+    - ${domain}
+  email: your@email.com
+auth:
+  type: v2board
+trafficStats:
+  listen: 127.0.0.1:7653
+acl:
+  inline:
+    - reject(10.0.0.0/8)
+    - reject(172.16.0.0/12)
+    - reject(192.168.0.0/16)
+    - reject(127.0.0.0/8)
+    - reject(fc00::/7)
+EOF
+fi
+
+hysteria server -c $CONFIG_FILE 2>&1 | tee &
+
+# 获取HYSTERIA server命令的进程组ID（Process Group ID）
+HYSTERIA_PID=$!
+
+# 定义一个函数来处理Ctrl+C信号
+cleanup() {
+    echo "接收到Ctrl+C信号，正在停止HYSTERIA..."
+    # 向HYSTERIA进程组发送终止信号
+    kill -SIGINT $HYSTERIA_PID
+    exit 0
+}
+
+# 捕获Ctrl+C信号并调用cleanup函数
+trap cleanup INT
+trap cleanup SIGTERM
+
+# 等待HYSTERIA进程结束
+wait
