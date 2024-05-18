@@ -40,8 +40,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f h1:uVh0qpEslrWjgzx9vOcyCqsOY3c9kofDZ1n+qaw35ZY=
 github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f/go.mod h1:xkkq9D4ygcldQQhKS/w9CadiCKwCngU7K9E3DaKahpM=
-github.com/apernet/quic-go v0.43.1-0.20240429030958-51a0843014d6 h1:ZfaQo52EyyhNCxfMNk64W1YHcIh+0rCkp3e0gR7BO5E=
-github.com/apernet/quic-go v0.43.1-0.20240429030958-51a0843014d6/go.mod h1:j3QaAM7sVJqptDQyIQRWA6mASCfuxoHJszn67JQh1GE=
+github.com/apernet/quic-go v0.43.1-0.20240515053213-5e9e635fd9f0 h1:zilb2vx37DiBV5tfJRapxbXJqKavuCBKUl6kE4guShQ=
+github.com/apernet/quic-go v0.43.1-0.20240515053213-5e9e635fd9f0/go.mod h1:j3QaAM7sVJqptDQyIQRWA6mASCfuxoHJszn67JQh1GE=
 github.com/apernet/sing-tun v0.2.6-0.20240323130332-b9f6511036ad h1:QzQ2sKpc9o42HNRR8ukM5uMC/RzR2HgZd/Nvaqol2C0=
 github.com/apernet/sing-tun v0.2.6-0.20240323130332-b9f6511036ad/go.mod h1:S5IydyLSN/QAfvY+r2GoomPJ6hidtXWm/Ad18sJVssk=
 github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6 h1:4NNbNM2Iq/k57qEu7WfL67UrbPq1uFWxW4qODCohi+0=
