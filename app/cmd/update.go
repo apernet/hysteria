@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/apernet/hysteria/app/internal/utils"
-	"github.com/apernet/hysteria/core/client"
+	"github.com/apernet/hysteria/app/v2/internal/utils"
+	"github.com/apernet/hysteria/core/v2/client"
 )
 
 const (

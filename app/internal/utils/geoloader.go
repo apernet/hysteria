@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/apernet/hysteria/extras/outbounds/acl"
-	"github.com/apernet/hysteria/extras/outbounds/acl/v2geo"
+	"github.com/apernet/hysteria/extras/v2/outbounds/acl"
+	"github.com/apernet/hysteria/extras/v2/outbounds/acl/v2geo"
 )
 
 const (

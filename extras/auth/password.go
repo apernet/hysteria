@@ -3,7 +3,7 @@ package auth
 import (
 	"net"
 
-	"github.com/apernet/hysteria/core/server"
+	"github.com/apernet/hysteria/core/v2/server"
 )
 
 var _ server.Authenticator = &PasswordAuthenticator{}

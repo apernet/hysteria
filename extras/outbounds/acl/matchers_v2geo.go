@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/apernet/hysteria/extras/outbounds/acl/v2geo"
+	"github.com/apernet/hysteria/extras/v2/outbounds/acl/v2geo"
 )
 
 var _ hostMatcher = (*geoipMatcher)(nil)

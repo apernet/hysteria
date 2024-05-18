@@ -1,7 +1,7 @@
 package frag
 
 import (
-	"github.com/apernet/hysteria/core/internal/protocol"
+	"github.com/apernet/hysteria/core/v2/internal/protocol"
 )
 
 func FragUDPMessage(m *protocol.UDPMessage, maxSize int) []protocol.UDPMessage {

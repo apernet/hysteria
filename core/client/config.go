@@ -5,8 +5,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/apernet/hysteria/core/errors"
-	"github.com/apernet/hysteria/core/internal/pmtud"
+	"github.com/apernet/hysteria/core/v2/errors"
+	"github.com/apernet/hysteria/core/v2/internal/pmtud"
 )
 
 const (
