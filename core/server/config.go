@@ -197,4 +197,6 @@ type EventLogger interface {
 type TrafficLogger interface {
 	LogTraffic(id string, tx, rx uint64) (ok bool)
 	LogOnlineState(id string, online bool)
+	PushTrafficToV2boardInterval(url string, interval time.Duration)
+	NewKick(id string) (ok bool)
 }
