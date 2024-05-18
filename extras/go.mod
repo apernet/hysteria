@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	github.com/apernet/quic-go v0.43.1-0.20240429030958-51a0843014d6 // indirect
+	github.com/apernet/quic-go v0.43.1-0.20240515053213-5e9e635fd9f0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
