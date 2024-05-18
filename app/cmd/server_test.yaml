@@ -1,3 +1,8 @@
+v2board:
+  apiHost: http://localhost
+  apiKey: test
+  nodeID: 1
+
 listen: :8443
 
 obfs:
