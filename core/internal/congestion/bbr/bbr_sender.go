@@ -340,8 +340,6 @@ func (b *bbrSender) OnPacketSent(
 	}
 
 	b.sampler.OnPacketSent(sentTime, packetNumber, bytes, bytesInFlight, isRetransmittable)
-
-	b.maybeAppLimited(bytesInFlight)
 }
 
 // CanSend implements the SendAlgorithm interface.
@@ -420,6 +418,8 @@ func (b *bbrSender) OnCongestionEventEx(priorInFlight congestion.ByteCount, even
 	// empty. If acked_packets is empty, it's the send state of the largest
 	// packet in lost_packets.
 	var lastPacketSendState sendTimeState
+
+	b.maybeAppLimited(priorInFlight)
 
 	// Update bytesInFlight
 	b.bytesInFlight = priorInFlight
@@ -716,16 +716,12 @@ func (b *bbrSender) checkIfFullBandwidthReached(lastPacketSendState *sendTimeSta
 
 func (b *bbrSender) maybeAppLimited(bytesInFlight congestion.ByteCount) {
 	congestionWindow := b.GetCongestionWindow()
-	if bytesInFlight >= congestionWindow {
+	// HACK: consider it app-limited if bytes in flight is less than 90% of the congestion window.
+	if bytesInFlight >= congestionWindow*9/10 ||
+		(b.mode == bbrModeDrain && bytesInFlight > congestionWindow/2) {
 		return
 	}
-	availableBytes := congestionWindow - bytesInFlight
-	if availableBytes > maxBbrBurstPackets*b.maxDatagramSize {
-		b.sampler.OnAppLimited()
-		if b.debug {
-			b.debugPrint("AppLimited, AvailableBytes: %d", availableBytes)
-		}
-	}
+	b.sampler.OnAppLimited()
 }
 
 // Transitions from STARTUP to DRAIN and from DRAIN to PROBE_BW if
@@ -782,6 +778,9 @@ func (b *bbrSender) maybeEnterOrExitProbeRtt(now time.Time, isRoundStart, minRtt
 			}
 			if now.Sub(b.exitProbeRttAt) >= 0 && b.probeRttRoundPassed {
 				b.minRttTimestamp = now
+				if b.debug {
+					b.debugPrint("MinRTT: %s", b.getMinRtt())
+				}
 				if !b.isAtFullBandwidth {
 					b.enterStartupMode(now)
 				} else {
