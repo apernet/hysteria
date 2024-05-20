@@ -715,13 +715,9 @@ func (b *bbrSender) checkIfFullBandwidthReached(lastPacketSendState *sendTimeSta
 }
 
 func (b *bbrSender) maybeAppLimited(bytesInFlight congestion.ByteCount) {
-	congestionWindow := b.GetCongestionWindow()
-	// HACK: consider it app-limited if bytes in flight is less than 90% of the congestion window.
-	if bytesInFlight >= congestionWindow*9/10 ||
-		(b.mode == bbrModeDrain && bytesInFlight > congestionWindow/2) {
-		return
+	if bytesInFlight < b.getTargetCongestionWindow(1) {
+		b.sampler.OnAppLimited()
 	}
-	b.sampler.OnAppLimited()
 }
 
 // Transitions from STARTUP to DRAIN and from DRAIN to PROBE_BW if
