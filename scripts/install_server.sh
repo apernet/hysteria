@@ -1045,22 +1045,26 @@ perform_install() {
     _is_update_required=1
   fi
 
-  if [[ -z "$_is_update_required" ]]; then
-    echo "$(tgreen)Installed version is up-to-date, there is nothing to do.$(treset)"
-    return
-  fi
-
   if is_hysteria1_version "$VERSION"; then
     error "This script can only install Hysteria 2."
     exit 95
   fi
 
-  perform_install_hysteria_binary
+  if [[ -n "$_is_update_required" ]]; then
+    perform_install_hysteria_binary
+  fi
+
+  # Always install additional files, regardless of $_is_update_required.
+  # This allows changes to be made with environment variables (e.g. change HYSTERIA_USER without --force).
   perform_install_hysteria_example_config
   perform_install_hysteria_home_legacy
   perform_install_hysteria_systemd
 
-  if [[ -n "$_is_frash_install" ]]; then
+  if [[ -z "$_is_update_required" ]]; then
+    echo
+    echo "$(tgreen)Installed version is up-to-date, there is nothing to do.$(treset)"
+    echo
+  elif [[ -n "$_is_frash_install" ]]; then
     echo
     echo -e "$(tbold)Congratulation! Hysteria 2 has been successfully installed on your server.$(treset)"
     echo
