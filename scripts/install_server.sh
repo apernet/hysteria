@@ -187,6 +187,28 @@ chcon() {
   command chcon "$@"
 }
 
+get_systemd_version() {
+  if ! has_command systemctl; then
+    return
+  fi
+
+  command systemctl --version | head -1 | cut -d ' ' -f 2
+}
+
+systemd_unit_working_directory() {
+  local _systemd_version="$(get_systemd_version || true)"
+
+  # WorkingDirectory=~ requires systemd v227 or later.
+  # (released on Oct 2015, only CentOS 7 use an earlier version)
+  # ref: systemd/systemd@5f5d8eab1f2f5f5e088bc301533b3e4636de96c7
+  if [[ -n "$_systemd_version" && "$_systemd_version" -lt "227" ]]; then
+    echo "$HYSTERIA_HOME_DIR"
+    return
+  fi
+
+  echo "~"
+}
+
 get_selinux_context() {
   local _file="$1"
 
@@ -738,7 +760,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=$EXECUTABLE_INSTALL_PATH server --config ${CONFIG_DIR}/${_config_name}.yaml
-WorkingDirectory=~
+WorkingDirectory=$(systemd_unit_working_directory)
 User=$HYSTERIA_USER
 Group=$HYSTERIA_USER
 Environment=HYSTERIA_LOG_LEVEL=info
