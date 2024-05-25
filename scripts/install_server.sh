@@ -187,6 +187,28 @@ chcon() {
   command chcon "$@"
 }
 
+get_systemd_version() {
+  if ! has_command systemctl; then
+    return
+  fi
+
+  command systemctl --version | head -1 | cut -d ' ' -f 2
+}
+
+systemd_unit_working_directory() {
+  local _systemd_version="$(get_systemd_version || true)"
+
+  # WorkingDirectory=~ requires systemd v227 or later.
+  # (released on Oct 2015, only CentOS 7 use an earlier version)
+  # ref: systemd/systemd@5f5d8eab1f2f5f5e088bc301533b3e4636de96c7
+  if [[ -n "$_systemd_version" && "$_systemd_version" -lt "227" ]]; then
+    echo "$HYSTERIA_HOME_DIR"
+    return
+  fi
+
+  echo "~"
+}
+
 get_selinux_context() {
   local _file="$1"
 
@@ -738,7 +760,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=$EXECUTABLE_INSTALL_PATH server --config ${CONFIG_DIR}/${_config_name}.yaml
-WorkingDirectory=~
+WorkingDirectory=$(systemd_unit_working_directory)
 User=$HYSTERIA_USER
 Group=$HYSTERIA_USER
 Environment=HYSTERIA_LOG_LEVEL=info
@@ -1023,22 +1045,26 @@ perform_install() {
     _is_update_required=1
   fi
 
-  if [[ -z "$_is_update_required" ]]; then
-    echo "$(tgreen)Installed version is up-to-date, there is nothing to do.$(treset)"
-    return
-  fi
-
   if is_hysteria1_version "$VERSION"; then
     error "This script can only install Hysteria 2."
     exit 95
   fi
 
-  perform_install_hysteria_binary
+  if [[ -n "$_is_update_required" ]]; then
+    perform_install_hysteria_binary
+  fi
+
+  # Always install additional files, regardless of $_is_update_required.
+  # This allows changes to be made with environment variables (e.g. change HYSTERIA_USER without --force).
   perform_install_hysteria_example_config
   perform_install_hysteria_home_legacy
   perform_install_hysteria_systemd
 
-  if [[ -n "$_is_frash_install" ]]; then
+  if [[ -z "$_is_update_required" ]]; then
+    echo
+    echo "$(tgreen)Installed version is up-to-date, there is nothing to do.$(treset)"
+    echo
+  elif [[ -n "$_is_frash_install" ]]; then
     echo
     echo -e "$(tbold)Congratulation! Hysteria 2 has been successfully installed on your server.$(treset)"
     echo
