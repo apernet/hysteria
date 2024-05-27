@@ -6,6 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/libdns/cloudflare"
+	"github.com/libdns/duckdns"
+	"github.com/libdns/gandi"
+	"github.com/libdns/godaddy"
+	"github.com/libdns/namedotcom"
+	"github.com/libdns/vultr"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -79,15 +85,21 @@ type serverConfigTLS struct {
 }
 
 type serverConfigACME struct {
-	Domains        []string `mapstructure:"domains"`
-	Email          string   `mapstructure:"email"`
-	CA             string   `mapstructure:"ca"`
-	DisableHTTP    bool     `mapstructure:"disableHTTP"`
-	DisableTLSALPN bool     `mapstructure:"disableTLSALPN"`
-	ListenHost     string   `mapstructure:"listenHost"`
-	AltHTTPPort    int      `mapstructure:"altHTTPPort"`
-	AltTLSALPNPort int      `mapstructure:"altTLSALPNPort"`
-	Dir            string   `mapstructure:"dir"`
+	Domains        []string                    `mapstructure:"domains"`
+	Email          string                      `mapstructure:"email"`
+	CA             string                      `mapstructure:"ca"`
+	DisableHTTP    bool                        `mapstructure:"disableHTTP"`
+	DisableTLSALPN bool                        `mapstructure:"disableTLSALPN"`
+	ListenHost     string                      `mapstructure:"listenHost"`
+	AltHTTPPort    int                         `mapstructure:"altHTTPPort"`
+	AltTLSALPNPort int                         `mapstructure:"altTLSALPNPort"`
+	DNSProvider    serverConfigACMEDNSProvider `mapstructure:"dnsProvider"`
+	Dir            string                      `mapstructure:"dir"`
+}
+
+type serverConfigACMEDNSProvider struct {
+	Name   string            `mapstructure:"provider"`
+	Config map[string]string `mapstructure:"config"`
 }
 
 type serverConfigQUIC struct {
@@ -315,6 +327,51 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 		default:
 			return configError{Field: "acme.ca", Err: errors.New("unknown CA")}
 		}
+
+		if c.ACME.DNSProvider.Name != "" && c.ACME.DNSProvider.Config != nil {
+			switch strings.ToLower(c.ACME.DNSProvider.Name) {
+			case "cloudflare":
+				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
+					DNSProvider: &cloudflare.Provider{
+						APIToken: c.ACME.DNSProvider.Config["CLOUDFLARE_API_TOKEN"],
+					},
+				}
+			case "duckdns":
+				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
+					DNSProvider: &duckdns.Provider{
+						APIToken:       c.ACME.DNSProvider.Config["DUCKDNS_API_TOKEN"],
+						OverrideDomain: c.ACME.DNSProvider.Config["DUCKDNS_OVERRIDE_DOMAIN"],
+					},
+				}
+			case "gandi":
+				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
+					DNSProvider: &gandi.Provider{
+						BearerToken: c.ACME.DNSProvider.Config["GANDI_API_TOKEN"],
+					},
+				}
+			case "godaddy":
+				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
+					DNSProvider: &godaddy.Provider{
+						APIToken: c.ACME.DNSProvider.Config["GODADDY_API_TOKEN"],
+					},
+				}
+			case "namedotcom":
+				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
+					DNSProvider: &namedotcom.Provider{
+						Token:  c.ACME.DNSProvider.Config["NAMEDOTCOM_TOKEN"],
+						User:   c.ACME.DNSProvider.Config["NAMEDOTCOM_USER"],
+						Server: c.ACME.DNSProvider.Config["NAMEDOTCOM_SERVER"],
+					},
+				}
+			case "vultr":
+				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
+					DNSProvider: &vultr.Provider{
+						APIToken: c.ACME.DNSProvider.Config["VULTR_API_TOKEN"],
+					},
+				}
+			}
+		}
+
 		cmCfg.Issuers = []certmagic.Issuer{cmIssuer}
 		cmCache := certmagic.NewCache(certmagic.CacheOptions{
 			GetConfigForCert: func(cert certmagic.Certificate) (*certmagic.Config, error) {
