@@ -98,7 +98,7 @@ type serverConfigACME struct {
 }
 
 type serverConfigACMEDNSProvider struct {
-	Name   string            `mapstructure:"provider"`
+	Name   string            `mapstructure:"name"`
 	Config map[string]string `mapstructure:"config"`
 }
 
@@ -333,40 +333,40 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 			case "cloudflare":
 				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &cloudflare.Provider{
-						APIToken: c.ACME.DNSProvider.Config["CLOUDFLARE_API_TOKEN"],
+						APIToken: c.ACME.DNSProvider.Config["cloudflare_api_token"],
 					},
 				}
 			case "duckdns":
 				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &duckdns.Provider{
-						APIToken:       c.ACME.DNSProvider.Config["DUCKDNS_API_TOKEN"],
-						OverrideDomain: c.ACME.DNSProvider.Config["DUCKDNS_OVERRIDE_DOMAIN"],
+						APIToken:       c.ACME.DNSProvider.Config["duckdns_api_token"],
+						OverrideDomain: c.ACME.DNSProvider.Config["duckdns_override_domain"],
 					},
 				}
 			case "gandi":
 				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &gandi.Provider{
-						BearerToken: c.ACME.DNSProvider.Config["GANDI_API_TOKEN"],
+						BearerToken: c.ACME.DNSProvider.Config["gandi_api_token"],
 					},
 				}
 			case "godaddy":
 				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &godaddy.Provider{
-						APIToken: c.ACME.DNSProvider.Config["GODADDY_API_TOKEN"],
+						APIToken: c.ACME.DNSProvider.Config["godaddy_api_token"],
 					},
 				}
 			case "namedotcom":
 				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &namedotcom.Provider{
-						Token:  c.ACME.DNSProvider.Config["NAMEDOTCOM_TOKEN"],
-						User:   c.ACME.DNSProvider.Config["NAMEDOTCOM_USER"],
-						Server: c.ACME.DNSProvider.Config["NAMEDOTCOM_SERVER"],
+						Token:  c.ACME.DNSProvider.Config["namedotcom_token"],
+						User:   c.ACME.DNSProvider.Config["namedotcom_user"],
+						Server: c.ACME.DNSProvider.Config["namedotcom_server"],
 					},
 				}
 			case "vultr":
 				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &vultr.Provider{
-						APIToken: c.ACME.DNSProvider.Config["VULTR_API_TOKEN"],
+						APIToken: c.ACME.DNSProvider.Config["vultr_api_token"],
 					},
 				}
 			}

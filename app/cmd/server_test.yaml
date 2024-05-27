@@ -20,6 +20,10 @@ acme:
   altHTTPPort: 9980
   altTLSALPNPort: 9443
   dir: random_dir
+  dnsProvider:
+    name: "cloudflare"
+    config:
+      cloudflare_api_token: "xxxxxxxxxx"
 
 quic:
   initStreamReceiveWindow: 77881

@@ -41,6 +41,12 @@ func TestServerConfig(t *testing.T) {
 			AltHTTPPort:    9980,
 			AltTLSALPNPort: 9443,
 			Dir:            "random_dir",
+			DNSProvider: serverConfigACMEDNSProvider{
+				Name: "cloudflare",
+				Config: map[string]string{
+					"cloudflare_api_token": "xxxxxxxxxx",
+				},
+			},
 		},
 		QUIC: serverConfigQUIC{
 			InitStreamReceiveWindow:     77881,
