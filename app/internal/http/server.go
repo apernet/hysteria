@@ -279,8 +279,10 @@ func sendSimpleResponse(conn net.Conn, req *http.Request, statusCode int) error 
 		Header:     http.Header{},
 	}
 	// Remove the "Content-Length: 0" header, some clients (e.g. ffmpeg) may not like it.
-	// NOTE: This will also cause go/http to add a "Connection: close" header, but seems to be fine.
 	resp.ContentLength = -1
+	// Also, prevent the "Connection: close" header.
+	resp.Close = false
+	resp.Uncompressed = true
 	return resp.Write(conn)
 }
 
