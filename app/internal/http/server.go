@@ -278,6 +278,11 @@ func sendSimpleResponse(conn net.Conn, req *http.Request, statusCode int) error 
 		ProtoMinor: req.ProtoMinor,
 		Header:     http.Header{},
 	}
+	// Remove the "Content-Length: 0" header, some clients (e.g. ffmpeg) may not like it.
+	resp.ContentLength = -1
+	// Also, prevent the "Connection: close" header.
+	resp.Close = false
+	resp.Uncompressed = true
 	return resp.Write(conn)
 }
 
