@@ -34,19 +34,28 @@ func TestServerConfig(t *testing.T) {
 				"sub1.example.com",
 				"sub2.example.com",
 			},
-			Email:          "haha@cringe.net",
-			CA:             "zero",
-			DisableHTTP:    true,
-			DisableTLSALPN: true,
-			AltHTTPPort:    9980,
-			AltTLSALPNPort: 9443,
-			Dir:            "random_dir",
-			DNSProvider: serverConfigACMEDNSProvider{
-				Name: "cloudflare",
+			Email:      "haha@cringe.net",
+			CA:         "zero",
+			ListenHost: "127.0.0.9",
+			Dir:        "random_dir",
+			Type:       "dns",
+			HTTP: serverConfigACMEHTTP{
+				AltPort: 8888,
+			},
+			TLS: serverConfigACMETLS{
+				AltPort: 44333,
+			},
+			DNS: serverConfigACMEDNS{
+				Name: "gomommy",
 				Config: map[string]string{
-					"cloudflare_api_token": "xxxxxxxxxx",
+					"key1": "value1",
+					"key2": "value2",
 				},
 			},
+			DisableHTTP:    true,
+			DisableTLSALPN: true,
+			AltHTTPPort:    8080,
+			AltTLSALPNPort: 4433,
 		},
 		QUIC: serverConfigQUIC{
 			InitStreamReceiveWindow:     77881,
