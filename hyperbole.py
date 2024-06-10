@@ -29,7 +29,7 @@ BUILD_DIR = "build"
 CORE_SRC_DIR = "./core"
 EXTRAS_SRC_DIR = "./extras"
 APP_SRC_DIR = "./app"
-APP_SRC_CMD_PKG = "github.com/apernet/hysteria/app/cmd"
+APP_SRC_CMD_PKG = "github.com/apernet/hysteria/app/v2/cmd"
 
 MODULE_SRC_DIRS = [CORE_SRC_DIR, EXTRAS_SRC_DIR, APP_SRC_DIR]
 
