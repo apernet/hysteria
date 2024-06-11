@@ -15,11 +15,22 @@ acme:
     - sub2.example.com
   email: haha@cringe.net
   ca: zero
+  listenHost: 127.0.0.9
+  dir: random_dir
+  type: dns
+  http:
+    altPort: 8888
+  tls:
+    altPort: 44333
+  dns:
+    name: gomommy
+    config:
+      key1: value1
+      key2: value2
   disableHTTP: true
   disableTLSALPN: true
-  altHTTPPort: 9980
-  altTLSALPNPort: 9443
-  dir: random_dir
+  altHTTPPort: 8080
+  altTLSALPNPort: 4433
 
 quic:
   initStreamReceiveWindow: 77881
