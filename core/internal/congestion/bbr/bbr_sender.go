@@ -976,8 +976,8 @@ func formatSpeed(bw Bandwidth) string {
 	bwf := float64(bw)
 	units := []string{"bps", "Kbps", "Mbps", "Gbps"}
 	unitIndex := 0
-	for bwf > 1024 && unitIndex < len(units)-1 {
-		bwf /= 1024
+	for bwf > 1000 && unitIndex < len(units)-1 {
+		bwf /= 1000
 		unitIndex++
 	}
 	return fmt.Sprintf("%.2f %s", bwf, units[unitIndex])
