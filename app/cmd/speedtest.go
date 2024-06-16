@@ -152,8 +152,8 @@ func formatSpeed(bytes uint32, duration time.Duration, useBytes bool) string {
 		speed *= 8
 	}
 	unitIndex := 0
-	for speed > 1024 && unitIndex < len(units)-1 {
-		speed /= 1024
+	for speed > 1000 && unitIndex < len(units)-1 {
+		speed /= 1000
 		unitIndex++
 	}
 	return fmt.Sprintf("%.2f %s", speed, units[unitIndex])
