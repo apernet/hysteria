@@ -214,9 +214,12 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	// Call the hook if set
 	var putback []byte
 	if h.config.RequestHook != nil {
+		// When RequestHook is enabled, the server should always accept a connection
+		// so that the client will send whatever request the hook wants to see.
+		// This is essentially a server-side fast-open.
+		_ = protocol.WriteTCPResponse(stream, true, "RequestHook enabled")
 		putback, err = h.config.RequestHook.TCP(stream, &reqAddr)
 		if err != nil {
-			_ = protocol.WriteTCPResponse(stream, false, err.Error())
 			_ = stream.Close()
 			return
 		}
@@ -228,7 +231,9 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	// Dial target
 	tConn, err := h.config.Outbound.TCP(reqAddr)
 	if err != nil {
-		_ = protocol.WriteTCPResponse(stream, false, err.Error())
+		if h.config.RequestHook == nil {
+			_ = protocol.WriteTCPResponse(stream, false, err.Error())
+		}
 		_ = stream.Close()
 		// Log the error
 		if h.config.EventLogger != nil {
@@ -236,7 +241,9 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 		}
 		return
 	}
-	_ = protocol.WriteTCPResponse(stream, true, "")
+	if h.config.RequestHook == nil {
+		_ = protocol.WriteTCPResponse(stream, true, "Connected")
+	}
 	// Put back the data if the hook requested
 	if len(putback) > 0 {
 		_, _ = tConn.Write(putback)

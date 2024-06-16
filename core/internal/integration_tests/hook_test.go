@@ -57,7 +57,6 @@ func TestClientServerHookTCP(t *testing.T) {
 	c, _, err := client.NewClient(&client.Config{
 		ServerAddr: udpAddr,
 		TLSConfig:  client.TLSConfig{InsecureSkipVerify: true},
-		FastOpen:   true, // Client MUST have FastOpen for this
 	})
 	assert.NoError(t, err)
 	defer c.Close()
