@@ -25,6 +25,7 @@ func TestUDPSessionManager(t *testing.T) {
 		}
 		return m, nil
 	})
+	io.EXPECT().Hook(mock.Anything, mock.Anything).Return(nil, nil)
 
 	go sm.Run()
 

@@ -24,3 +24,6 @@ packages:
       TrafficLogger:
         config:
           mockname: MockTrafficLogger
+      RequestHook:
+        config:
+          mockname: MockRequestHook

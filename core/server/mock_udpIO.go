@@ -20,6 +20,53 @@ func (_m *mockUDPIO) EXPECT() *mockUDPIO_Expecter {
 	return &mockUDPIO_Expecter{mock: &_m.Mock}
 }
 
+// Hook provides a mock function with given fields: data, reqAddr
+func (_m *mockUDPIO) Hook(data []byte, reqAddr *string) error {
+	ret := _m.Called(data, reqAddr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Hook")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]byte, *string) error); ok {
+		r0 = rf(data, reqAddr)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// mockUDPIO_Hook_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Hook'
+type mockUDPIO_Hook_Call struct {
+	*mock.Call
+}
+
+// Hook is a helper method to define mock.On call
+//   - data []byte
+//   - reqAddr *string
+func (_e *mockUDPIO_Expecter) Hook(data interface{}, reqAddr interface{}) *mockUDPIO_Hook_Call {
+	return &mockUDPIO_Hook_Call{Call: _e.mock.On("Hook", data, reqAddr)}
+}
+
+func (_c *mockUDPIO_Hook_Call) Run(run func(data []byte, reqAddr *string)) *mockUDPIO_Hook_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]byte), args[1].(*string))
+	})
+	return _c
+}
+
+func (_c *mockUDPIO_Hook_Call) Return(_a0 error) *mockUDPIO_Hook_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockUDPIO_Hook_Call) RunAndReturn(run func([]byte, *string) error) *mockUDPIO_Hook_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ReceiveMessage provides a mock function with given fields:
 func (_m *mockUDPIO) ReceiveMessage() (*protocol.UDPMessage, error) {
 	ret := _m.Called()

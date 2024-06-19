@@ -170,7 +170,7 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if !h.config.DisableUDP {
 				go func() {
 					sm := newUDPSessionManager(
-						&udpIOImpl{h.conn, id, h.config.TrafficLogger, h.config.Outbound},
+						&udpIOImpl{h.conn, id, h.config.TrafficLogger, h.config.RequestHook, h.config.Outbound},
 						&udpEventLoggerImpl{h.conn, id, h.config.EventLogger},
 						h.config.UDPIdleTimeout)
 					h.udpSM = sm
@@ -211,6 +211,23 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 		_ = stream.Close()
 		return
 	}
+	// Call the hook if set
+	var putback []byte
+	var hooked bool
+	if h.config.RequestHook != nil {
+		hooked = h.config.RequestHook.Check(false, reqAddr)
+		// When the hook is enabled, the server should always accept a connection
+		// so that the client will send whatever request the hook wants to see.
+		// This is essentially a server-side fast-open.
+		if hooked {
+			_ = protocol.WriteTCPResponse(stream, true, "RequestHook enabled")
+			putback, err = h.config.RequestHook.TCP(stream, &reqAddr)
+			if err != nil {
+				_ = stream.Close()
+				return
+			}
+		}
+	}
 	// Log the event
 	if h.config.EventLogger != nil {
 		h.config.EventLogger.TCPRequest(h.conn.RemoteAddr(), h.authID, reqAddr)
@@ -218,7 +235,9 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	// Dial target
 	tConn, err := h.config.Outbound.TCP(reqAddr)
 	if err != nil {
-		_ = protocol.WriteTCPResponse(stream, false, err.Error())
+		if !hooked {
+			_ = protocol.WriteTCPResponse(stream, false, err.Error())
+		}
 		_ = stream.Close()
 		// Log the error
 		if h.config.EventLogger != nil {
@@ -226,7 +245,13 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 		}
 		return
 	}
-	_ = protocol.WriteTCPResponse(stream, true, "")
+	if !hooked {
+		_ = protocol.WriteTCPResponse(stream, true, "Connected")
+	}
+	// Put back the data if the hook requested
+	if len(putback) > 0 {
+		_, _ = tConn.Write(putback)
+	}
 	// Start proxying
 	if h.config.TrafficLogger != nil {
 		err = copyTwoWayWithLogger(h.authID, stream, tConn, h.config.TrafficLogger)
@@ -260,6 +285,7 @@ type udpIOImpl struct {
 	Conn          quic.Connection
 	AuthID        string
 	TrafficLogger TrafficLogger
+	RequestHook   RequestHook
 	Outbound      Outbound
 }
 
@@ -302,6 +328,14 @@ func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 		return nil
 	}
 	return io.Conn.SendDatagram(buf[:msgN])
+}
+
+func (io *udpIOImpl) Hook(data []byte, reqAddr *string) error {
+	if io.RequestHook != nil && io.RequestHook.Check(true, *reqAddr) {
+		return io.RequestHook.UDP(data, reqAddr)
+	} else {
+		return nil
+	}
 }
 
 func (io *udpIOImpl) UDP(reqAddr string) (UDPConn, error) {
