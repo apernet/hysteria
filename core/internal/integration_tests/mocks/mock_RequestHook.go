@@ -20,6 +20,53 @@ func (_m *MockRequestHook) EXPECT() *MockRequestHook_Expecter {
 	return &MockRequestHook_Expecter{mock: &_m.Mock}
 }
 
+// Check provides a mock function with given fields: isUDP, reqAddr
+func (_m *MockRequestHook) Check(isUDP bool, reqAddr string) bool {
+	ret := _m.Called(isUDP, reqAddr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Check")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(bool, string) bool); ok {
+		r0 = rf(isUDP, reqAddr)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// MockRequestHook_Check_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Check'
+type MockRequestHook_Check_Call struct {
+	*mock.Call
+}
+
+// Check is a helper method to define mock.On call
+//   - isUDP bool
+//   - reqAddr string
+func (_e *MockRequestHook_Expecter) Check(isUDP interface{}, reqAddr interface{}) *MockRequestHook_Check_Call {
+	return &MockRequestHook_Check_Call{Call: _e.mock.On("Check", isUDP, reqAddr)}
+}
+
+func (_c *MockRequestHook_Check_Call) Run(run func(isUDP bool, reqAddr string)) *MockRequestHook_Check_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(bool), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockRequestHook_Check_Call) Return(_a0 bool) *MockRequestHook_Check_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRequestHook_Check_Call) RunAndReturn(run func(bool, string) bool) *MockRequestHook_Check_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TCP provides a mock function with given fields: stream, reqAddr
 func (_m *MockRequestHook) TCP(stream quic.Stream, reqAddr *string) ([]byte, error) {
 	ret := _m.Called(stream, reqAddr)

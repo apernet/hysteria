@@ -213,15 +213,19 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	}
 	// Call the hook if set
 	var putback []byte
+	var hooked bool
 	if h.config.RequestHook != nil {
-		// When RequestHook is enabled, the server should always accept a connection
+		hooked = h.config.RequestHook.Check(false, reqAddr)
+		// When the hook is enabled, the server should always accept a connection
 		// so that the client will send whatever request the hook wants to see.
 		// This is essentially a server-side fast-open.
-		_ = protocol.WriteTCPResponse(stream, true, "RequestHook enabled")
-		putback, err = h.config.RequestHook.TCP(stream, &reqAddr)
-		if err != nil {
-			_ = stream.Close()
-			return
+		if hooked {
+			_ = protocol.WriteTCPResponse(stream, true, "RequestHook enabled")
+			putback, err = h.config.RequestHook.TCP(stream, &reqAddr)
+			if err != nil {
+				_ = stream.Close()
+				return
+			}
 		}
 	}
 	// Log the event
@@ -231,7 +235,7 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	// Dial target
 	tConn, err := h.config.Outbound.TCP(reqAddr)
 	if err != nil {
-		if h.config.RequestHook == nil {
+		if !hooked {
 			_ = protocol.WriteTCPResponse(stream, false, err.Error())
 		}
 		_ = stream.Close()
@@ -241,7 +245,7 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 		}
 		return
 	}
-	if h.config.RequestHook == nil {
+	if !hooked {
 		_ = protocol.WriteTCPResponse(stream, true, "Connected")
 	}
 	// Put back the data if the hook requested
@@ -327,10 +331,11 @@ func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 }
 
 func (io *udpIOImpl) Hook(data []byte, reqAddr *string) error {
-	if io.RequestHook != nil {
+	if io.RequestHook != nil && io.RequestHook.Check(true, *reqAddr) {
 		return io.RequestHook.UDP(data, reqAddr)
+	} else {
+		return nil
 	}
-	return nil
 }
 
 func (io *udpIOImpl) UDP(reqAddr string) (UDPConn, error) {

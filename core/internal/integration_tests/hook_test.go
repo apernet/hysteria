@@ -23,6 +23,7 @@ func TestClientServerHookTCP(t *testing.T) {
 	auth := mocks.NewMockAuthenticator(t)
 	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
 	hook := mocks.NewMockRequestHook(t)
+	hook.EXPECT().Check(false, fakeEchoAddr).Return(true).Once()
 	hook.EXPECT().TCP(mock.Anything, mock.Anything).RunAndReturn(func(stream quic.Stream, s *string) ([]byte, error) {
 		assert.Equal(t, fakeEchoAddr, *s)
 		// Change the address
@@ -86,6 +87,7 @@ func TestClientServerHookUDP(t *testing.T) {
 	auth := mocks.NewMockAuthenticator(t)
 	auth.EXPECT().Authenticate(mock.Anything, mock.Anything, mock.Anything).Return(true, "nobody")
 	hook := mocks.NewMockRequestHook(t)
+	hook.EXPECT().Check(true, fakeEchoAddr).Return(true).Once()
 	hook.EXPECT().UDP(mock.Anything, mock.Anything).RunAndReturn(func(bytes []byte, s *string) error {
 		assert.Equal(t, fakeEchoAddr, *s)
 		assert.Equal(t, []byte("hello world"), bytes)

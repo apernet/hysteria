@@ -113,12 +113,14 @@ type QUICConfig struct {
 }
 
 // RequestHook allows filtering and modifying requests before the server connects to the remote.
+// A request will only be hooked if Check returns true.
 // The returned byte slice, if not empty, will be sent to the remote before proxying - this is
 // mainly for "putting back" the content read from the client for sniffing, etc.
 // Return a non-nil error to abort the connection.
 // Note that due to the current architectural limitations, it can only inspect the first packet
 // of a UDP connection. It also cannot put back any data as the first packet is always sent as-is.
 type RequestHook interface {
+	Check(isUDP bool, reqAddr string) bool
 	TCP(stream quic.Stream, reqAddr *string) ([]byte, error)
 	UDP(data []byte, reqAddr *string) error
 }
