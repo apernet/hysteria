@@ -2,16 +2,17 @@ package sniff
 
 import (
 	"bufio"
-	"context"
-	"crypto/tls"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/apernet/hysteria/core/v2/server"
 	"github.com/apernet/quic-go"
+	utls "github.com/refraction-networking/utls"
+
+	"github.com/apernet/hysteria/core/v2/server"
+	quicInternal "github.com/apernet/hysteria/extras/v2/sniff/internal/quic"
 )
 
 var _ server.RequestHook = (*Sniffer)(nil)
@@ -57,7 +58,7 @@ func (h *Sniffer) isTLS(buf []byte) bool {
 
 func (h *Sniffer) Check(isUDP bool, reqAddr string) bool {
 	// @ means it's internal (e.g. speed test)
-	return !strings.HasPrefix(reqAddr, "@") && !isUDP && (h.RewriteDomain || !h.isDomain(reqAddr))
+	return !strings.HasPrefix(reqAddr, "@") && (h.RewriteDomain || !h.isDomain(reqAddr))
 }
 
 func (h *Sniffer) TCP(stream quic.Stream, reqAddr *string) ([]byte, error) {
@@ -75,8 +76,9 @@ func (h *Sniffer) TCP(stream quic.Stream, reqAddr *string) ([]byte, error) {
 		return pre[:n], nil
 	}
 	if h.isHTTP(pre) {
-		fConn := &fakeConn{Stream: stream, Pre: pre}
-		req, _ := http.ReadRequest(bufio.NewReader(fConn))
+		// HTTP
+		tr := &teeReader{Stream: stream, Pre: pre}
+		req, _ := http.ReadRequest(bufio.NewReader(tr))
 		if req != nil && req.Host != "" {
 			_, port, err := net.SplitHostPort(*reqAddr)
 			if err != nil {
@@ -84,16 +86,24 @@ func (h *Sniffer) TCP(stream quic.Stream, reqAddr *string) ([]byte, error) {
 			}
 			*reqAddr = net.JoinHostPort(req.Host, port)
 		}
-		return fConn.Buffer, nil
+		return tr.Buffer(), nil
 	} else if h.isTLS(pre) {
-		fConn := &fakeConn{Stream: stream, Pre: pre}
-		var clientHello *tls.ClientHelloInfo
-		_ = tls.Server(fConn, &tls.Config{
-			GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
-				clientHello = info
-				return nil, nil
-			},
-		}).HandshakeContext(context.Background())
+		// TLS
+		// Need to read 2 more bytes (content length)
+		pre = append(pre, make([]byte, 2)...)
+		n, err = io.ReadFull(stream, pre[3:])
+		if err != nil {
+			// Not enough within the timeout, just return what we have
+			return pre[:3+n], nil
+		}
+		contentLength := int(pre[3])<<8 | int(pre[4])
+		pre = append(pre, make([]byte, contentLength)...)
+		n, err = io.ReadFull(stream, pre[5:])
+		if err != nil {
+			// Not enough within the timeout, just return what we have
+			return pre[:5+n], nil
+		}
+		clientHello := utls.UnmarshalClientHello(pre[5:])
 		if clientHello != nil && clientHello.ServerName != "" {
 			_, port, err := net.SplitHostPort(*reqAddr)
 			if err != nil {
@@ -101,7 +111,7 @@ func (h *Sniffer) TCP(stream quic.Stream, reqAddr *string) ([]byte, error) {
 			}
 			*reqAddr = net.JoinHostPort(clientHello.ServerName, port)
 		}
-		return fConn.Buffer, nil
+		return pre, nil
 	} else {
 		// Unrecognized protocol, just return what we have
 		return pre, nil
@@ -109,57 +119,43 @@ func (h *Sniffer) TCP(stream quic.Stream, reqAddr *string) ([]byte, error) {
 }
 
 func (h *Sniffer) UDP(data []byte, reqAddr *string) error {
+	pl, err := quicInternal.ReadCryptoPayload(data)
+	if err != nil || len(pl) < 4 || pl[0] != 0x01 {
+		// Unrecognized protocol, incomplete payload or not a client hello
+		return nil
+	}
+	clientHello := utls.UnmarshalClientHello(pl)
+	if clientHello != nil && clientHello.ServerName != "" {
+		_, port, err := net.SplitHostPort(*reqAddr)
+		if err != nil {
+			return err
+		}
+		*reqAddr = net.JoinHostPort(clientHello.ServerName, port)
+	}
 	return nil
 }
 
-type fakeConn struct {
+type teeReader struct {
 	Stream quic.Stream
 	Pre    []byte
-	Buffer []byte
+
+	buf []byte
 }
 
-func (c *fakeConn) Read(b []byte) (n int, err error) {
+func (c *teeReader) Read(b []byte) (n int, err error) {
 	if len(c.Pre) > 0 {
 		n = copy(b, c.Pre)
 		c.Pre = c.Pre[n:]
-		c.Buffer = append(c.Buffer, b[:n]...)
+		c.buf = append(c.buf, b[:n]...)
 		return n, nil
 	}
 	n, err = c.Stream.Read(b)
 	if n > 0 {
-		c.Buffer = append(c.Buffer, b[:n]...)
+		c.buf = append(c.buf, b[:n]...)
 	}
 	return n, err
 }
 
-func (c *fakeConn) Write(b []byte) (n int, err error) {
-	// Do not write anything, pretend it's successful
-	return len(b), nil
-}
-
-func (c *fakeConn) Close() error {
-	// Do not close the stream
-	return nil
-}
-
-func (c *fakeConn) LocalAddr() net.Addr {
-	// Doesn't matter
-	return nil
-}
-
-func (c *fakeConn) RemoteAddr() net.Addr {
-	// Doesn't matter
-	return nil
-}
-
-func (c *fakeConn) SetDeadline(t time.Time) error {
-	return c.Stream.SetReadDeadline(t)
-}
-
-func (c *fakeConn) SetReadDeadline(t time.Time) error {
-	return c.Stream.SetReadDeadline(t)
-}
-
-func (c *fakeConn) SetWriteDeadline(t time.Time) error {
-	return c.Stream.SetWriteDeadline(t)
+func (c *teeReader) Buffer() []byte {
+	return append(c.Pre, c.buf...)
 }
