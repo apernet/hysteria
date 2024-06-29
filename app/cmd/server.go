@@ -66,6 +66,7 @@ type serverConfig struct {
 	UDPIdleTimeout        time.Duration               `mapstructure:"udpIdleTimeout"`
 	Auth                  serverConfigAuth            `mapstructure:"auth"`
 	Resolver              serverConfigResolver        `mapstructure:"resolver"`
+	Sniff                 serverConfigSniff           `mapstructure:"sniff"`
 	ACL                   serverConfigACL             `mapstructure:"acl"`
 	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
 	TrafficStats          serverConfigTrafficStats    `mapstructure:"trafficStats"`
@@ -179,6 +180,12 @@ type serverConfigResolver struct {
 	UDP   serverConfigResolverUDP   `mapstructure:"udp"`
 	TLS   serverConfigResolverTLS   `mapstructure:"tls"`
 	HTTPS serverConfigResolverHTTPS `mapstructure:"https"`
+}
+
+type serverConfigSniff struct {
+	Enable        bool          `mapstructure:"enable"`
+	Timeout       time.Duration `mapstructure:"timeout"`
+	RewriteDomain bool          `mapstructure:"rewriteDomain"`
 }
 
 type serverConfigACL struct {
@@ -543,6 +550,16 @@ func serverConfigOutboundHTTPToOutbound(c serverConfigOutboundHTTP) (outbounds.P
 	return outbounds.NewHTTPOutbound(c.URL, c.Insecure)
 }
 
+func (c *serverConfig) fillRequestHook(hyConfig *server.Config) error {
+	if c.Sniff.Enable {
+		hyConfig.RequestHook = &sniff.Sniffer{
+			Timeout:       c.Sniff.Timeout,
+			RewriteDomain: c.Sniff.RewriteDomain,
+		}
+	}
+	return nil
+}
+
 func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	// Resolver, ACL, actual outbound are all implemented through the Outbound interface.
 	// Depending on the config, we build a chain like this:
@@ -823,6 +840,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 		c.fillConn,
 		c.fillTLSConfig,
 		c.fillQUICConfig,
+		c.fillRequestHook,
 		c.fillOutboundConfig,
 		c.fillBandwidthConfig,
 		c.fillIgnoreClientBandwidth,
@@ -855,11 +873,6 @@ func runServer(cmd *cobra.Command, args []string) {
 	hyConfig, err := config.Config()
 	if err != nil {
 		logger.Fatal("failed to load server config", zap.Error(err))
-	}
-
-	hyConfig.RequestHook = &sniff.Sniffer{
-		Timeout:       4 * time.Second,
-		RewriteDomain: false,
 	}
 
 	s, err := server.NewServer(hyConfig)

@@ -83,6 +83,11 @@ resolver:
     sni: real.stuff.net
     insecure: true
 
+sniff:
+  enable: true
+  timeout: 1s
+  rewriteDomain: true
+
 acl:
   file: chnroute.txt
   inline:

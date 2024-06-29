@@ -111,6 +111,11 @@ func TestServerConfig(t *testing.T) {
 				Insecure: true,
 			},
 		},
+		Sniff: serverConfigSniff{
+			Enable:        true,
+			Timeout:       1 * time.Second,
+			RewriteDomain: true,
+		},
 		ACL: serverConfigACL{
 			File: "chnroute.txt",
 			Inline: []string{

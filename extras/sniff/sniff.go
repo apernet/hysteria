@@ -15,6 +15,10 @@ import (
 	quicInternal "github.com/apernet/hysteria/extras/v2/sniff/internal/quic"
 )
 
+const (
+	sniffDefaultTimeout = 4 * time.Second
+)
+
 var _ server.RequestHook = (*Sniffer)(nil)
 
 // Sniffer is a server core RequestHook that performs packet inspection and possibly
@@ -62,7 +66,12 @@ func (h *Sniffer) Check(isUDP bool, reqAddr string) bool {
 }
 
 func (h *Sniffer) TCP(stream quic.Stream, reqAddr *string) ([]byte, error) {
-	err := stream.SetReadDeadline(time.Now().Add(h.Timeout))
+	var err error
+	if h.Timeout == 0 {
+		err = stream.SetReadDeadline(time.Now().Add(sniffDefaultTimeout))
+	} else {
+		err = stream.SetReadDeadline(time.Now().Add(h.Timeout))
+	}
 	if err != nil {
 		return nil, err
 	}
