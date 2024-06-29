@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apernet/hysteria/extras/v2/sniff"
+
 	"github.com/caddyserver/certmagic"
 	"github.com/libdns/cloudflare"
 	"github.com/libdns/duckdns"
@@ -853,6 +855,11 @@ func runServer(cmd *cobra.Command, args []string) {
 	hyConfig, err := config.Config()
 	if err != nil {
 		logger.Fatal("failed to load server config", zap.Error(err))
+	}
+
+	hyConfig.RequestHook = &sniff.Sniffer{
+		Timeout:       4 * time.Second,
+		RewriteDomain: false,
 	}
 
 	s, err := server.NewServer(hyConfig)

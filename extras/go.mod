@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/apernet/hysteria/core/v2 v2.0.0-00010101000000-000000000000
+	github.com/apernet/quic-go v0.44.1-0.20240520215222-bb2e53664023
 	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6
 	github.com/hashicorp/golang-lru/v2 v2.0.5
 	github.com/miekg/dns v1.1.59
@@ -15,7 +16,6 @@ require (
 )
 
 require (
-	github.com/apernet/quic-go v0.44.1-0.20240520215222-bb2e53664023 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
