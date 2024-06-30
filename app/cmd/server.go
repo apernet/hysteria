@@ -15,8 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apernet/hysteria/extras/v2/sniff"
-
 	"github.com/caddyserver/certmagic"
 	"github.com/libdns/cloudflare"
 	"github.com/libdns/duckdns"
@@ -36,6 +34,7 @@ import (
 	"github.com/apernet/hysteria/extras/v2/masq"
 	"github.com/apernet/hysteria/extras/v2/obfs"
 	"github.com/apernet/hysteria/extras/v2/outbounds"
+	"github.com/apernet/hysteria/extras/v2/sniff"
 	"github.com/apernet/hysteria/extras/v2/trafficlogger"
 )
 
