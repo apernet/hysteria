@@ -36,6 +36,7 @@ import (
 	"github.com/apernet/hysteria/extras/v2/outbounds"
 	"github.com/apernet/hysteria/extras/v2/sniff"
 	"github.com/apernet/hysteria/extras/v2/trafficlogger"
+	eUtils "github.com/apernet/hysteria/extras/v2/utils"
 )
 
 const (
@@ -185,6 +186,8 @@ type serverConfigSniff struct {
 	Enable        bool          `mapstructure:"enable"`
 	Timeout       time.Duration `mapstructure:"timeout"`
 	RewriteDomain bool          `mapstructure:"rewriteDomain"`
+	TCPPorts      string        `mapstructure:"tcpPorts"`
+	UDPPorts      string        `mapstructure:"udpPorts"`
 }
 
 type serverConfigACL struct {
@@ -551,10 +554,23 @@ func serverConfigOutboundHTTPToOutbound(c serverConfigOutboundHTTP) (outbounds.P
 
 func (c *serverConfig) fillRequestHook(hyConfig *server.Config) error {
 	if c.Sniff.Enable {
-		hyConfig.RequestHook = &sniff.Sniffer{
+		s := &sniff.Sniffer{
 			Timeout:       c.Sniff.Timeout,
 			RewriteDomain: c.Sniff.RewriteDomain,
 		}
+		if c.Sniff.TCPPorts != "" {
+			s.TCPPorts = eUtils.ParsePortUnion(c.Sniff.TCPPorts)
+			if s.TCPPorts == nil {
+				return configError{Field: "sniff.tcpPorts", Err: errors.New("invalid port union")}
+			}
+		}
+		if c.Sniff.UDPPorts != "" {
+			s.UDPPorts = eUtils.ParsePortUnion(c.Sniff.UDPPorts)
+			if s.UDPPorts == nil {
+				return configError{Field: "sniff.udpPorts", Err: errors.New("invalid port union")}
+			}
+		}
+		hyConfig.RequestHook = s
 	}
 	return nil
 }

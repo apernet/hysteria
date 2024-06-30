@@ -115,6 +115,8 @@ func TestServerConfig(t *testing.T) {
 			Enable:        true,
 			Timeout:       1 * time.Second,
 			RewriteDomain: true,
+			TCPPorts:      "80,443,1000-2000",
+			UDPPorts:      "443",
 		},
 		ACL: serverConfigACL{
 			File: "chnroute.txt",

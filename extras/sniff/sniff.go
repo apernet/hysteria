@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 
 	"github.com/apernet/hysteria/core/v2/server"
 	quicInternal "github.com/apernet/hysteria/extras/v2/sniff/internal/quic"
+	"github.com/apernet/hysteria/extras/v2/utils"
 )
 
 const (
@@ -29,6 +31,8 @@ var _ server.RequestHook = (*Sniffer)(nil)
 type Sniffer struct {
 	Timeout       time.Duration
 	RewriteDomain bool // Whether to rewrite the address even when it's already a domain
+	TCPPorts      utils.PortUnion
+	UDPPorts      utils.PortUnion
 }
 
 func (h *Sniffer) isDomain(addr string) bool {
@@ -62,7 +66,26 @@ func (h *Sniffer) isTLS(buf []byte) bool {
 
 func (h *Sniffer) Check(isUDP bool, reqAddr string) bool {
 	// @ means it's internal (e.g. speed test)
-	return !strings.HasPrefix(reqAddr, "@") && (h.RewriteDomain || !h.isDomain(reqAddr))
+	if strings.HasPrefix(reqAddr, "@") {
+		return false
+	}
+	host, port, err := net.SplitHostPort(reqAddr)
+	if err != nil {
+		return false
+	}
+	if !h.RewriteDomain && net.ParseIP(host) == nil {
+		// Is a domain and domain rewriting is disabled
+		return false
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		return false
+	}
+	if isUDP {
+		return h.UDPPorts == nil || h.UDPPorts.Contains(uint16(portNum))
+	} else {
+		return h.TCPPorts == nil || h.TCPPorts.Contains(uint16(portNum))
+	}
 }
 
 func (h *Sniffer) TCP(stream quic.Stream, reqAddr *string) ([]byte, error) {
