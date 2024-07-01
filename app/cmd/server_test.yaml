@@ -83,6 +83,13 @@ resolver:
     sni: real.stuff.net
     insecure: true
 
+sniff:
+  enable: true
+  timeout: 1s
+  rewriteDomain: true
+  tcpPorts: 80,443,1000-2000
+  udpPorts: 443
+
 acl:
   file: chnroute.txt
   inline:

@@ -3,8 +3,8 @@ package udphop
 import (
 	"fmt"
 	"net"
-	"strconv"
-	"strings"
+
+	"github.com/apernet/hysteria/extras/v2/utils"
 )
 
 type InvalidPortError struct {
@@ -57,36 +57,11 @@ func ResolveUDPHopAddr(addr string) (*UDPHopAddr, error) {
 		PortStr: portStr,
 	}
 
-	portStrs := strings.Split(portStr, ",")
-	for _, portStr := range portStrs {
-		if strings.Contains(portStr, "-") {
-			// Port range
-			portRange := strings.Split(portStr, "-")
-			if len(portRange) != 2 {
-				return nil, InvalidPortError{portStr}
-			}
-			start, err := strconv.ParseUint(portRange[0], 10, 16)
-			if err != nil {
-				return nil, InvalidPortError{portStr}
-			}
-			end, err := strconv.ParseUint(portRange[1], 10, 16)
-			if err != nil {
-				return nil, InvalidPortError{portStr}
-			}
-			if start > end {
-				start, end = end, start
-			}
-			for i := start; i <= end; i++ {
-				result.Ports = append(result.Ports, uint16(i))
-			}
-		} else {
-			// Single port
-			port, err := strconv.ParseUint(portStr, 10, 16)
-			if err != nil {
-				return nil, InvalidPortError{portStr}
-			}
-			result.Ports = append(result.Ports, uint16(port))
-		}
+	pu := utils.ParsePortUnion(portStr)
+	if pu == nil {
+		return nil, InvalidPortError{portStr}
 	}
+	result.Ports = pu.Ports()
+
 	return result, nil
 }

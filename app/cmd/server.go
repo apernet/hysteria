@@ -34,7 +34,9 @@ import (
 	"github.com/apernet/hysteria/extras/v2/masq"
 	"github.com/apernet/hysteria/extras/v2/obfs"
 	"github.com/apernet/hysteria/extras/v2/outbounds"
+	"github.com/apernet/hysteria/extras/v2/sniff"
 	"github.com/apernet/hysteria/extras/v2/trafficlogger"
+	eUtils "github.com/apernet/hysteria/extras/v2/utils"
 )
 
 const (
@@ -64,6 +66,7 @@ type serverConfig struct {
 	UDPIdleTimeout        time.Duration               `mapstructure:"udpIdleTimeout"`
 	Auth                  serverConfigAuth            `mapstructure:"auth"`
 	Resolver              serverConfigResolver        `mapstructure:"resolver"`
+	Sniff                 serverConfigSniff           `mapstructure:"sniff"`
 	ACL                   serverConfigACL             `mapstructure:"acl"`
 	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
 	TrafficStats          serverConfigTrafficStats    `mapstructure:"trafficStats"`
@@ -177,6 +180,14 @@ type serverConfigResolver struct {
 	UDP   serverConfigResolverUDP   `mapstructure:"udp"`
 	TLS   serverConfigResolverTLS   `mapstructure:"tls"`
 	HTTPS serverConfigResolverHTTPS `mapstructure:"https"`
+}
+
+type serverConfigSniff struct {
+	Enable        bool          `mapstructure:"enable"`
+	Timeout       time.Duration `mapstructure:"timeout"`
+	RewriteDomain bool          `mapstructure:"rewriteDomain"`
+	TCPPorts      string        `mapstructure:"tcpPorts"`
+	UDPPorts      string        `mapstructure:"udpPorts"`
 }
 
 type serverConfigACL struct {
@@ -541,6 +552,29 @@ func serverConfigOutboundHTTPToOutbound(c serverConfigOutboundHTTP) (outbounds.P
 	return outbounds.NewHTTPOutbound(c.URL, c.Insecure)
 }
 
+func (c *serverConfig) fillRequestHook(hyConfig *server.Config) error {
+	if c.Sniff.Enable {
+		s := &sniff.Sniffer{
+			Timeout:       c.Sniff.Timeout,
+			RewriteDomain: c.Sniff.RewriteDomain,
+		}
+		if c.Sniff.TCPPorts != "" {
+			s.TCPPorts = eUtils.ParsePortUnion(c.Sniff.TCPPorts)
+			if s.TCPPorts == nil {
+				return configError{Field: "sniff.tcpPorts", Err: errors.New("invalid port union")}
+			}
+		}
+		if c.Sniff.UDPPorts != "" {
+			s.UDPPorts = eUtils.ParsePortUnion(c.Sniff.UDPPorts)
+			if s.UDPPorts == nil {
+				return configError{Field: "sniff.udpPorts", Err: errors.New("invalid port union")}
+			}
+		}
+		hyConfig.RequestHook = s
+	}
+	return nil
+}
+
 func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	// Resolver, ACL, actual outbound are all implemented through the Outbound interface.
 	// Depending on the config, we build a chain like this:
@@ -821,6 +855,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 		c.fillConn,
 		c.fillTLSConfig,
 		c.fillQUICConfig,
+		c.fillRequestHook,
 		c.fillOutboundConfig,
 		c.fillBandwidthConfig,
 		c.fillIgnoreClientBandwidth,
