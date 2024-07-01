@@ -3,6 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -68,11 +71,26 @@ func runSpeedtest(cmd *cobra.Command, args []string) {
 		zap.Bool("udpEnabled", info.UDPEnabled),
 		zap.Uint64("tx", info.Tx))
 
-	if !skipDownload {
-		runDownloadTest(c)
-	}
-	if !skipUpload {
-		runUploadTest(c)
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signalChan)
+
+	runChan := make(chan struct{}, 1)
+	go func() {
+		if !skipDownload {
+			runDownloadTest(c)
+		}
+		if !skipUpload {
+			runUploadTest(c)
+		}
+		runChan <- struct{}{}
+	}()
+
+	select {
+	case <-signalChan:
+		logger.Info("received signal, shutting down gracefully")
+	case <-runChan:
+		logger.Info("speed test complete")
 	}
 }
 
