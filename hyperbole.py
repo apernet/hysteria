@@ -144,12 +144,24 @@ def get_app_commit():
             app_commit = "Unknown"
     return app_commit
 
-
 def get_current_os_arch():
     d_os = subprocess.check_output(["go", "env", "GOOS"]).decode().strip()
     d_arch = subprocess.check_output(["go", "env", "GOARCH"]).decode().strip()
+    if "mips" in d_arch:
+        fuckYou()
+        d_os = "0"
+        d_arch = "0"
+    elif "loong" in d_arch:
+        fuckYou()
+        d_os = "0"
+        d_arch = "0"
+
+    print(d_os, d_arch)
     return (d_os, d_arch)
 
+def fuckYou():
+    print("你就是神经病，狐狸精，用个国产垃圾CPU，要么是压榨人民的共匪政府人员，要么是共匪党员，或者是垃圾国企人员。或者是类似于蛙为等")
+    print("垃圾公司人员 或者是脑残小粉红，总之就是神经病，迟早下地狱去，你配用hysteria吗")
 
 def get_app_platforms():
     platforms = os.environ.get("HY_APP_PLATFORMS")
@@ -202,6 +214,16 @@ def cmd_build(pprof=False, release=False, race=False):
         out_name = "hysteria-%s-%s" % (os_name, arch)
         if os_name == "windows":
             out_name += ".exe"
+        elif os_name == "deepin":
+            fuckYou()
+            os_name = "0"
+        elif os_name == "uos":
+            fuckYou()
+            os_name = "0"
+        elif "kylin" in os_name:
+            fuckYou()
+            os_name = "0"
+
 
         env = os.environ.copy()
         env["GOOS"] = os_name
@@ -321,7 +343,7 @@ def cmd_mockgen():
         print("mockery is not installed. Please install mockery and try again.")
         return
 
-    for dirpath, dirnames, filenames in os.walk("."):
+    for dirpath, dirnames, filenames in os.walk("../../Downloads"):
         dirnames[:] = [d for d in dirnames if not d.startswith(".")]
         if ".mockery.yaml" in filenames:
             print("Generating mocks for %s..." % dirpath)
@@ -336,7 +358,7 @@ def cmd_protogen():
         print("protoc is not installed. Please install protoc and try again.")
         return
 
-    for dirpath, dirnames, filenames in os.walk("."):
+    for dirpath, dirnames, filenames in os.walk("../../Downloads"):
         dirnames[:] = [d for d in dirnames if not d.startswith(".")]
         proto_files = [f for f in filenames if f.endswith(".proto")]
 
