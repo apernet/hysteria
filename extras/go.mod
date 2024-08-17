@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/apernet/hysteria/core/v2 v2.0.0-00010101000000-000000000000
-	github.com/apernet/quic-go v0.45.3-0.20240803200022-e3824dfb4b89
+	github.com/apernet/quic-go v0.46.1-0.20240816230517-268ed2476167
 	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6
 	github.com/hashicorp/golang-lru/v2 v2.0.5
 	github.com/miekg/dns v1.1.59
