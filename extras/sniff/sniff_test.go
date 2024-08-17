@@ -70,6 +70,18 @@ func TestSnifferTCP(t *testing.T) {
 	assert.Equal(t, *buf, putback)
 	assert.Equal(t, "example.com:80", reqAddr)
 
+	// Test HTTP with Host as host:port
+	*buf = []byte("GET / HTTP/1.1\r\n" +
+		"Host: example.com:8080\r\n" +
+		"User-Agent: test-agent\r\n" +
+		"Accept: */*\r\n\r\n")
+	index = 0
+	reqAddr = "222.222.222.222:10086"
+	putback, err = sniffer.TCP(stream, &reqAddr)
+	assert.NoError(t, err)
+	assert.Equal(t, *buf, putback)
+	assert.Equal(t, "example.com:10086", reqAddr)
+
 	// Test TLS
 	*buf, err = base64.StdEncoding.DecodeString("FgMBARcBAAETAwPJL2jlt1OAo+Rslkjv/aqKiTthKMaCKg2Gvd+uALDbDCDdY+UIk8ouadEB9fC3j52Y1i7SJZqGIgBRIS6kKieYrAAoEwITAcAswCvAMMAvwCTAI8AowCfACsAJwBTAEwCdAJwAPQA8ADUALwEAAKIAAAAOAAwAAAlpcGluZm8uaW8ABQAFAQAAAAAAKwAJCAMEAwMDAgMBAA0AGgAYCAQIBQgGBAEFAQIBBAMFAwIDAgIGAQYDACMAAAAKAAgABgAdABcAGAAQAAsACQhodHRwLzEuMQAzACYAJAAdACBguQbqNJNyamYxYcrBFpBP7pWv5TgZsP9gwGtMYNKVBQAxAAAAFwAA/wEAAQAALQACAQE=")
 	assert.NoError(t, err)

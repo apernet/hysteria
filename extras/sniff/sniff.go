@@ -112,11 +112,17 @@ func (h *Sniffer) TCP(stream quic.Stream, reqAddr *string) ([]byte, error) {
 		tr := &teeReader{Stream: stream, Pre: pre}
 		req, _ := http.ReadRequest(bufio.NewReader(tr))
 		if req != nil && req.Host != "" {
+			// req.Host can be host:port, in which case we need to extract the host part
+			host, _, err := net.SplitHostPort(req.Host)
+			if err != nil {
+				// No port, just use the whole string
+				host = req.Host
+			}
 			_, port, err := net.SplitHostPort(*reqAddr)
 			if err != nil {
 				return nil, err
 			}
-			*reqAddr = net.JoinHostPort(req.Host, port)
+			*reqAddr = net.JoinHostPort(host, port)
 		}
 		return tr.Buffer(), nil
 	} else if h.isTLS(pre) {
