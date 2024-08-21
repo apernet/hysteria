@@ -465,7 +465,7 @@ check_environment_systemd() {
 }
 
 check_environment_selinux() {
-  if ! has_command chcon; then
+  if ! has_command getenforce; then
     return
   fi
 
