@@ -94,9 +94,12 @@ func (l *LocalCertificateLoader) makeCache() (cache *localCertificateCache, err 
 		return
 	}
 	c.certificate = &cert
-	c.certificate.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		return
+	if c.certificate.Leaf == nil {
+		// certificate.Leaf was left nil by tls.LoadX509KeyPair before Go 1.23
+		c.certificate.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			return
+		}
 	}
 
 	cache = c
