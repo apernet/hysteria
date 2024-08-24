@@ -8,6 +8,7 @@ obfs:
 tls:
   cert: some.crt
   key: some.key
+  sniGuard: strict
 
 acme:
   domains:
