@@ -291,19 +291,19 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 	if c.TLS != nil && c.ACME != nil {
 		return configError{Field: "tls", Err: errors.New("cannot set both tls and acme")}
 	}
-	// SNI guard
-	var sniGuard utils.SNIGuardFunc
-	switch strings.ToLower(c.TLS.SNIGuard) {
-	case "", "dns-san":
-		sniGuard = utils.SNIGuardDNSSAN
-	case "strict":
-		sniGuard = utils.SNIGuardStrict
-	case "disable":
-		sniGuard = nil
-	default:
-		return configError{Field: "tls.sniGuard", Err: errors.New("unsupported SNI guard")}
-	}
 	if c.TLS != nil {
+		// SNI guard
+		var sniGuard utils.SNIGuardFunc
+		switch strings.ToLower(c.TLS.SNIGuard) {
+		case "", "dns-san":
+			sniGuard = utils.SNIGuardDNSSAN
+		case "strict":
+			sniGuard = utils.SNIGuardStrict
+		case "disable":
+			sniGuard = nil
+		default:
+			return configError{Field: "tls.sniGuard", Err: errors.New("unsupported SNI guard")}
+		}
 		// Local TLS cert
 		if c.TLS.Cert == "" || c.TLS.Key == "" {
 			return configError{Field: "tls", Err: errors.New("empty cert or key path")}

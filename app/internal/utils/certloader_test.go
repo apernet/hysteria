@@ -111,7 +111,7 @@ func generateTestCertificate(dnssan []string, certType string) error {
 	if len(dnssan) > 0 {
 		args = append(args, "--dnssan", strings.Join(dnssan, ","))
 	}
-	cmd := exec.Command("python3", args...)
+	cmd := exec.Command("python", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Failed to generate test certificate: %s", out)
@@ -129,7 +129,7 @@ func runTestTLSClient(sni string) error {
 	if sni != "" {
 		args = append(args, "--sni", sni)
 	}
-	cmd := exec.Command("python3", args...)
+	cmd := exec.Command("python", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Failed to run test TLS client: %s", out)
