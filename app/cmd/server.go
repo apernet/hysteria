@@ -83,8 +83,9 @@ type serverConfigObfs struct {
 }
 
 type serverConfigTLS struct {
-	Cert string `mapstructure:"cert"`
-	Key  string `mapstructure:"key"`
+	Cert     string `mapstructure:"cert"`
+	Key      string `mapstructure:"key"`
+	SNIGuard string `mapstructure:"sniGuard"` // "disable", "dns-san", "strict"
 }
 
 type serverConfigACME struct {
@@ -291,30 +292,45 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 		return configError{Field: "tls", Err: errors.New("cannot set both tls and acme")}
 	}
 	if c.TLS != nil {
+		// SNI guard
+		var sniGuard utils.SNIGuardFunc
+		switch strings.ToLower(c.TLS.SNIGuard) {
+		case "", "dns-san":
+			sniGuard = utils.SNIGuardDNSSAN
+		case "strict":
+			sniGuard = utils.SNIGuardStrict
+		case "disable":
+			sniGuard = nil
+		default:
+			return configError{Field: "tls.sniGuard", Err: errors.New("unsupported SNI guard")}
+		}
 		// Local TLS cert
 		if c.TLS.Cert == "" || c.TLS.Key == "" {
 			return configError{Field: "tls", Err: errors.New("empty cert or key path")}
 		}
+		certLoader := &utils.LocalCertificateLoader{
+			CertFile: c.TLS.Cert,
+			KeyFile:  c.TLS.Key,
+			SNIGuard: sniGuard,
+		}
 		// Try loading the cert-key pair here to catch errors early
 		// (e.g. invalid files or insufficient permissions)
-		certPEMBlock, err := os.ReadFile(c.TLS.Cert)
+		err := certLoader.InitializeCache()
 		if err != nil {
-			return configError{Field: "tls.cert", Err: err}
-		}
-		keyPEMBlock, err := os.ReadFile(c.TLS.Key)
-		if err != nil {
-			return configError{Field: "tls.key", Err: err}
-		}
-		_, err = tls.X509KeyPair(certPEMBlock, keyPEMBlock)
-		if err != nil {
-			return configError{Field: "tls", Err: fmt.Errorf("invalid cert-key pair: %w", err)}
+			var pathErr *os.PathError
+			if errors.As(err, &pathErr) {
+				if pathErr.Path == c.TLS.Cert {
+					return configError{Field: "tls.cert", Err: pathErr}
+				}
+				if pathErr.Path == c.TLS.Key {
+					return configError{Field: "tls.key", Err: pathErr}
+				}
+			}
+			return configError{Field: "tls", Err: err}
 		}
 		// Use GetCertificate instead of Certificates so that
 		// users can update the cert without restarting the server.
-		hyConfig.TLSConfig.GetCertificate = func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			cert, err := tls.LoadX509KeyPair(c.TLS.Cert, c.TLS.Key)
-			return &cert, err
-		}
+		hyConfig.TLSConfig.GetCertificate = certLoader.GetCertificate
 	} else {
 		// ACME
 		dataDir := c.ACME.Dir

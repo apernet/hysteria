@@ -26,8 +26,9 @@ func TestServerConfig(t *testing.T) {
 			},
 		},
 		TLS: &serverConfigTLS{
-			Cert: "some.crt",
-			Key:  "some.key",
+			Cert:     "some.crt",
+			Key:      "some.key",
+			SNIGuard: "strict",
 		},
 		ACME: &serverConfigACME{
 			Domains: []string{
