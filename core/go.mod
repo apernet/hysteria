@@ -1,4 +1,4 @@
-module github.com/apernet/hysteria/core/v2
+module github.com/amonnoris1/hysteria-v2/v2
 
 go 1.21
 
