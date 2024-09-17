@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"C"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
@@ -100,6 +101,7 @@ type clientConfigTLS struct {
 	Insecure  bool   `mapstructure:"insecure"`
 	PinSHA256 string `mapstructure:"pinSHA256"`
 	CA        string `mapstructure:"ca"`
+	CAStr     string `mapstructure:"caStr"`
 }
 
 type clientConfigQUIC struct {
@@ -283,12 +285,18 @@ func (c *clientConfig) fillTLSConfig(hyConfig *client.Config) error {
 			return errors.New("no certificate matches the pinned hash")
 		}
 	}
-	if c.TLS.CA != "" {
-		ca, err := os.ReadFile(c.TLS.CA)
-		if err != nil {
-			return configError{Field: "tls.ca", Err: err}
+	var ca []byte
+	cPool := x509.NewCertPool()
+	if c.TLS.CAStr != "" && c.TLS.CA != "" {
+		if c.TLS.CAStr != "" {
+			ca = []byte(c.TLS.CAStr)
+		} else {
+			var err error
+			ca, err = os.ReadFile(c.TLS.CA)
+			if err != nil {
+				return configError{Field: "tls.ca", Err: err}
+			}
 		}
-		cPool := x509.NewCertPool()
 		if !cPool.AppendCertsFromPEM(ca) {
 			return configError{Field: "tls.ca", Err: errors.New("failed to parse CA certificate")}
 		}
@@ -441,11 +449,130 @@ func (c *clientConfig) Config() (*client.Config, error) {
 	return hyConfig, nil
 }
 
+func Start(cfgStr string, cfgType string, caStr string) {
+	initLogger()
+	logger.Info("client mode")
+	viper.SetConfigType(cfgType)
+	if cfgStr != "" {
+		if err := viper.ReadConfig(strings.NewReader(cfgStr)); err != nil {
+			logger.Fatal("failed to read client config from string", zap.Error(err))
+		}
+	} else {
+		if err := viper.ReadInConfig(); err != nil {
+			logger.Fatal("failed to read client config", zap.Error(err))
+		}
+	}
+	var config clientConfig
+	if err := viper.Unmarshal(&config); err != nil {
+		logger.Fatal("failed to parse client config", zap.Error(err))
+	}
+	if caStr != "" {
+		tls := config.TLS
+		tls.CAStr = caStr
+		config.TLS = tls
+	}
+	c, err := client.NewReconnectableClient(
+		config.Config,
+		func(c client.Client, info *client.HandshakeInfo, count int) {
+			connectLog(info, count)
+			// On the client side, we start checking for updates after we successfully connect
+			// to the server, which, depending on whether lazy mode is enabled, may or may not
+			// be immediately after the client starts. We don't want the update check request
+			// to interfere with the lazy mode option.
+			if count == 1 && !disableUpdateCheck {
+				go runCheckUpdateClient(c)
+			}
+		}, config.Lazy)
+	if err != nil {
+		logger.Fatal("failed to initialize client", zap.Error(err))
+	}
+	defer c.Close()
+
+	uri := config.URI()
+	logger.Info("use this URI to share your server", zap.String("uri", uri))
+	if showQR {
+		utils.PrintQR(uri)
+	}
+
+	// Register modes
+	var runner clientModeRunner
+	if config.SOCKS5 != nil {
+		runner.Add("SOCKS5 server", func() error {
+			return clientSOCKS5(*config.SOCKS5, c)
+		})
+	}
+	if config.HTTP != nil {
+		runner.Add("HTTP proxy server", func() error {
+			return clientHTTP(*config.HTTP, c)
+		})
+	}
+	if len(config.TCPForwarding) > 0 {
+		runner.Add("TCP forwarding", func() error {
+			return clientTCPForwarding(config.TCPForwarding, c)
+		})
+	}
+	if len(config.UDPForwarding) > 0 {
+		runner.Add("UDP forwarding", func() error {
+			return clientUDPForwarding(config.UDPForwarding, c)
+		})
+	}
+	if config.TCPTProxy != nil {
+		runner.Add("TCP transparent proxy", func() error {
+			return clientTCPTProxy(*config.TCPTProxy, c)
+		})
+	}
+	if config.UDPTProxy != nil {
+		runner.Add("UDP transparent proxy", func() error {
+			return clientUDPTProxy(*config.UDPTProxy, c)
+		})
+	}
+	if config.TCPRedirect != nil {
+		runner.Add("TCP redirect", func() error {
+			return clientTCPRedirect(*config.TCPRedirect, c)
+		})
+	}
+	if config.TUN != nil {
+		runner.Add("TUN", func() error {
+			return clientTUN(*config.TUN, c)
+		})
+	}
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signalChan)
+
+	runnerChan := make(chan clientModeRunnerResult, 1)
+	go func() {
+		runnerChan <- runner.Run()
+	}()
+
+	select {
+	case <-signalChan:
+		logger.Info("received signal, shutting down gracefully")
+	case r := <-runnerChan:
+		if r.OK {
+			logger.Info(r.Msg)
+		} else {
+			_ = c.Close() // Close the client here as Fatal will exit the program without running defer
+			if r.Err != nil {
+				logger.Fatal(r.Msg, zap.Error(r.Err))
+			} else {
+				logger.Fatal(r.Msg)
+			}
+		}
+	}
+}
+
 func runClient(cmd *cobra.Command, args []string) {
 	logger.Info("client mode")
-
-	if err := viper.ReadInConfig(); err != nil {
-		logger.Fatal("failed to read client config", zap.Error(err))
+	if CfgString != "" {
+		if err := viper.ReadConfig(strings.NewReader(CfgString)); err != nil {
+			logger.Fatal("failed to read client config from string", zap.Error(err))
+		}
+	} else {
+		if err := viper.ReadInConfig(); err != nil {
+			logger.Fatal("failed to read client config", zap.Error(err))
+		}
 	}
 	var config clientConfig
 	if err := viper.Unmarshal(&config); err != nil {

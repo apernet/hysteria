@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"C"
 	"fmt"
 	"os"
 	"strconv"
@@ -55,6 +56,7 @@ var (
 	logLevel           string
 	logFormat          string
 	disableUpdateCheck bool
+	CfgString          string
 )
 
 var rootCmd = &cobra.Command{
@@ -113,9 +115,13 @@ func initFlags() {
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", envOrDefaultString(appLogLevelEnv, "info"), "log level")
 	rootCmd.PersistentFlags().StringVarP(&logFormat, "log-format", "f", envOrDefaultString(appLogFormatEnv, "console"), "log format")
 	rootCmd.PersistentFlags().BoolVar(&disableUpdateCheck, "disable-update-check", envOrDefaultBool(appDisableUpdateCheckEnv, false), "disable update check")
+	rootCmd.PersistentFlags().StringVarP(&CfgString, "config-string", "s", "", "config string")
 }
 
 func initConfig() {
+	if CfgString != "" {
+		return
+	}
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
