@@ -262,15 +262,20 @@ func (m *udpSessionManager) idleCleanupLoop(stopCh <-chan struct{}) {
 
 func (m *udpSessionManager) cleanup(idleOnly bool) {
 	// We use RLock here as we are only scanning the map, not deleting from it.
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	timeoutEntry := make([]*udpSessionEntry, 0, len(m.m))
 
+	m.mutex.RLock()
 	now := time.Now()
 	for _, entry := range m.m {
 		if !idleOnly || now.Sub(entry.Last.Get()) > m.idleTimeout {
-			entry.MarkTimeout()
-			// Entry will be removed by its ExitFunc.
+			timeoutEntry = append(timeoutEntry, entry)
 		}
+	}
+	m.mutex.RUnlock()
+
+	for _, entry := range timeoutEntry {
+		entry.MarkTimeout()
+		// Entry will be removed by its ExitFunc.
 	}
 }
 
