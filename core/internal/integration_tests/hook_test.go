@@ -132,7 +132,9 @@ func TestClientServerHookUDP(t *testing.T) {
 	rData, rAddr, err := conn.Receive()
 	assert.NoError(t, err)
 	assert.Equal(t, sData, rData)
-	assert.Equal(t, realEchoAddr, rAddr)
+	// Hook address change is transparent,
+	// the client should still see the fake echo address it sent packets to
+	assert.Equal(t, fakeEchoAddr, rAddr)
 
 	// Subsequent packets should also be sent to the real echo server
 	sData = []byte("never stop fighting")
@@ -141,5 +143,5 @@ func TestClientServerHookUDP(t *testing.T) {
 	rData, rAddr, err = conn.Receive()
 	assert.NoError(t, err)
 	assert.Equal(t, sData, rData)
-	assert.Equal(t, realEchoAddr, rAddr)
+	assert.Equal(t, fakeEchoAddr, rAddr)
 }
