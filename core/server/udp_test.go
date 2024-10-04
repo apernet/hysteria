@@ -25,7 +25,6 @@ func TestUDPSessionManager(t *testing.T) {
 		}
 		return m, nil
 	})
-	io.EXPECT().Hook(mock.Anything, mock.Anything).Return(nil)
 
 	go sm.Run()
 
@@ -50,6 +49,7 @@ func TestUDPSessionManager(t *testing.T) {
 	eventLogger.EXPECT().New(msg1.SessionID, msg1.Addr).Return().Once()
 	udpConn1 := newMockUDPConn(t)
 	udpConn1Ch := make(chan []byte, 1)
+	io.EXPECT().Hook(msg1.Data, &msg1.Addr).Return(nil).Once()
 	io.EXPECT().UDP(msg1.Addr).Return(udpConn1, nil).Once()
 	udpConn1.EXPECT().WriteTo(msg1.Data, msg1.Addr).Return(5, nil).Once()
 	udpConn1.EXPECT().ReadFrom(mock.Anything).RunAndReturn(func(b []byte) (int, string, error) {
@@ -66,31 +66,44 @@ func TestUDPSessionManager(t *testing.T) {
 	msgCh <- msg1
 	udpConn1Ch <- []byte("hi back")
 
-	msg2 := &protocol.UDPMessage{
+	msg2data := []byte("how are you doing?")
+	msg2_1 := &protocol.UDPMessage{
 		SessionID: 5678,
 		PacketID:  0,
 		FragID:    0,
-		FragCount: 1,
+		FragCount: 2,
 		Addr:      "address2.net:12450",
-		Data:      []byte("how are you"),
+		Data:      msg2data[:6],
 	}
-	eventLogger.EXPECT().New(msg2.SessionID, msg2.Addr).Return().Once()
+	msg2_2 := &protocol.UDPMessage{
+		SessionID: 5678,
+		PacketID:  0,
+		FragID:    1,
+		FragCount: 2,
+		Addr:      "address2.net:12450",
+		Data:      msg2data[6:],
+	}
+
+	eventLogger.EXPECT().New(msg2_1.SessionID, msg2_1.Addr).Return().Once()
 	udpConn2 := newMockUDPConn(t)
 	udpConn2Ch := make(chan []byte, 1)
-	io.EXPECT().UDP(msg2.Addr).Return(udpConn2, nil).Once()
-	udpConn2.EXPECT().WriteTo(msg2.Data, msg2.Addr).Return(11, nil).Once()
+	// On fragmentation, make sure hook gets the whole message
+	io.EXPECT().Hook(msg2data, &msg2_1.Addr).Return(nil).Once()
+	io.EXPECT().UDP(msg2_1.Addr).Return(udpConn2, nil).Once()
+	udpConn2.EXPECT().WriteTo(msg2data, msg2_1.Addr).Return(11, nil).Once()
 	udpConn2.EXPECT().ReadFrom(mock.Anything).RunAndReturn(func(b []byte) (int, string, error) {
-		return udpReadFunc(msg2.Addr, udpConn2Ch, b)
+		return udpReadFunc(msg2_1.Addr, udpConn2Ch, b)
 	})
 	io.EXPECT().SendMessage(mock.Anything, &protocol.UDPMessage{
-		SessionID: msg2.SessionID,
+		SessionID: msg2_1.SessionID,
 		PacketID:  0,
 		FragID:    0,
 		FragCount: 1,
-		Addr:      msg2.Addr,
+		Addr:      msg2_1.Addr,
 		Data:      []byte("im fine"),
 	}).Return(nil).Once()
-	msgCh <- msg2
+	msgCh <- msg2_1
+	msgCh <- msg2_2
 	udpConn2Ch <- []byte("im fine")
 
 	msg3 := &protocol.UDPMessage{
@@ -123,7 +136,7 @@ func TestUDPSessionManager(t *testing.T) {
 		return nil
 	}).Once()
 	eventLogger.EXPECT().Close(msg1.SessionID, nil).Once()
-	eventLogger.EXPECT().Close(msg2.SessionID, nil).Once()
+	eventLogger.EXPECT().Close(msg2_1.SessionID, nil).Once()
 
 	time.Sleep(3 * time.Second) // Wait for timeout
 	mock.AssertExpectationsForObjects(t, io, eventLogger, udpConn1, udpConn2)
@@ -140,6 +153,7 @@ func TestUDPSessionManager(t *testing.T) {
 	}
 	eventLogger.EXPECT().New(msg4.SessionID, msg4.Addr).Return().Once()
 	udpConn4 := newMockUDPConn(t)
+	io.EXPECT().Hook(msg4.Data, &msg4.Addr).Return(nil).Once()
 	io.EXPECT().UDP(msg4.Addr).Return(udpConn4, nil).Once()
 	udpConn4.EXPECT().WriteTo(msg4.Data, msg4.Addr).Return(12, nil).Once()
 	udpConn4.EXPECT().ReadFrom(mock.Anything).Return(0, "", errUDPClosed).Once()
@@ -161,6 +175,7 @@ func TestUDPSessionManager(t *testing.T) {
 		Data:      []byte("babe i miss you"),
 	}
 	eventLogger.EXPECT().New(msg5.SessionID, msg5.Addr).Return().Once()
+	io.EXPECT().Hook(msg5.Data, &msg5.Addr).Return(nil).Once()
 	io.EXPECT().UDP(msg5.Addr).Return(nil, errUDPIO).Once()
 	eventLogger.EXPECT().Close(msg5.SessionID, errUDPIO).Once()
 	msgCh <- msg5
