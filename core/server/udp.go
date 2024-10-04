@@ -63,6 +63,8 @@ func newUDPSessionEntry(
 	return
 }
 
+// CloseWithErr closes the session and calls ExitFunc with the given error.
+// A nil error indicates the session is cleaned up due to timeout.
 func (e *udpSessionEntry) CloseWithErr(err error) {
 	// We need this lock to ensure not to create conn after session exit
 	e.connLock.Lock()
@@ -125,6 +127,7 @@ func (e *udpSessionEntry) initConn(firstMsg *protocol.UDPMessage) error {
 		// Fail fast if DialFunc failed
 		// (usually indicates the connection has been rejected by the ACL)
 		e.connLock.Unlock()
+		// CloseWithErr acquires the connLock again
 		e.CloseWithErr(err)
 		return err
 	}
@@ -176,13 +179,6 @@ func (e *udpSessionEntry) receiveLoop() {
 			return
 		}
 	}
-}
-
-// MarkTimeout marks the session to be cleaned up due to timeout.
-// Should only be called by the cleanup routine of the session manager.
-func (e *udpSessionEntry) MarkTimeout() {
-	// nil error indicates timeout.
-	e.CloseWithErr(nil)
 }
 
 // sendMessageAutoFrag tries to send a UDP message as a whole first,
@@ -261,9 +257,9 @@ func (m *udpSessionManager) idleCleanupLoop(stopCh <-chan struct{}) {
 }
 
 func (m *udpSessionManager) cleanup(idleOnly bool) {
-	// We use RLock here as we are only scanning the map, not deleting from it.
 	timeoutEntry := make([]*udpSessionEntry, 0, len(m.m))
 
+	// We use RLock here as we are only scanning the map, not deleting from it.
 	m.mutex.RLock()
 	now := time.Now()
 	for _, entry := range m.m {
@@ -274,8 +270,9 @@ func (m *udpSessionManager) cleanup(idleOnly bool) {
 	m.mutex.RUnlock()
 
 	for _, entry := range timeoutEntry {
-		entry.MarkTimeout()
-		// Entry will be removed by its ExitFunc.
+		// This eventually calls entry.ExitFunc,
+		// where the m.mutex will be locked again to remove the entry from the map.
+		entry.CloseWithErr(nil)
 	}
 }
 
