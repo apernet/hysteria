@@ -133,7 +133,9 @@ func (e *udpSessionEntry) initConn(firstMsg *protocol.UDPMessage) error {
 	}
 
 	e.conn = conn
+
 	if firstMsg.Addr != actualAddr {
+		// Hook changed the address, enable address override
 		e.OverrideAddr = actualAddr
 		e.OriginalAddr = firstMsg.Addr
 	}
