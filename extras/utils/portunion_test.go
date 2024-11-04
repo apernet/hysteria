@@ -53,6 +53,16 @@ func TestParsePortUnion(t *testing.T) {
 			want: PortUnion{{1200, 1240}, {5678, 5678}, {9012, 9100}},
 		},
 		{
+			name: "multiple ports and ranges with 65535 (reversed, unsorted, overlapping)",
+			s:    "5678,1200-1236,65531-65535,65532-65534,9100-9012,1234-1240",
+			want: PortUnion{{1200, 1240}, {5678, 5678}, {9012, 9100}, {65531, 65535}},
+		},
+		{
+			name: "multiple ports and ranges with 65535 (reversed, unsorted, overlapping) 2",
+			s:    "5678,1200-1236,65532-65535,65531-65534,9100-9012,1234-1240",
+			want: PortUnion{{1200, 1240}, {5678, 5678}, {9012, 9100}, {65531, 65535}},
+		},
+		{
 			name: "invalid 1",
 			s:    "1234-",
 			want: nil,
