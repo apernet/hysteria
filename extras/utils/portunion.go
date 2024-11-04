@@ -74,7 +74,7 @@ func (u PortUnion) Normalize() PortUnion {
 	normalized := PortUnion{u[0]}
 	for _, current := range u[1:] {
 		last := &normalized[len(normalized)-1]
-		if current.Start <= last.End+1 {
+		if uint32(current.Start) <= uint32(last.End)+1 {
 			if current.End > last.End {
 				last.End = current.End
 			}
@@ -89,8 +89,8 @@ func (u PortUnion) Normalize() PortUnion {
 func (u PortUnion) Ports() []uint16 {
 	var ports []uint16
 	for _, r := range u {
-		for i := r.Start; i <= r.End; i++ {
-			ports = append(ports, i)
+		for i := uint32(r.Start); i <= uint32(r.End); i++ {
+			ports = append(ports, uint16(i))
 		}
 	}
 	return ports
