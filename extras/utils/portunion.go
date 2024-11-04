@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -91,6 +92,9 @@ func (u PortUnion) Ports() []uint16 {
 	for _, r := range u {
 		for i := r.Start; i <= r.End; i++ {
 			ports = append(ports, i)
+			if i == math.MaxUint16 {
+				break
+			}
 		}
 	}
 	return ports
