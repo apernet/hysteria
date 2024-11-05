@@ -145,10 +145,31 @@ def get_app_commit():
     return app_commit
 
 
+def get_toolchain():
+    try:
+        output = subprocess.check_output(["go", "version"]).decode().strip()
+        if output.startswith("go version "):
+            output = output[11:]
+        return output
+    except Exception:
+        return "Unknown"
+
+
 def get_current_os_arch():
     d_os = subprocess.check_output(["go", "env", "GOOS"]).decode().strip()
     d_arch = subprocess.check_output(["go", "env", "GOARCH"]).decode().strip()
     return (d_os, d_arch)
+
+
+def get_lib_version():
+    try:
+        with open(CORE_SRC_DIR + "/go.mod") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("github.com/apernet/quic-go"):
+                    return line.split(" ")[1].strip()
+    except Exception:
+        return "Unknown"
 
 
 def get_app_platforms():
@@ -176,8 +197,12 @@ def cmd_build(pprof=False, release=False, race=False):
     os.makedirs(BUILD_DIR, exist_ok=True)
 
     app_version = get_app_version()
-    app_date = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    app_date = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    app_toolchain = get_toolchain()
     app_commit = get_app_commit()
+    lib_version = get_lib_version()
 
     ldflags = [
         "-X",
@@ -190,7 +215,11 @@ def cmd_build(pprof=False, release=False, race=False):
         + ("release" if release else "dev")
         + ("-pprof" if pprof else ""),
         "-X",
+        '"' + APP_SRC_CMD_PKG + ".appToolchain=" + app_toolchain + '"',
+        "-X",
         APP_SRC_CMD_PKG + ".appCommit=" + app_commit,
+        "-X",
+        APP_SRC_CMD_PKG + ".libVersion=" + lib_version,
     ]
     if release:
         ldflags.append("-s")
@@ -267,8 +296,12 @@ def cmd_run(args, pprof=False, race=False):
         return
 
     app_version = get_app_version()
-    app_date = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    app_date = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    app_toolchain = get_toolchain()
     app_commit = get_app_commit()
+    lib_version = get_lib_version()
 
     current_os, current_arch = get_current_os_arch()
 
@@ -280,11 +313,15 @@ def cmd_run(args, pprof=False, race=False):
         "-X",
         APP_SRC_CMD_PKG + ".appType=dev-run",
         "-X",
+        '"' + APP_SRC_CMD_PKG + ".appToolchain=" + app_toolchain + '"',
+        "-X",
         APP_SRC_CMD_PKG + ".appCommit=" + app_commit,
         "-X",
         APP_SRC_CMD_PKG + ".appPlatform=" + current_os,
         "-X",
         APP_SRC_CMD_PKG + ".appArch=" + current_arch,
+        "-X",
+        APP_SRC_CMD_PKG + ".libVersion=" + lib_version,
     ]
 
     cmd = ["go", "run", "-ldflags", " ".join(ldflags)]

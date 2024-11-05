@@ -29,20 +29,24 @@ const (
 
 var (
 	// These values will be injected by the build system
-	appVersion  = "Unknown"
-	appDate     = "Unknown"
-	appType     = "Unknown" // aka channel
-	appCommit   = "Unknown"
-	appPlatform = "Unknown"
-	appArch     = "Unknown"
+	appVersion   = "Unknown"
+	appDate      = "Unknown"
+	appType      = "Unknown" // aka channel
+	appToolchain = "Unknown"
+	appCommit    = "Unknown"
+	appPlatform  = "Unknown"
+	appArch      = "Unknown"
+	libVersion   = "Unknown"
 
 	appVersionLong = fmt.Sprintf("Version:\t%s\n"+
 		"BuildDate:\t%s\n"+
 		"BuildType:\t%s\n"+
+		"Toolchain:\t%s\n"+
 		"CommitHash:\t%s\n"+
 		"Platform:\t%s\n"+
-		"Architecture:\t%s",
-		appVersion, appDate, appType, appCommit, appPlatform, appArch)
+		"Architecture:\t%s\n"+
+		"LibVersion:\t%s",
+		appVersion, appDate, appType, appToolchain, appCommit, appPlatform, appArch, libVersion)
 
 	appAboutLong = fmt.Sprintf("%s\n%s\n%s\n\n%s", appLogo, appDesc, appAuthors, appVersionLong)
 )
