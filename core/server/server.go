@@ -280,7 +280,7 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	}
 	// Start proxying
 	if trafficLogger != nil {
-		err = copyTwoWayWithLogger(h.authID, stream, tConn, trafficLogger, streamStats)
+		err = copyTwoWayEx(h.authID, stream, tConn, trafficLogger, streamStats)
 	} else {
 		// Use the fast path if no traffic logger is set
 		err = copyTwoWay(stream, tConn)

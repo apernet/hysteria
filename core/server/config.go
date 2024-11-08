@@ -7,10 +7,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/apernet/hysteria/core/v2/internal/utils"
-
 	"github.com/apernet/hysteria/core/v2/errors"
 	"github.com/apernet/hysteria/core/v2/internal/pmtud"
+	"github.com/apernet/hysteria/core/v2/internal/utils"
 	"github.com/apernet/quic-go"
 )
 

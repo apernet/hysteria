@@ -11,9 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apernet/quic-go"
-
 	"github.com/apernet/hysteria/core/v2/server"
+	"github.com/apernet/quic-go"
 )
 
 const (

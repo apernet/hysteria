@@ -32,7 +32,7 @@ func copyBufferLog(dst io.Writer, src io.Reader, log func(n uint64) bool) error 
 	}
 }
 
-func copyTwoWayWithLogger(id string, serverRw, remoteRw io.ReadWriter, l TrafficLogger, stats *StreamStats) error {
+func copyTwoWayEx(id string, serverRw, remoteRw io.ReadWriter, l TrafficLogger, stats *StreamStats) error {
 	errChan := make(chan error, 2)
 	go func() {
 		errChan <- copyBufferLog(serverRw, remoteRw, func(n uint64) bool {
@@ -52,7 +52,7 @@ func copyTwoWayWithLogger(id string, serverRw, remoteRw io.ReadWriter, l Traffic
 	return <-errChan
 }
 
-// copyTwoWay is the "fast-path" version of copyTwoWayWithLogger that does not log traffic.
+// copyTwoWay is the "fast-path" version of copyTwoWayEx that does not log traffic or update stream stats.
 // It uses the built-in io.Copy instead of our own copyBufferLog.
 func copyTwoWay(serverRw, remoteRw io.ReadWriter) error {
 	errChan := make(chan error, 2)
