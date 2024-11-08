@@ -1,5 +1,5 @@
-github.com/apernet/quic-go v0.47.1-0.20241004180137-a80d14e2080d h1:KWRCWISqJOgY9/0hhH8Bevjw/k4tCQ7oJlXLyFv8u9s=
-github.com/apernet/quic-go v0.47.1-0.20241004180137-a80d14e2080d/go.mod h1:x0paLlmCzNOUDDQIgmgFWmnpWQIEuH1GNfA6NdgSTuM=
+github.com/apernet/quic-go v0.48.2-0.20241104191913-cb103fcecfe7 h1:zO38yBOvQ1dLHbSuaU5BFZ8zalnSDQslj+i/9AGOk9s=
+github.com/apernet/quic-go v0.48.2-0.20241104191913-cb103fcecfe7/go.mod h1:LoSUY2chVqNQCDyi4IZGqPpXLy1FuCkE37PKwtJvNGg=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
