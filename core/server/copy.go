@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"io"
+	"time"
 )
 
 var errDisconnect = errors.New("traffic logger requested disconnect")
@@ -31,15 +32,19 @@ func copyBufferLog(dst io.Writer, src io.Reader, log func(n uint64) bool) error 
 	}
 }
 
-func copyTwoWayWithLogger(id string, serverRw, remoteRw io.ReadWriter, l TrafficLogger) error {
+func copyTwoWayWithLogger(id string, serverRw, remoteRw io.ReadWriter, l TrafficLogger, stats *StreamStats) error {
 	errChan := make(chan error, 2)
 	go func() {
 		errChan <- copyBufferLog(serverRw, remoteRw, func(n uint64) bool {
+			stats.LastActiveTime.Store(time.Now())
+			stats.Rx.Add(n)
 			return l.LogTraffic(id, 0, n)
 		})
 	}()
 	go func() {
 		errChan <- copyBufferLog(remoteRw, serverRw, func(n uint64) bool {
+			stats.LastActiveTime.Store(time.Now())
+			stats.Tx.Add(n)
 			return l.LogTraffic(id, n, 0)
 		})
 	}()
