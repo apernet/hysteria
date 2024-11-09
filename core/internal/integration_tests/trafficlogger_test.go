@@ -62,6 +62,7 @@ func TestClientServerTrafficLoggerTCP(t *testing.T) {
 		return nil
 	})
 	serverOb.EXPECT().TCP(addr).Return(sobConn, nil).Once()
+	trafficLogger.EXPECT().TraceStream(mock.Anything, mock.Anything).Return().Once()
 
 	conn, err := c.TCP(addr)
 	assert.NoError(t, err)
@@ -84,6 +85,7 @@ func TestClientServerTrafficLoggerTCP(t *testing.T) {
 	time.Sleep(1 * time.Second) // Need some time for the server to receive the data
 
 	// Client reads from server again but blocked
+	trafficLogger.EXPECT().UntraceStream(mock.Anything).Return().Once()
 	trafficLogger.EXPECT().LogTraffic("nobody", uint64(0), uint64(4)).Return(false).Once()
 	trafficLogger.EXPECT().LogOnlineState("nobody", false).Return().Once()
 	sobConnCh <- []byte("nope")

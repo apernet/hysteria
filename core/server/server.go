@@ -3,8 +3,10 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"math/rand"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/apernet/quic-go"
 	"github.com/apernet/quic-go/http3"
@@ -100,6 +102,7 @@ type h3sHandler struct {
 	authenticated bool
 	authMutex     sync.Mutex
 	authID        string
+	connID        uint32 // a random id for dump streams
 
 	udpSM *udpSessionManager // Only set after authentication
 }
@@ -108,6 +111,7 @@ func newH3sHandler(config *Config, conn quic.Connection) *h3sHandler {
 	return &h3sHandler{
 		config: config,
 		conn:   conn,
+		connID: rand.Uint32(),
 	}
 }
 
@@ -205,12 +209,29 @@ func (h *h3sHandler) ProxyStreamHijacker(ft http3.FrameType, id quic.ConnectionT
 }
 
 func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
+	trafficLogger := h.config.TrafficLogger
+	streamStats := &StreamStats{
+		AuthID:      h.authID,
+		ConnID:      h.connID,
+		InitialTime: time.Now(),
+	}
+	streamStats.State.Store(StreamStateInitial)
+	streamStats.LastActiveTime.Store(time.Now())
+	defer func() {
+		streamStats.State.Store(StreamStateClosed)
+	}()
+	if trafficLogger != nil {
+		trafficLogger.TraceStream(stream, streamStats)
+		defer trafficLogger.UntraceStream(stream)
+	}
+
 	// Read request
 	reqAddr, err := protocol.ReadTCPRequest(stream)
 	if err != nil {
 		_ = stream.Close()
 		return
 	}
+	streamStats.ReqAddr.Store(reqAddr)
 	// Call the hook if set
 	var putback []byte
 	var hooked bool
@@ -220,12 +241,14 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 		// so that the client will send whatever request the hook wants to see.
 		// This is essentially a server-side fast-open.
 		if hooked {
+			streamStats.State.Store(StreamStateHooking)
 			_ = protocol.WriteTCPResponse(stream, true, "RequestHook enabled")
 			putback, err = h.config.RequestHook.TCP(stream, &reqAddr)
 			if err != nil {
 				_ = stream.Close()
 				return
 			}
+			streamStats.setHookedReqAddr(reqAddr)
 		}
 	}
 	// Log the event
@@ -233,6 +256,7 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 		h.config.EventLogger.TCPRequest(h.conn.RemoteAddr(), h.authID, reqAddr)
 	}
 	// Dial target
+	streamStats.State.Store(StreamStateConnecting)
 	tConn, err := h.config.Outbound.TCP(reqAddr)
 	if err != nil {
 		if !hooked {
@@ -248,13 +272,15 @@ func (h *h3sHandler) handleTCPRequest(stream quic.Stream) {
 	if !hooked {
 		_ = protocol.WriteTCPResponse(stream, true, "Connected")
 	}
+	streamStats.State.Store(StreamStateEstablished)
 	// Put back the data if the hook requested
 	if len(putback) > 0 {
-		_, _ = tConn.Write(putback)
+		n, _ := tConn.Write(putback)
+		streamStats.Tx.Add(uint64(n))
 	}
 	// Start proxying
-	if h.config.TrafficLogger != nil {
-		err = copyTwoWayWithLogger(h.authID, stream, tConn, h.config.TrafficLogger)
+	if trafficLogger != nil {
+		err = copyTwoWayEx(h.authID, stream, tConn, trafficLogger, streamStats)
 	} else {
 		// Use the fast path if no traffic logger is set
 		err = copyTwoWay(stream, tConn)

@@ -4,10 +4,12 @@ import (
 	"crypto/tls"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/apernet/hysteria/core/v2/errors"
 	"github.com/apernet/hysteria/core/v2/internal/pmtud"
+	"github.com/apernet/hysteria/core/v2/internal/utils"
 	"github.com/apernet/quic-go"
 )
 
@@ -212,4 +214,66 @@ type EventLogger interface {
 type TrafficLogger interface {
 	LogTraffic(id string, tx, rx uint64) (ok bool)
 	LogOnlineState(id string, online bool)
+	TraceStream(stream quic.Stream, stats *StreamStats)
+	UntraceStream(stream quic.Stream)
+}
+
+type StreamState int
+
+const (
+	// StreamStateInitial indicates the initial state of a stream.
+	// Client has opened the stream, but we have not received the proxy request yet.
+	StreamStateInitial StreamState = iota
+
+	// StreamStateHooking indicates that the hook (usually sniff) is processing.
+	// Client has sent the proxy request, but sniff requires more data to complete.
+	StreamStateHooking
+
+	// StreamStateConnecting indicates that we are connecting to the proxy target.
+	StreamStateConnecting
+
+	// StreamStateEstablished indicates the proxy is established.
+	StreamStateEstablished
+
+	// StreamStateClosed indicates the stream is closed.
+	StreamStateClosed
+)
+
+func (s StreamState) String() string {
+	switch s {
+	case StreamStateInitial:
+		return "init"
+	case StreamStateHooking:
+		return "hook"
+	case StreamStateConnecting:
+		return "connect"
+	case StreamStateEstablished:
+		return "estab"
+	case StreamStateClosed:
+		return "closed"
+	default:
+		return "unknown"
+	}
+}
+
+type StreamStats struct {
+	State utils.Atomic[StreamState]
+
+	AuthID      string
+	ConnID      uint32
+	InitialTime time.Time
+
+	ReqAddr       utils.Atomic[string]
+	HookedReqAddr utils.Atomic[string]
+
+	Tx atomic.Uint64
+	Rx atomic.Uint64
+
+	LastActiveTime utils.Atomic[time.Time]
+}
+
+func (s *StreamStats) setHookedReqAddr(addr string) {
+	if addr != s.ReqAddr.Load() {
+		s.HookedReqAddr.Store(addr)
+	}
 }
