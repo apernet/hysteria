@@ -108,6 +108,7 @@ outbounds:
       bindIPv4: 2.4.6.8
       bindIPv6: 0:0:0:0:0:ffff:0204:0608
       bindDevice: eth233
+      fastOpen: true
   - name: badstuff
     type: socks5
     socks5:
