@@ -15,8 +15,7 @@ type fastOpenDialer struct {
 func newFastOpenDialer(netDialer *net.Dialer) *fastOpenDialer {
 	return &fastOpenDialer{
 		dialer: &tfo.Dialer{
-			Dialer:   *netDialer,
-			Fallback: true,
+			Dialer: *netDialer,
 		},
 	}
 }
