@@ -25,7 +25,7 @@ require (
 	github.com/txthinking/socks5 v0.0.0-20230325130024-4230056ae301
 	go.uber.org/zap v1.24.0
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
-	golang.org/x/sys v0.23.0
+	golang.org/x/sys v0.25.0
 )
 
 require (
@@ -33,6 +33,8 @@ require (
 	github.com/apernet/quic-go v0.48.2-0.20241104191913-cb103fcecfe7 // indirect
 	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6 // indirect
 	github.com/cloudflare/circl v1.3.9 // indirect
+	github.com/database64128/netx-go v0.0.0-20240905055117-62795b8b054a // indirect
+	github.com/database64128/tfo-go/v2 v2.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect

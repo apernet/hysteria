@@ -35,14 +35,24 @@ type directOutbound struct {
 	Mode DirectOutboundMode
 
 	// Dialer4 and Dialer6 are used for IPv4 and IPv6 TCP connections respectively.
-	Dialer4 *net.Dialer
-	Dialer6 *net.Dialer
+	DialFunc4 func(network, address string) (net.Conn, error)
+	DialFunc6 func(network, address string) (net.Conn, error)
 
 	// DeviceName & BindIPs are for UDP connections. They don't use dialers, so we
 	// need to bind them when creating the connection.
 	DeviceName string
 	BindIP4    net.IP
 	BindIP6    net.IP
+}
+
+type DirectOutboundOptions struct {
+	Mode DirectOutboundMode
+
+	DeviceName string
+	BindIP4    net.IP
+	BindIP6    net.IP
+
+	FastOpen bool
 }
 
 type noAddressError struct {
@@ -84,6 +94,57 @@ func (e resolveError) Unwrap() error {
 	return e.Err
 }
 
+func NewDirectOutboundWithOptions(opts DirectOutboundOptions) (PluggableOutbound, error) {
+	dialer4 := &net.Dialer{
+		Timeout: defaultDialerTimeout,
+	}
+	if opts.BindIP4 != nil {
+		if opts.BindIP4.To4() == nil {
+			return nil, errors.New("BindIP4 must be an IPv4 address")
+		}
+		dialer4.LocalAddr = &net.TCPAddr{
+			IP: opts.BindIP4,
+		}
+	}
+	dialer6 := &net.Dialer{
+		Timeout: defaultDialerTimeout,
+	}
+	if opts.BindIP6 != nil {
+		if opts.BindIP6.To4() != nil {
+			return nil, errors.New("BindIP6 must be an IPv6 address")
+		}
+		dialer6.LocalAddr = &net.TCPAddr{
+			IP: opts.BindIP6,
+		}
+	}
+	if opts.DeviceName != "" {
+		err := dialerBindToDevice(dialer4, opts.DeviceName)
+		if err != nil {
+			return nil, err
+		}
+		err = dialerBindToDevice(dialer6, opts.DeviceName)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	dialFunc4 := dialer4.Dial
+	dialFunc6 := dialer6.Dial
+	if opts.FastOpen {
+		dialFunc4 = newFastOpenDialer(dialer4).Dial
+		dialFunc6 = newFastOpenDialer(dialer6).Dial
+	}
+
+	return &directOutbound{
+		Mode:       opts.Mode,
+		DialFunc4:  dialFunc4,
+		DialFunc6:  dialFunc6,
+		DeviceName: opts.DeviceName,
+		BindIP4:    opts.BindIP4,
+		BindIP6:    opts.BindIP6,
+	}, nil
+}
+
 // NewDirectOutboundSimple creates a new directOutbound with the given mode,
 // without binding to a specific device. Works on all platforms.
 func NewDirectOutboundSimple(mode DirectOutboundMode) PluggableOutbound {
@@ -91,9 +152,9 @@ func NewDirectOutboundSimple(mode DirectOutboundMode) PluggableOutbound {
 		Timeout: defaultDialerTimeout,
 	}
 	return &directOutbound{
-		Mode:    mode,
-		Dialer4: d,
-		Dialer6: d,
+		Mode:      mode,
+		DialFunc4: d.Dial,
+		DialFunc6: d.Dial,
 	}
 }
 
@@ -102,34 +163,20 @@ func NewDirectOutboundSimple(mode DirectOutboundMode) PluggableOutbound {
 // can be nil, in which case the directOutbound will not bind to a specific address
 // for that family.
 func NewDirectOutboundBindToIPs(mode DirectOutboundMode, bindIP4, bindIP6 net.IP) (PluggableOutbound, error) {
-	if bindIP4 != nil && bindIP4.To4() == nil {
-		return nil, errors.New("bindIP4 must be an IPv4 address")
-	}
-	if bindIP6 != nil && bindIP6.To4() != nil {
-		return nil, errors.New("bindIP6 must be an IPv6 address")
-	}
-	ob := &directOutbound{
-		Mode: mode,
-		Dialer4: &net.Dialer{
-			Timeout: defaultDialerTimeout,
-		},
-		Dialer6: &net.Dialer{
-			Timeout: defaultDialerTimeout,
-		},
+	return NewDirectOutboundWithOptions(DirectOutboundOptions{
+		Mode:    mode,
 		BindIP4: bindIP4,
 		BindIP6: bindIP6,
-	}
-	if bindIP4 != nil {
-		ob.Dialer4.LocalAddr = &net.TCPAddr{
-			IP: bindIP4,
-		}
-	}
-	if bindIP6 != nil {
-		ob.Dialer6.LocalAddr = &net.TCPAddr{
-			IP: bindIP6,
-		}
-	}
-	return ob, nil
+	})
+}
+
+// NewDirectOutboundBindToDevice creates a new directOutbound with the given mode,
+// and binds to the given device. Only works on Linux.
+func NewDirectOutboundBindToDevice(mode DirectOutboundMode, deviceName string) (PluggableOutbound, error) {
+	return NewDirectOutboundWithOptions(DirectOutboundOptions{
+		Mode:       mode,
+		DeviceName: deviceName,
+	})
 }
 
 // resolve is our built-in DNS resolver for handling the case when
@@ -201,9 +248,9 @@ func (d *directOutbound) TCP(reqAddr *AddrEx) (net.Conn, error) {
 
 func (d *directOutbound) dialTCP(ip net.IP, port uint16) (net.Conn, error) {
 	if ip.To4() != nil {
-		return d.Dialer4.Dial("tcp4", net.JoinHostPort(ip.String(), strconv.Itoa(int(port))))
+		return d.DialFunc4("tcp4", net.JoinHostPort(ip.String(), strconv.Itoa(int(port))))
 	} else {
-		return d.Dialer6.Dial("tcp6", net.JoinHostPort(ip.String(), strconv.Itoa(int(port))))
+		return d.DialFunc6("tcp6", net.JoinHostPort(ip.String(), strconv.Itoa(int(port))))
 	}
 }
 
