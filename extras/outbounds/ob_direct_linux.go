@@ -6,31 +6,31 @@ import (
 	"syscall"
 )
 
-// NewDirectOutboundBindToDevice creates a new directOutbound with the given mode,
-// and binds to the given device. Only works on Linux.
-func NewDirectOutboundBindToDevice(mode DirectOutboundMode, deviceName string) (PluggableOutbound, error) {
+func dialerBindToDevice(dialer *net.Dialer, deviceName string) error {
 	if err := verifyDeviceName(deviceName); err != nil {
-		return nil, err
+		return err
 	}
-	d := &net.Dialer{
-		Timeout: defaultDialerTimeout,
-		Control: func(network, address string, c syscall.RawConn) error {
-			var errBind error
-			err := c.Control(func(fd uintptr) {
-				errBind = syscall.BindToDevice(int(fd), deviceName)
-			})
+
+	originControl := dialer.Control
+	dialer.Control = func(network, address string, c syscall.RawConn) error {
+		if originControl != nil {
+			// Chaining other control function
+			err := originControl(network, address, c)
 			if err != nil {
 				return err
 			}
-			return errBind
-		},
+		}
+
+		var errBind error
+		err := c.Control(func(fd uintptr) {
+			errBind = syscall.BindToDevice(int(fd), deviceName)
+		})
+		if err != nil {
+			return err
+		}
+		return errBind
 	}
-	return &directOutbound{
-		Mode:       mode,
-		Dialer4:    d,
-		Dialer6:    d,
-		DeviceName: deviceName,
-	}, nil
+	return nil
 }
 
 func verifyDeviceName(deviceName string) error {
