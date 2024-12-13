@@ -45,7 +45,7 @@ var (
 		"CommitHash:\t%s\n"+
 		"Platform:\t%s\n"+
 		"Architecture:\t%s\n"+
-		"LibVersion:\t%s",
+		"Libraries:\tquic-go=%s",
 		appVersion, appDate, appType, appToolchain, appCommit, appPlatform, appArch, libVersion)
 
 	appAboutLong = fmt.Sprintf("%s\n%s\n%s\n\n%s", appLogo, appDesc, appAuthors, appVersionLong)
