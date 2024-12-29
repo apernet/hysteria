@@ -236,9 +236,9 @@ type serverConfigMasqueradeFile struct {
 }
 
 type serverConfigMasqueradeProxy struct {
-	URL                string `mapstructure:"url"`
-	RewriteHost        bool   `mapstructure:"rewriteHost"`
-	InsecureSkipVerify bool   `mapstructure:"insecureSkipVerify"`
+	URL         string `mapstructure:"url"`
+	RewriteHost bool   `mapstructure:"rewriteHost"`
+	Insecure    bool   `mapstructure:"insecure"`
 }
 
 type serverConfigMasqueradeString struct {
@@ -812,7 +812,7 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 			return configError{Field: "masquerade.proxy.url", Err: fmt.Errorf("unsupported protocol scheme \"%s\"", u.Scheme)}
 		}
 		transport := http.DefaultTransport
-		if c.Masquerade.Proxy.InsecureSkipVerify {
+		if c.Masquerade.Proxy.Insecure {
 			transport = &http.Transport{
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true,
