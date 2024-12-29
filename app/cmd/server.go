@@ -238,6 +238,7 @@ type serverConfigMasqueradeFile struct {
 type serverConfigMasqueradeProxy struct {
 	URL         string `mapstructure:"url"`
 	RewriteHost bool   `mapstructure:"rewriteHost"`
+	Insecure    bool   `mapstructure:"insecure"`
 }
 
 type serverConfigMasqueradeString struct {
@@ -810,6 +811,25 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return configError{Field: "masquerade.proxy.url", Err: fmt.Errorf("unsupported protocol scheme \"%s\"", u.Scheme)}
 		}
+		transport := http.DefaultTransport
+		if c.Masquerade.Proxy.Insecure {
+			transport = &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+				// use default configs from http.DefaultTransport
+				Proxy: http.ProxyFromEnvironment,
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				ForceAttemptHTTP2:     true,
+				MaxIdleConns:          100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			}
+		}
 		handler = &httputil.ReverseProxy{
 			Rewrite: func(r *httputil.ProxyRequest) {
 				r.SetURL(u)
@@ -819,6 +839,7 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 					r.Out.Host = r.In.Host
 				}
 			},
+			Transport: transport,
 			ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 				logger.Error("HTTP reverse proxy error", zap.Error(err))
 				w.WriteHeader(http.StatusBadGateway)

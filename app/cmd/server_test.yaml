@@ -132,6 +132,7 @@ masquerade:
   proxy:
     url: https://some.site.net
     rewriteHost: true
+    insecure: true
   string:
     content: aint nothin here
     headers:
