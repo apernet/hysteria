@@ -49,6 +49,10 @@ type EventLogger interface {
 }
 
 func (s *Server) Serve() error {
+	if !isIPv6Supported() {
+		s.Logger.Warn("tun-pre-check", zap.String("msg", "IPv6 is not supported or enabled on this system, TUN device is created without IPv6 support."))
+		s.Inet6Address = nil
+	}
 	tunOpts := tun.Options{
 		Name:                     s.IfName,
 		Inet4Address:             s.Inet4Address,
