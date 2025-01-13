@@ -436,6 +436,9 @@ check_environment_architecture() {
     's390x')
       ARCHITECTURE='s390x'
       ;;
+    'loongarch64')
+      ARCHITECTURE='loong64'
+      ;;
     *)
       error "The architecture '$(uname -a)' is not supported."
       note "Specify ARCHITECTURE=<architecture> to bypass this check and force this script to run on this $(uname -m)."

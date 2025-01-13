@@ -74,6 +74,9 @@ ARCH_ALIASES = {
         "GOARCH": "amd64",
         "GOAMD64": "v3",
     },
+    "loong64": {
+        "GOARCH": "loong64",
+    },
 }
 
 
