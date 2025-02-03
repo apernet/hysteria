@@ -755,7 +755,7 @@ func (c *serverConfig) fillAuthenticator(hyConfig *server.Config) error {
 		if len(c.Auth.UserPass) == 0 {
 			return configError{Field: "auth.userpass", Err: errors.New("empty auth userpass")}
 		}
-		hyConfig.Authenticator = &auth.UserPassAuthenticator{Users: c.Auth.UserPass}
+		hyConfig.Authenticator = auth.NewUserPassAuthenticator(c.Auth.UserPass)
 		return nil
 	case "http", "https":
 		if c.Auth.HTTP.URL == "" {

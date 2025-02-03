@@ -85,12 +85,26 @@ func TestUserPassAuthenticator(t *testing.T) {
 			wantOk: false,
 			wantId: "",
 		},
+		{
+			name: "case insensitive username",
+			fields: fields{
+				Users: map[string]string{
+					"gawR":   "gura",
+					"fubuki": "shirakami",
+				},
+			},
+			args: args{
+				addr: nil,
+				auth: "Gawr:gura",
+				tx:   0,
+			},
+			wantOk: true,
+			wantId: "gawr",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := &UserPassAuthenticator{
-				Users: tt.fields.Users,
-			}
+			a := NewUserPassAuthenticator(tt.fields.Users)
 			gotOk, gotId := a.Authenticate(tt.args.addr, tt.args.auth, tt.args.tx)
 			if gotOk != tt.wantOk {
 				t.Errorf("Authenticate() gotOk = %v, want %v", gotOk, tt.wantOk)
