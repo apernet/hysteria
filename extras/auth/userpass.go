@@ -16,7 +16,7 @@ var _ server.Authenticator = &UserPassAuthenticator{}
 // UserPassAuthenticator checks the provided auth string against a map of username/password pairs.
 // The format of the auth string must be "username:password".
 type UserPassAuthenticator struct {
-	Users map[string]string
+	users map[string]string
 }
 
 func NewUserPassAuthenticator(users map[string]string) *UserPassAuthenticator {
@@ -26,7 +26,7 @@ func NewUserPassAuthenticator(users map[string]string) *UserPassAuthenticator {
 	for user, pass := range users {
 		lcUsers[strings.ToLower(user)] = pass
 	}
-	return &UserPassAuthenticator{Users: lcUsers}
+	return &UserPassAuthenticator{users: lcUsers}
 }
 
 func (a *UserPassAuthenticator) Authenticate(addr net.Addr, auth string, tx uint64) (ok bool, id string) {
@@ -34,7 +34,7 @@ func (a *UserPassAuthenticator) Authenticate(addr net.Addr, auth string, tx uint
 	if !ok {
 		return false, ""
 	}
-	rp, ok := a.Users[u]
+	rp, ok := a.users[u]
 	if !ok || rp != p {
 		return false, ""
 	}
