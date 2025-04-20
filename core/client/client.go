@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -221,18 +222,21 @@ func (c *clientImpl) Close() error {
 	return nil
 }
 
+var nonPermanentErrors = []error{
+	quic.StreamLimitReachedError{},
+}
+
 // wrapIfConnectionClosed checks if the error returned by quic-go
-// indicates that the QUIC connection has been permanently closed,
-// and if so, wraps the error with coreErrs.ClosedError.
-// PITFALL: sometimes quic-go has "internal errors" that are not net.Error,
-// but we still need to treat them as ClosedError.
+// is recoverable (listed in nonPermanentErrors) or permanent.
+// Recoverable errors are returned as-is,
+// permanent ones are wrapped as ClosedError.
 func wrapIfConnectionClosed(err error) error {
-	netErr, ok := err.(net.Error)
-	if !ok || !netErr.Temporary() {
-		return coreErrs.ClosedError{Err: err}
-	} else {
-		return err
+	for _, e := range nonPermanentErrors {
+		if errors.Is(err, e) {
+			return err
+		}
 	}
+	return coreErrs.ClosedError{Err: err}
 }
 
 type tcpConn struct {

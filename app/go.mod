@@ -1,8 +1,8 @@
 module github.com/apernet/hysteria/app/v2
 
-go 1.22
+go 1.23
 
-toolchain go1.23.2
+toolchain go1.24.2
 
 require (
 	github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f
@@ -30,7 +30,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
-	github.com/apernet/quic-go v0.49.1-0.20250204013113-43c72b1281a0 // indirect
+	github.com/apernet/quic-go v0.51.1-0.20250420212127-ede9b032759a // indirect
 	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6 // indirect
 	github.com/cloudflare/circl v1.3.9 // indirect
 	github.com/database64128/netx-go v0.0.0-20240905055117-62795b8b054a // indirect
