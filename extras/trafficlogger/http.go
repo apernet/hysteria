@@ -71,7 +71,7 @@ func (s *trafficStatsServerImpl) LogTraffic(id string, tx, rx uint64) (ok bool) 
 	return true
 }
 
-// LogOnlineStateChanged updates the online state to the online map.
+// LogOnlineState updates the online state to the online map.
 func (s *trafficStatsServerImpl) LogOnlineState(id string, online bool) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
