@@ -54,6 +54,9 @@
 </div>
 
 ---
+### For Client Development 
+
+[libHysteria2](https://github.com/CodeWithTamim/libHysteria2)
 
 **If you find Hysteria useful, consider giving it a ⭐️!**
 
