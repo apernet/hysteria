@@ -470,8 +470,10 @@ func runClient(cmd *cobra.Command, args []string) {
 	defer c.Close()
 
 	uri := config.URI()
-	logger.Info("use this URI to share your server", zap.String("uri", uri))
 	if showQR {
+		logger.Warn("--qr flag is deprecated and will be removed in future release, " +
+			"please use `share` subcommand to generate share URI and QR code")
+		logger.Info("use this URI to share your server", zap.String("uri", uri))
 		utils.PrintQR(uri)
 	}
 
