@@ -43,6 +43,7 @@ func NewServer(config *Config) (Server, error) {
 		MaxIncomingStreams:             config.QUICConfig.MaxIncomingStreams,
 		DisablePathMTUDiscovery:        config.QUICConfig.DisablePathMTUDiscovery,
 		EnableDatagrams:                true,
+		DisablePathManager:             true,
 	}
 	listener, err := quic.Listen(config.Conn, tlsConfig, quicConfig)
 	if err != nil {
