@@ -84,6 +84,7 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 		KeepAlivePeriod:                c.config.QUICConfig.KeepAlivePeriod,
 		DisablePathMTUDiscovery:        c.config.QUICConfig.DisablePathMTUDiscovery,
 		EnableDatagrams:                true,
+		DisablePathManager:             true,
 	}
 	// Prepare RoundTripper
 	var conn quic.EarlyConnection
