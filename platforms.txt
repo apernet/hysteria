@@ -36,3 +36,7 @@ freebsd/amd64-avx
 freebsd/386
 freebsd/arm
 freebsd/arm64
+
+# Alpine
+musl/amd64
+musl/arm64
