@@ -8,7 +8,7 @@ require (
 	github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f
 	github.com/apernet/hysteria/core/v2 v2.0.0-00010101000000-000000000000
 	github.com/apernet/hysteria/extras/v2 v2.0.0-00010101000000-000000000000
-	github.com/apernet/sing-tun v0.2.6-0.20240323130332-b9f6511036ad
+	github.com/apernet/sing-tun v0.2.6-0.20250726070404-c99085f9af13
 	github.com/caddyserver/certmagic v0.17.2
 	github.com/libdns/cloudflare v0.1.1
 	github.com/libdns/duckdns v0.2.0
