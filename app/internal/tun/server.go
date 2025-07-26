@@ -123,11 +123,7 @@ func (t *tunHandler) NewConnection(ctx context.Context, conn net.Conn, m metadat
 	defer rc.Close()
 
 	// start forwarding
-	copyErrChan := make(chan error, 3)
-	go func() {
-		<-ctx.Done()
-		copyErrChan <- ctx.Err()
-	}()
+	copyErrChan := make(chan error, 2)
 	go func() {
 		_, copyErr := io.Copy(rc, conn)
 		copyErrChan <- copyErr
@@ -136,7 +132,11 @@ func (t *tunHandler) NewConnection(ctx context.Context, conn net.Conn, m metadat
 		_, copyErr := io.Copy(conn, rc)
 		copyErrChan <- copyErr
 	}()
-	closeErr = <-copyErrChan
+	select {
+	case <-ctx.Done():
+		closeErr = ctx.Err()
+	case closeErr = <-copyErrChan:
+	}
 	return nil
 }
 
@@ -160,11 +160,7 @@ func (t *tunHandler) NewPacketConnection(ctx context.Context, conn network.Packe
 	defer rc.Close()
 
 	// start forwarding
-	copyErrChan := make(chan error, 3)
-	go func() {
-		<-ctx.Done()
-		copyErrChan <- ctx.Err()
-	}()
+	copyErrChan := make(chan error, 2)
 	// local <- remote
 	go func() {
 		for {
@@ -205,7 +201,11 @@ func (t *tunHandler) NewPacketConnection(ctx context.Context, conn network.Packe
 			}
 		}
 	}()
-	closeErr = <-copyErrChan
+	select {
+	case <-ctx.Done():
+		closeErr = ctx.Err()
+	case closeErr = <-copyErrChan:
+	}
 	return nil
 }
 
