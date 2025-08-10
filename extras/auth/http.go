@@ -41,9 +41,10 @@ func NewHTTPAuthenticator(url string, insecure bool) *HTTPAuthenticator {
 }
 
 type httpAuthRequest struct {
-	Addr string `json:"addr"`
-	Auth string `json:"auth"`
-	Tx   uint64 `json:"tx"`
+	Addr     string `json:"addr"`
+	Auth     string `json:"auth"`
+	Tx       uint64 `json:"tx"`
+	ClientID string `json:"client_id"`
 }
 
 type httpAuthResponse struct {
@@ -78,9 +79,10 @@ func (a *HTTPAuthenticator) post(req *httpAuthRequest) (*httpAuthResponse, error
 
 func (a *HTTPAuthenticator) Authenticate(addr net.Addr, auth string, tx uint64) (ok bool, id string) {
 	req := &httpAuthRequest{
-		Addr: addr.String(),
-		Auth: auth,
-		Tx:   tx,
+		Addr:     addr.String(),
+		Auth:     auth,
+		Tx:       tx,
+		ClientID: GetClientID(),
 	}
 	resp, err := a.post(req)
 	if err != nil {
