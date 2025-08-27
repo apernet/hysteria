@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,6 +87,7 @@ type serverConfigTLS struct {
 	Cert     string `mapstructure:"cert"`
 	Key      string `mapstructure:"key"`
 	SNIGuard string `mapstructure:"sniGuard"` // "disable", "dns-san", "strict"
+	ClientCA string `mapstructure:"clientCA"`
 }
 
 type serverConfigACME struct {
@@ -333,6 +335,18 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 		// Use GetCertificate instead of Certificates so that
 		// users can update the cert without restarting the server.
 		hyConfig.TLSConfig.GetCertificate = certLoader.GetCertificate
+		// Client CA
+		if c.TLS.ClientCA != "" {
+			ca, err := os.ReadFile(c.TLS.ClientCA)
+			if err != nil {
+				return configError{Field: "tls.clientCA", Err: err}
+			}
+			cPool := x509.NewCertPool()
+			if !cPool.AppendCertsFromPEM(ca) {
+				return configError{Field: "tls.clientCA", Err: errors.New("failed to parse client CA certificate")}
+			}
+			hyConfig.TLSConfig.ClientCAs = cPool
+		}
 	} else {
 		// ACME
 		dataDir := c.ACME.Dir

@@ -17,6 +17,8 @@ tls:
   insecure: true
   pinSHA256: 114515DEADBEEF
   ca: custom_ca.crt
+  clientCertificate: client.crt
+  clientKey: client.key
 
 quic:
   initStreamReceiveWindow: 1145141

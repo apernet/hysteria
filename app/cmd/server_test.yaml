@@ -9,6 +9,7 @@ tls:
   cert: some.crt
   key: some.key
   sniGuard: strict
+  clientCA: some_ca.crt
 
 acme:
   domains:
