@@ -2,30 +2,35 @@ package outbounds
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/babolivier/go-doh-client"
+	"github.com/apernet/hysteria/extras/v2/outbounds/tinydoh"
 )
 
 // dohResolver is a PluggableOutbound DNS resolver that resolves hostnames
 // using the user-provided DNS-over-HTTPS server.
 type dohResolver struct {
-	Resolver *doh.Resolver
+	Resolver *tinydoh.Resolver
 	Next     PluggableOutbound
 }
 
-func NewDoHResolver(host string, timeout time.Duration, sni string, insecure bool, next PluggableOutbound) PluggableOutbound {
+func NewDoHResolver(addr string, timeout time.Duration, sni string, insecure bool, next PluggableOutbound) PluggableOutbound {
+	// User may provide just the IP address or full URL
+	if !strings.HasSuffix(addr, "https://") {
+		addr = fmt.Sprintf("https://%s/dns-query", addr)
+	}
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.TLSClientConfig = &tls.Config{
 		ServerName:         sni,
 		InsecureSkipVerify: insecure,
 	}
 	return &dohResolver{
-		Resolver: &doh.Resolver{
-			Host:  host,
-			Class: doh.IN,
+		Resolver: &tinydoh.Resolver{
+			URL: addr,
 			HTTPClient: &http.Client{
 				Transport: tr,
 				Timeout:   timeoutOrDefault(timeout),
@@ -46,18 +51,18 @@ func (r *dohResolver) resolve(reqAddr *AddrEx) {
 	}
 	ch4, ch6 := make(chan lookupResult, 1), make(chan lookupResult, 1)
 	go func() {
-		recs, _, err := r.Resolver.LookupA(reqAddr.Host)
+		ips, err := r.Resolver.LookupA(reqAddr.Host)
 		var ip net.IP
-		if err == nil && len(recs) > 0 {
-			ip = net.ParseIP(recs[0].IP4).To4()
+		if err == nil && len(ips) > 0 {
+			ip = ips[0]
 		}
 		ch4 <- lookupResult{ip, err}
 	}()
 	go func() {
-		recs, _, err := r.Resolver.LookupAAAA(reqAddr.Host)
+		ips, err := r.Resolver.LookupAAAA(reqAddr.Host)
 		var ip net.IP
-		if err == nil && len(recs) > 0 {
-			ip = net.ParseIP(recs[0].IP6).To16()
+		if err == nil && len(ips) > 0 {
+			ip = ips[0]
 		}
 		ch6 <- lookupResult{ip, err}
 	}()
