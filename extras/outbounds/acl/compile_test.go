@@ -1,6 +1,7 @@
 package acl
 
 import (
+	"fmt"
 	"net"
 	"testing"
 
@@ -179,6 +180,30 @@ func TestCompile(t *testing.T) {
 		},
 		{
 			host: HostInfo{
+				Name: "crap.v2ex.com",
+			},
+			proto:        ProtocolTCP,
+			port:         81,
+			wantOutbound: 0,
+		},
+		{
+			host: HostInfo{
+				Name: "crap.v2ex.com",
+			},
+			proto:        ProtocolUDP,
+			port:         80,
+			wantOutbound: ob3,
+		},
+		{
+			host: HostInfo{
+				Name: "crap.v2ex.com",
+			},
+			proto:        ProtocolUDP,
+			port:         81,
+			wantOutbound: ob3,
+		},
+		{
+			host: HostInfo{
 				IPv4: net.ParseIP("210.140.92.187"),
 			},
 			proto:        ProtocolTCP,
@@ -261,9 +286,12 @@ func TestCompile(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		gotOutbound, gotIP := comp.Match(test.host, test.proto, test.port)
-		assert.Equal(t, test.wantOutbound, gotOutbound)
-		assert.Equal(t, test.wantIP, gotIP)
+		testName := fmt.Sprintf("%s#%s#%d", test.host, test.proto, test.port)
+		t.Run(testName, func(t *testing.T) {
+			gotOutbound, gotIP := comp.Match(test.host, test.proto, test.port)
+			assert.Equal(t, test.wantOutbound, gotOutbound)
+			assert.Equal(t, test.wantIP, gotIP)
+		})
 	}
 
 	// Test Invalid Port Range Rule

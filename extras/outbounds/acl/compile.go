@@ -19,6 +19,19 @@ const (
 	ProtocolUDP
 )
 
+func (p Protocol) String() string {
+	switch p {
+	case ProtocolBoth:
+		return "tcp+udp"
+	case ProtocolTCP:
+		return "tcp"
+	case ProtocolUDP:
+		return "udp"
+	default:
+		return fmt.Sprintf("Protocol(%d)", int(p))
+	}
+}
+
 type Outbound interface {
 	any
 }
@@ -63,12 +76,22 @@ type matchResult[O Outbound] struct {
 
 type compiledRuleSetImpl[O Outbound] struct {
 	Rules []compiledRule[O]
-	Cache *lru.Cache[string, matchResult[O]] // key: HostInfo.String()
+	Cache *lru.Cache[matchResultCacheKey, matchResult[O]] // key: HostInfo.String()
+}
+
+type matchResultCacheKey struct {
+	Host  string
+	Proto Protocol
+	Port  uint16
 }
 
 func (s *compiledRuleSetImpl[O]) Match(host HostInfo, proto Protocol, port uint16) (O, net.IP) {
 	host.Name = strings.ToLower(host.Name) // Normalize host name to lower case
-	key := host.String()
+	key := matchResultCacheKey{
+		Host:  host.String(),
+		Proto: proto,
+		Port:  port,
+	}
 	if result, ok := s.Cache.Get(key); ok {
 		return result.Outbound, result.HijackAddress
 	}
@@ -130,7 +153,7 @@ func Compile[O Outbound](rules []TextRule, outbounds map[string]O,
 		}
 		compiledRules[i] = compiledRule[O]{outbound, hm, proto, startPort, endPort, hijackAddress}
 	}
-	cache, err := lru.New[string, matchResult[O]](cacheSize)
+	cache, err := lru.New[matchResultCacheKey, matchResult[O]](cacheSize)
 	if err != nil {
 		return nil, err
 	}
