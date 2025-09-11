@@ -46,8 +46,6 @@ github.com/apernet/quic-go v0.52.1-0.20250607183305-9320c9d14431 h1:9/jM7e+kVALd
 github.com/apernet/quic-go v0.52.1-0.20250607183305-9320c9d14431/go.mod h1:I/47OIGG5H/IfAm+nz2c6hm6b/NkEhpvptAoiPcY7jQ=
 github.com/apernet/sing-tun v0.2.6-0.20250726070404-c99085f9af13 h1:gzets97c/u5iMj1zjanMBVkIYOdaVw+RXPzTT1xQoyM=
 github.com/apernet/sing-tun v0.2.6-0.20250726070404-c99085f9af13/go.mod h1:S5IydyLSN/QAfvY+r2GoomPJ6hidtXWm/Ad18sJVssk=
-github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6 h1:4NNbNM2Iq/k57qEu7WfL67UrbPq1uFWxW4qODCohi+0=
-github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6/go.mod h1:J29hk+f9lJrblVIfiJOtTFk+OblBawmib4uz/VdKzlg=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/caddyserver/certmagic v0.17.2 h1:o30seC1T/dBqBCNNGNHWwj2i5/I/FMjBbTAhjADP3nE=

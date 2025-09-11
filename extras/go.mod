@@ -7,7 +7,6 @@ toolchain go1.24.2
 require (
 	github.com/apernet/hysteria/core/v2 v2.0.0-00010101000000-000000000000
 	github.com/apernet/quic-go v0.52.1-0.20250607183305-9320c9d14431
-	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6
 	github.com/database64128/tfo-go/v2 v2.2.2
 	github.com/hashicorp/golang-lru/v2 v2.0.5
 	github.com/miekg/dns v1.1.59
