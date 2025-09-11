@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"net"
 	"net/http"
 	"sync/atomic"
@@ -101,6 +102,7 @@ func (c *Config) fill() error {
 type TLSConfig struct {
 	Certificates   []tls.Certificate
 	GetCertificate func(info *tls.ClientHelloInfo) (*tls.Certificate, error)
+	ClientCAs      *x509.CertPool
 }
 
 // QUICConfig contains the QUIC configuration fields that we want to expose to the user.

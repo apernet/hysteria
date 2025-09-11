@@ -29,6 +29,7 @@ func TestServerConfig(t *testing.T) {
 			Cert:     "some.crt",
 			Key:      "some.key",
 			SNIGuard: "strict",
+			ClientCA: "some_ca.crt",
 		},
 		ACME: &serverConfigACME{
 			Domains: []string{

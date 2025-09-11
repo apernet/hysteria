@@ -33,10 +33,12 @@ func TestClientConfig(t *testing.T) {
 			},
 		},
 		TLS: clientConfigTLS{
-			SNI:       "another.example.com",
-			Insecure:  true,
-			PinSHA256: "114515DEADBEEF",
-			CA:        "custom_ca.crt",
+			SNI:               "another.example.com",
+			Insecure:          true,
+			PinSHA256:         "114515DEADBEEF",
+			CA:                "custom_ca.crt",
+			ClientCertificate: "client.crt",
+			ClientKey:         "client.key",
 		},
 		QUIC: clientConfigQUIC{
 			InitStreamReceiveWindow:     1145141,

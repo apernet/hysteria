@@ -26,14 +26,26 @@ type Server interface {
 	Close() error
 }
 
+func convertToStdTLSConfig(config *Config) *tls.Config {
+	var clientAuth tls.ClientAuthType
+	if config.TLSConfig.ClientCAs != nil {
+		clientAuth = tls.RequireAndVerifyClientCert
+	} else {
+		clientAuth = tls.NoClientCert
+	}
+	return http3.ConfigureTLSConfig(&tls.Config{
+		Certificates:   config.TLSConfig.Certificates,
+		GetCertificate: config.TLSConfig.GetCertificate,
+		ClientCAs:      config.TLSConfig.ClientCAs,
+		ClientAuth:     clientAuth,
+	})
+}
+
 func NewServer(config *Config) (Server, error) {
 	if err := config.fill(); err != nil {
 		return nil, err
 	}
-	tlsConfig := http3.ConfigureTLSConfig(&tls.Config{
-		Certificates:   config.TLSConfig.Certificates,
-		GetCertificate: config.TLSConfig.GetCertificate,
-	})
+	tlsConfig := convertToStdTLSConfig(config)
 	quicConfig := &quic.Config{
 		InitialStreamReceiveWindow:     config.QUICConfig.InitialStreamReceiveWindow,
 		MaxStreamReceiveWindow:         config.QUICConfig.MaxStreamReceiveWindow,
