@@ -19,5 +19,5 @@ func getsockopt(s, level, name uintptr, val unsafe.Pointer, vallen *uint32) (err
 	if e != 0 {
 		err = e
 	}
-	return
+	return err
 }

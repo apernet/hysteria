@@ -42,12 +42,12 @@ func Test_fdControlUnixSocketImpl(t *testing.T) {
 	err = controlUDPConn(conn.(*net.UDPConn), func(fd int) (err error) {
 		rcvbuf, err := unix.GetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_RCVBUF)
 		if err != nil {
-			return
+			return err
 		}
 		// The test server called setsockopt(fd, SOL_SOCKET, SO_RCVBUF, 2500),
 		// and kernel will double this value for getsockopt().
 		assert.Equal(t, 5000, rcvbuf)
-		return
+		return err
 	})
 	assert.NoError(t, err)
 }

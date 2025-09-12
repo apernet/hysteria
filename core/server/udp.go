@@ -60,7 +60,7 @@ func newUDPSessionEntry(
 		ExitFunc: exitFunc,
 	}
 
-	return
+	return e
 }
 
 // CloseWithErr closes the session and calls ExitFunc with the given error.
@@ -259,10 +259,9 @@ func (m *udpSessionManager) idleCleanupLoop(stopCh <-chan struct{}) {
 }
 
 func (m *udpSessionManager) cleanup(idleOnly bool) {
-	timeoutEntry := make([]*udpSessionEntry, 0, len(m.m))
-
 	// We use RLock here as we are only scanning the map, not deleting from it.
 	m.mutex.RLock()
+	timeoutEntry := make([]*udpSessionEntry, 0, len(m.m))
 	now := time.Now()
 	for _, entry := range m.m {
 		if !idleOnly || now.Sub(entry.Last.Get()) > m.idleTimeout {
@@ -289,14 +288,14 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 			// Call the hook
 			err = m.io.Hook(firstMsgData, &addr)
 			if err != nil {
-				return
+				return conn, actualAddr, err
 			}
 			actualAddr = addr
 			// Log the event
 			m.eventLogger.New(msg.SessionID, addr)
 			// Dial target
 			conn, err = m.io.UDP(addr)
-			return
+			return conn, actualAddr, err
 		}
 		exitFunc := func(err error) {
 			// Log the event

@@ -42,15 +42,15 @@ func (e *UnsupportedError) Error() string {
 func (o *SocketOptions) ListenUDP() (uconn net.PacketConn, err error) {
 	uconn, err = net.ListenUDP("udp", nil)
 	if err != nil {
-		return
+		return uconn, err
 	}
 	err = o.applyToUDPConn(uconn.(*net.UDPConn))
 	if err != nil {
 		uconn.Close()
 		uconn = nil
-		return
+		return uconn, err
 	}
-	return
+	return uconn, err
 }
 
 func (o *SocketOptions) applyToUDPConn(c *net.UDPConn) error {

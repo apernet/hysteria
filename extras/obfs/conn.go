@@ -64,12 +64,12 @@ func (c *obfsPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		n, addr, err = c.Conn.ReadFrom(c.readBuf)
 		if n <= 0 {
 			c.readMutex.Unlock()
-			return
+			return n, addr, err
 		}
 		n = c.Obfs.Deobfuscate(c.readBuf[:n], p)
 		c.readMutex.Unlock()
 		if n > 0 || err != nil {
-			return
+			return n, addr, err
 		}
 		// Invalid packet, try again
 	}
@@ -83,7 +83,7 @@ func (c *obfsPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	if err == nil {
 		n = len(p)
 	}
-	return
+	return n, err
 }
 
 func (c *obfsPacketConn) Close() error {

@@ -20,7 +20,7 @@ func splitIPv4IPv6(ips []net.IP) (ipv4, ipv6 net.IP) {
 			break
 		}
 	}
-	return
+	return ipv4, ipv6
 }
 
 // tryParseIP tries to parse the host string in the AddrEx as an IP address.

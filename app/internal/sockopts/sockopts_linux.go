@@ -24,19 +24,19 @@ func init() {
 func controlUDPConn(c *net.UDPConn, cb func(fd int) error) (err error) {
 	rconn, err := c.SyscallConn()
 	if err != nil {
-		return
+		return err
 	}
 	cerr := rconn.Control(func(fd uintptr) {
 		err = cb(int(fd))
 	})
 	if err != nil {
-		return
+		return err
 	}
 	if cerr != nil {
 		err = fmt.Errorf("failed to control fd: %w", cerr)
-		return
+		return err
 	}
-	return
+	return err
 }
 
 func bindInterfaceImpl(c *net.UDPConn, device string) error {

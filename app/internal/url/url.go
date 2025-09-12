@@ -1173,7 +1173,7 @@ func splitHostPort(hostPort string) (host, port string) {
 		host = host[1 : len(host)-1]
 	}
 
-	return
+	return host, port
 }
 
 // Marshaling interface implementations.
@@ -1263,8 +1263,8 @@ func stringContainsCTLByte(s string) bool {
 func JoinPath(base string, elem ...string) (result string, err error) {
 	url, err := Parse(base)
 	if err != nil {
-		return
+		return result, err
 	}
 	result = url.JoinPath(elem...).String()
-	return
+	return result, err
 }
