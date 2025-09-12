@@ -258,7 +258,7 @@ func addrExToSOCKS5Addr(addr *AddrEx) (atyp byte, dstAddr, dstPort []byte) {
 	// Port
 	dstPort = make([]byte, 2)
 	binary.BigEndian.PutUint16(dstPort, addr.Port)
-	return
+	return atyp, dstAddr, dstPort
 }
 
 func socks5AddrToAddrEx(atyp byte, dstAddr, dstPort []byte) *AddrEx {

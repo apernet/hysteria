@@ -68,17 +68,17 @@ func (l *LocalCertificateLoader) checkModTime() (certModTime, keyModTime time.Ti
 	fi, err := os.Stat(l.CertFile)
 	if err != nil {
 		err = fmt.Errorf("failed to stat certificate file: %w", err)
-		return
+		return certModTime, keyModTime, err
 	}
 	certModTime = fi.ModTime()
 
 	fi, err = os.Stat(l.KeyFile)
 	if err != nil {
 		err = fmt.Errorf("failed to stat key file: %w", err)
-		return
+		return certModTime, keyModTime, err
 	}
 	keyModTime = fi.ModTime()
-	return
+	return certModTime, keyModTime, err
 }
 
 func (l *LocalCertificateLoader) makeCache() (cache *localCertificateCache, err error) {
@@ -86,24 +86,24 @@ func (l *LocalCertificateLoader) makeCache() (cache *localCertificateCache, err 
 
 	c.certModTime, c.keyModTime, err = l.checkModTime()
 	if err != nil {
-		return
+		return cache, err
 	}
 
 	cert, err := tls.LoadX509KeyPair(l.CertFile, l.KeyFile)
 	if err != nil {
-		return
+		return cache, err
 	}
 	c.certificate = &cert
 	if c.certificate.Leaf == nil {
 		// certificate.Leaf was left nil by tls.LoadX509KeyPair before Go 1.23
 		c.certificate.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
 		if err != nil {
-			return
+			return cache, err
 		}
 	}
 
 	cache = c
-	return
+	return cache, err
 }
 
 func (l *LocalCertificateLoader) getCertificateWithCache() (*tls.Certificate, error) {
