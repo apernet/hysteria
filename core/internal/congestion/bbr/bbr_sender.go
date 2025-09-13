@@ -31,7 +31,7 @@ const (
 	// Constants based on TCP defaults.
 	// The minimum CWND to ensure delayed acks don't reduce bandwidth measurements.
 	// Does not inflate the pacing rate.
-	defaultMinimumCongestionWindow = 4 * congestion.ByteCount(congestion.InitialPacketSizeIPv4)
+	defaultMinimumCongestionWindow = 4 * congestion.ByteCount(congestion.InitialPacketSize)
 
 	// The gain used for the STARTUP, equal to 2/ln(2).
 	defaultHighGain = 2.885
@@ -961,12 +961,8 @@ func bdpFromRttAndBandwidth(rtt time.Duration, bandwidth Bandwidth) congestion.B
 func GetInitialPacketSize(addr net.Addr) congestion.ByteCount {
 	// If this is not a UDP address, we don't know anything about the MTU.
 	// Use the minimum size of an Initial packet as the max packet size.
-	if udpAddr, ok := addr.(*net.UDPAddr); ok {
-		if udpAddr.IP.To4() != nil {
-			return congestion.InitialPacketSizeIPv4
-		} else {
-			return congestion.InitialPacketSizeIPv6
-		}
+	if _, ok := addr.(*net.UDPAddr); ok {
+		return congestion.InitialPacketSize
 	} else {
 		return congestion.MinInitialPacketSize
 	}

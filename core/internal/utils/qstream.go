@@ -17,7 +17,7 @@ import (
 // - https://github.com/quic-go/quic-go/issues/3558
 // - https://github.com/quic-go/quic-go/issues/1599
 type QStream struct {
-	Stream quic.Stream
+	Stream *quic.Stream
 }
 
 func (s *QStream) StreamID() quic.StreamID {

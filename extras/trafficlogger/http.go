@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/apernet/hysteria/core/v2/server"
-	"github.com/apernet/quic-go"
 )
 
 const (
@@ -31,7 +30,7 @@ func NewTrafficStatsServer(secret string) TrafficStatsServer {
 		StatsMap:  make(map[string]*trafficStatsEntry),
 		KickMap:   make(map[string]struct{}),
 		OnlineMap: make(map[string]int),
-		StreamMap: make(map[quic.Stream]*server.StreamStats),
+		StreamMap: make(map[server.HyStream]*server.StreamStats),
 		Secret:    secret,
 	}
 }
@@ -40,7 +39,7 @@ type trafficStatsServerImpl struct {
 	Mutex     sync.RWMutex
 	StatsMap  map[string]*trafficStatsEntry
 	OnlineMap map[string]int
-	StreamMap map[quic.Stream]*server.StreamStats
+	StreamMap map[server.HyStream]*server.StreamStats
 	KickMap   map[string]struct{}
 	Secret    string
 }
@@ -86,14 +85,14 @@ func (s *trafficStatsServerImpl) LogOnlineState(id string, online bool) {
 	}
 }
 
-func (s *trafficStatsServerImpl) TraceStream(stream quic.Stream, stats *server.StreamStats) {
+func (s *trafficStatsServerImpl) TraceStream(stream server.HyStream, stats *server.StreamStats) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
 	s.StreamMap[stream] = stats
 }
 
-func (s *trafficStatsServerImpl) UntraceStream(stream quic.Stream) {
+func (s *trafficStatsServerImpl) UntraceStream(stream server.HyStream) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
@@ -184,7 +183,7 @@ type dumpStreamEntry struct {
 	lastActiveTime time.Time
 }
 
-func (e *dumpStreamEntry) fromStreamStats(stream quic.Stream, s *server.StreamStats) {
+func (e *dumpStreamEntry) fromStreamStats(stream server.HyStream, s *server.StreamStats) {
 	e.State = s.State.Load().String()
 	e.Auth = s.AuthID
 	e.Connection = s.ConnID
@@ -217,13 +216,13 @@ func (e *dumpStreamEntry) String() string {
 	}
 	txText := strconv.FormatUint(e.Tx, 10)
 	rxText := strconv.FormatUint(e.Rx, 10)
-	lifetime := time.Now().Sub(e.initialTime)
+	lifetime := time.Since(e.initialTime)
 	if lifetime < 10*time.Minute {
 		lifetime = lifetime.Round(time.Millisecond)
 	} else {
 		lifetime = lifetime.Round(time.Second)
 	}
-	lastActive := time.Now().Sub(e.lastActiveTime)
+	lastActive := time.Since(e.lastActiveTime)
 	if lastActive < 10*time.Minute {
 		lastActive = lastActive.Round(time.Millisecond)
 	} else {

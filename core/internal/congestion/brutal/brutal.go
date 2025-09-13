@@ -46,7 +46,7 @@ func NewBrutalSender(bps uint64) *BrutalSender {
 	debug, _ := strconv.ParseBool(os.Getenv(debugEnv))
 	bs := &BrutalSender{
 		bps:             congestion.ByteCount(bps),
-		maxDatagramSize: congestion.InitialPacketSizeIPv4,
+		maxDatagramSize: congestion.InitialPacketSize,
 		ackRate:         1,
 		debug:           debug,
 	}
