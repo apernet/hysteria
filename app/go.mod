@@ -2,7 +2,7 @@ module github.com/apernet/hysteria/app/v2
 
 go 1.23
 
-toolchain go1.24.2
+toolchain go1.25.1
 
 require (
 	github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f

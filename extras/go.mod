@@ -2,7 +2,7 @@ module github.com/apernet/hysteria/extras/v2
 
 go 1.23
 
-toolchain go1.24.2
+toolchain go1.25.1
 
 require (
 	github.com/apernet/hysteria/core/v2 v2.0.0-00010101000000-000000000000
