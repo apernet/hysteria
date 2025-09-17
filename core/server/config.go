@@ -125,7 +125,7 @@ type QUICConfig struct {
 // of a UDP connection. It also cannot put back any data as the first packet is always sent as-is.
 type RequestHook interface {
 	Check(isUDP bool, reqAddr string) bool
-	TCP(stream quic.Stream, reqAddr *string) ([]byte, error)
+	TCP(stream HyStream, reqAddr *string) ([]byte, error)
 	UDP(data []byte, reqAddr *string) error
 }
 
@@ -205,6 +205,16 @@ type EventLogger interface {
 	UDPError(addr net.Addr, id string, sessionID uint32, err error)
 }
 
+type HyStream interface {
+	StreamID() quic.StreamID
+	Read(p []byte) (n int, err error)
+	Write(p []byte) (n int, err error)
+	Close() error
+	SetReadDeadline(t time.Time) error
+	SetWriteDeadline(t time.Time) error
+	SetDeadline(t time.Time) error
+}
+
 // TrafficLogger is an interface that provides traffic logging logic.
 // Tx/Rx in this context refers to the server-remote (proxy target) perspective.
 // Tx is the bytes sent from the server to the remote.
@@ -216,8 +226,8 @@ type EventLogger interface {
 type TrafficLogger interface {
 	LogTraffic(id string, tx, rx uint64) (ok bool)
 	LogOnlineState(id string, online bool)
-	TraceStream(stream quic.Stream, stats *StreamStats)
-	UntraceStream(stream quic.Stream)
+	TraceStream(stream HyStream, stats *StreamStats)
+	UntraceStream(stream HyStream)
 }
 
 type StreamState int

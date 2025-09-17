@@ -39,12 +39,12 @@ func TestServerMasquerade(t *testing.T) {
 	go s.Serve()
 
 	// QUIC connection & RoundTripper
-	var conn quic.EarlyConnection
-	rt := &http3.RoundTripper{
+	var conn *quic.Conn
+	rt := &http3.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
-		Dial: func(ctx context.Context, _ string, tlsCfg *tls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
+		Dial: func(ctx context.Context, _ string, tlsCfg *tls.Config, cfg *quic.Config) (*quic.Conn, error) {
 			qc, err := quic.DialAddrEarly(ctx, udpAddr.String(), tlsCfg, cfg)
 			if err != nil {
 				return nil, err

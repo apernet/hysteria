@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apernet/quic-go"
 	utls "github.com/refraction-networking/utls"
 
 	"github.com/apernet/hysteria/core/v2/server"
@@ -88,7 +87,7 @@ func (h *Sniffer) Check(isUDP bool, reqAddr string) bool {
 	}
 }
 
-func (h *Sniffer) TCP(stream quic.Stream, reqAddr *string) ([]byte, error) {
+func (h *Sniffer) TCP(stream server.HyStream, reqAddr *string) ([]byte, error) {
 	var err error
 	if h.Timeout == 0 {
 		err = stream.SetReadDeadline(time.Now().Add(sniffDefaultTimeout))
@@ -174,7 +173,7 @@ func (h *Sniffer) UDP(data []byte, reqAddr *string) error {
 }
 
 type teeReader struct {
-	Stream quic.Stream
+	Stream server.HyStream
 	Pre    []byte
 
 	buf []byte

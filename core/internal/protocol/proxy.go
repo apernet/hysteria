@@ -20,7 +20,8 @@ const (
 	MaxMessageLength = 2048
 	MaxPaddingLength = 4096
 
-	MaxUDPSize = 4096
+	MaxDatagramFrameSize = 1200
+	MaxUDPSize           = 4096
 
 	maxVarInt1 = 63
 	maxVarInt2 = 16383
