@@ -46,6 +46,8 @@ github.com/apernet/quic-go v0.54.1-0.20250907230547-eb32f8aec5e2 h1:03y2WeGln3/Q
 github.com/apernet/quic-go v0.54.1-0.20250907230547-eb32f8aec5e2/go.mod h1:Y4cCWi64O51TRUKDPy0ShA2/pevlWiWJJnlNo2fO2ds=
 github.com/apernet/sing-tun v0.2.6-0.20250726070404-c99085f9af13 h1:gzets97c/u5iMj1zjanMBVkIYOdaVw+RXPzTT1xQoyM=
 github.com/apernet/sing-tun v0.2.6-0.20250726070404-c99085f9af13/go.mod h1:S5IydyLSN/QAfvY+r2GoomPJ6hidtXWm/Ad18sJVssk=
+github.com/apernet/sing-tun v0.2.6-0.20250920121535-299f04629986 h1:w62V0oOO2Do0vXeZkx7mgZ2YFuUaRcO6rNZewI3xzuE=
+github.com/apernet/sing-tun v0.2.6-0.20250920121535-299f04629986/go.mod h1:S5IydyLSN/QAfvY+r2GoomPJ6hidtXWm/Ad18sJVssk=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/caddyserver/certmagic v0.17.2 h1:o30seC1T/dBqBCNNGNHWwj2i5/I/FMjBbTAhjADP3nE=
