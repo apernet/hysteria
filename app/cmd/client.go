@@ -275,12 +275,11 @@ func (c *clientConfig) fillTLSConfig(hyConfig *client.Config) error {
 	if c.TLS.PinSHA256 != "" {
 		nHash := normalizeCertHash(c.TLS.PinSHA256)
 		hyConfig.TLSConfig.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-			for _, cert := range rawCerts {
-				hash := sha256.Sum256(cert)
-				hashHex := hex.EncodeToString(hash[:])
-				if hashHex == nHash {
-					return nil
-				}
+			cert := rawCerts[0] // only check the end-entity cert hash in the chain of trust
+			hash := sha256.Sum256(cert)
+			hashHex := hex.EncodeToString(hash[:])
+			if hashHex == nHash {
+				return nil
 			}
 			// No match
 			return errors.New("no certificate matches the pinned hash")
