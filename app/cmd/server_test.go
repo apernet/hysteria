@@ -140,6 +140,7 @@ func TestServerConfig(t *testing.T) {
 					BindIPv6:   "0:0:0:0:0:ffff:0204:0608",
 					BindDevice: "eth233",
 					FastOpen:   true,
+					Multipath:  true,
 				},
 			},
 			{

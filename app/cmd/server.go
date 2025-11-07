@@ -207,6 +207,7 @@ type serverConfigOutboundDirect struct {
 	BindIPv6   string `mapstructure:"bindIPv6"`
 	BindDevice string `mapstructure:"bindDevice"`
 	FastOpen   bool   `mapstructure:"fastOpen"`
+	Multipath  bool   `mapstructure:"multipath"`
 }
 
 type serverConfigOutboundSOCKS5 struct {
@@ -569,6 +570,7 @@ func serverConfigOutboundDirectToOutbound(c serverConfigOutboundDirect) (outboun
 		opts.DeviceName = c.BindDevice
 	}
 	opts.FastOpen = c.FastOpen
+	opts.Multipath = c.Multipath
 	return outbounds.NewDirectOutboundWithOptions(opts)
 }
 

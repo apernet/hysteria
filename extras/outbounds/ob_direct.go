@@ -52,7 +52,8 @@ type DirectOutboundOptions struct {
 	BindIP4    net.IP
 	BindIP6    net.IP
 
-	FastOpen bool
+	FastOpen  bool
+	Multipath bool
 }
 
 type noAddressError struct {
@@ -127,6 +128,9 @@ func NewDirectOutboundWithOptions(opts DirectOutboundOptions) (PluggableOutbound
 			return nil, err
 		}
 	}
+
+	dialer4.SetMultipathTCP(opts.Multipath)
+	dialer6.SetMultipathTCP(opts.Multipath)
 
 	dialFunc4 := dialer4.Dial
 	dialFunc6 := dialer6.Dial
