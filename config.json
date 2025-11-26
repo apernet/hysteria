@@ -1,0 +1,11 @@
+{
+  "listen": ":8080",
+  "protocol": "udp",
+  "auth": {
+    "type": "string",
+    "string": "MySuperGameP@ssw0rd"
+  },
+  "alpn": "hysteria",
+  "up_mbps": 100,
+  "down_mbps": 500
+}
