@@ -127,17 +127,29 @@ func (s *trafficStatsServerImpl) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	http.NotFound(w, r)
 }
 
+// fillMissingStats adds missing StatsMap entries for users who are currently online.
+// This method must be called with the appropriate lock already held.
+func (s *trafficStatsServerImpl) fillMissingStats() {
+	for id := range s.OnlineMap {
+		if _, ok := s.StatsMap[id]; !ok {
+			s.StatsMap[id] = &trafficStatsEntry{}
+		}
+	}
+}
+
 func (s *trafficStatsServerImpl) getTraffic(w http.ResponseWriter, r *http.Request) {
 	bClear, _ := strconv.ParseBool(r.URL.Query().Get("clear"))
 	var jb []byte
 	var err error
 	if bClear {
 		s.Mutex.Lock()
+		s.fillMissingStats()
 		jb, err = json.Marshal(s.StatsMap)
 		s.StatsMap = make(map[string]*trafficStatsEntry)
 		s.Mutex.Unlock()
 	} else {
 		s.Mutex.RLock()
+		s.fillMissingStats()
 		jb, err = json.Marshal(s.StatsMap)
 		s.Mutex.RUnlock()
 	}
