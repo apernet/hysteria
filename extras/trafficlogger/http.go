@@ -148,10 +148,10 @@ func (s *trafficStatsServerImpl) getTraffic(w http.ResponseWriter, r *http.Reque
 		s.StatsMap = make(map[string]*trafficStatsEntry)
 		s.Mutex.Unlock()
 	} else {
-		s.Mutex.RLock()
+		s.Mutex.Lock()
 		s.fillMissingStats()
 		jb, err = json.Marshal(s.StatsMap)
-		s.Mutex.RUnlock()
+		s.Mutex.Unlock()
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
