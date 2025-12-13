@@ -33,7 +33,7 @@ jobs:
       - uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
-          ndk-version: r26b
+          ndk-version: r29
           add-to-path: false
 
       - name: Run build script
