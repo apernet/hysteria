@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    outputs:
+      files: ${{ steps.list-files.outputs.files }}
 
     steps:
       - name: Check out
@@ -45,8 +47,35 @@ jobs:
             sha256sum $file >> build/hashes.txt
           done
 
-      - name: Archive
+      - name: List build files
+        id: list-files
+        run: |
+          files=$(ls -1 build/ | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "files=$files" >> $GITHUB_OUTPUT
+
+      - name: Upload build directory
         uses: actions/upload-artifact@v4
         with:
-          name: hysteria-master-${{ github.sha }}
-          path: build
+          name: build-temp-${{ github.sha }}
+          path: build/
+          retention-days: 1
+
+  upload:
+    name: Upload ${{ matrix.file }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        file: ${{ fromJson(needs.build.outputs.files) }}
+    steps:
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-temp-${{ github.sha }}
+
+      - name: Upload ${{ matrix.file }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.file }}
+          path: ${{ matrix.file }}
