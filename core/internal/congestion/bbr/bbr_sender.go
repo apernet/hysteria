@@ -23,7 +23,7 @@ import (
 //
 
 const (
-	minBps = 65536 // 64 kbps
+	minBps = 65536 // 64 KB/s
 
 	invalidPacketNumber            = -1
 	initialCongestionWindowPackets = 32
@@ -553,7 +553,7 @@ func (b *bbrSender) bandwidthEstimate() Bandwidth {
 }
 
 func (b *bbrSender) bandwidthForPacer() congestion.ByteCount {
-	bps := congestion.ByteCount(float64(b.bandwidthEstimate()) * b.congestionWindowGain / float64(BytesPerSecond))
+	bps := congestion.ByteCount(float64(b.PacingRate()) / float64(BytesPerSecond))
 	if bps < minBps {
 		// We need to make sure that the bandwidth value for pacer is never zero,
 		// otherwise it will go into an edge case where HasPacingBudget = false
