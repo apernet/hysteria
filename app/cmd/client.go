@@ -46,7 +46,7 @@ var (
 var clientCmd = &cobra.Command{
 	Use:   "client",
 	Short: "Client mode",
-	Run:   runClient,
+	Run:   runClientCmd,
 }
 
 func init() {
@@ -468,9 +468,12 @@ func (c *clientConfig) Config() (*client.Config, error) {
 	return hyConfig, nil
 }
 
-func runClient(cmd *cobra.Command, args []string) {
+func runClientCmd(cmd *cobra.Command, args []string) {
 	logger.Info("client mode")
+	runClient(defaultViper)
+}
 
+func runClient(viper *viper.Viper) {
 	if err := viper.ReadInConfig(); err != nil {
 		logger.Fatal("failed to read client config", zap.Error(err))
 	}

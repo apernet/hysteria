@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/spf13/viper"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -19,21 +20,24 @@ var checkUpdateCmd = &cobra.Command{
 	Use:   "check-update",
 	Short: "Check for updates",
 	Long:  "Check for updates.",
-	Run:   runCheckUpdate,
+	Run:   runCheckUpdateCmd,
 }
 
 func init() {
 	rootCmd.AddCommand(checkUpdateCmd)
 }
 
-func runCheckUpdate(cmd *cobra.Command, args []string) {
+func runCheckUpdateCmd(cmd *cobra.Command, args []string) {
 	logger.Info("checking for updates",
 		zap.String("version", appVersion),
 		zap.String("platform", appPlatform),
 		zap.String("arch", appArch),
 		zap.String("channel", appType),
 	)
+	runCheckUpdate(defaultViper)
+}
 
+func runCheckUpdate(viper *viper.Viper) {
 	checker := utils.NewServerUpdateChecker(appVersion, appPlatform, appArch, appType)
 	resp, err := checker.Check()
 	if err != nil {

@@ -15,21 +15,24 @@ var pingCmd = &cobra.Command{
 	Use:   "ping address",
 	Short: "Ping mode",
 	Long:  "Perform a TCP ping to a specified remote address through the proxy server. Can be used as a simple connectivity test.",
-	Run:   runPing,
+	Run:   runPingCmd,
 }
 
 func init() {
 	rootCmd.AddCommand(pingCmd)
 }
 
-func runPing(cmd *cobra.Command, args []string) {
+func runPingCmd(cmd *cobra.Command, args []string) {
 	logger.Info("ping mode")
 
 	if len(args) != 1 {
 		logger.Fatal("must specify one and only one address")
 	}
 	addr := args[0]
+	runPing(defaultViper, addr)
+}
 
+func runPing(viper *viper.Viper, addr string) {
 	if err := viper.ReadInConfig(); err != nil {
 		logger.Fatal("failed to read client config", zap.Error(err))
 	}

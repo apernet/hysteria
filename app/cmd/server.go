@@ -47,7 +47,7 @@ const (
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Server mode",
-	Run:   runServer,
+	Run:   runServerCmd,
 }
 
 func init() {
@@ -932,9 +932,12 @@ func (c *serverConfig) Config() (*server.Config, error) {
 	return hyConfig, nil
 }
 
-func runServer(cmd *cobra.Command, args []string) {
+func runServerCmd(cmd *cobra.Command, args []string) {
 	logger.Info("server mode")
+	runServer(defaultViper)
+}
 
+func runServer(viper *viper.Viper) {
 	if err := viper.ReadInConfig(); err != nil {
 		logger.Fatal("failed to read server config", zap.Error(err))
 	}
