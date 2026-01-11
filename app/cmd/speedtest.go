@@ -32,7 +32,7 @@ var speedtestCmd = &cobra.Command{
 	Use:   "speedtest",
 	Short: "Speed test mode",
 	Long:  "Perform a speed test through the proxy server. The server must have speed test support enabled.",
-	Run:   runSpeedtest,
+	Run:   runSpeedtestCmd,
 }
 
 func init() {
@@ -47,9 +47,12 @@ func initSpeedtestFlags() {
 	speedtestCmd.Flags().BoolVar(&useBytes, "use-bytes", false, "Use bytes per second instead of bits per second")
 }
 
-func runSpeedtest(cmd *cobra.Command, args []string) {
+func runSpeedtestCmd(cmd *cobra.Command, args []string) {
 	logger.Info("speed test mode")
+	runSpeedtest(defaultViper)
+}
 
+func runSpeedtest(viper *viper.Viper) {
 	if err := viper.ReadInConfig(); err != nil {
 		logger.Fatal("failed to read client config", zap.Error(err))
 	}
