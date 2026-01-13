@@ -34,10 +34,11 @@ func convertToStdTLSConfig(config *Config) *tls.Config {
 		clientAuth = tls.NoClientCert
 	}
 	return http3.ConfigureTLSConfig(&tls.Config{
-		Certificates:   config.TLSConfig.Certificates,
-		GetCertificate: config.TLSConfig.GetCertificate,
-		ClientCAs:      config.TLSConfig.ClientCAs,
-		ClientAuth:     clientAuth,
+		Certificates:             config.TLSConfig.Certificates,
+		GetCertificate:           config.TLSConfig.GetCertificate,
+		ClientCAs:                config.TLSConfig.ClientCAs,
+		ClientAuth:               clientAuth,
+		EncryptedClientHelloKeys: config.TLSConfig.EncryptedClientHelloKeys,
 	})
 }
 
