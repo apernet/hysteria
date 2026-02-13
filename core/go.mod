@@ -25,3 +25,5 @@ require (
 	golang.org/x/text v0.28.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/apernet/quic-go => github.com/arimitx/quic-go v0.57.2-0.20260209065731-e5be17ee3d13
