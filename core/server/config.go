@@ -100,9 +100,10 @@ func (c *Config) fill() error {
 
 // TLSConfig contains the TLS configuration fields that we want to expose to the user.
 type TLSConfig struct {
-	Certificates   []tls.Certificate
-	GetCertificate func(info *tls.ClientHelloInfo) (*tls.Certificate, error)
-	ClientCAs      *x509.CertPool
+	Certificates             []tls.Certificate
+	GetCertificate           func(info *tls.ClientHelloInfo) (*tls.Certificate, error)
+	ClientCAs                *x509.CertPool
+	EncryptedClientHelloKeys []tls.EncryptedClientHelloKey
 }
 
 // QUICConfig contains the QUIC configuration fields that we want to expose to the user.

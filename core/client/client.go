@@ -70,11 +70,12 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 	}
 	// Convert config to TLS config & QUIC config
 	tlsConfig := &tls.Config{
-		ServerName:            c.config.TLSConfig.ServerName,
-		InsecureSkipVerify:    c.config.TLSConfig.InsecureSkipVerify,
-		VerifyPeerCertificate: c.config.TLSConfig.VerifyPeerCertificate,
-		RootCAs:               c.config.TLSConfig.RootCAs,
-		GetClientCertificate:  c.config.TLSConfig.GetClientCertificate,
+		ServerName:                     c.config.TLSConfig.ServerName,
+		InsecureSkipVerify:             c.config.TLSConfig.InsecureSkipVerify,
+		VerifyPeerCertificate:          c.config.TLSConfig.VerifyPeerCertificate,
+		RootCAs:                        c.config.TLSConfig.RootCAs,
+		GetClientCertificate:           c.config.TLSConfig.GetClientCertificate,
+		EncryptedClientHelloConfigList: c.config.TLSConfig.EncryptedClientHelloConfigList,
 	}
 	quicConfig := &quic.Config{
 		InitialStreamReceiveWindow:     c.config.QUICConfig.InitialStreamReceiveWindow,
