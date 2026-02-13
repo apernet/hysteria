@@ -1,0 +1,78 @@
+name: "Build common"
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    outputs:
+      files: ${{ steps.list-files.outputs.files }}
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Setup Python # This is for the build script
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r29
+          add-to-path: false
+
+      - name: Run build script
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          export HY_APP_PLATFORMS=$(sed 's/\r$//' platforms.txt | awk '!/^#/ && !/^$/' | paste -sd ",")
+          python hyperbole.py build -r
+
+      - name: Generate hashes
+        run: |
+          for file in build/*; do
+            sha256sum $file >> build/hashes.txt
+          done
+
+      - name: List build files
+        id: list-files
+        run: |
+          files=$(ls -1 build/ | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "files=$files" >> $GITHUB_OUTPUT
+
+      - name: Upload build directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-temp-${{ github.sha }}
+          path: build/
+
+  upload:
+    name: Upload ${{ matrix.file }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        file: ${{ fromJson(needs.build.outputs.files) }}
+    steps:
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-temp-${{ github.sha }}
+
+      - name: Upload ${{ matrix.file }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.file }}
+          path: ${{ matrix.file }}

@@ -1,9 +1,9 @@
-name: "Build master branch"
+name: "Build experimental branches"
 
 on:
   push:
     branches:
-      - master
+      - exp/**
 
 jobs:
   build:
