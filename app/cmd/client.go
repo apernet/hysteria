@@ -77,6 +77,27 @@ type clientConfig struct {
 	UDPTProxy     *udpTProxyConfig       `mapstructure:"udpTProxy"`
 	TCPRedirect   *tcpRedirectConfig     `mapstructure:"tcpRedirect"`
 	TUN           *tunConfig             `mapstructure:"tun"`
+	PPP           *pppConfig             `mapstructure:"ppp"`
+}
+
+type pppSSTPConfig struct {
+	BinaryPath  string `mapstructure:"binaryPath"`
+	Listen      string `mapstructure:"listen"`
+	CertDir     string `mapstructure:"certDir"`
+	Endpoint    string `mapstructure:"endpoint"`
+	User        string `mapstructure:"user"`
+	Password    string `mapstructure:"password"`
+	MSSClamp    *int   `mapstructure:"mssClamp"` // nil=auto, 0=off, >0=forced
+	ServerRoute *bool  `mapstructure:"serverRoute"`
+	LogLevel    string `mapstructure:"logLevel"`
+}
+
+type pppConfig struct {
+	MTU         uint32         `mapstructure:"mtu"`
+	PPPDPath    string         `mapstructure:"pppdPath"`
+	PPPDArgs    []string       `mapstructure:"pppdArgs"`
+	DataStreams int            `mapstructure:"dataStreams"`
+	SSTP        *pppSSTPConfig `mapstructure:"sstp"`
 }
 
 type clientConfigTransportUDP struct {
@@ -512,6 +533,9 @@ func (c *clientConfig) Config() (*client.Config, error) {
 			return nil, err
 		}
 	}
+	if c.PPP != nil && c.PPP.DataStreams == 0 {
+		hyConfig.PPPMode = true
+	}
 	return hyConfig, nil
 }
 
@@ -594,6 +618,11 @@ func runClient(v *viper.Viper) {
 	if config.TUN != nil {
 		runner.Add("TUN", func() error {
 			return clientTUN(*config.TUN, c)
+		})
+	}
+	if config.PPP != nil {
+		runner.Add("PPP", func() error {
+			return clientPPP(*config.PPP, c, strings.EqualFold(config.Obfs.Type, "salamander"))
 		})
 	}
 

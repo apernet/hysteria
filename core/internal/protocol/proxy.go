@@ -13,6 +13,8 @@ import (
 
 const (
 	FrameTypeTCPRequest = 0x401
+	FrameTypePPPRequest = 0x402
+	FrameTypePPPData    = 0x403
 
 	// Max length values are for preventing DoS attacks
 
@@ -20,7 +22,9 @@ const (
 	MaxMessageLength = 2048
 	MaxPaddingLength = 4096
 
-	MaxDatagramFrameSize = 1200
+	MaxPPPDataStreams = 256
+
+	MaxDatagramFrameSize = 65535
 	MaxUDPSize           = 4096
 
 	maxVarInt1 = 63
@@ -142,6 +146,126 @@ func WriteTCPResponse(w io.Writer, ok bool, msg string) error {
 	}
 	i := varintPut(buf[1:], uint64(msgLen))
 	i += copy(buf[1+i:], msg)
+	i += varintPut(buf[1+i:], uint64(paddingLen))
+	copy(buf[1+i:], padding)
+	_, err := w.Write(buf)
+	return err
+}
+
+// PPPRequest format:
+// 0x402 (QUIC varint)
+// DataStreams (QUIC varint)
+// Padding length (QUIC varint)
+// Padding (bytes)
+
+func ReadPPPRequest(r io.Reader) (int, error) {
+	bReader := quicvarint.NewReader(r)
+	dataStreams, err := quicvarint.Read(bReader)
+	if err != nil {
+		return 0, err
+	}
+	if dataStreams > MaxPPPDataStreams {
+		return 0, errors.ProtocolError{Message: "invalid dataStreams value"}
+	}
+	paddingLen, err := quicvarint.Read(bReader)
+	if err != nil {
+		return 0, err
+	}
+	if paddingLen > MaxPaddingLength {
+		return 0, errors.ProtocolError{Message: "invalid padding length"}
+	}
+	if paddingLen > 0 {
+		_, err = io.CopyN(io.Discard, r, int64(paddingLen))
+		if err != nil {
+			return 0, err
+		}
+	}
+	return int(dataStreams), nil
+}
+
+func WritePPPRequest(w io.Writer, dataStreams int) error {
+	padding := pppRequestPadding.String()
+	paddingLen := len(padding)
+	sz := int(quicvarint.Len(FrameTypePPPRequest)) +
+		int(quicvarint.Len(uint64(dataStreams))) +
+		int(quicvarint.Len(uint64(paddingLen))) + paddingLen
+	buf := make([]byte, sz)
+	i := varintPut(buf, FrameTypePPPRequest)
+	i += varintPut(buf[i:], uint64(dataStreams))
+	i += varintPut(buf[i:], uint64(paddingLen))
+	copy(buf[i:], padding)
+	_, err := w.Write(buf)
+	return err
+}
+
+// PPPResponse format:
+// Status (byte, 0=ok, 1=error)
+// Message length (QUIC varint)
+// Message (bytes)
+// DataStreams (QUIC varint)
+// Padding length (QUIC varint)
+// Padding (bytes)
+
+func ReadPPPResponse(r io.Reader) (bool, string, int, error) {
+	var status [1]byte
+	if _, err := io.ReadFull(r, status[:]); err != nil {
+		return false, "", 0, err
+	}
+	bReader := quicvarint.NewReader(r)
+	msgLen, err := quicvarint.Read(bReader)
+	if err != nil {
+		return false, "", 0, err
+	}
+	if msgLen > MaxMessageLength {
+		return false, "", 0, errors.ProtocolError{Message: "invalid message length"}
+	}
+	var msgBuf []byte
+	if msgLen > 0 {
+		msgBuf = make([]byte, msgLen)
+		_, err = io.ReadFull(r, msgBuf)
+		if err != nil {
+			return false, "", 0, err
+		}
+	}
+	dataStreams, err := quicvarint.Read(bReader)
+	if err != nil {
+		return false, "", 0, err
+	}
+	if dataStreams > MaxPPPDataStreams {
+		return false, "", 0, errors.ProtocolError{Message: "invalid dataStreams value"}
+	}
+	paddingLen, err := quicvarint.Read(bReader)
+	if err != nil {
+		return false, "", 0, err
+	}
+	if paddingLen > MaxPaddingLength {
+		return false, "", 0, errors.ProtocolError{Message: "invalid padding length"}
+	}
+	if paddingLen > 0 {
+		_, err = io.CopyN(io.Discard, r, int64(paddingLen))
+		if err != nil {
+			return false, "", 0, err
+		}
+	}
+	return status[0] == 0, string(msgBuf), int(dataStreams), nil
+}
+
+func WritePPPResponse(w io.Writer, ok bool, msg string, dataStreams int) error {
+	padding := pppResponsePadding.String()
+	paddingLen := len(padding)
+	msgLen := len(msg)
+	sz := 1 + int(quicvarint.Len(uint64(msgLen))) + msgLen +
+		int(quicvarint.Len(uint64(dataStreams))) +
+		int(quicvarint.Len(uint64(paddingLen))) + paddingLen
+	buf := make([]byte, sz)
+	if ok {
+		buf[0] = 0
+	} else {
+		buf[0] = 1
+	}
+	i := varintPut(buf[1:], uint64(msgLen))
+	i += copy(buf[1+i:], msg)
+	i += varintPut(buf[1+i:], uint64(dataStreams))
 	i += varintPut(buf[1+i:], uint64(paddingLen))
 	copy(buf[1+i:], padding)
 	_, err := w.Write(buf)
