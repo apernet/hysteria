@@ -95,6 +95,12 @@ func TestClientConfig(t *testing.T) {
 		TCPRedirect: &tcpRedirectConfig{
 			Listen: "127.0.0.1:3500",
 		},
+		PPP: &pppConfig{
+			MTU:         1400,
+			PPPDPath:    "/usr/sbin/pppd",
+			PPPDArgs:    []string{"defaultroute", "+ipv6"},
+			DataStreams: 20,
+		},
 		TUN: &tunConfig{
 			Name:    "hytun",
 			MTU:     1500,

@@ -18,12 +18,13 @@ require (
 	github.com/libdns/vultr v1.0.0
 	github.com/mdp/qrterminal/v3 v3.1.1
 	github.com/mholt/acmez v1.0.4
+	github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97
 	github.com/sagernet/sing v0.3.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/txthinking/socks5 v0.0.0-20230325130024-4230056ae301
-	go.uber.org/zap v1.24.0
+	go.uber.org/zap v1.27.1
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
 	golang.org/x/sys v0.41.0
 )
@@ -32,6 +33,7 @@ require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/apernet/quic-go v0.59.1-0.20260217092621-db4786c77a22 // indirect
 	github.com/cloudflare/circl v1.3.9 // indirect
+	github.com/creack/pty v1.1.24 // indirect
 	github.com/database64128/netx-go v0.0.0-20240905055117-62795b8b054a // indirect
 	github.com/database64128/tfo-go/v2 v2.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -53,7 +55,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/refraction-networking/utls v1.6.6 // indirect
-	github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/scjalliance/comshim v0.0.0-20230315213746-5e51f40bd3b9 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
@@ -64,7 +65,6 @@ require (
 	github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf // indirect
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect
 	github.com/vultr/govultr/v3 v3.6.4 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect

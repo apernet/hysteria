@@ -315,3 +315,317 @@ func TestWriteTCPResponse(t *testing.T) {
 		})
 	}
 }
+
+// PPP Protocol Tests
+
+func TestReadPPPRequest(t *testing.T) {
+	tests := []struct {
+		name            string
+		data            []byte
+		wantDataStreams int
+		wantErr         bool
+	}{
+		{
+			name:            "datagram mode no padding",
+			data:            []byte("\x00\x00"),
+			wantDataStreams: 0,
+			wantErr:         false,
+		},
+		{
+			name:            "datagram mode with padding",
+			data:            []byte("\x00\x02gg"),
+			wantDataStreams: 0,
+			wantErr:         false,
+		},
+		{
+			name:            "multi-stream mode",
+			data:            []byte("\x14\x00"),
+			wantDataStreams: 20,
+			wantErr:         false,
+		},
+		{
+			name:    "incomplete",
+			data:    []byte{},
+			wantErr: true,
+		},
+		{
+			name:    "incomplete padding",
+			data:    []byte("\x00\x05x"),
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := bytes.NewReader(tt.data)
+			ds, err := ReadPPPRequest(r)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReadPPPRequest() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && ds != tt.wantDataStreams {
+				t.Errorf("ReadPPPRequest() dataStreams = %v, want %v", ds, tt.wantDataStreams)
+			}
+		})
+	}
+}
+
+func TestWritePPPRequest(t *testing.T) {
+	tests := []struct {
+		name        string
+		dataStreams int
+		wantPrefix  string
+	}{
+		{
+			name:        "datagram mode",
+			dataStreams: 0,
+			wantPrefix:  "\x44\x02\x00",
+		},
+		{
+			name:        "multi-stream mode",
+			dataStreams: 20,
+			wantPrefix:  "\x44\x02\x14",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &bytes.Buffer{}
+			err := WritePPPRequest(w, tt.dataStreams)
+			if err != nil {
+				t.Errorf("WritePPPRequest() error = %v", err)
+				return
+			}
+			gotW := w.String()
+			if !(strings.HasPrefix(gotW, tt.wantPrefix) && len(gotW) > len(tt.wantPrefix)) {
+				t.Errorf("WritePPPRequest() gotW prefix mismatch, got len=%d", len(gotW))
+			}
+		})
+	}
+}
+
+func TestReadPPPResponse(t *testing.T) {
+	tests := []struct {
+		name            string
+		data            []byte
+		wantOk          bool
+		wantMsg         string
+		wantDataStreams int
+		wantErr         bool
+	}{
+		{
+			name:            "ok with message datagram mode",
+			data:            []byte("\x00\x02OK\x00\x00"),
+			wantOk:          true,
+			wantMsg:         "OK",
+			wantDataStreams: 0,
+			wantErr:         false,
+		},
+		{
+			name:            "ok multi-stream mode with padding",
+			data:            []byte("\x00\x02OK\x14\x03xxx"),
+			wantOk:          true,
+			wantMsg:         "OK",
+			wantDataStreams: 20,
+			wantErr:         false,
+		},
+		{
+			name:            "error with padding",
+			data:            []byte("\x01\x0dPPP disabled!\x00\x05xxxxx"),
+			wantOk:          false,
+			wantMsg:         "PPP disabled!",
+			wantDataStreams: 0,
+			wantErr:         false,
+		},
+		{
+			name:            "ok no message with padding",
+			data:            []byte("\x00\x00\x00\x03xxx"),
+			wantOk:          true,
+			wantMsg:         "",
+			wantDataStreams: 0,
+			wantErr:         false,
+		},
+		{
+			name:    "incomplete status",
+			data:    []byte{},
+			wantErr: true,
+		},
+		{
+			name:    "incomplete message",
+			data:    []byte("\x00\x0bhello"),
+			wantErr: true,
+		},
+		{
+			name:    "incomplete padding",
+			data:    []byte("\x00\x00\x00\x05x"),
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := bytes.NewReader(tt.data)
+			gotOk, gotMsg, gotDS, err := ReadPPPResponse(r)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReadPPPResponse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotOk != tt.wantOk {
+				t.Errorf("ReadPPPResponse() ok = %v, want %v", gotOk, tt.wantOk)
+			}
+			if gotMsg != tt.wantMsg {
+				t.Errorf("ReadPPPResponse() msg = %v, want %v", gotMsg, tt.wantMsg)
+			}
+			if !tt.wantErr && gotDS != tt.wantDataStreams {
+				t.Errorf("ReadPPPResponse() dataStreams = %v, want %v", gotDS, tt.wantDataStreams)
+			}
+		})
+	}
+}
+
+func TestWritePPPResponse(t *testing.T) {
+	type args struct {
+		ok          bool
+		msg         string
+		dataStreams int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantW   string
+		wantErr bool
+	}{
+		{
+			name:    "ok with message datagram",
+			args:    args{ok: true, msg: "OK", dataStreams: 0},
+			wantW:   "\x00\x02OK\x00",
+			wantErr: false,
+		},
+		{
+			name:    "ok multi-stream",
+			args:    args{ok: true, msg: "OK", dataStreams: 20},
+			wantW:   "\x00\x02OK\x14",
+			wantErr: false,
+		},
+		{
+			name:    "error with message",
+			args:    args{ok: false, msg: "PPP disabled!", dataStreams: 0},
+			wantW:   "\x01\x0dPPP disabled!\x00",
+			wantErr: false,
+		},
+		{
+			name:    "ok empty message",
+			args:    args{ok: true, msg: "", dataStreams: 0},
+			wantW:   "\x00\x00\x00",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &bytes.Buffer{}
+			err := WritePPPResponse(w, tt.args.ok, tt.args.msg, tt.args.dataStreams)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("WritePPPResponse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotW := w.String(); !(strings.HasPrefix(gotW, tt.wantW) && len(gotW) > len(tt.wantW)) {
+				t.Errorf("WritePPPResponse() gotW = %v, want prefix %v", gotW, tt.wantW)
+			}
+		})
+	}
+}
+
+func TestPPPRequestResponseRoundTrip(t *testing.T) {
+	t.Run("request round trip datagram", func(t *testing.T) {
+		w := &bytes.Buffer{}
+		if err := WritePPPRequest(w, 0); err != nil {
+			t.Fatalf("WritePPPRequest() error = %v", err)
+		}
+		// Skip the frame type varint (2 bytes for 0x402)
+		data := w.Bytes()[2:]
+		r := bytes.NewReader(data)
+		ds, err := ReadPPPRequest(r)
+		if err != nil {
+			t.Errorf("ReadPPPRequest() error = %v", err)
+		}
+		if ds != 0 {
+			t.Errorf("ReadPPPRequest() dataStreams = %v, want 0", ds)
+		}
+	})
+
+	t.Run("request round trip multi-stream", func(t *testing.T) {
+		w := &bytes.Buffer{}
+		if err := WritePPPRequest(w, 20); err != nil {
+			t.Fatalf("WritePPPRequest() error = %v", err)
+		}
+		data := w.Bytes()[2:]
+		r := bytes.NewReader(data)
+		ds, err := ReadPPPRequest(r)
+		if err != nil {
+			t.Errorf("ReadPPPRequest() error = %v", err)
+		}
+		if ds != 20 {
+			t.Errorf("ReadPPPRequest() dataStreams = %v, want 20", ds)
+		}
+	})
+
+	t.Run("response round trip ok datagram", func(t *testing.T) {
+		w := &bytes.Buffer{}
+		if err := WritePPPResponse(w, true, "hello", 0); err != nil {
+			t.Fatalf("WritePPPResponse() error = %v", err)
+		}
+		r := bytes.NewReader(w.Bytes())
+		ok, msg, ds, err := ReadPPPResponse(r)
+		if err != nil {
+			t.Errorf("ReadPPPResponse() error = %v", err)
+		}
+		if !ok {
+			t.Errorf("ReadPPPResponse() ok = false, want true")
+		}
+		if msg != "hello" {
+			t.Errorf("ReadPPPResponse() msg = %v, want hello", msg)
+		}
+		if ds != 0 {
+			t.Errorf("ReadPPPResponse() dataStreams = %v, want 0", ds)
+		}
+	})
+
+	t.Run("response round trip ok multi-stream", func(t *testing.T) {
+		w := &bytes.Buffer{}
+		if err := WritePPPResponse(w, true, "OK", 20); err != nil {
+			t.Fatalf("WritePPPResponse() error = %v", err)
+		}
+		r := bytes.NewReader(w.Bytes())
+		ok, msg, ds, err := ReadPPPResponse(r)
+		if err != nil {
+			t.Errorf("ReadPPPResponse() error = %v", err)
+		}
+		if !ok {
+			t.Errorf("ReadPPPResponse() ok = false, want true")
+		}
+		if msg != "OK" {
+			t.Errorf("ReadPPPResponse() msg = %v, want OK", msg)
+		}
+		if ds != 20 {
+			t.Errorf("ReadPPPResponse() dataStreams = %v, want 20", ds)
+		}
+	})
+
+	t.Run("response round trip error", func(t *testing.T) {
+		w := &bytes.Buffer{}
+		if err := WritePPPResponse(w, false, "denied", 0); err != nil {
+			t.Fatalf("WritePPPResponse() error = %v", err)
+		}
+		r := bytes.NewReader(w.Bytes())
+		ok, msg, ds, err := ReadPPPResponse(r)
+		if err != nil {
+			t.Errorf("ReadPPPResponse() error = %v", err)
+		}
+		if ok {
+			t.Errorf("ReadPPPResponse() ok = true, want false")
+		}
+		if msg != "denied" {
+			t.Errorf("ReadPPPResponse() msg = %v, want denied", msg)
+		}
+		if ds != 0 {
+			t.Errorf("ReadPPPResponse() dataStreams = %v, want 0", ds)
+		}
+	})
+}

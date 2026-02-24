@@ -126,6 +126,18 @@ trafficStats:
   listen: :9999
   secret: its_me_mario
 
+ppp:
+  enabled: true
+  pppdPath: "/usr/sbin/pppd"
+  pppdArgs:
+    - debug
+  sudo: true
+  ipv4Pool: "10.0.0.0/24"
+  dns:
+    - 8.8.8.8
+    - 8.8.4.4
+  mtu: 1420
+
 masquerade:
   type: proxy
   file:

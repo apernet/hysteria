@@ -72,6 +72,41 @@ type serverConfig struct {
 	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
 	TrafficStats          serverConfigTrafficStats    `mapstructure:"trafficStats"`
 	Masquerade            serverConfigMasquerade      `mapstructure:"masquerade"`
+	PPP                   pppServerConfig             `mapstructure:"ppp"`
+}
+
+type pppServerConfig struct {
+	Enabled  bool          `mapstructure:"enabled"`
+	Mode     string        `mapstructure:"mode"` // "local" (default) or "l2tp"
+	PPPDPath string        `mapstructure:"pppdPath"`
+	PPPDArgs []string      `mapstructure:"pppdArgs"`
+	Sudo     bool          `mapstructure:"sudo"`
+	IPv4Pool string        `mapstructure:"ipv4Pool"`
+	DNS      []string      `mapstructure:"dns"`
+	MTU      uint32        `mapstructure:"mtu"`
+	L2TP     pppL2TPConfig `mapstructure:"l2tp"`
+}
+
+type pppL2TPConfig struct {
+	Hostname      string                        `mapstructure:"hostname"`
+	HelloInterval int                           `mapstructure:"helloInterval"`
+	Groups        map[string]pppL2TPGroupConfig `mapstructure:"groups"`
+	Realms        []pppRealmConfig              `mapstructure:"realms"`
+}
+
+type pppL2TPGroupConfig struct {
+	LNS []pppLNSConfig `mapstructure:"lns"`
+}
+
+type pppLNSConfig struct {
+	Address string `mapstructure:"address"`
+	Secret  string `mapstructure:"secret"`
+	Weight  int    `mapstructure:"weight"`
+}
+
+type pppRealmConfig struct {
+	Pattern string `mapstructure:"pattern"`
+	Group   string `mapstructure:"group"`
 }
 
 type serverConfigObfsSalamander struct {
@@ -922,6 +957,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 		c.fillEventLogger,
 		c.fillTrafficLogger,
 		c.fillMasqHandler,
+		c.fillPPPConfig,
 	}
 	for _, f := range fillers {
 		if err := f(hyConfig); err != nil {

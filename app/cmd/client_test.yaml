@@ -72,6 +72,14 @@ udpTProxy:
 tcpRedirect:
   listen: 127.0.0.1:3500
 
+ppp:
+  mtu: 1400
+  pppdPath: "/usr/sbin/pppd"
+  pppdArgs:
+    - defaultroute
+    - "+ipv6"
+  dataStreams: 20  # 0 or omit for datagram mode, >0 for multi-stream mode
+
 tun:
   name: "hytun"
   mtu: 1500
