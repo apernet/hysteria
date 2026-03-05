@@ -39,6 +39,7 @@ func convertToStdTLSConfig(config *Config) *tls.Config {
 		GetCertificate: config.TLSConfig.GetCertificate,
 		ClientCAs:      config.TLSConfig.ClientCAs,
 		ClientAuth:     clientAuth,
+		EncryptedClientHelloKeys: config.TLSConfig.EncryptedClientHelloKeys,
 	})
 }
 

@@ -59,6 +59,7 @@ type serverConfig struct {
 	Obfs                  serverConfigObfs            `mapstructure:"obfs"`
 	TLS                   *serverConfigTLS            `mapstructure:"tls"`
 	ACME                  *serverConfigACME           `mapstructure:"acme"`
+	ECH                   serverConfigECH             `mapstructure:"ech"`
 	QUIC                  serverConfigQUIC            `mapstructure:"quic"`
 	Bandwidth             serverConfigBandwidth       `mapstructure:"bandwidth"`
 	IgnoreClientBandwidth bool                        `mapstructure:"ignoreClientBandwidth"`
@@ -88,6 +89,10 @@ type serverConfigTLS struct {
 	Key      string `mapstructure:"key"`
 	SNIGuard string `mapstructure:"sniGuard"` // "disable", "dns-san", "strict"
 	ClientCA string `mapstructure:"clientCA"`
+}
+
+type serverConfigECH struct {
+	KeyFile string `mapstructure:"keyFile"`
 }
 
 type serverConfigACME struct {
@@ -474,6 +479,17 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 			return configError{Field: "acme.domains", Err: err}
 		}
 		hyConfig.TLSConfig.GetCertificate = cmCfg.GetCertificate
+	}
+	return nil
+}
+
+func (c *serverConfig) fillECHConfig(hyConfig *server.Config) error {
+	if c.ECH.KeyFile != "" {
+		echKeys, err := utils.ParseECHKeyFile(c.ECH.KeyFile)
+		if err != nil {
+			return configError{Field: "ech.keyFile", Err: err}
+		}
+		hyConfig.TLSConfig.EncryptedClientHelloKeys = echKeys
 	}
 	return nil
 }
@@ -911,6 +927,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 	fillers := []func(*server.Config) error{
 		c.fillConn,
 		c.fillTLSConfig,
+		c.fillECHConfig,
 		c.fillQUICConfig,
 		c.fillRequestHook,
 		c.fillOutboundConfig,

@@ -103,6 +103,11 @@ type clientConfigTLS struct {
 	CA                string `mapstructure:"ca"`
 	ClientCertificate string `mapstructure:"clientCertificate"`
 	ClientKey         string `mapstructure:"clientKey"`
+	ECH               clientConfigECH `mapstructure:"ech"`
+}
+
+type clientConfigECH struct {
+	ConfigFile string `mapstructure:"configFile"`
 }
 
 type clientConfigQUIC struct {
@@ -320,6 +325,14 @@ func (c *clientConfig) fillTLSConfig(hyConfig *client.Config) error {
 			// For simplicity, always respond with the configured client certs, regardless of server requests.
 			return certLoader.GetCertificate(nil)
 		}
+	}
+	// ECH
+	if c.TLS.ECH.ConfigFile != "" {
+		echConfigList, err := utils.ParseECHConfigFile(c.TLS.ECH.ConfigFile)
+		if err != nil {
+			return configError{Field: "tls.ech.configFile", Err: err}
+		}
+		hyConfig.TLSConfig.EncryptedClientHelloConfigList = echConfigList
 	}
 	return nil
 }
