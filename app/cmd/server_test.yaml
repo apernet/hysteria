@@ -133,7 +133,7 @@ masquerade:
   proxy:
     url: https://some.site.net
     rewriteHost: true
-    enableXForwardedHeaders: true
+    xForwarded: true
     insecure: true
   string:
     content: aint nothin here

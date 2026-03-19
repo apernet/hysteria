@@ -238,10 +238,10 @@ type serverConfigMasqueradeFile struct {
 }
 
 type serverConfigMasqueradeProxy struct {
-	URL                     string `mapstructure:"url"`
-	RewriteHost             bool   `mapstructure:"rewriteHost"`
-	EnableXForwardedHeaders bool   `mapstructure:"enableXForwardedHeaders"`
-	Insecure                bool   `mapstructure:"insecure"`
+	URL         string `mapstructure:"url"`
+	RewriteHost bool   `mapstructure:"rewriteHost"`
+	XForwarded  bool   `mapstructure:"xForwarded"`
+	Insecure    bool   `mapstructure:"insecure"`
 }
 
 type serverConfigMasqueradeString struct {
@@ -853,7 +853,7 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 				if !c.Masquerade.Proxy.RewriteHost {
 					r.Out.Host = r.In.Host
 				}
-				if c.Masquerade.Proxy.EnableXForwardedHeaders {
+				if c.Masquerade.Proxy.XForwarded {
 					r.SetXForwarded()
 				}
 			},
