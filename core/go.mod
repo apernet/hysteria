@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.25.1
 
 require (
-	github.com/apernet/quic-go v0.59.1-0.20260217092621-db4786c77a22
+	github.com/apernet/quic-go v0.59.1-0.20260328005802-789359b3e584
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/goleak v1.2.1
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
