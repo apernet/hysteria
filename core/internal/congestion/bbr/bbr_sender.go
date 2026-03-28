@@ -28,16 +28,13 @@ const (
 
 	invalidPacketNumber            = -1
 	initialCongestionWindowPackets = 32
+	minCongestionWindowPackets     = 4
 
 	// Constants based on TCP defaults.
 	// The minimum CWND to ensure delayed acks don't reduce bandwidth measurements.
 	// Does not inflate the pacing rate.
-	defaultMinimumCongestionWindow = 4 * congestion.ByteCount(congestion.InitialPacketSize)
-
 	// The gain used for the STARTUP, equal to 2/ln(2).
 	defaultHighGain = 2.885
-	// The newly derived gain for STARTUP, equal to 4 * ln(2)
-	derivedHighGain = 2.773
 	// The newly derived CWND gain for STARTUP, 2.
 	derivedHighCWNDGain = 2.0
 
@@ -66,7 +63,6 @@ const (
 	// Flag.
 	defaultStartupFullLossCount  = 8
 	quicBbr2DefaultLossThreshold = 0.02
-	maxBbrBurstPackets           = 10
 )
 
 type bbrMode int
@@ -277,7 +273,7 @@ func newBbrSender(
 		congestionWindow:             initialCongestionWindow,
 		initialCongestionWindow:      initialCongestionWindow,
 		maxCongestionWindow:          initialMaxCongestionWindow,
-		minCongestionWindow:          defaultMinimumCongestionWindow,
+		minCongestionWindow:          minCongestionWindowForMaxDatagramSize(initialMaxDatagramSize),
 		highGain:                     defaultHighGain,
 		highCwndGain:                 defaultHighGain,
 		drainGain:                    1.0 / defaultHighGain,
@@ -296,17 +292,35 @@ func newBbrSender(
 	}
 	b.pacer = common.NewPacer(b.bandwidthForPacer)
 
-	/*
-		if b.tracer != nil {
-			b.lastState = logging.CongestionStateStartup
-			b.tracer.UpdatedCongestionState(logging.CongestionStateStartup)
-		}
-	*/
-
 	b.enterStartupMode(b.clock.Now())
 	b.setHighCwndGain(derivedHighCWNDGain)
 
 	return b
+}
+
+func minCongestionWindowForMaxDatagramSize(maxDatagramSize congestion.ByteCount) congestion.ByteCount {
+	return minCongestionWindowPackets * maxDatagramSize
+}
+
+func scaleByteWindowForDatagramSize(window, oldMaxDatagramSize, newMaxDatagramSize congestion.ByteCount) congestion.ByteCount {
+	if oldMaxDatagramSize == newMaxDatagramSize {
+		return window
+	}
+	return congestion.ByteCount(uint64(window) * uint64(newMaxDatagramSize) / uint64(oldMaxDatagramSize))
+}
+
+func (b *bbrSender) rescalePacketSizedWindows(maxDatagramSize congestion.ByteCount) {
+	oldMaxDatagramSize := b.maxDatagramSize
+	b.maxDatagramSize = maxDatagramSize
+	b.initialCongestionWindow = scaleByteWindowForDatagramSize(b.initialCongestionWindow, oldMaxDatagramSize, maxDatagramSize)
+	b.maxCongestionWindow = scaleByteWindowForDatagramSize(b.maxCongestionWindow, oldMaxDatagramSize, maxDatagramSize)
+	b.minCongestionWindow = minCongestionWindowForMaxDatagramSize(maxDatagramSize)
+	b.cwndToCalculateMinPacingRate = scaleByteWindowForDatagramSize(b.cwndToCalculateMinPacingRate, oldMaxDatagramSize, maxDatagramSize)
+	b.maxCongestionWindowWithNetworkParametersAdjusted = scaleByteWindowForDatagramSize(
+		b.maxCongestionWindowWithNetworkParametersAdjusted,
+		oldMaxDatagramSize,
+		maxDatagramSize,
+	)
 }
 
 func (b *bbrSender) SetRTTStatsProvider(provider congestion.RTTStatsProvider) {
@@ -370,14 +384,22 @@ func (b *bbrSender) OnRetransmissionTimeout(packetsRetransmitted bool) {
 
 // SetMaxDatagramSize implements the SendAlgorithm interface.
 func (b *bbrSender) SetMaxDatagramSize(s congestion.ByteCount) {
+	b.debugPrint("Max Datagram Size: %d", s)
 	if s < b.maxDatagramSize {
 		panic(fmt.Sprintf("congestion BUG: decreased max datagram size from %d to %d", b.maxDatagramSize, s))
 	}
-	cwndIsMinCwnd := b.congestionWindow == b.minCongestionWindow
-	b.maxDatagramSize = s
-	if cwndIsMinCwnd {
+	oldMinCongestionWindow := b.minCongestionWindow
+	oldInitialCongestionWindow := b.initialCongestionWindow
+	b.rescalePacketSizedWindows(s)
+	switch b.congestionWindow {
+	case oldMinCongestionWindow:
 		b.congestionWindow = b.minCongestionWindow
+	case oldInitialCongestionWindow:
+		b.congestionWindow = b.initialCongestionWindow
+	default:
+		b.congestionWindow = min(b.maxCongestionWindow, max(b.congestionWindow, b.minCongestionWindow))
 	}
+	b.recoveryWindow = min(b.maxCongestionWindow, max(b.recoveryWindow, b.minCongestionWindow))
 	b.pacer.SetMaxDatagramSize(s)
 }
 
@@ -519,33 +541,12 @@ func (b *bbrSender) PacingRate() Bandwidth {
 	return b.pacingRate
 }
 
-func (b *bbrSender) hasGoodBandwidthEstimateForResumption() bool {
-	return b.hasNonAppLimitedSample()
-}
-
-func (b *bbrSender) hasNonAppLimitedSample() bool {
-	return b.hasNoAppLimitedSample
-}
-
-// Sets the pacing gain used in STARTUP.  Must be greater than 1.
-func (b *bbrSender) setHighGain(highGain float64) {
-	b.highGain = highGain
-	if b.mode == bbrModeStartup {
-		b.pacingGain = highGain
-	}
-}
-
 // Sets the CWND gain used in STARTUP.  Must be greater than 1.
 func (b *bbrSender) setHighCwndGain(highCwndGain float64) {
 	b.highCwndGain = highCwndGain
 	if b.mode == bbrModeStartup {
 		b.congestionWindowGain = highCwndGain
 	}
-}
-
-// Sets the gain used in DRAIN.  Must be less than 1.
-func (b *bbrSender) setDrainGain(drainGain float64) {
-	b.drainGain = drainGain
 }
 
 // Get the current bandwidth estimate. Note that Bandwidth is in bits per second.
