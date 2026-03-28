@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apernet/quic-go/congestion"
@@ -93,6 +94,76 @@ const (
 	bbrRecoveryStateGrowth
 )
 
+type Profile string
+
+const (
+	ProfileConservative Profile = "conservative"
+	ProfileStandard     Profile = "standard"
+	ProfileAggressive   Profile = "aggressive"
+)
+
+type profileConfig struct {
+	highGain                            float64
+	highCwndGain                        float64
+	congestionWindowGainConstant        float64
+	numStartupRtts                      int64
+	drainToTarget                       bool
+	detectOvershooting                  bool
+	bytesLostMultiplier                 uint8
+	enableAckAggregationStartup         bool
+	expireAckAggregationStartup         bool
+	enableOverestimateAvoidance         bool
+	reduceExtraAckedOnBandwidthIncrease bool
+}
+
+func ParseProfile(profile string) (Profile, error) {
+	switch normalized := strings.ToLower(profile); normalized {
+	case "", string(ProfileStandard):
+		return ProfileStandard, nil
+	case string(ProfileConservative):
+		return ProfileConservative, nil
+	case string(ProfileAggressive):
+		return ProfileAggressive, nil
+	default:
+		return "", fmt.Errorf("unsupported BBR profile %q", profile)
+	}
+}
+
+func configForProfile(profile Profile) profileConfig {
+	switch profile {
+	case ProfileConservative:
+		return profileConfig{
+			highGain:                            2.25,
+			highCwndGain:                        1.75,
+			congestionWindowGainConstant:        1.75,
+			numStartupRtts:                      2,
+			drainToTarget:                       true,
+			detectOvershooting:                  true,
+			bytesLostMultiplier:                 1,
+			enableOverestimateAvoidance:         true,
+			reduceExtraAckedOnBandwidthIncrease: true,
+		}
+	case ProfileAggressive:
+		return profileConfig{
+			highGain:                     3.0,
+			highCwndGain:                 2.25,
+			congestionWindowGainConstant: 2.5,
+			numStartupRtts:               4,
+			bytesLostMultiplier:          2,
+			enableAckAggregationStartup:  true,
+			expireAckAggregationStartup:  true,
+		}
+	default:
+		return profileConfig{
+			highGain:                     defaultHighGain,
+			highCwndGain:                 derivedHighCWNDGain,
+			congestionWindowGainConstant: 2.0,
+			numStartupRtts:               roundTripsWithoutGrowthBeforeExitingStartup,
+			bytesLostMultiplier:          2,
+		}
+	}
+}
+
 type bbrSender struct {
 	rttStats congestion.RTTStatsProvider
 	clock    Clock
@@ -140,6 +211,9 @@ type bbrSender struct {
 
 	// The smallest value the |congestion_window_| can achieve.
 	minCongestionWindow congestion.ByteCount
+
+	// The BBR profile used by the sender.
+	profile Profile
 
 	// The pacing gain applied during the STARTUP phase.
 	highGain float64
@@ -247,12 +321,14 @@ var _ congestion.CongestionControl = &bbrSender{}
 func NewBbrSender(
 	clock Clock,
 	initialMaxDatagramSize congestion.ByteCount,
+	profile Profile,
 ) *bbrSender {
 	return newBbrSender(
 		clock,
 		initialMaxDatagramSize,
 		initialCongestionWindowPackets*initialMaxDatagramSize,
 		congestion.MaxCongestionWindowPackets*initialMaxDatagramSize,
+		profile,
 	)
 }
 
@@ -261,6 +337,7 @@ func newBbrSender(
 	initialMaxDatagramSize,
 	initialCongestionWindow,
 	initialMaxCongestionWindow congestion.ByteCount,
+	profile Profile,
 ) *bbrSender {
 	debug, _ := strconv.ParseBool(os.Getenv(debugEnv))
 	b := &bbrSender{
@@ -274,8 +351,9 @@ func newBbrSender(
 		initialCongestionWindow:      initialCongestionWindow,
 		maxCongestionWindow:          initialMaxCongestionWindow,
 		minCongestionWindow:          minCongestionWindowForMaxDatagramSize(initialMaxDatagramSize),
+		profile:                      ProfileStandard,
 		highGain:                     defaultHighGain,
-		highCwndGain:                 defaultHighGain,
+		highCwndGain:                 derivedHighCWNDGain,
 		drainGain:                    1.0 / defaultHighGain,
 		pacingGain:                   1.0,
 		congestionWindowGain:         1.0,
@@ -291,11 +369,36 @@ func newBbrSender(
 		debug:           debug,
 	}
 	b.pacer = common.NewPacer(b.bandwidthForPacer)
+	b.applyProfile(profile)
+	if b.debug {
+		b.debugPrint("Profile: %s", b.profile)
+	}
 
 	b.enterStartupMode(b.clock.Now())
-	b.setHighCwndGain(derivedHighCWNDGain)
 
 	return b
+}
+
+func (b *bbrSender) applyProfile(profile Profile) {
+	if profile == "" {
+		profile = ProfileStandard
+	}
+	cfg := configForProfile(profile)
+	b.profile = profile
+	b.highGain = cfg.highGain
+	b.highCwndGain = cfg.highCwndGain
+	b.drainGain = 1.0 / cfg.highGain
+	b.congestionWindowGainConstant = cfg.congestionWindowGainConstant
+	b.numStartupRtts = cfg.numStartupRtts
+	b.drainToTarget = cfg.drainToTarget
+	b.detectOvershooting = cfg.detectOvershooting
+	b.bytesLostMultiplierWhileDetectingOvershooting = cfg.bytesLostMultiplier
+	b.enableAckAggregationDuringStartup = cfg.enableAckAggregationStartup
+	b.expireAckAggregationInStartup = cfg.expireAckAggregationStartup
+	if cfg.enableOverestimateAvoidance {
+		b.sampler.EnableOverestimateAvoidance()
+	}
+	b.sampler.SetReduceExtraAckedOnBandwidthIncrease(cfg.reduceExtraAckedOnBandwidthIncrease)
 }
 
 func minCongestionWindowForMaxDatagramSize(maxDatagramSize congestion.ByteCount) congestion.ByteCount {

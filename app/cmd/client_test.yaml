@@ -33,6 +33,10 @@ quic:
     fwmark: 1234
     fdControlUnixSocket: test.sock
 
+congestion:
+  type: bbr
+  bbrProfile: aggressive
+
 bandwidth:
   up: 200 mbps
   down: 1 gbps

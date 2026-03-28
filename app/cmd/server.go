@@ -60,6 +60,7 @@ type serverConfig struct {
 	TLS                   *serverConfigTLS            `mapstructure:"tls"`
 	ACME                  *serverConfigACME           `mapstructure:"acme"`
 	QUIC                  serverConfigQUIC            `mapstructure:"quic"`
+	Congestion            serverConfigCongestion      `mapstructure:"congestion"`
 	Bandwidth             serverConfigBandwidth       `mapstructure:"bandwidth"`
 	IgnoreClientBandwidth bool                        `mapstructure:"ignoreClientBandwidth"`
 	SpeedTest             bool                        `mapstructure:"speedTest"`
@@ -138,6 +139,11 @@ type serverConfigQUIC struct {
 type serverConfigBandwidth struct {
 	Up   string `mapstructure:"up"`
 	Down string `mapstructure:"down"`
+}
+
+type serverConfigCongestion struct {
+	Type       string `mapstructure:"type"`
+	BBRProfile string `mapstructure:"bbrProfile"`
 }
 
 type serverConfigAuthHTTP struct {
@@ -740,6 +746,22 @@ func (c *serverConfig) fillBandwidthConfig(hyConfig *server.Config) error {
 	return nil
 }
 
+func (c *serverConfig) fillCongestionConfig(hyConfig *server.Config) error {
+	normalizedType, err := normalizeCongestionType(c.Congestion.Type)
+	if err != nil {
+		return configError{Field: "congestion.type", Err: err}
+	}
+	hyConfig.CongestionConfig.Type = normalizedType
+	if normalizedType == congestionTypeBBR {
+		normalizedProfile, err := normalizeBBRProfile(c.Congestion.BBRProfile)
+		if err != nil {
+			return configError{Field: "congestion.bbrProfile", Err: err}
+		}
+		hyConfig.CongestionConfig.BBRProfile = normalizedProfile
+	}
+	return nil
+}
+
 func (c *serverConfig) fillIgnoreClientBandwidth(hyConfig *server.Config) error {
 	hyConfig.IgnoreClientBandwidth = c.IgnoreClientBandwidth
 	return nil
@@ -918,6 +940,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 		c.fillQUICConfig,
 		c.fillRequestHook,
 		c.fillOutboundConfig,
+		c.fillCongestionConfig,
 		c.fillBandwidthConfig,
 		c.fillIgnoreClientBandwidth,
 		c.fillDisableUDP,

@@ -43,6 +43,10 @@ quic:
   maxIncomingStreams: 256
   disablePathMTUDiscovery: true
 
+congestion:
+  type: reno
+  bbrProfile: aggressive
+
 bandwidth:
   up: 500 mbps
   down: 100 mbps

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/apernet/hysteria/core/v2/client"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/spf13/viper"
@@ -53,6 +54,10 @@ func TestClientConfig(t *testing.T) {
 				FirewallMark:        uint32Ref(1234),
 				FdControlUnixSocket: stringRef("test.sock"),
 			},
+		},
+		Congestion: clientConfigCongestion{
+			Type:       "bbr",
+			BBRProfile: "aggressive",
 		},
 		Bandwidth: clientConfigBandwidth{
 			Up:   "200 mbps",
@@ -195,6 +200,46 @@ func TestClientConfigURI(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClientFillCongestionConfig(t *testing.T) {
+	t.Run("defaults to bbr standard", func(t *testing.T) {
+		hyConfig := &client.Config{}
+		err := (&clientConfig{}).fillCongestionConfig(hyConfig)
+		assert.NoError(t, err)
+		assert.Equal(t, "bbr", hyConfig.CongestionConfig.Type)
+		assert.Equal(t, "standard", hyConfig.CongestionConfig.BBRProfile)
+	})
+
+	t.Run("reno ignores bbr profile", func(t *testing.T) {
+		hyConfig := &client.Config{}
+		err := (&clientConfig{
+			Congestion: clientConfigCongestion{
+				Type:       "reno",
+				BBRProfile: "definitely-invalid",
+			},
+		}).fillCongestionConfig(hyConfig)
+		assert.NoError(t, err)
+		assert.Equal(t, "reno", hyConfig.CongestionConfig.Type)
+		assert.Empty(t, hyConfig.CongestionConfig.BBRProfile)
+	})
+
+	t.Run("rejects invalid type", func(t *testing.T) {
+		err := (&clientConfig{
+			Congestion: clientConfigCongestion{Type: "cubic"},
+		}).fillCongestionConfig(&client.Config{})
+		assert.EqualError(t, err, `invalid config: congestion.type: unsupported congestion type "cubic"`)
+	})
+
+	t.Run("rejects invalid bbr profile", func(t *testing.T) {
+		err := (&clientConfig{
+			Congestion: clientConfigCongestion{
+				Type:       "bbr",
+				BBRProfile: "turbo",
+			},
+		}).fillCongestionConfig(&client.Config{})
+		assert.EqualError(t, err, `invalid config: congestion.bbrProfile: unsupported BBR profile "turbo"`)
+	})
 }
 
 func stringRef(s string) *string {
