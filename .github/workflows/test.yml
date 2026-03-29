@@ -32,7 +32,7 @@ jobs:
 
       - name: Test core
         working-directory: core
-        run: go test -v -count=1 -run '^(?:(?!Stress).)*$' ./...
+        run: go test -v -count=1 -skip 'Stress' ./...
 
       - name: Test extras
         working-directory: extras
