@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/apernet/hysteria/core/v2/errors"
+	"github.com/apernet/hysteria/core/v2/internal/congestion"
 	"github.com/apernet/hysteria/core/v2/internal/pmtud"
 	"github.com/apernet/hysteria/core/v2/internal/utils"
 	"github.com/apernet/quic-go"
@@ -28,6 +29,7 @@ type Config struct {
 	Conn                  net.PacketConn
 	RequestHook           RequestHook
 	Outbound              Outbound
+	CongestionConfig      CongestionConfig
 	BandwidthConfig       BandwidthConfig
 	IgnoreClientBandwidth bool
 	DisableUDP            bool
@@ -75,6 +77,17 @@ func (c *Config) fill() error {
 		return errors.ConfigError{Field: "QUICConfig.MaxIncomingStreams", Reason: "must be at least 8"}
 	}
 	c.QUICConfig.DisablePathMTUDiscovery = c.QUICConfig.DisablePathMTUDiscovery || pmtud.DisablePathMTUDiscovery
+	var err error
+	c.CongestionConfig.Type, err = congestion.NormalizeType(c.CongestionConfig.Type)
+	if err != nil {
+		return errors.ConfigError{Field: "CongestionConfig.Type", Reason: err.Error()}
+	}
+	if c.CongestionConfig.Type == congestion.TypeBBR {
+		c.CongestionConfig.BBRProfile, err = congestion.NormalizeBBRProfile(c.CongestionConfig.BBRProfile)
+		if err != nil {
+			return errors.ConfigError{Field: "CongestionConfig.BBRProfile", Reason: err.Error()}
+		}
+	}
 	if c.Conn == nil {
 		return errors.ConfigError{Field: "Conn", Reason: "must be set"}
 	}
@@ -114,6 +127,11 @@ type QUICConfig struct {
 	MaxIdleTimeout                 time.Duration
 	MaxIncomingStreams             int64
 	DisablePathMTUDiscovery        bool // The server may still override this to true on unsupported platforms.
+}
+
+type CongestionConfig struct {
+	Type       string
+	BBRProfile string
 }
 
 // RequestHook allows filtering and modifying requests before the server connects to the remote.

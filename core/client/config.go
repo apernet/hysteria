@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/apernet/hysteria/core/v2/errors"
+	"github.com/apernet/hysteria/core/v2/internal/congestion"
 	"github.com/apernet/hysteria/core/v2/internal/pmtud"
 )
 
@@ -18,13 +19,14 @@ const (
 )
 
 type Config struct {
-	ConnFactory     ConnFactory
-	ServerAddr      net.Addr
-	Auth            string
-	TLSConfig       TLSConfig
-	QUICConfig      QUICConfig
-	BandwidthConfig BandwidthConfig
-	FastOpen        bool
+	ConnFactory      ConnFactory
+	ServerAddr       net.Addr
+	Auth             string
+	TLSConfig        TLSConfig
+	QUICConfig       QUICConfig
+	CongestionConfig CongestionConfig
+	BandwidthConfig  BandwidthConfig
+	FastOpen         bool
 
 	filled bool // whether the fields have been verified and filled
 }
@@ -72,6 +74,17 @@ func (c *Config) verifyAndFill() error {
 		return errors.ConfigError{Field: "QUICConfig.KeepAlivePeriod", Reason: "must be between 2s and 60s"}
 	}
 	c.QUICConfig.DisablePathMTUDiscovery = c.QUICConfig.DisablePathMTUDiscovery || pmtud.DisablePathMTUDiscovery
+	var err error
+	c.CongestionConfig.Type, err = congestion.NormalizeType(c.CongestionConfig.Type)
+	if err != nil {
+		return errors.ConfigError{Field: "CongestionConfig.Type", Reason: err.Error()}
+	}
+	if c.CongestionConfig.Type == congestion.TypeBBR {
+		c.CongestionConfig.BBRProfile, err = congestion.NormalizeBBRProfile(c.CongestionConfig.BBRProfile)
+		if err != nil {
+			return errors.ConfigError{Field: "CongestionConfig.BBRProfile", Reason: err.Error()}
+		}
+	}
 
 	c.filled = true
 	return nil
@@ -105,6 +118,11 @@ type QUICConfig struct {
 	MaxIdleTimeout                 time.Duration
 	KeepAlivePeriod                time.Duration
 	DisablePathMTUDiscovery        bool // The server may still override this to true on unsupported platforms.
+}
+
+type CongestionConfig struct {
+	Type       string
+	BBRProfile string
 }
 
 // BandwidthConfig describes the maximum bandwidth that the server can use, in bytes per second.

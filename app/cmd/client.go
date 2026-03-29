@@ -59,23 +59,24 @@ func initClientFlags() {
 }
 
 type clientConfig struct {
-	Server        string                `mapstructure:"server"`
-	Auth          string                `mapstructure:"auth"`
-	Transport     clientConfigTransport `mapstructure:"transport"`
-	Obfs          clientConfigObfs      `mapstructure:"obfs"`
-	TLS           clientConfigTLS       `mapstructure:"tls"`
-	QUIC          clientConfigQUIC      `mapstructure:"quic"`
-	Bandwidth     clientConfigBandwidth `mapstructure:"bandwidth"`
-	FastOpen      bool                  `mapstructure:"fastOpen"`
-	Lazy          bool                  `mapstructure:"lazy"`
-	SOCKS5        *socks5Config         `mapstructure:"socks5"`
-	HTTP          *httpConfig           `mapstructure:"http"`
-	TCPForwarding []tcpForwardingEntry  `mapstructure:"tcpForwarding"`
-	UDPForwarding []udpForwardingEntry  `mapstructure:"udpForwarding"`
-	TCPTProxy     *tcpTProxyConfig      `mapstructure:"tcpTProxy"`
-	UDPTProxy     *udpTProxyConfig      `mapstructure:"udpTProxy"`
-	TCPRedirect   *tcpRedirectConfig    `mapstructure:"tcpRedirect"`
-	TUN           *tunConfig            `mapstructure:"tun"`
+	Server        string                 `mapstructure:"server"`
+	Auth          string                 `mapstructure:"auth"`
+	Transport     clientConfigTransport  `mapstructure:"transport"`
+	Obfs          clientConfigObfs       `mapstructure:"obfs"`
+	TLS           clientConfigTLS        `mapstructure:"tls"`
+	QUIC          clientConfigQUIC       `mapstructure:"quic"`
+	Congestion    clientConfigCongestion `mapstructure:"congestion"`
+	Bandwidth     clientConfigBandwidth  `mapstructure:"bandwidth"`
+	FastOpen      bool                   `mapstructure:"fastOpen"`
+	Lazy          bool                   `mapstructure:"lazy"`
+	SOCKS5        *socks5Config          `mapstructure:"socks5"`
+	HTTP          *httpConfig            `mapstructure:"http"`
+	TCPForwarding []tcpForwardingEntry   `mapstructure:"tcpForwarding"`
+	UDPForwarding []udpForwardingEntry   `mapstructure:"udpForwarding"`
+	TCPTProxy     *tcpTProxyConfig       `mapstructure:"tcpTProxy"`
+	UDPTProxy     *udpTProxyConfig       `mapstructure:"udpTProxy"`
+	TCPRedirect   *tcpRedirectConfig     `mapstructure:"tcpRedirect"`
+	TUN           *tunConfig             `mapstructure:"tun"`
 }
 
 type clientConfigTransportUDP struct {
@@ -125,6 +126,11 @@ type clientConfigQUICSockopts struct {
 type clientConfigBandwidth struct {
 	Up   string `mapstructure:"up"`
 	Down string `mapstructure:"down"`
+}
+
+type clientConfigCongestion struct {
+	Type       string `mapstructure:"type"`
+	BBRProfile string `mapstructure:"bbrProfile"`
 }
 
 type socks5Config struct {
@@ -355,6 +361,22 @@ func (c *clientConfig) fillBandwidthConfig(hyConfig *client.Config) error {
 	return nil
 }
 
+func (c *clientConfig) fillCongestionConfig(hyConfig *client.Config) error {
+	normalizedType, err := normalizeCongestionType(c.Congestion.Type)
+	if err != nil {
+		return configError{Field: "congestion.type", Err: err}
+	}
+	hyConfig.CongestionConfig.Type = normalizedType
+	if normalizedType == congestionTypeBBR {
+		normalizedProfile, err := normalizeBBRProfile(c.Congestion.BBRProfile)
+		if err != nil {
+			return configError{Field: "congestion.bbrProfile", Err: err}
+		}
+		hyConfig.CongestionConfig.BBRProfile = normalizedProfile
+	}
+	return nil
+}
+
 func (c *clientConfig) fillFastOpen(hyConfig *client.Config) error {
 	hyConfig.FastOpen = c.FastOpen
 	return nil
@@ -457,6 +479,7 @@ func (c *clientConfig) Config() (*client.Config, error) {
 		c.fillAuth,
 		c.fillTLSConfig,
 		c.fillQUICConfig,
+		c.fillCongestionConfig,
 		c.fillBandwidthConfig,
 		c.fillFastOpen,
 	}
