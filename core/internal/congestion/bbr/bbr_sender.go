@@ -487,7 +487,9 @@ func (b *bbrSender) OnRetransmissionTimeout(packetsRetransmitted bool) {
 
 // SetMaxDatagramSize implements the SendAlgorithm interface.
 func (b *bbrSender) SetMaxDatagramSize(s congestion.ByteCount) {
-	b.debugPrint("Max Datagram Size: %d", s)
+	if b.debug {
+		b.debugPrint("Max Datagram Size: %d", s)
+	}
 	if s < b.maxDatagramSize {
 		panic(fmt.Sprintf("congestion BUG: decreased max datagram size from %d to %d", b.maxDatagramSize, s))
 	}
