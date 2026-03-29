@@ -52,7 +52,7 @@ jobs:
           echo "files=$files" >> $GITHUB_OUTPUT
 
       - name: Upload build directory
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-temp-${{ github.sha }}
           path: build/
@@ -67,12 +67,12 @@ jobs:
         file: ${{ fromJson(needs.build.outputs.files) }}
     steps:
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: build-temp-${{ github.sha }}
 
       - name: Upload ${{ matrix.file }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.file }}
           path: ${{ matrix.file }}
