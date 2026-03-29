@@ -80,7 +80,9 @@ type clientConfig struct {
 }
 
 type clientConfigTransportUDP struct {
-	HopInterval time.Duration `mapstructure:"hopInterval"`
+	HopInterval    time.Duration `mapstructure:"hopInterval"`
+	MinHopInterval time.Duration `mapstructure:"minHopInterval"`
+	MaxHopInterval time.Duration `mapstructure:"maxHopInterval"`
 }
 
 type clientConfigTransport struct {
@@ -232,12 +234,16 @@ func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
 	}
 	// Inner PacketConn
 	var newFunc func(addr net.Addr) (net.PacketConn, error)
+	hopInterval, err := c.Transport.UDP.hopIntervalConfig()
+	if err != nil {
+		return configError{Field: "transport.udp", Err: err}
+	}
 	switch strings.ToLower(c.Transport.Type) {
 	case "", "udp":
 		if hyConfig.ServerAddr.Network() == "udphop" {
 			hopAddr := hyConfig.ServerAddr.(*udphop.UDPHopAddr)
 			newFunc = func(addr net.Addr) (net.PacketConn, error) {
-				return udphop.NewUDPHopPacketConn(hopAddr, c.Transport.UDP.HopInterval, so.ListenUDP)
+				return udphop.NewUDPHopPacketConn(hopAddr, hopInterval, so.ListenUDP)
 			}
 		} else {
 			newFunc = func(addr net.Addr) (net.PacketConn, error) {
@@ -249,7 +255,6 @@ func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
 	}
 	// Obfuscation
 	var ob obfs.Obfuscator
-	var err error
 	switch strings.ToLower(c.Obfs.Type) {
 	case "", "plain":
 		// Keep it nil
@@ -266,6 +271,25 @@ func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
 		Obfuscator: ob,
 	}
 	return nil
+}
+
+func (c clientConfigTransportUDP) hopIntervalConfig() (udphop.HopIntervalConfig, error) {
+	if c.HopInterval != 0 && (c.MinHopInterval != 0 || c.MaxHopInterval != 0) {
+		return udphop.HopIntervalConfig{}, errors.New("hopInterval cannot be used together with minHopInterval or maxHopInterval")
+	}
+	if c.MinHopInterval == 0 && c.MaxHopInterval == 0 {
+		if c.HopInterval == 0 {
+			return udphop.HopIntervalConfig{}, nil
+		}
+		return udphop.HopIntervalConfig{Min: c.HopInterval, Max: c.HopInterval}, nil
+	}
+	if c.MinHopInterval == 0 || c.MaxHopInterval == 0 {
+		return udphop.HopIntervalConfig{}, errors.New("minHopInterval and maxHopInterval must both be set")
+	}
+	return udphop.HopIntervalConfig{
+		Min: c.MinHopInterval,
+		Max: c.MaxHopInterval,
+	}, nil
 }
 
 func (c *clientConfig) fillAuth(hyConfig *client.Config) error {

@@ -134,9 +134,48 @@ func TestHopReappliesStoredDeadlines(t *testing.T) {
 	require.NoError(t, u.SetReadDeadline(readDeadline))
 	require.NoError(t, u.SetWriteDeadline(writeDeadline))
 
-	u.hop()
+	u.hop(time.Second)
 
 	require.Empty(t, secondConn.setDeadlineCalls)
 	require.Equal(t, []time.Time{readDeadline}, secondConn.setReadDeadlineCalls)
 	require.Equal(t, []time.Time{writeDeadline}, secondConn.setWriteDeadlineCalls)
+}
+
+func TestHopIntervalConfigNormalized(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		cfg, err := (HopIntervalConfig{}).normalized()
+		require.NoError(t, err)
+		require.Equal(t, defaultHopInterval, cfg.Min)
+		require.Equal(t, defaultHopInterval, cfg.Max)
+	})
+
+	t.Run("rejects partial range", func(t *testing.T) {
+		_, err := (HopIntervalConfig{Min: 10 * time.Second}).normalized()
+		require.EqualError(t, err, "min and max hop interval must both be set")
+	})
+
+	t.Run("rejects reversed range", func(t *testing.T) {
+		_, err := (HopIntervalConfig{Min: 30 * time.Second, Max: 10 * time.Second}).normalized()
+		require.EqualError(t, err, "min hop interval must not be greater than max hop interval")
+	})
+
+	t.Run("rejects too short interval", func(t *testing.T) {
+		_, err := (HopIntervalConfig{Min: 4 * time.Second, Max: 6 * time.Second}).normalized()
+		require.EqualError(t, err, "hop interval must be at least 5 seconds")
+	})
+}
+
+func TestNextHopIntervalWithinRange(t *testing.T) {
+	u := &udpHopPacketConn{
+		HopInterval: HopIntervalConfig{
+			Min: 10 * time.Second,
+			Max: 30 * time.Second,
+		},
+	}
+
+	for i := 0; i < 1000; i++ {
+		d := u.nextHopInterval()
+		require.GreaterOrEqual(t, d, 10*time.Second)
+		require.LessOrEqual(t, d, 30*time.Second)
+	}
 }
