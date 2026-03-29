@@ -2,8 +2,11 @@ package udphop
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"net"
+	"os"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -14,12 +17,19 @@ const (
 	udpBufferSize   = 2048 // QUIC packets are at most 1500 bytes long, so 2k should be more than enough
 
 	defaultHopInterval = 30 * time.Second
+
+	debugEnv = "HYSTERIA_UDPHOP_DEBUG"
 )
+
+type HopIntervalConfig struct {
+	Min time.Duration
+	Max time.Duration
+}
 
 type udpHopPacketConn struct {
 	Addr          net.Addr
 	Addrs         []net.Addr
-	HopInterval   time.Duration
+	HopInterval   HopIntervalConfig
 	ListenUDPFunc ListenUDPFunc
 
 	connMutex   sync.RWMutex
@@ -38,6 +48,7 @@ type udpHopPacketConn struct {
 	closed    bool
 
 	bufPool sync.Pool
+	debug   bool
 }
 
 type udpPacket struct {
@@ -49,11 +60,10 @@ type udpPacket struct {
 
 type ListenUDPFunc = func() (net.PacketConn, error)
 
-func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration, listenUDPFunc ListenUDPFunc) (net.PacketConn, error) {
-	if hopInterval == 0 {
-		hopInterval = defaultHopInterval
-	} else if hopInterval < 5*time.Second {
-		return nil, errors.New("hop interval must be at least 5 seconds")
+func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval HopIntervalConfig, listenUDPFunc ListenUDPFunc) (net.PacketConn, error) {
+	hopInterval, err := hopInterval.normalized()
+	if err != nil {
+		return nil, err
 	}
 	if listenUDPFunc == nil {
 		listenUDPFunc = func() (net.PacketConn, error) {
@@ -68,6 +78,7 @@ func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration, listenUDPF
 	if err != nil {
 		return nil, err
 	}
+	debug, _ := strconv.ParseBool(os.Getenv(debugEnv))
 	hConn := &udpHopPacketConn{
 		Addr:          addr,
 		Addrs:         addrs,
@@ -83,10 +94,30 @@ func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval time.Duration, listenUDPF
 				return make([]byte, udpBufferSize)
 			},
 		},
+		debug: debug,
+	}
+	if hConn.debug {
+		hConn.debugPrint("Initialized: local=%s target=%s interval=%s", curConn.LocalAddr(), addr, hopInterval)
 	}
 	go hConn.recvLoop(curConn)
 	go hConn.hopLoop()
 	return hConn, nil
+}
+
+func (c HopIntervalConfig) normalized() (HopIntervalConfig, error) {
+	if c.Min == 0 && c.Max == 0 {
+		return HopIntervalConfig{Min: defaultHopInterval, Max: defaultHopInterval}, nil
+	}
+	if c.Min == 0 || c.Max == 0 {
+		return HopIntervalConfig{}, errors.New("min and max hop interval must both be set")
+	}
+	if c.Min > c.Max {
+		return HopIntervalConfig{}, errors.New("min hop interval must not be greater than max hop interval")
+	}
+	if c.Min < 5*time.Second {
+		return HopIntervalConfig{}, errors.New("hop interval must be at least 5 seconds")
+	}
+	return c, nil
 }
 
 func (u *udpHopPacketConn) recvLoop(conn net.PacketConn) {
@@ -115,19 +146,30 @@ func (u *udpHopPacketConn) recvLoop(conn net.PacketConn) {
 }
 
 func (u *udpHopPacketConn) hopLoop() {
-	ticker := time.NewTicker(u.HopInterval)
-	defer ticker.Stop()
+	next := u.nextHopInterval()
+	timer := time.NewTimer(next)
+	defer timer.Stop()
 	for {
 		select {
-		case <-ticker.C:
-			u.hop()
+		case <-timer.C:
+			hopInterval := next
+			u.hop(hopInterval)
+			next = u.nextHopInterval()
+			timer.Reset(next)
 		case <-u.closeChan:
 			return
 		}
 	}
 }
 
-func (u *udpHopPacketConn) hop() {
+func (u *udpHopPacketConn) nextHopInterval() time.Duration {
+	if u.HopInterval.Min == u.HopInterval.Max {
+		return u.HopInterval.Min
+	}
+	return u.HopInterval.Min + time.Duration(rand.Int63n(int64(u.HopInterval.Max-u.HopInterval.Min)+1))
+}
+
+func (u *udpHopPacketConn) hop(hopInterval time.Duration) {
 	u.connMutex.Lock()
 	defer u.connMutex.Unlock()
 	if u.closed {
@@ -136,6 +178,9 @@ func (u *udpHopPacketConn) hop() {
 	newConn, err := u.ListenUDPFunc()
 	if err != nil {
 		// Could be temporary, just skip this hop
+		if u.debug {
+			u.debugPrint("Hop skipped: listen failed: %v", err)
+		}
 		return
 	}
 	// We need to keep receiving packets from the previous connection,
@@ -169,7 +214,14 @@ func (u *udpHopPacketConn) hop() {
 	}
 	go u.recvLoop(newConn)
 	// Update addrIndex to a new random value
+	prevRemote := u.Addrs[u.addrIndex]
 	u.addrIndex = rand.Intn(len(u.Addrs))
+	if u.debug {
+		u.debugPrint("Hop after %s: local=%s -> %s remote=%s -> %s",
+			formatHopInterval(hopInterval),
+			u.prevConn.LocalAddr(), u.currentConn.LocalAddr(),
+			prevRemote, u.Addrs[u.addrIndex])
+	}
 }
 
 func (u *udpHopPacketConn) ReadFrom(b []byte) (n int, addr net.Addr, err error) {
@@ -310,4 +362,15 @@ func trySetWriteBuffer(pc net.PacketConn, bytes int) error {
 		return sc.SetWriteBuffer(bytes)
 	}
 	return nil
+}
+
+func (u *udpHopPacketConn) debugPrint(format string, a ...any) {
+	fmt.Printf("[UDPHop] [%s] %s\n",
+		time.Now().Format("15:04:05"),
+		fmt.Sprintf(format, a...))
+}
+
+func formatHopInterval(d time.Duration) string {
+	seconds := d.Seconds()
+	return fmt.Sprintf("%.2fs", seconds)
 }

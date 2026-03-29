@@ -242,6 +242,48 @@ func TestClientFillCongestionConfig(t *testing.T) {
 	})
 }
 
+func TestClientTransportUDPHopIntervalConfig(t *testing.T) {
+	t.Run("fixed interval", func(t *testing.T) {
+		cfg, err := (clientConfigTransportUDP{HopInterval: 30 * time.Second}).hopIntervalConfig()
+		assert.NoError(t, err)
+		assert.Equal(t, 30*time.Second, cfg.Min)
+		assert.Equal(t, 30*time.Second, cfg.Max)
+	})
+
+	t.Run("range interval", func(t *testing.T) {
+		cfg, err := (clientConfigTransportUDP{
+			MinHopInterval: 10 * time.Second,
+			MaxHopInterval: 30 * time.Second,
+		}).hopIntervalConfig()
+		assert.NoError(t, err)
+		assert.Equal(t, 10*time.Second, cfg.Min)
+		assert.Equal(t, 30*time.Second, cfg.Max)
+	})
+
+	t.Run("default interval", func(t *testing.T) {
+		cfg, err := (clientConfigTransportUDP{}).hopIntervalConfig()
+		assert.NoError(t, err)
+		assert.Zero(t, cfg.Min)
+		assert.Zero(t, cfg.Max)
+	})
+
+	t.Run("rejects mixed fields", func(t *testing.T) {
+		_, err := (clientConfigTransportUDP{
+			HopInterval:    30 * time.Second,
+			MinHopInterval: 10 * time.Second,
+			MaxHopInterval: 30 * time.Second,
+		}).hopIntervalConfig()
+		assert.EqualError(t, err, "hopInterval cannot be used together with minHopInterval or maxHopInterval")
+	})
+
+	t.Run("rejects partial range", func(t *testing.T) {
+		_, err := (clientConfigTransportUDP{
+			MinHopInterval: 10 * time.Second,
+		}).hopIntervalConfig()
+		assert.EqualError(t, err, "minHopInterval and maxHopInterval must both be set")
+	})
+}
+
 func stringRef(s string) *string {
 	return &s
 }
