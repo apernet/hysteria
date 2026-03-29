@@ -7,13 +7,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/caddyserver/certmagic"
@@ -28,6 +31,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"github.com/apernet/hysteria/app/v2/internal/firewall"
 	"github.com/apernet/hysteria/app/v2/internal/utils"
 	"github.com/apernet/hysteria/core/v2/server"
 	"github.com/apernet/hysteria/extras/v2/auth"
@@ -271,7 +275,7 @@ func (c *serverConfig) fillConn(hyConfig *server.Config) error {
 	if listenAddr == "" {
 		listenAddr = defaultListenAddr
 	}
-	uAddr, err := net.ResolveUDPAddr("udp", listenAddr)
+	uAddr, portUnion, err := resolveServerListenAddr(listenAddr)
 	if err != nil {
 		return configError{Field: "listen", Err: err}
 	}
@@ -279,20 +283,58 @@ func (c *serverConfig) fillConn(hyConfig *server.Config) error {
 	if err != nil {
 		return configError{Field: "listen", Err: err}
 	}
+	var packetConn net.PacketConn = conn
+	var cleanup io.Closer
+	if len(portUnion) > 0 {
+		cleanup, err = firewall.SetupUDPPortRedirect(uAddr, portUnion)
+		if err != nil {
+			_ = conn.Close()
+			return configError{Field: "listen", Err: err}
+		}
+	}
 	switch strings.ToLower(c.Obfs.Type) {
 	case "", "plain":
-		hyConfig.Conn = conn
+		hyConfig.Conn = packetConn
+		hyConfig.Cleanup = cleanup
 		return nil
 	case "salamander":
 		ob, err := obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
 		if err != nil {
+			_ = conn.Close()
+			if cleanup != nil {
+				_ = cleanup.Close()
+			}
 			return configError{Field: "obfs.salamander.password", Err: err}
 		}
-		hyConfig.Conn = obfs.WrapPacketConn(conn, ob)
+		hyConfig.Conn = obfs.WrapPacketConn(packetConn, ob)
+		hyConfig.Cleanup = cleanup
 		return nil
 	default:
+		_ = conn.Close()
+		if cleanup != nil {
+			_ = cleanup.Close()
+		}
 		return configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
 	}
+}
+
+func resolveServerListenAddr(listenAddr string) (*net.UDPAddr, eUtils.PortUnion, error) {
+	host, portStr, err := net.SplitHostPort(listenAddr)
+	if err != nil {
+		uAddr, resolveErr := net.ResolveUDPAddr("udp", listenAddr)
+		return uAddr, nil, resolveErr
+	}
+	if !strings.ContainsAny(portStr, "-,") {
+		uAddr, resolveErr := net.ResolveUDPAddr("udp", listenAddr)
+		return uAddr, nil, resolveErr
+	}
+	portUnion := eUtils.ParsePortUnion(portStr)
+	if portUnion == nil {
+		return nil, nil, fmt.Errorf("%s is not a valid port number or range", portStr)
+	}
+	firstListenAddr := net.JoinHostPort(host, strconv.Itoa(int(portUnion[0].Start)))
+	uAddr, err := net.ResolveUDPAddr("udp", firstListenAddr)
+	return uAddr, portUnion, err
 }
 
 func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
@@ -991,8 +1033,28 @@ func runServer(v *viper.Viper) {
 		go runCheckUpdateServer()
 	}
 
-	if err := s.Serve(); err != nil {
-		logger.Fatal("failed to serve", zap.Error(err))
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signalChan)
+
+	serveErrChan := make(chan error, 1)
+	go func() {
+		serveErrChan <- s.Serve()
+	}()
+
+	select {
+	case <-signalChan:
+		logger.Info("received signal, shutting down gracefully")
+		if err := s.Close(); err != nil {
+			logger.Error("failed to shut down server cleanly", zap.Error(err))
+		}
+		if err := <-serveErrChan; err != nil {
+			logger.Info("server stopped", zap.Error(err))
+		}
+	case err := <-serveErrChan:
+		if err != nil {
+			logger.Fatal("failed to serve", zap.Error(err))
+		}
 	}
 }
 

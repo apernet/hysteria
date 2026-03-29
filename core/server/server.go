@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -61,7 +62,10 @@ func NewServer(config *Config) (Server, error) {
 	}
 	listener, err := quic.Listen(config.Conn, tlsConfig, quicConfig)
 	if err != nil {
-		_ = config.Conn.Close()
+		err = errors.Join(err, config.Conn.Close())
+		if config.Cleanup != nil {
+			err = errors.Join(err, config.Cleanup.Close())
+		}
 		return nil, err
 	}
 	return &serverImpl{
@@ -86,8 +90,10 @@ func (s *serverImpl) Serve() error {
 }
 
 func (s *serverImpl) Close() error {
-	err := s.listener.Close()
-	_ = s.config.Conn.Close()
+	err := errors.Join(s.listener.Close(), s.config.Conn.Close())
+	if s.config.Cleanup != nil {
+		err = errors.Join(err, s.config.Cleanup.Close())
+	}
 	return err
 }
 

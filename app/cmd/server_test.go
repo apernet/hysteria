@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/apernet/hysteria/core/v2/server"
+	eUtils "github.com/apernet/hysteria/extras/v2/utils"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/spf13/viper"
@@ -232,5 +233,26 @@ func TestServerFillCongestionConfig(t *testing.T) {
 			},
 		}).fillCongestionConfig(&server.Config{})
 		assert.EqualError(t, err, `invalid config: congestion.bbrProfile: unsupported BBR profile "turbo"`)
+	})
+}
+
+func TestResolveServerListenAddr(t *testing.T) {
+	t.Run("single port", func(t *testing.T) {
+		addr, ports, err := resolveServerListenAddr(":8443")
+		assert.NoError(t, err)
+		assert.Empty(t, ports)
+		assert.Equal(t, 8443, addr.Port)
+	})
+
+	t.Run("port range", func(t *testing.T) {
+		addr, ports, err := resolveServerListenAddr("127.0.0.1:9003-9001,9008")
+		assert.NoError(t, err)
+		assert.Equal(t, 9001, addr.Port)
+		assert.Equal(t, eUtils.PortUnion{{Start: 9001, End: 9003}, {Start: 9008, End: 9008}}, ports)
+	})
+
+	t.Run("invalid range", func(t *testing.T) {
+		_, _, err := resolveServerListenAddr("127.0.0.1:9001-")
+		assert.EqualError(t, err, "9001- is not a valid port number or range")
 	})
 }

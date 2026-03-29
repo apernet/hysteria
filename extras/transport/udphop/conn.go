@@ -29,6 +29,9 @@ type udpHopPacketConn struct {
 
 	readBufferSize  int
 	writeBufferSize int
+	deadline        time.Time
+	readDeadline    time.Time
+	writeDeadline   time.Time
 
 	recvQueue chan *udpPacket
 	closeChan chan struct{}
@@ -94,10 +97,10 @@ func (u *udpHopPacketConn) recvLoop(conn net.PacketConn) {
 			u.bufPool.Put(buf)
 			var netErr net.Error
 			if errors.As(err, &netErr) && netErr.Timeout() {
-				// Only pass through timeout errors here, not permanent errors
-				// like connection closed. Connection close is normal as we close
-				// the old connection to exit this loop every time we hop.
+				// Pass through timeout errors, but not permanent errors such as connection closed.
+				// Connection close is normal as we close the old connection to exit this loop every time we hop.
 				u.recvQueue <- &udpPacket{nil, 0, nil, netErr}
+				continue
 			}
 			return
 		}
@@ -154,6 +157,15 @@ func (u *udpHopPacketConn) hop() {
 	}
 	if u.writeBufferSize > 0 {
 		_ = trySetWriteBuffer(u.currentConn, u.writeBufferSize)
+	}
+	if !u.deadline.IsZero() {
+		_ = u.currentConn.SetDeadline(u.deadline)
+	}
+	if !u.readDeadline.IsZero() {
+		_ = u.currentConn.SetReadDeadline(u.readDeadline)
+	}
+	if !u.writeDeadline.IsZero() {
+		_ = u.currentConn.SetWriteDeadline(u.writeDeadline)
 	}
 	go u.recvLoop(newConn)
 	// Update addrIndex to a new random value
@@ -215,8 +227,11 @@ func (u *udpHopPacketConn) LocalAddr() net.Addr {
 }
 
 func (u *udpHopPacketConn) SetDeadline(t time.Time) error {
-	u.connMutex.RLock()
-	defer u.connMutex.RUnlock()
+	u.connMutex.Lock()
+	defer u.connMutex.Unlock()
+	u.deadline = t
+	u.readDeadline = t
+	u.writeDeadline = t
 	if u.prevConn != nil {
 		_ = u.prevConn.SetDeadline(t)
 	}
@@ -224,8 +239,10 @@ func (u *udpHopPacketConn) SetDeadline(t time.Time) error {
 }
 
 func (u *udpHopPacketConn) SetReadDeadline(t time.Time) error {
-	u.connMutex.RLock()
-	defer u.connMutex.RUnlock()
+	u.connMutex.Lock()
+	defer u.connMutex.Unlock()
+	u.deadline = time.Time{}
+	u.readDeadline = t
 	if u.prevConn != nil {
 		_ = u.prevConn.SetReadDeadline(t)
 	}
@@ -233,8 +250,10 @@ func (u *udpHopPacketConn) SetReadDeadline(t time.Time) error {
 }
 
 func (u *udpHopPacketConn) SetWriteDeadline(t time.Time) error {
-	u.connMutex.RLock()
-	defer u.connMutex.RUnlock()
+	u.connMutex.Lock()
+	defer u.connMutex.Unlock()
+	u.deadline = time.Time{}
+	u.writeDeadline = t
 	if u.prevConn != nil {
 		_ = u.prevConn.SetWriteDeadline(t)
 	}
