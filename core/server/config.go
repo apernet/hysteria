@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io"
 	"net"
 	"net/http"
 	"sync/atomic"
@@ -27,6 +28,7 @@ type Config struct {
 	TLSConfig             TLSConfig
 	QUICConfig            QUICConfig
 	Conn                  net.PacketConn
+	Cleanup               io.Closer
 	RequestHook           RequestHook
 	Outbound              Outbound
 	CongestionConfig      CongestionConfig
