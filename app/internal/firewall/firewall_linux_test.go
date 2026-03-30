@@ -68,8 +68,11 @@ func TestSetupUDPPortRedirectWithRunnerIPTablesFallback(t *testing.T) {
 	require.NoError(t, cleanup.Close())
 	foundDelete := false
 	for _, cmd := range runner.cmds {
-		if len(cmd) > 3 && cmd[2] == "-D" || (len(cmd) > 4 && cmd[3] == "-D") {
-			foundDelete = true
+		for _, arg := range cmd {
+			if arg == "-D" {
+				foundDelete = true
+				break
+			}
 		}
 	}
 	require.True(t, foundDelete)
