@@ -31,7 +31,7 @@ RUN if [ ! -e /etc/nsswitch.conf ]; then echo 'hosts: files dns' > /etc/nsswitch
 # commands, this will cause the build process to become very slow.
 RUN set -ex \
     && apk upgrade \
-    && apk add bash tzdata ca-certificates \
+    && apk add bash tzdata ca-certificates iptables \
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /go/bin/hysteria /usr/local/bin/hysteria
