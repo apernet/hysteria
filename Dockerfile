@@ -25,13 +25,14 @@ FROM alpine AS dist
 RUN if [ ! -e /etc/nsswitch.conf ]; then echo 'hosts: files dns' > /etc/nsswitch.conf; fi
 
 # bash is used for debugging, tzdata is used to add timezone information.
+# iptables and nftables are used to change firewall rules.
 # Install ca-certificates to ensure no CA certificate errors.
 #
 # Do not try to add the "--no-cache" option when there are multiple "apk"
 # commands, this will cause the build process to become very slow.
 RUN set -ex \
     && apk upgrade \
-    && apk add bash tzdata ca-certificates iptables \
+    && apk add bash tzdata ca-certificates iptables nftables \
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /go/bin/hysteria /usr/local/bin/hysteria
