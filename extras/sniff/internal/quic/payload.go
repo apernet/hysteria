@@ -6,10 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 
 	"github.com/apernet/quic-go/quicvarint"
 	"golang.org/x/crypto/hkdf"
+)
+
+const (
+	maxCryptoFrameDataLen = 256 * 1024 // 256 KiB
+	maxCryptoPayloadLen   = 256 * 1024 // 256 KiB
 )
 
 func ReadCryptoPayload(packet []byte) ([]byte, error) {
@@ -82,10 +88,19 @@ func extractCryptoFrames(r *bytes.Reader) ([]cryptoFrame, error) {
 		if err != nil {
 			return nil, err
 		}
+		if offset > uint64(math.MaxInt64) {
+			return nil, errors.New("invalid crypto frame offset")
+		}
 		frame.Offset = int64(offset)
 		dataLen, err := quicvarint.Read(r)
 		if err != nil {
 			return nil, err
+		}
+		if dataLen > maxCryptoFrameDataLen {
+			return nil, errors.New("crypto frame data too large")
+		}
+		if dataLen > uint64(r.Len()) {
+			return nil, io.ErrUnexpectedEOF
 		}
 		frame.Data = make([]byte, dataLen)
 		if _, err := io.ReadFull(r, frame.Data); err != nil {
@@ -114,7 +129,18 @@ func assembleCryptoFrames(frames []cryptoFrame) []byte {
 		}
 	}
 	// concatenate the frames
-	data := make([]byte, frames[len(frames)-1].Offset+int64(len(frames[len(frames)-1].Data)))
+	last := frames[len(frames)-1]
+	if last.Offset < 0 {
+		return nil
+	}
+	if last.Offset > maxCryptoPayloadLen {
+		return nil
+	}
+	end := last.Offset + int64(len(last.Data))
+	if end < 0 || end > maxCryptoPayloadLen {
+		return nil
+	}
+	data := make([]byte, end)
 	for _, frame := range frames {
 		copy(data[frame.Offset:], frame.Data)
 	}
