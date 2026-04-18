@@ -30,6 +30,12 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
+      - name: Install gofumpt
+        run: go install mvdan.cc/gofumpt@latest
+
+      - name: Check format
+        run: python hyperbole.py format-check
+
       - name: Test core
         working-directory: core
         run: go test -v -count=1 -skip 'Stress' ./...

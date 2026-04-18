@@ -356,6 +356,25 @@ def cmd_format():
         print("Failed to format code")
 
 
+def cmd_format_check():
+    if not check_command(["gofumpt", "-version"]):
+        print("gofumpt is not installed. Please install gofumpt and try again.")
+        sys.exit(1)
+
+    try:
+        output = (
+            subprocess.check_output(["gofumpt", "-l", "-extra", "."]).decode().strip()
+        )
+    except Exception:
+        print("Failed to check code format")
+        sys.exit(1)
+
+    if output:
+        print("The following files are not properly formatted:")
+        print(output)
+        sys.exit(1)
+
+
 def cmd_mockgen():
     if not check_command(["mockery", "--version"]):
         print("mockery is not installed. Please install mockery and try again.")
@@ -500,6 +519,9 @@ def main():
     # Format
     p_cmd.add_parser("format", help="Format the code")
 
+    # Format check
+    p_cmd.add_parser("format-check", help="Check code format")
+
     # Mockgen
     p_cmd.add_parser("mockgen", help="Generate mock interfaces")
 
@@ -533,6 +555,8 @@ def main():
         cmd_build(args.pprof, args.release, args.race)
     elif args.command == "format":
         cmd_format()
+    elif args.command == "format-check":
+        cmd_format_check()
     elif args.command == "mockgen":
         cmd_mockgen()
     elif args.command == "protogen":
