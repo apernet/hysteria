@@ -97,8 +97,8 @@ func setupNFTablesRedirect(r commandRunner, listenAddr *net.UDPAddr, ports, redi
 		}
 		cleanup.add(func() { _ = nft("delete", "table", family, tableName) })
 		for _, chainArgs := range [][]string{
-			{"add", "chain", family, tableName, "prerouting", "{", "type", "nat", "hook", "prerouting", "priority", "dstnat;", "policy", "accept;", "}"},
-			{"add", "chain", family, tableName, "output", "{", "type", "nat", "hook", "output", "priority", "dstnat;", "policy", "accept;", "}"},
+			{"add", "chain", family, tableName, "prerouting", "{", "type", "nat", "hook", "prerouting", "priority", "-100;", "policy", "accept;", "}"},
+			{"add", "chain", family, tableName, "output", "{", "type", "nat", "hook", "output", "priority", "-100;", "policy", "accept;", "}"},
 		} {
 			if err := nft(chainArgs...); err != nil {
 				_ = cleanup.Close()
