@@ -87,6 +87,7 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 		DisablePathMTUDiscovery:        c.config.QUICConfig.DisablePathMTUDiscovery,
 		EnableDatagrams:                true,
 		MaxDatagramFrameSize:           protocol.MaxDatagramFrameSize,
+		OmitMaxDatagramFrameSize:       true,
 		DisablePathManager:             true,
 	}
 	tr := &quic.Transport{Conn: pktConn}
