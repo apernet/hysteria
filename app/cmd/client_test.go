@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -200,6 +202,61 @@ func TestClientConfigURI(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClientConfigParseRealmAddr(t *testing.T) {
+	c := &clientConfig{Server: "hysteria2+realm+http://token@example.com/realm?stun=stun1.example.com:3478&stun=stun2.example.com:3478"}
+	addr, ok, err := c.parseRealmAddr()
+	assert.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, "http", addr.RendezvousScheme)
+	assert.Equal(t, "token", addr.Token)
+	assert.Equal(t, "realm", addr.RealmID)
+	assert.Equal(t, []string{"stun1.example.com:3478", "stun2.example.com:3478"}, c.realmSTUNServers(addr))
+}
+
+func TestClientConfigRealmSTUNServers(t *testing.T) {
+	addr, ok, err := (&clientConfig{Server: "hysteria2+realm://token@example.com/realm"}).parseRealmAddr()
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	c := &clientConfig{}
+	assert.Equal(t, defaultRealmSTUNServers, c.realmSTUNServers(addr))
+
+	c.Realm.STUNServers = []string{"custom.example.com:3478"}
+	assert.Equal(t, []string{"custom.example.com:3478"}, c.realmSTUNServers(addr))
+}
+
+func TestClientConfigParseInvalidRealmAddr(t *testing.T) {
+	_, ok, err := (&clientConfig{Server: "hysteria2+realm://example.com/realm"}).parseRealmAddr()
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestSingleUseConnFactory(t *testing.T) {
+	conn, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	assert.NoError(t, err)
+	defer conn.Close()
+
+	f := &singleUseConnFactory{Conn: conn}
+	got, err := f.New(&net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 443})
+	assert.NoError(t, err)
+	assert.Equal(t, conn, got)
+
+	_, err = f.New(&net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 443})
+	assert.Error(t, err)
+}
+
+func TestParseAddrPorts(t *testing.T) {
+	addrs, err := parseAddrPorts([]string{"198.51.100.20:4433", "[2001:db8::1]:4433"})
+	assert.NoError(t, err)
+	assert.Equal(t, []netip.AddrPort{
+		netip.MustParseAddrPort("198.51.100.20:4433"),
+		netip.MustParseAddrPort("[2001:db8::1]:4433"),
+	}, addrs)
+
+	_, err = parseAddrPorts([]string{"not-an-address"})
+	assert.Error(t, err)
 }
 
 func TestClientFillCongestionConfig(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/apernet/hysteria/core/v2/server"
+	"github.com/apernet/hysteria/extras/v2/realm"
 	eUtils "github.com/apernet/hysteria/extras/v2/utils"
 	"github.com/stretchr/testify/assert"
 
@@ -255,4 +256,51 @@ func TestResolveServerListenAddr(t *testing.T) {
 		_, _, err := resolveServerListenAddr("127.0.0.1:9001-")
 		assert.EqualError(t, err, "9001- is not a valid port number or range")
 	})
+}
+
+func TestParseServerRealmAddr(t *testing.T) {
+	addr, ok, err := parseServerRealmAddr("hysteria2+realm+http://token@example.com/realm?stun=stun.example.com:3478")
+	assert.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, "http", addr.RendezvousScheme)
+	assert.Equal(t, "realm", addr.RealmID)
+	assert.Equal(t, []string{"stun.example.com:3478"}, (&serverConfig{}).realmSTUNServers(addr))
+
+	_, ok, err = parseServerRealmAddr(":443")
+	assert.False(t, ok)
+	assert.NoError(t, err)
+
+	_, ok, err = parseServerRealmAddr("hysteria2+realm://example.com/realm")
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestServerRealmSTUNServers(t *testing.T) {
+	addr, ok, err := parseServerRealmAddr("hysteria2+realm://token@example.com/realm")
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	c := &serverConfig{}
+	assert.Equal(t, defaultRealmSTUNServers, c.realmSTUNServers(addr))
+
+	c.Realm.STUNServers = []string{"custom.example.com:3478"}
+	assert.Equal(t, []string{"custom.example.com:3478"}, c.realmSTUNServers(addr))
+}
+
+func TestRealmSessionHelpers(t *testing.T) {
+	assert.Equal(t, time.Minute, sessionTTLDuration(0))
+	assert.Equal(t, 10*time.Second, sessionTTLDuration(10))
+
+	assert.True(t, isRealmSessionInvalid(&realm.StatusError{StatusCode: 401}))
+	assert.True(t, isRealmSessionInvalid(&realm.StatusError{StatusCode: 404}))
+	assert.False(t, isRealmSessionInvalid(&realm.StatusError{StatusCode: 503}))
+	assert.False(t, isRealmSessionInvalid(assert.AnError))
+}
+
+func TestRealmSTUNRefreshInterval(t *testing.T) {
+	rt := &realmServerRuntime{}
+	assert.Equal(t, defaultRealmSTUNRefreshInterval, rt.stunRefreshInterval())
+
+	rt.config.STUNRefreshInterval = time.Minute
+	assert.Equal(t, time.Minute, rt.stunRefreshInterval())
 }
