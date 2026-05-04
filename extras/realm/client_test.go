@@ -139,7 +139,7 @@ func TestNewPunchMetadata(t *testing.T) {
 }
 
 func TestNewClientFromAddr(t *testing.T) {
-	addr, err := ParseAddr("hysteria2+realm+http://token@example.com/realm")
+	addr, err := ParseAddr("realm+http://token@example.com/realm")
 	require.NoError(t, err)
 	c, err := NewClientFromAddr(addr, nil)
 	require.NoError(t, err)

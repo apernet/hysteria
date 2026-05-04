@@ -205,7 +205,7 @@ func TestClientConfigURI(t *testing.T) {
 }
 
 func TestClientConfigParseRealmAddr(t *testing.T) {
-	c := &clientConfig{Server: "hysteria2+realm+http://token@example.com/realm?stun=stun1.example.com:3478&stun=stun2.example.com:3478"}
+	c := &clientConfig{Server: "realm+http://token@example.com/realm?stun=stun1.example.com:3478&stun=stun2.example.com:3478"}
 	addr, ok, err := c.parseRealmAddr()
 	assert.NoError(t, err)
 	assert.True(t, ok)
@@ -216,7 +216,7 @@ func TestClientConfigParseRealmAddr(t *testing.T) {
 }
 
 func TestClientConfigRealmSTUNServers(t *testing.T) {
-	addr, ok, err := (&clientConfig{Server: "hysteria2+realm://token@example.com/realm"}).parseRealmAddr()
+	addr, ok, err := (&clientConfig{Server: "realm://token@example.com/realm"}).parseRealmAddr()
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
@@ -228,7 +228,7 @@ func TestClientConfigRealmSTUNServers(t *testing.T) {
 }
 
 func TestClientConfigParseInvalidRealmAddr(t *testing.T) {
-	_, ok, err := (&clientConfig{Server: "hysteria2+realm://example.com/realm"}).parseRealmAddr()
+	_, ok, err := (&clientConfig{Server: "realm://example.com/realm"}).parseRealmAddr()
 	assert.True(t, ok)
 	assert.Error(t, err)
 }

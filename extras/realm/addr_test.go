@@ -23,7 +23,7 @@ func TestParseAddr(t *testing.T) {
 	}{
 		{
 			name:             "https default port",
-			raw:              "hysteria2+realm://secret@example.com/my-realm?stun=stun.example.com:3478",
+			raw:              "realm://secret@example.com/my-realm?stun=stun.example.com:3478",
 			rendezvousScheme: "https",
 			host:             "example.com",
 			port:             "443",
@@ -35,7 +35,7 @@ func TestParseAddr(t *testing.T) {
 		},
 		{
 			name:             "http default port",
-			raw:              "hysteria2+realm+http://secret@example.com/my-realm",
+			raw:              "realm+http://secret@example.com/my-realm",
 			rendezvousScheme: "http",
 			host:             "example.com",
 			port:             "80",
@@ -46,7 +46,7 @@ func TestParseAddr(t *testing.T) {
 		},
 		{
 			name:             "explicit ipv6 port",
-			raw:              "hysteria2+realm://s3cr3t@[2001:db8::1]:8443/realm",
+			raw:              "realm://s3cr3t@[2001:db8::1]:8443/realm",
 			rendezvousScheme: "https",
 			host:             "2001:db8::1",
 			port:             "8443",
@@ -57,7 +57,7 @@ func TestParseAddr(t *testing.T) {
 		},
 		{
 			name:             "escaped token and realm",
-			raw:              "hysteria2+realm://token%3Avalue@example.com/realm%20id",
+			raw:              "realm://token%3Avalue@example.com/realm%20id",
 			rendezvousScheme: "https",
 			host:             "example.com",
 			port:             "443",
@@ -91,13 +91,13 @@ func TestParseAddrInvalid(t *testing.T) {
 		err  error
 	}{
 		{name: "unsupported scheme", raw: "hysteria2://secret@example.com/realm", err: ErrInvalidScheme},
-		{name: "missing token", raw: "hysteria2+realm://example.com/realm", err: ErrInvalidAddr},
-		{name: "missing host", raw: "hysteria2+realm://secret@/realm", err: ErrInvalidAddr},
-		{name: "missing realm", raw: "hysteria2+realm://secret@example.com", err: ErrInvalidAddr},
-		{name: "extra path segment", raw: "hysteria2+realm://secret@example.com/realm/extra", err: ErrInvalidAddr},
-		{name: "escaped slash in realm", raw: "hysteria2+realm://secret@example.com/realm%2Fextra", err: ErrInvalidAddr},
-		{name: "invalid port", raw: "hysteria2+realm://secret@example.com:70000/realm", err: ErrInvalidAddr},
-		{name: "fragment", raw: "hysteria2+realm://secret@example.com/realm#frag", err: ErrInvalidAddr},
+		{name: "missing token", raw: "realm://example.com/realm", err: ErrInvalidAddr},
+		{name: "missing host", raw: "realm://secret@/realm", err: ErrInvalidAddr},
+		{name: "missing realm", raw: "realm://secret@example.com", err: ErrInvalidAddr},
+		{name: "extra path segment", raw: "realm://secret@example.com/realm/extra", err: ErrInvalidAddr},
+		{name: "escaped slash in realm", raw: "realm://secret@example.com/realm%2Fextra", err: ErrInvalidAddr},
+		{name: "invalid port", raw: "realm://secret@example.com:70000/realm", err: ErrInvalidAddr},
+		{name: "fragment", raw: "realm://secret@example.com/realm#frag", err: ErrInvalidAddr},
 	}
 
 	for _, tc := range tests {

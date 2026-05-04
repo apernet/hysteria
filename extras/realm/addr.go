@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	SchemeHTTPS = "hysteria2+realm"
-	SchemeHTTP  = "hysteria2+realm+http"
+	SchemeHTTPS = "realm"
+	SchemeHTTP  = "realm+http"
 
 	defaultHTTPSPort = "443"
 	defaultHTTPPort  = "80"
@@ -36,7 +36,7 @@ type Addr struct {
 	Params           url.Values
 }
 
-// ParseAddr parses hysteria2+realm and hysteria2+realm+http addresses.
+// ParseAddr parses realm and realm+http addresses.
 func ParseAddr(s string) (*Addr, error) {
 	u, err := url.Parse(s)
 	if err != nil {

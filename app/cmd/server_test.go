@@ -259,7 +259,7 @@ func TestResolveServerListenAddr(t *testing.T) {
 }
 
 func TestParseServerRealmAddr(t *testing.T) {
-	addr, ok, err := parseServerRealmAddr("hysteria2+realm+http://token@example.com/realm?stun=stun.example.com:3478")
+	addr, ok, err := parseServerRealmAddr("realm+http://token@example.com/realm?stun=stun.example.com:3478")
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, "http", addr.RendezvousScheme)
@@ -270,13 +270,13 @@ func TestParseServerRealmAddr(t *testing.T) {
 	assert.False(t, ok)
 	assert.NoError(t, err)
 
-	_, ok, err = parseServerRealmAddr("hysteria2+realm://example.com/realm")
+	_, ok, err = parseServerRealmAddr("realm://example.com/realm")
 	assert.True(t, ok)
 	assert.Error(t, err)
 }
 
 func TestServerRealmSTUNServers(t *testing.T) {
-	addr, ok, err := parseServerRealmAddr("hysteria2+realm://token@example.com/realm")
+	addr, ok, err := parseServerRealmAddr("realm://token@example.com/realm")
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
