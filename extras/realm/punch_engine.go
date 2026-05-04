@@ -14,6 +14,10 @@ import (
 const (
 	defaultPunchTimeout  = 10 * time.Second
 	defaultPunchInterval = 100 * time.Millisecond
+
+	symmetricNATPortGap         = 4
+	symmetricNATExtraPorts      = 4
+	symmetricNATMaxPortsPerHost = 32
 )
 
 var (
@@ -147,10 +151,72 @@ func candidatePunchAddrs(localAddrs, peerAddrs []netip.AddrPort, connFamily addr
 		seen[addr] = struct{}{}
 		candidates = append(candidates, addr)
 	}
-	slices.SortFunc(candidates, func(a, b netip.AddrPort) int {
+	candidates = expandSymmetricNATCandidates(candidates, seen)
+	sortAddrPorts(candidates)
+	return candidates
+}
+
+func expandSymmetricNATCandidates(candidates []netip.AddrPort, seen map[netip.AddrPort]struct{}) []netip.AddrPort {
+	portsByIP := make(map[netip.Addr][]uint16)
+	for _, addr := range candidates {
+		if addr.Addr().Is4() {
+			portsByIP[addr.Addr()] = append(portsByIP[addr.Addr()], addr.Port())
+		}
+	}
+	for ip, ports := range portsByIP {
+		ports = uniqueSortedPorts(ports)
+		if !predictablePortGroup(ports) {
+			continue
+		}
+		start := int(ports[0])
+		end := int(ports[len(ports)-1]) + symmetricNATExtraPorts
+		if end > 65535 {
+			end = 65535
+		}
+		added := 0
+		for port := start; port <= end && added < symmetricNATMaxPortsPerHost; port++ {
+			addr := netip.AddrPortFrom(ip, uint16(port))
+			if _, ok := seen[addr]; ok {
+				continue
+			}
+			seen[addr] = struct{}{}
+			candidates = append(candidates, addr)
+			added++
+		}
+	}
+	return candidates
+}
+
+func uniqueSortedPorts(ports []uint16) []uint16 {
+	slices.Sort(ports)
+	out := ports[:0]
+	var last uint16
+	for i, port := range ports {
+		if i > 0 && port == last {
+			continue
+		}
+		out = append(out, port)
+		last = port
+	}
+	return out
+}
+
+func predictablePortGroup(ports []uint16) bool {
+	if len(ports) < 2 {
+		return false
+	}
+	for i := 1; i < len(ports); i++ {
+		if ports[i]-ports[i-1] > symmetricNATPortGap {
+			return false
+		}
+	}
+	return true
+}
+
+func sortAddrPorts(addrs []netip.AddrPort) {
+	slices.SortFunc(addrs, func(a, b netip.AddrPort) int {
 		return strings.Compare(a.String(), b.String())
 	})
-	return candidates
 }
 
 type punchFamilySet struct {
