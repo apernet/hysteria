@@ -518,6 +518,10 @@ func (r *realmServerRuntime) registerWithBackoff(ctx context.Context) realmSessi
 			r.setSession(sess)
 			return sess
 		}
+		if isRealmRegisterFatal(err) {
+			logger.Error("realm re-register rejected; giving up", zap.String("realm", r.realmID), zap.Error(err))
+			return realmSession{}
+		}
 		logger.Warn("realm re-register failed", zap.String("realm", r.realmID), zap.Error(err))
 		logger.Debug("realm re-register scheduled", zap.String("realm", r.realmID), zap.String("backoff", formatLogDuration(backoff)))
 		if !sleepContext(ctx, backoff) {
@@ -791,6 +795,11 @@ func isRealmSessionInvalid(err error) bool {
 	var statusErr *realm.StatusError
 	return errors.As(err, &statusErr) &&
 		(statusErr.StatusCode == http.StatusUnauthorized || statusErr.StatusCode == http.StatusNotFound)
+}
+
+func isRealmRegisterFatal(err error) bool {
+	var statusErr *realm.StatusError
+	return errors.As(err, &statusErr) && statusErr.StatusCode == http.StatusBadRequest
 }
 
 func sleepContext(ctx context.Context, d time.Duration) bool {

@@ -295,6 +295,11 @@ func TestRealmSessionHelpers(t *testing.T) {
 	assert.True(t, isRealmSessionInvalid(&realm.StatusError{StatusCode: 404}))
 	assert.False(t, isRealmSessionInvalid(&realm.StatusError{StatusCode: 503}))
 	assert.False(t, isRealmSessionInvalid(assert.AnError))
+
+	assert.True(t, isRealmRegisterFatal(&realm.StatusError{StatusCode: 400}))
+	assert.False(t, isRealmRegisterFatal(&realm.StatusError{StatusCode: 429}))
+	assert.False(t, isRealmRegisterFatal(&realm.StatusError{StatusCode: 503}))
+	assert.False(t, isRealmRegisterFatal(assert.AnError))
 }
 
 func TestRealmSTUNRefreshInterval(t *testing.T) {
