@@ -33,7 +33,10 @@ type Addr struct {
 	Port             string
 	HostPort         string
 	RealmID          string
-	Params           url.Values
+	// LocalPort is the requested local UDP source port from the "lport" query
+	// param. 0 means unset (use an ephemeral port).
+	LocalPort int
+	Params    url.Values
 }
 
 // ParseAddr parses realm and realm+http addresses.
@@ -85,6 +88,12 @@ func ParseAddr(s string) (*Addr, error) {
 		return nil, fmt.Errorf("%w: invalid rendezvous host or port", ErrInvalidAddr)
 	}
 
+	params := cloneValues(u.Query())
+	localPort, err := parseLocalPort(params["lport"])
+	if err != nil {
+		return nil, err
+	}
+
 	return &Addr{
 		Scheme:           u.Scheme,
 		RendezvousScheme: rendezvousScheme,
@@ -93,8 +102,23 @@ func ParseAddr(s string) (*Addr, error) {
 		Port:             port,
 		HostPort:         hostPort,
 		RealmID:          realmID,
-		Params:           cloneValues(u.Query()),
+		LocalPort:        localPort,
+		Params:           params,
 	}, nil
+}
+
+func parseLocalPort(values []string) (int, error) {
+	if len(values) == 0 {
+		return 0, nil
+	}
+	if len(values) > 1 {
+		return 0, fmt.Errorf("%w: lport must be specified at most once", ErrInvalidAddr)
+	}
+	p, err := strconv.Atoi(values[0])
+	if err != nil || p < 1 || p > 65535 {
+		return 0, fmt.Errorf("%w: lport must be an integer in 1-65535", ErrInvalidAddr)
+	}
+	return p, nil
 }
 
 func validatePort(port string) error {

@@ -355,7 +355,11 @@ func (c *serverConfig) fillRealmConn(hyConfig *server.Config, addr *realm.Addr) 
 		zap.String("realm", addr.RealmID),
 		zap.String("realmServer", addr.HostPort),
 		zap.String("scheme", addr.RendezvousScheme))
-	conn, err := correctnet.ListenUDP("udp", &net.UDPAddr{})
+	listenAddr := &net.UDPAddr{}
+	if addr.LocalPort != 0 {
+		listenAddr.Port = addr.LocalPort
+	}
+	conn, err := correctnet.ListenUDP("udp", listenAddr)
 	if err != nil {
 		return configError{Field: "listen", Err: err}
 	}

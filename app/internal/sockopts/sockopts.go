@@ -39,18 +39,22 @@ func (e *UnsupportedError) Error() string {
 	return fmt.Sprintf("%s is not supported on this platform", e.Field)
 }
 
-func (o *SocketOptions) ListenUDP() (uconn net.PacketConn, err error) {
-	uconn, err = net.ListenUDP("udp", nil)
+func (o *SocketOptions) ListenUDP() (net.PacketConn, error) {
+	return o.ListenUDPAddr(nil)
+}
+
+// ListenUDPAddr is like ListenUDP but binds to a specific local UDP address.
+// Pass nil to use an ephemeral port (same as ListenUDP).
+func (o *SocketOptions) ListenUDPAddr(addr *net.UDPAddr) (net.PacketConn, error) {
+	uconn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		return uconn, err
+		return nil, err
 	}
-	err = o.applyToUDPConn(uconn.(*net.UDPConn))
-	if err != nil {
+	if err := o.applyToUDPConn(uconn); err != nil {
 		uconn.Close()
-		uconn = nil
-		return uconn, err
+		return nil, err
 	}
-	return uconn, err
+	return uconn, nil
 }
 
 func (o *SocketOptions) applyToUDPConn(c *net.UDPConn) error {

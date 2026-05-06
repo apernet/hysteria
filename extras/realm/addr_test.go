@@ -84,6 +84,16 @@ func TestParseAddr(t *testing.T) {
 	}
 }
 
+func TestParseAddrLocalPort(t *testing.T) {
+	addr, err := ParseAddr("realm://secret@example.com/realm?lport=4433")
+	require.NoError(t, err)
+	assert.Equal(t, 4433, addr.LocalPort)
+
+	addr, err = ParseAddr("realm://secret@example.com/realm")
+	require.NoError(t, err)
+	assert.Equal(t, 0, addr.LocalPort)
+}
+
 func TestParseAddrInvalid(t *testing.T) {
 	tests := []struct {
 		name string
@@ -98,6 +108,10 @@ func TestParseAddrInvalid(t *testing.T) {
 		{name: "escaped slash in realm", raw: "realm://secret@example.com/realm%2Fextra", err: ErrInvalidAddr},
 		{name: "invalid port", raw: "realm://secret@example.com:70000/realm", err: ErrInvalidAddr},
 		{name: "fragment", raw: "realm://secret@example.com/realm#frag", err: ErrInvalidAddr},
+		{name: "lport not a number", raw: "realm://secret@example.com/realm?lport=abc", err: ErrInvalidAddr},
+		{name: "lport zero", raw: "realm://secret@example.com/realm?lport=0", err: ErrInvalidAddr},
+		{name: "lport too high", raw: "realm://secret@example.com/realm?lport=65536", err: ErrInvalidAddr},
+		{name: "lport repeated", raw: "realm://secret@example.com/realm?lport=1234&lport=2345", err: ErrInvalidAddr},
 	}
 
 	for _, tc := range tests {

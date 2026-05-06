@@ -593,7 +593,11 @@ func (c *clientConfig) realmConfig(addr *realm.Addr) (*client.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	baseConn, err := so.ListenUDP()
+	var listenAddr *net.UDPAddr
+	if addr.LocalPort != 0 {
+		listenAddr = &net.UDPAddr{Port: addr.LocalPort}
+	}
+	baseConn, err := so.ListenUDPAddr(listenAddr)
 	if err != nil {
 		return nil, configError{Field: "realm", Err: err}
 	}
