@@ -29,12 +29,24 @@ type obfsPacketConn struct {
 	writeMutex sync.Mutex
 }
 
-// obfsPacketConnUDP is a special case of obfsPacketConn that uses a UDPConn
-// as the underlying connection. We pass additional methods to quic-go to
+// udpLikePacketConn is the subset of *net.UDPConn methods that quic-go relies
+// on for UDP-specific optimizations (DF/PMTU detection and recv/send buffer
+// sizing). Anything that satisfies this interface — including a wrapper such
+// as realm.PunchPacketConn that proxies these calls down to a *net.UDPConn —
+// will keep those optimizations when wrapped in obfs.
+type udpLikePacketConn interface {
+	net.PacketConn
+	SyscallConn() (syscall.RawConn, error)
+	SetReadBuffer(int) error
+	SetWriteBuffer(int) error
+}
+
+// obfsPacketConnUDP is a special case of obfsPacketConn that wraps a
+// UDP-flavored PacketConn. We pass additional methods through to quic-go to
 // enable UDP-specific optimizations.
 type obfsPacketConnUDP struct {
 	*obfsPacketConn
-	UDPConn *net.UDPConn
+	UDPConn udpLikePacketConn
 }
 
 // WrapPacketConn enables obfuscation on a net.PacketConn.
@@ -48,7 +60,7 @@ func WrapPacketConn(conn net.PacketConn, obfs Obfuscator) net.PacketConn {
 		readBuf:  make([]byte, udpBufferSize),
 		writeBuf: make([]byte, udpBufferSize),
 	}
-	if udpConn, ok := conn.(*net.UDPConn); ok {
+	if udpConn, ok := conn.(udpLikePacketConn); ok {
 		return &obfsPacketConnUDP{
 			obfsPacketConn: opc,
 			UDPConn:        udpConn,

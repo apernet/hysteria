@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/netip"
 	"sync"
+	"syscall"
 
 	"github.com/pion/stun/v3"
 )
@@ -30,6 +31,12 @@ type STUNPacketEvent struct {
 type PunchPacketConn struct {
 	net.PacketConn
 
+	// udp is non-nil when the wrapped PacketConn is a *net.UDPConn. It is used
+	// to expose UDP-specific methods (SyscallConn, SetReadBuffer,
+	// SetWriteBuffer) so quic-go and obfs wrappers can keep their UDP
+	// optimizations even when sitting above us.
+	udp *net.UDPConn
+
 	mu       sync.RWMutex
 	attempts map[string]PunchMetadata
 	events   chan PunchPacketEvent
@@ -43,12 +50,41 @@ func NewPunchPacketConn(conn net.PacketConn, eventBuffer int) (*PunchPacketConn,
 	if eventBuffer <= 0 {
 		eventBuffer = defaultPunchEventBuffer
 	}
+	udp, _ := conn.(*net.UDPConn)
 	return &PunchPacketConn{
 		PacketConn: conn,
+		udp:        udp,
 		attempts:   make(map[string]PunchMetadata),
 		events:     make(chan PunchPacketEvent, eventBuffer),
 		stun:       make(chan STUNPacketEvent, eventBuffer),
 	}, nil
+}
+
+// SyscallConn returns the underlying *net.UDPConn's syscall.RawConn. Returns
+// errors.ErrUnsupported when the wrapped PacketConn is not a *net.UDPConn.
+func (c *PunchPacketConn) SyscallConn() (syscall.RawConn, error) {
+	if c.udp == nil {
+		return nil, errors.ErrUnsupported
+	}
+	return c.udp.SyscallConn()
+}
+
+// SetReadBuffer proxies to the underlying *net.UDPConn. Returns
+// errors.ErrUnsupported when the wrapped PacketConn is not a *net.UDPConn.
+func (c *PunchPacketConn) SetReadBuffer(bytes int) error {
+	if c.udp == nil {
+		return errors.ErrUnsupported
+	}
+	return c.udp.SetReadBuffer(bytes)
+}
+
+// SetWriteBuffer proxies to the underlying *net.UDPConn. Returns
+// errors.ErrUnsupported when the wrapped PacketConn is not a *net.UDPConn.
+func (c *PunchPacketConn) SetWriteBuffer(bytes int) error {
+	if c.udp == nil {
+		return errors.ErrUnsupported
+	}
+	return c.udp.SetWriteBuffer(bytes)
 }
 
 func (c *PunchPacketConn) Events() <-chan PunchPacketEvent {
