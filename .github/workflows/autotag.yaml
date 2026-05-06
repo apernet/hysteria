@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: "Extract tagbase"
         id: extract_tagbase
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const ref = context.ref;
@@ -30,7 +30,7 @@ jobs:
             core.setOutput('tagbase', tagbase);
 
       - name: "Tagging core/*"
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           INPUT_TAGPREFIX: "core/"
           INPUT_TAGBASE: ${{ steps.extract_tagbase.outputs.tagbase }}
@@ -67,7 +67,7 @@ jobs:
             }
 
       - name: "Tagging extras/*"
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           INPUT_TAGPREFIX: "extras/"
           INPUT_TAGBASE: ${{ steps.extract_tagbase.outputs.tagbase }}
