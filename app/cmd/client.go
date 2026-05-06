@@ -733,7 +733,8 @@ func runClient(v *viper.Viper) {
 			if count == 1 && !disableUpdateCheck {
 				go runCheckUpdateClient(c)
 			}
-		}, config.Lazy)
+		}, config.Lazy,
+	)
 	if err != nil {
 		logger.Fatal("failed to initialize client", zap.Error(err))
 	}

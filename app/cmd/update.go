@@ -28,7 +28,8 @@ func init() {
 }
 
 func runCheckUpdateCmd(cmd *cobra.Command, args []string) {
-	logger.Info("checking for updates",
+	logger.Info(
+		"checking for updates",
 		zap.String("version", appVersion),
 		zap.String("platform", appPlatform),
 		zap.String("arch", appArch),
@@ -44,7 +45,8 @@ func runCheckUpdate(v *viper.Viper) {
 		logger.Fatal("failed to check for updates", zap.Error(err))
 	}
 	if resp.HasUpdate {
-		logger.Info("update available",
+		logger.Info(
+			"update available",
 			zap.String("version", resp.LatestVersion),
 			zap.String("url", resp.URL),
 			zap.Bool("urgent", resp.Urgent),
@@ -69,7 +71,8 @@ func runCheckUpdateClient(hyClient client.Client) {
 func checkUpdateRoutine(checker *utils.UpdateChecker) {
 	ticker := time.NewTicker(updateCheckInterval)
 	for {
-		logger.Debug("checking for updates",
+		logger.Debug(
+			"checking for updates",
 			zap.String("version", appVersion),
 			zap.String("platform", appPlatform),
 			zap.String("arch", appArch),
@@ -79,7 +82,8 @@ func checkUpdateRoutine(checker *utils.UpdateChecker) {
 		if err != nil {
 			logger.Debug("failed to check for updates", zap.Error(err))
 		} else if resp.HasUpdate {
-			logger.Info("update available",
+			logger.Info(
+				"update available",
 				zap.String("version", resp.LatestVersion),
 				zap.String("url", resp.URL),
 				zap.Bool("urgent", resp.Urgent),

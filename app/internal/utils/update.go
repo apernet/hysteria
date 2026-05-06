@@ -70,7 +70,8 @@ type UpdateResponse struct {
 }
 
 func (uc *UpdateChecker) Check() (*UpdateResponse, error) {
-	url := fmt.Sprintf("%s?cver=%s&plat=%s&arch=%s&chan=%s&side=%s",
+	url := fmt.Sprintf(
+		"%s?cver=%s&plat=%s&arch=%s&chan=%s&side=%s",
 		updateCheckEndpoint,
 		uc.CurrentVersion,
 		uc.Platform,
