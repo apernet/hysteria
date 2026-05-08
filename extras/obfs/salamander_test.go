@@ -8,7 +8,7 @@ import (
 )
 
 func BenchmarkSalamanderObfuscator_Obfuscate(b *testing.B) {
-	o, _ := NewSalamanderObfuscator([]byte("average_password"))
+	o, _ := newSalamanderObfuscator([]byte("average_password"))
 	in := make([]byte, 1200)
 	_, _ = rand.Read(in)
 	out := make([]byte, 2048)
@@ -19,7 +19,7 @@ func BenchmarkSalamanderObfuscator_Obfuscate(b *testing.B) {
 }
 
 func BenchmarkSalamanderObfuscator_Deobfuscate(b *testing.B) {
-	o, _ := NewSalamanderObfuscator([]byte("average_password"))
+	o, _ := newSalamanderObfuscator([]byte("average_password"))
 	in := make([]byte, 1200)
 	_, _ = rand.Read(in)
 	out := make([]byte, 2048)
@@ -30,7 +30,7 @@ func BenchmarkSalamanderObfuscator_Deobfuscate(b *testing.B) {
 }
 
 func TestSalamanderObfuscator(t *testing.T) {
-	o, _ := NewSalamanderObfuscator([]byte("average_password"))
+	o, _ := newSalamanderObfuscator([]byte("average_password"))
 	in := make([]byte, 1200)
 	oOut := make([]byte, 2048)
 	dOut := make([]byte, 2048)

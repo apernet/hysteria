@@ -9,10 +9,10 @@ import (
 
 const udpBufferSize = 2048 // QUIC packets are at most 1500 bytes long, so 2k should be more than enough
 
-// Obfuscator is the interface that wraps the Obfuscate and Deobfuscate methods.
-// Both methods return the number of bytes written to out.
+// obfuscator wraps a per-packet, length-preserving cipher.
+// Obfuscate / Deobfuscate return the number of bytes written to out.
 // If a packet is not valid, the methods should return 0.
-type Obfuscator interface {
+type obfuscator interface {
 	Obfuscate(in, out []byte) int
 	Deobfuscate(in, out []byte) int
 }
@@ -21,7 +21,7 @@ var _ net.PacketConn = (*obfsPacketConn)(nil)
 
 type obfsPacketConn struct {
 	Conn net.PacketConn
-	Obfs Obfuscator
+	Obfs obfuscator
 
 	readBuf    []byte
 	readMutex  sync.Mutex
@@ -49,14 +49,14 @@ type obfsPacketConnUDP struct {
 	UDPConn udpLikePacketConn
 }
 
-// WrapPacketConn enables obfuscation on a net.PacketConn.
+// wrapPacketConn enables per-packet obfuscation on a net.PacketConn.
 // The obfuscation is transparent to the caller - the n bytes returned by
 // ReadFrom and WriteTo are the number of original bytes, not after
 // obfuscation/deobfuscation.
-func WrapPacketConn(conn net.PacketConn, obfs Obfuscator) net.PacketConn {
+func wrapPacketConn(conn net.PacketConn, ob obfuscator) net.PacketConn {
 	opc := &obfsPacketConn{
 		Conn:     conn,
-		Obfs:     obfs,
+		Obfs:     ob,
 		readBuf:  make([]byte, udpBufferSize),
 		writeBuf: make([]byte, udpBufferSize),
 	}
