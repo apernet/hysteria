@@ -72,11 +72,12 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 	}
 	// Convert config to TLS config & QUIC config
 	tlsConfig := &tls.Config{
-		ServerName:            c.config.TLSConfig.ServerName,
-		InsecureSkipVerify:    c.config.TLSConfig.InsecureSkipVerify,
-		VerifyPeerCertificate: c.config.TLSConfig.VerifyPeerCertificate,
-		RootCAs:               c.config.TLSConfig.RootCAs,
-		GetClientCertificate:  c.config.TLSConfig.GetClientCertificate,
+		ServerName:                     c.config.TLSConfig.ServerName,
+		InsecureSkipVerify:             c.config.TLSConfig.InsecureSkipVerify,
+		VerifyPeerCertificate:          c.config.TLSConfig.VerifyPeerCertificate,
+		RootCAs:                        c.config.TLSConfig.RootCAs,
+		GetClientCertificate:           c.config.TLSConfig.GetClientCertificate,
+		EncryptedClientHelloConfigList: c.config.TLSConfig.EncryptedClientHelloConfigList,
 	}
 	quicConfig := &quic.Config{
 		InitialStreamReceiveWindow:     c.config.QUICConfig.InitialStreamReceiveWindow,
@@ -91,7 +92,7 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 		OmitMaxDatagramFrameSize:       true,
 		DisablePathManager:             true,
 	}
-	tr := &quic.Transport{Conn: pktConn}
+	tr := &quic.Transport{Conn: pktConn, ConnectionIDGenerator: c.config.ConnectionIDGenerator}
 	// Prepare RoundTripper
 	var conn *quic.Conn
 	rt := &http3.Transport{
