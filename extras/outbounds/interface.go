@@ -1,6 +1,7 @@
 package outbounds
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 
@@ -66,18 +67,26 @@ type PluggableOutboundAdapter struct {
 	PluggableOutbound
 }
 
+func parsePortUint16(port string) (uint16, error) {
+	portUint, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		return 0, fmt.Errorf("invalid port: %w", err)
+	}
+	return uint16(portUint), nil
+}
+
 func (a *PluggableOutboundAdapter) TCP(reqAddr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(reqAddr)
 	if err != nil {
 		return nil, err
 	}
-	portInt, err := strconv.Atoi(port)
+	portUint, err := parsePortUint16(port)
 	if err != nil {
 		return nil, err
 	}
 	return a.PluggableOutbound.TCP(&AddrEx{
 		Host: host,
-		Port: uint16(portInt),
+		Port: portUint,
 	})
 }
 
@@ -86,13 +95,13 @@ func (a *PluggableOutboundAdapter) UDP(reqAddr string) (server.UDPConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	portInt, err := strconv.Atoi(port)
+	portUint, err := parsePortUint16(port)
 	if err != nil {
 		return nil, err
 	}
 	conn, err := a.PluggableOutbound.UDP(&AddrEx{
 		Host: host,
-		Port: uint16(portInt),
+		Port: portUint,
 	})
 	if err != nil {
 		return nil, err
@@ -118,13 +127,13 @@ func (u *udpConnAdapter) WriteTo(b []byte, addr string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	portInt, err := strconv.Atoi(port)
+	portUint, err := parsePortUint16(port)
 	if err != nil {
 		return 0, err
 	}
 	return u.UDPConn.WriteTo(b, &AddrEx{
 		Host: host,
-		Port: uint16(portInt),
+		Port: portUint,
 	})
 }
 
