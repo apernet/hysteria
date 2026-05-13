@@ -35,7 +35,7 @@ func (r *fakeRunner) Run(name string, args ...string) error {
 func TestSetupUDPPortRedirectWithRunnerNFTables(t *testing.T) {
 	runner := &fakeRunner{paths: map[string]bool{"nft": true}}
 	addr := &net.UDPAddr{IP: net.IPv4(1, 2, 3, 4), Port: 20000}
-	ports := eUtils.PortUnion{{20000, 20002}}
+	ports := eUtils.PortUnion{{Start: 20000, End: 20002}}
 
 	cleanup, err := setupUDPPortRedirectWithRunner(runner, addr, ports)
 	require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestSetupUDPPortRedirectWithRunnerNFTables(t *testing.T) {
 func TestSetupUDPPortRedirectWithRunnerIPTablesFallback(t *testing.T) {
 	runner := &fakeRunner{paths: map[string]bool{"iptables": true}}
 	addr := &net.UDPAddr{IP: net.IPv4(1, 2, 3, 4), Port: 20000}
-	ports := eUtils.PortUnion{{20000, 20000}, {20002, 20003}}
+	ports := eUtils.PortUnion{{Start: 20000, End: 20000}, {Start: 20002, End: 20003}}
 
 	cleanup, err := setupUDPPortRedirectWithRunner(runner, addr, ports)
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestSetupUDPPortRedirectWithRunnerRollback(t *testing.T) {
 		fail:  3,
 	}
 	addr := &net.UDPAddr{IP: net.IPv4(1, 2, 3, 4), Port: 20000}
-	ports := eUtils.PortUnion{{20000, 20001}}
+	ports := eUtils.PortUnion{{Start: 20000, End: 20001}}
 
 	_, err := setupUDPPortRedirectWithRunner(runner, addr, ports)
 	require.Error(t, err)

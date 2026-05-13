@@ -21,7 +21,7 @@ type PortRange struct {
 func ParsePortUnion(s string) PortUnion {
 	if s == "all" || s == "*" {
 		// Wildcard special case
-		return PortUnion{PortRange{0, 65535}}
+		return PortUnion{PortRange{Start: 0, End: 65535}}
 	}
 	var result PortUnion
 	portStrs := strings.Split(s, ",")
@@ -43,14 +43,14 @@ func ParsePortUnion(s string) PortUnion {
 			if start > end {
 				start, end = end, start
 			}
-			result = append(result, PortRange{uint16(start), uint16(end)})
+			result = append(result, PortRange{Start: uint16(start), End: uint16(end)})
 		} else {
 			// Single port
 			port, err := strconv.ParseUint(portStr, 10, 16)
 			if err != nil {
 				return nil
 			}
-			result = append(result, PortRange{uint16(port), uint16(port)})
+			result = append(result, PortRange{Start: uint16(port), End: uint16(port)})
 		}
 	}
 	if result == nil {

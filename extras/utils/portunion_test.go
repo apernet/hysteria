@@ -20,47 +20,47 @@ func TestParsePortUnion(t *testing.T) {
 		{
 			name: "all 1",
 			s:    "all",
-			want: PortUnion{{0, 65535}},
+			want: PortUnion{{Start: 0, End: 65535}},
 		},
 		{
 			name: "all 2",
 			s:    "*",
-			want: PortUnion{{0, 65535}},
+			want: PortUnion{{Start: 0, End: 65535}},
 		},
 		{
 			name: "single port",
 			s:    "1234",
-			want: PortUnion{{1234, 1234}},
+			want: PortUnion{{Start: 1234, End: 1234}},
 		},
 		{
 			name: "multiple ports (unsorted)",
 			s:    "5678,1234,9012",
-			want: PortUnion{{1234, 1234}, {5678, 5678}, {9012, 9012}},
+			want: PortUnion{{Start: 1234, End: 1234}, {Start: 5678, End: 5678}, {Start: 9012, End: 9012}},
 		},
 		{
 			name: "one range",
 			s:    "1234-1240",
-			want: PortUnion{{1234, 1240}},
+			want: PortUnion{{Start: 1234, End: 1240}},
 		},
 		{
 			name: "one range (reversed)",
 			s:    "1240-1234",
-			want: PortUnion{{1234, 1240}},
+			want: PortUnion{{Start: 1234, End: 1240}},
 		},
 		{
 			name: "multiple ports and ranges (reversed, unsorted, overlapping)",
 			s:    "5678,1200-1236,9100-9012,1234-1240",
-			want: PortUnion{{1200, 1240}, {5678, 5678}, {9012, 9100}},
+			want: PortUnion{{Start: 1200, End: 1240}, {Start: 5678, End: 5678}, {Start: 9012, End: 9100}},
 		},
 		{
 			name: "multiple ports and ranges with 65535 (reversed, unsorted, overlapping)",
 			s:    "5678,1200-1236,65531-65535,65532-65534,9100-9012,1234-1240",
-			want: PortUnion{{1200, 1240}, {5678, 5678}, {9012, 9100}, {65531, 65535}},
+			want: PortUnion{{Start: 1200, End: 1240}, {Start: 5678, End: 5678}, {Start: 9012, End: 9100}, {Start: 65531, End: 65535}},
 		},
 		{
 			name: "multiple ports and ranges with 65535 (reversed, unsorted, overlapping) 2",
 			s:    "5678,1200-1236,65532-65535,65531-65534,9100-9012,1234-1240",
-			want: PortUnion{{1200, 1240}, {5678, 5678}, {9012, 9100}, {65531, 65535}},
+			want: PortUnion{{Start: 1200, End: 1240}, {Start: 5678, End: 5678}, {Start: 9012, End: 9100}, {Start: 65531, End: 65535}},
 		},
 		{
 			name: "invalid 1",
@@ -110,32 +110,32 @@ func TestPortUnion_Ports(t *testing.T) {
 	}{
 		{
 			name: "single port",
-			pu:   PortUnion{{1234, 1234}},
+			pu:   PortUnion{{Start: 1234, End: 1234}},
 			want: []uint16{1234},
 		},
 		{
 			name: "multiple ports",
-			pu:   PortUnion{{1234, 1236}},
+			pu:   PortUnion{{Start: 1234, End: 1236}},
 			want: []uint16{1234, 1235, 1236},
 		},
 		{
 			name: "multiple ports and ranges",
-			pu:   PortUnion{{1234, 1236}, {5678, 5680}, {9000, 9002}},
+			pu:   PortUnion{{Start: 1234, End: 1236}, {Start: 5678, End: 5680}, {Start: 9000, End: 9002}},
 			want: []uint16{1234, 1235, 1236, 5678, 5679, 5680, 9000, 9001, 9002},
 		},
 		{
 			name: "single port 65535",
-			pu:   PortUnion{{65535, 65535}},
+			pu:   PortUnion{{Start: 65535, End: 65535}},
 			want: []uint16{65535},
 		},
 		{
 			name: "port range with 65535",
-			pu:   PortUnion{{65530, 65535}},
+			pu:   PortUnion{{Start: 65530, End: 65535}},
 			want: []uint16{65530, 65531, 65532, 65533, 65534, 65535},
 		},
 		{
 			name: "multiple ports and ranges with 65535",
-			pu:   PortUnion{{65530, 65535}, {1234, 1236}},
+			pu:   PortUnion{{Start: 65530, End: 65535}, {Start: 1234, End: 1236}},
 			want: []uint16{65530, 65531, 65532, 65533, 65534, 65535, 1234, 1235, 1236},
 		},
 	}

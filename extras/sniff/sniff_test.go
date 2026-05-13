@@ -26,11 +26,11 @@ func TestSnifferCheck(t *testing.T) {
 	sniffer.RewriteDomain = true
 	assert.True(t, sniffer.Check(false, "example.com:443"))
 
-	sniffer.TCPPorts = []utils.PortRange{{80, 80}}
+	sniffer.TCPPorts = []utils.PortRange{{Start: 80, End: 80}}
 	assert.True(t, sniffer.Check(false, "google.com:80"))
 	assert.False(t, sniffer.Check(false, "google.com:443"))
 
-	sniffer.UDPPorts = []utils.PortRange{{443, 443}}
+	sniffer.UDPPorts = []utils.PortRange{{Start: 443, End: 443}}
 	assert.True(t, sniffer.Check(true, "google.com:443"))
 	assert.False(t, sniffer.Check(true, "google.com:80"))
 }
