@@ -86,7 +86,7 @@ type matchResultCacheKey struct {
 }
 
 func (s *compiledRuleSetImpl[O]) Match(host HostInfo, proto Protocol, port uint16) (O, net.IP) {
-	host.Name = strings.ToLower(host.Name) // Normalize host name to lower case
+	host.Name = strings.TrimSuffix(strings.ToLower(host.Name), ".") // Normalize host name
 	key := matchResultCacheKey{
 		Host:  host.String(),
 		Proto: proto,
@@ -233,7 +233,7 @@ func parseProtoPort(protoPort string) (Protocol, uint16, uint16, bool) {
 }
 
 func compileHostMatcher(addr string, geoLoader GeoLoader) (hostMatcher, string) {
-	addr = strings.ToLower(addr) // Normalize to lower case
+	addr = strings.TrimSuffix(strings.ToLower(addr), ".") // Normalize host pattern
 	if addr == "*" || addr == "all" {
 		// Match all hosts
 		return &allMatcher{}, ""
