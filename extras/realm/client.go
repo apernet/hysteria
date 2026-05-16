@@ -167,6 +167,16 @@ func (c *Client) Connect(ctx context.Context, realmID string, req ConnectRequest
 	return &resp, nil
 }
 
+type ConnectResponseRequest struct {
+	Addresses []string `json:"addresses"`
+}
+
+func (c *Client) ConnectResponse(ctx context.Context, realmID, sessionID, nonce string, addresses []string) error {
+	subPath := "connects/" + url.PathEscape(nonce)
+	return c.doJSON(ctx, http.MethodPost, realmID, subPath, sessionID,
+		ConnectResponseRequest{Addresses: addresses}, http.StatusNoContent, nil)
+}
+
 func (c *Client) Events(ctx context.Context, realmID, sessionID string) (*EventStream, error) {
 	req, err := c.newRequest(ctx, http.MethodGet, realmID, "events", sessionID, nil)
 	if err != nil {

@@ -67,11 +67,6 @@ func Punch(ctx context.Context, conn net.PacketConn, localAddrs, peerAddrs []net
 	defer cancel()
 	defer conn.SetReadDeadline(time.Time{})
 
-	candidateSet := make(map[netip.AddrPort]struct{}, len(candidates))
-	for _, candidate := range candidates {
-		candidateSet[candidate] = struct{}{}
-	}
-
 	nextSend := time.Now()
 	buf := make([]byte, punchMaxWireLen)
 	for {
@@ -101,9 +96,6 @@ func Punch(ctx context.Context, conn net.PacketConn, localAddrs, peerAddrs []net
 		}
 		peerAddr, ok := addrToAddrPort(addr)
 		if !ok {
-			continue
-		}
-		if _, ok := candidateSet[peerAddr]; !ok {
 			continue
 		}
 		packet, err := DecodePunchPacket(buf[:n], meta)

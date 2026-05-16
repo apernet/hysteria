@@ -97,6 +97,12 @@ func TestCompile(t *testing.T) {
 			ProtoPort:     "tcp/6881-6889",
 			HijackAddress: "",
 		},
+		{
+			Outbound:      "ob1",
+			Address:       "dotpattern.test.", // trailing dot in pattern should be normalized away
+			ProtoPort:     "tcp/443",
+			HijackAddress: "",
+		},
 	}
 	comp, err := Compile[int](rules, map[string]int{
 		"ob1": ob1,
@@ -281,6 +287,51 @@ func TestCompile(t *testing.T) {
 			proto:        ProtocolTCP,
 			port:         6883,
 			wantOutbound: ob6, // match range port rule 6881-6889
+			wantIP:       nil,
+		},
+		{
+			host: HostInfo{
+				Name: "crap.v2ex.com.", // trailing dot must not bypass exact domain rule
+			},
+			proto:        ProtocolTCP,
+			port:         80,
+			wantOutbound: ob1,
+			wantIP:       net.ParseIP("2.2.2.2"),
+		},
+		{
+			host: HostInfo{
+				Name: "hoho.v2ex.com.", // trailing dot must not bypass wildcard domain rule
+			},
+			proto:        ProtocolUDP,
+			port:         9999,
+			wantOutbound: ob3,
+			wantIP:       nil,
+		},
+		{
+			host: HostInfo{
+				Name: "real.microsoft.com.", // trailing dot must not bypass suffix domain rule
+			},
+			proto:        ProtocolUDP,
+			port:         5353,
+			wantOutbound: ob5,
+			wantIP:       nil,
+		},
+		{
+			host: HostInfo{
+				Name: "microsoft.com...", // multiple trailing dots must also be normalized
+			},
+			proto:        ProtocolTCP,
+			port:         6000,
+			wantOutbound: ob5,
+			wantIP:       nil,
+		},
+		{
+			host: HostInfo{
+				Name: "dotpattern.test", // host without dot must match rule whose pattern had a trailing dot
+			},
+			proto:        ProtocolTCP,
+			port:         443,
+			wantOutbound: ob1,
 			wantIP:       nil,
 		},
 	}

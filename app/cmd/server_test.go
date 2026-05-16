@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -302,10 +304,23 @@ func TestRealmSessionHelpers(t *testing.T) {
 	assert.False(t, isRealmRegisterFatal(assert.AnError))
 }
 
-func TestRealmSTUNRefreshInterval(t *testing.T) {
-	rt := &realmServerRuntime{}
-	assert.Equal(t, defaultRealmSTUNRefreshInterval, rt.stunRefreshInterval())
+func TestRealmConnectAddrsCacheHit(t *testing.T) {
+	want := []netip.AddrPort{
+		netip.MustParseAddrPort("203.0.113.10:4433"),
+		netip.MustParseAddrPort("[2001:db8::1]:4433"),
+	}
+	rt := &realmServerRuntime{
+		addrs:   append([]netip.AddrPort(nil), want...),
+		addrsAt: time.Now(),
+	}
+	got, err := rt.connectAddrs(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
 
-	rt.config.STUNRefreshInterval = time.Minute
-	assert.Equal(t, time.Minute, rt.stunRefreshInterval())
+	// Cache should still hold the same values; no mutation through aliasing.
+	assert.Equal(t, want, rt.addrs)
+
+	// Mutating the returned slice must not affect the cached one.
+	got[0] = netip.MustParseAddrPort("198.51.100.1:1")
+	assert.Equal(t, want, rt.addrs)
 }

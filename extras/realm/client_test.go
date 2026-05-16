@@ -86,6 +86,44 @@ func TestClientMethods(t *testing.T) {
 	}, seen)
 }
 
+func TestClientConnectResponse(t *testing.T) {
+	const nonce = "00112233445566778899aabbccddeeff"
+	fresh := []string{"198.51.100.5:9999", "198.51.100.6:9999"}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/v1/realm/connects/"+nonce, r.URL.Path)
+		require.Equal(t, "Bearer session-token", r.Header.Get("Authorization"))
+		var req ConnectResponseRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		assert.Equal(t, fresh, req.Addresses)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	c := newTestClient(t, ts.URL, "realm-token")
+	require.NoError(t, c.ConnectResponse(context.Background(), "realm", "session-token", nonce, fresh))
+}
+
+func TestClientConnectResponseNotFound(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, http.StatusNotFound, ErrorResponse{
+			Error:   "attempt_not_found",
+			Message: "no pending attempt for nonce",
+		})
+	}))
+	defer ts.Close()
+
+	c := newTestClient(t, ts.URL, "realm-token")
+	err := c.ConnectResponse(context.Background(), "realm", "session-token",
+		"00112233445566778899aabbccddeeff", []string{"198.51.100.5:9999"})
+	require.Error(t, err)
+	var statusErr *StatusError
+	require.True(t, errors.As(err, &statusErr))
+	assert.Equal(t, http.StatusNotFound, statusErr.StatusCode)
+	assert.Equal(t, "attempt_not_found", statusErr.Response.Error)
+}
+
 func TestClientStatusError(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(t, w, http.StatusConflict, ErrorResponse{

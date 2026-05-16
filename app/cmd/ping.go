@@ -51,6 +51,7 @@ func runPing(v *viper.Viper, addr string) {
 	}
 	defer c.Close()
 	logger.Info("connected to server",
+		zap.String("addr", info.ServerAddr.String()),
 		zap.Bool("udpEnabled", info.UDPEnabled),
 		zap.Uint64("tx", info.Tx))
 

@@ -33,6 +33,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/apernet/hysteria/app/v2/internal/firewall"
 	"github.com/apernet/hysteria/app/v2/internal/utils"
@@ -49,8 +50,7 @@ import (
 )
 
 const (
-	defaultListenAddr               = ":443"
-	defaultRealmSTUNRefreshInterval = 10 * time.Minute
+	defaultListenAddr = ":443"
 )
 
 var serverCmd = &cobra.Command{
@@ -86,12 +86,11 @@ type serverConfig struct {
 }
 
 type serverConfigRealm struct {
-	STUNServers         []string      `mapstructure:"stunServers"`
-	STUNTimeout         time.Duration `mapstructure:"stunTimeout"`
-	STUNRefreshInterval time.Duration `mapstructure:"stunRefreshInterval"`
-	PunchTimeout        time.Duration `mapstructure:"punchTimeout"`
-	HeartbeatInterval   time.Duration `mapstructure:"heartbeatInterval"`
-	Insecure            bool          `mapstructure:"insecure"`
+	STUNServers       []string      `mapstructure:"stunServers"`
+	STUNTimeout       time.Duration `mapstructure:"stunTimeout"`
+	PunchTimeout      time.Duration `mapstructure:"punchTimeout"`
+	HeartbeatInterval time.Duration `mapstructure:"heartbeatInterval"`
+	Insecure          bool          `mapstructure:"insecure"`
 }
 
 type serverConfigObfsSalamander struct {
@@ -474,6 +473,8 @@ func (c *serverConfig) realmHTTPClient() *http.Client {
 	return &http.Client{Transport: tr}
 }
 
+const realmConnectSTUNCacheTTL = 10 * time.Second
+
 type realmServerRuntime struct {
 	cancel      context.CancelFunc
 	client      *realm.Client
@@ -486,6 +487,9 @@ type realmServerRuntime struct {
 	mu      sync.Mutex
 	session realmSession
 	addrs   []netip.AddrPort
+	addrsAt time.Time
+
+	connectSF singleflight.Group
 }
 
 type realmSession struct {
@@ -541,7 +545,7 @@ func (r *realmServerRuntime) register(ctx context.Context) (realmSession, error)
 	localAddrs := r.currentAddrs()
 	logger.Debug("realm registration started",
 		zap.String("realm", r.realmID),
-		zap.Int("addresses", len(localAddrs)))
+		zap.Strings("addresses", addrPortStrings(localAddrs)))
 	start := time.Now()
 	registerResp, err := r.client.Register(ctx, r.realmID, addrPortStrings(localAddrs))
 	if err != nil {
@@ -554,7 +558,7 @@ func (r *realmServerRuntime) register(ctx context.Context) (realmSession, error)
 		zap.String("duration", formatLogDuration(time.Since(start))))
 	logger.Info("realm registered",
 		zap.String("realm", r.realmID),
-		zap.Int("addresses", len(localAddrs)),
+		zap.Strings("addresses", addrPortStrings(localAddrs)),
 		zap.Int("ttl", sess.ttl))
 	return sess, nil
 }
@@ -581,7 +585,7 @@ func (r *realmServerRuntime) heartbeatLoop(ctx context.Context, sess realmSessio
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	lastOK := time.Now()
-	nextSTUNRefresh := time.Now().Add(r.stunRefreshInterval())
+	lastPublished := r.currentAddrs()
 	for {
 		select {
 		case <-ctx.Done():
@@ -591,15 +595,10 @@ func (r *realmServerRuntime) heartbeatLoop(ctx context.Context, sess realmSessio
 			logger.Debug("realm heartbeat started", zap.String("realm", r.realmID))
 			start := time.Now()
 			req := realm.HeartbeatRequest{}
-			if !time.Now().Before(nextSTUNRefresh) {
-				addrs, changed, err := r.refreshAddrs(ctx)
-				nextSTUNRefresh = time.Now().Add(r.stunRefreshInterval())
-				if err != nil {
-					logger.Warn("realm STUN refresh failed", zap.String("realm", r.realmID), zap.Error(err))
-				} else if changed {
-					req.Addresses = addrPortStrings(addrs)
-					logger.Debug("realm addresses changed", zap.String("realm", r.realmID), zap.Strings("addresses", req.Addresses))
-				}
+			if current := r.currentAddrs(); !slices.Equal(current, lastPublished) {
+				req.Addresses = addrPortStrings(current)
+				lastPublished = current
+				logger.Debug("realm addresses changed", zap.String("realm", r.realmID), zap.Strings("addresses", req.Addresses))
 			}
 			resp, err := r.client.Heartbeat(ctx, r.realmID, sess.id, req)
 			if err != nil {
@@ -674,10 +673,42 @@ func (r *realmServerRuntime) eventsLoop(ctx context.Context, sess realmSession) 
 			logger.Debug("realm punch event received",
 				zap.String("realm", r.realmID),
 				zap.String("attempt", shortAttempt(ev.Nonce)),
-				zap.Int("addresses", len(ev.Addresses)))
+				zap.Strings("addresses", ev.Addresses))
 			go r.respond(ctx, ev)
 		}
 	}
+}
+
+func (r *realmServerRuntime) connectAddrs(ctx context.Context) ([]netip.AddrPort, error) {
+	if cached := r.cachedAddrs(); cached != nil {
+		return cached, nil
+	}
+	v, err, _ := r.connectSF.Do("stun", func() (any, error) {
+		if cached := r.cachedAddrs(); cached != nil {
+			return cached, nil
+		}
+		addrs, _, err := r.refreshAddrs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return addrs, nil
+	})
+	if err != nil {
+		if fallback := r.currentAddrs(); len(fallback) > 0 {
+			return fallback, err
+		}
+		return nil, err
+	}
+	return v.([]netip.AddrPort), nil
+}
+
+func (r *realmServerRuntime) cachedAddrs() []netip.AddrPort {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.addrs == nil || time.Since(r.addrsAt) >= realmConnectSTUNCacheTTL {
+		return nil
+	}
+	return append([]netip.AddrPort(nil), r.addrs...)
 }
 
 func (r *realmServerRuntime) respond(ctx context.Context, ev *realm.PunchEvent) {
@@ -687,12 +718,33 @@ func (r *realmServerRuntime) respond(ctx context.Context, ev *realm.PunchEvent) 
 		logger.Warn("invalid realm punch addresses", zap.String("realm", r.realmID), zap.String("attempt", attempt), zap.Error(err))
 		return
 	}
+
+	freshAddrs, stunErr := r.connectAddrs(ctx)
+	if stunErr != nil {
+		logger.Warn("realm connect STUN failed; using last-known addresses",
+			zap.String("realm", r.realmID),
+			zap.String("attempt", attempt),
+			zap.Error(stunErr))
+	}
+
+	if sess := r.currentSession(); sess.id != "" && len(freshAddrs) > 0 {
+		postCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+		err := r.client.ConnectResponse(postCtx, r.realmID, sess.id, ev.Nonce, addrPortStrings(freshAddrs))
+		cancel()
+		if err != nil {
+			logger.Warn("realm connect-response post failed",
+				zap.String("realm", r.realmID),
+				zap.String("attempt", attempt),
+				zap.Error(err))
+		}
+	}
+
 	logger.Debug("realm punch response started",
 		zap.String("realm", r.realmID),
 		zap.String("attempt", attempt),
-		zap.Int("candidates", len(peerAddrs)))
+		zap.Strings("candidates", ev.Addresses))
 	start := time.Now()
-	result, err := r.puncher.Respond(ctx, ev.Nonce, r.currentAddrs(), peerAddrs, ev.PunchMetadata, realm.PunchConfig{
+	result, err := r.puncher.Respond(ctx, ev.Nonce, freshAddrs, peerAddrs, ev.PunchMetadata, realm.PunchConfig{
 		Timeout: r.config.PunchTimeout,
 	})
 	if err != nil {
@@ -764,6 +816,7 @@ func (r *realmServerRuntime) refreshAddrsWith(ctx context.Context, discover func
 	if changed {
 		r.addrs = append([]netip.AddrPort(nil), addrs...)
 	}
+	r.addrsAt = time.Now()
 	current := append([]netip.AddrPort(nil), r.addrs...)
 	r.mu.Unlock()
 	logger.Debug("realm server STUN discovery completed",
@@ -778,13 +831,6 @@ func (r *realmServerRuntime) currentAddrs() []netip.AddrPort {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]netip.AddrPort(nil), r.addrs...)
-}
-
-func (r *realmServerRuntime) stunRefreshInterval() time.Duration {
-	if r.config.STUNRefreshInterval > 0 {
-		return r.config.STUNRefreshInterval
-	}
-	return defaultRealmSTUNRefreshInterval
 }
 
 func sessionTTLDuration(ttl int) time.Duration {

@@ -209,6 +209,7 @@ func TestClientServerHandshakeInfo(t *testing.T) {
 	assert.Equal(t, &client.HandshakeInfo{
 		UDPEnabled: true,
 		Tx:         123456,
+		ServerAddr: udpAddr,
 	}, info)
 
 	// Close server 1 and client 1
@@ -242,6 +243,7 @@ func TestClientServerHandshakeInfo(t *testing.T) {
 	assert.Equal(t, &client.HandshakeInfo{
 		UDPEnabled: false,
 		Tx:         100000,
+		ServerAddr: udpAddr,
 	}, info)
 
 	// Close server 2 and client 2
@@ -272,6 +274,7 @@ func TestClientServerHandshakeInfo(t *testing.T) {
 	assert.Equal(t, &client.HandshakeInfo{
 		UDPEnabled: true,
 		Tx:         0,
+		ServerAddr: udpAddr,
 	}, info)
 
 	// Close server 3 and client 3
