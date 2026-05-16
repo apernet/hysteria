@@ -9,6 +9,7 @@ import (
 	"github.com/apernet/hysteria/core/v2/errors"
 	"github.com/apernet/hysteria/core/v2/internal/congestion"
 	"github.com/apernet/hysteria/core/v2/internal/pmtud"
+	"github.com/apernet/quic-go"
 )
 
 const (
@@ -19,16 +20,16 @@ const (
 )
 
 type Config struct {
-	ConnFactory      ConnFactory
-	ServerAddr       net.Addr
-	Auth             string
-	TLSConfig        TLSConfig
-	QUICConfig       QUICConfig
-	CongestionConfig CongestionConfig
-	BandwidthConfig  BandwidthConfig
-	FastOpen         bool
-
-	filled bool // whether the fields have been verified and filled
+	ConnFactory           ConnFactory
+	ServerAddr            net.Addr
+	Auth                  string
+	TLSConfig             TLSConfig
+	QUICConfig            QUICConfig
+	CongestionConfig      CongestionConfig
+	BandwidthConfig       BandwidthConfig
+	FastOpen              bool
+	ConnectionIDGenerator quic.ConnectionIDGenerator
+	filled                bool // whether the fields have been verified and filled
 }
 
 // verifyAndFill fills the fields that are not set by the user with default values when possible,
@@ -102,11 +103,12 @@ func (f *udpConnFactory) New(addr net.Addr) (net.PacketConn, error) {
 
 // TLSConfig contains the TLS configuration fields that we want to expose to the user.
 type TLSConfig struct {
-	ServerName            string
-	InsecureSkipVerify    bool
-	VerifyPeerCertificate func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
-	RootCAs               *x509.CertPool
-	GetClientCertificate  func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
+	ServerName                     string
+	InsecureSkipVerify             bool
+	VerifyPeerCertificate          func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
+	RootCAs                        *x509.CertPool
+	GetClientCertificate           func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
+	EncryptedClientHelloConfigList []byte
 }
 
 // QUICConfig contains the QUIC configuration fields that we want to expose to the user.
