@@ -98,7 +98,9 @@ type serverConfigObfsSalamander struct {
 }
 
 type serverConfigObfsGecko struct {
-	Password string `mapstructure:"password"`
+	Password      string `mapstructure:"password"`
+	MinPacketSize int    `mapstructure:"minPacketSize"`
+	MaxPacketSize int    `mapstructure:"maxPacketSize"`
 }
 
 type serverConfigObfs struct {
@@ -393,10 +395,12 @@ func (c *serverConfig) wrapObfs(conn net.PacketConn) (net.PacketConn, error) {
 		return wrapped, nil
 	case "gecko":
 		wrapped, err := obfs.WrapPacketConnGecko(conn, obfs.GeckoOptions{
-			Password: []byte(c.Obfs.Gecko.Password),
+			Password:      []byte(c.Obfs.Gecko.Password),
+			MinPacketSize: c.Obfs.Gecko.MinPacketSize,
+			MaxPacketSize: c.Obfs.Gecko.MaxPacketSize,
 		})
 		if err != nil {
-			return nil, configError{Field: "obfs.gecko.password", Err: err}
+			return nil, configError{Field: "obfs.gecko", Err: err}
 		}
 		return wrapped, nil
 	default:

@@ -2,6 +2,7 @@ package obfs
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"net"
 	"sync"
@@ -10,33 +11,45 @@ import (
 	"time"
 )
 
-// Gecko adds shape obfuscation on top of a Salamander cipher. Long-header
-// QUIC packets (handshake) are fragmented into 2–N random chunks with random
-// padding to hide the 1200-byte initial-packet fingerprint; short-header
-// (1-RTT) packets pass through untouched. The receiver dispatches on the top
-// bit of the Salamander-decrypted plaintext, which RFC 9000 §17 guarantees
-// is 1 for long-header and 0 for short-header.
+// Gecko adds shape obfuscation on top of Salamander: QUIC long-header
+// (handshake) packets are fragmented into randomly-sized, randomly-padded
+// chunks; short-header packets pass through untouched.
 const (
 	geckoReassemblyTTL = 8 * time.Second
 	geckoMaxReassembly = 4096
 	geckoMaxPerSource  = 8
 
-	geckoBufferSize = 2048 // QUIC packets should fit comfortably
+	geckoBufferSize = 2048
+
+	geckoDefaultMinPacket = 512
+	geckoDefaultMaxPacket = 1200
 )
 
 type GeckoOptions struct {
-	Password []byte
+	Password      []byte
+	MinPacketSize int
+	MaxPacketSize int
 }
 
 func WrapPacketConnGecko(conn net.PacketConn, opts GeckoOptions) (net.PacketConn, error) {
 	if len(opts.Password) == 0 {
 		return nil, errors.New("gecko: password is required")
 	}
+	minPkt, maxPkt := opts.MinPacketSize, opts.MaxPacketSize
+	if minPkt == 0 {
+		minPkt = geckoDefaultMinPacket
+	}
+	if maxPkt == 0 {
+		maxPkt = geckoDefaultMaxPacket
+	}
+	if minPkt <= 0 || minPkt > maxPkt || maxPkt > geckoBufferSize {
+		return nil, errors.New("gecko: invalid min/max packet size")
+	}
 	inner, err := WrapPacketConnSalamander(conn, opts.Password)
 	if err != nil {
 		return nil, err
 	}
-	return newGeckoPacketConn(inner), nil
+	return newGeckoPacketConn(inner, minPkt, maxPkt), nil
 }
 
 type reassemblyKey struct {
@@ -52,9 +65,13 @@ type reassemblyEntry struct {
 }
 
 type geckoPacketConn struct {
-	inner net.PacketConn
+	inner          net.PacketConn
+	minPkt, maxPkt int
 
 	msgID atomic.Uint32
+
+	readMu  sync.Mutex
+	readBuf []byte
 
 	mu         sync.Mutex
 	reassembly map[reassemblyKey]*reassemblyEntry
@@ -64,9 +81,12 @@ type geckoPacketConn struct {
 	closeOnce sync.Once
 }
 
-func newGeckoPacketConn(inner net.PacketConn) *geckoPacketConn {
+func newGeckoPacketConn(inner net.PacketConn, minPkt, maxPkt int) *geckoPacketConn {
 	g := &geckoPacketConn{
 		inner:      inner,
+		minPkt:     minPkt,
+		maxPkt:     maxPkt,
+		readBuf:    make([]byte, geckoBufferSize),
 		reassembly: make(map[reassemblyKey]*reassemblyEntry),
 		perSource:  make(map[string]int),
 		closeCh:    make(chan struct{}),
@@ -82,38 +102,32 @@ func (g *geckoPacketConn) WriteTo(p []byte, addr net.Addr) (int, error) {
 		return 0, nil
 	}
 	if p[0]&0x80 != 0 {
-		// QUIC long header: fragment + pad.
+		// QUIC long header, do fragmentation.
 		return g.writeFragmented(p, addr)
 	}
-	// QUIC short header (data): bypass.
+	// QUIC short header (data), pass through.
 	return g.inner.WriteTo(p, addr)
 }
 
 func (g *geckoPacketConn) writeFragmented(p []byte, addr net.Addr) (int, error) {
 	chunks := randomFragmentChunks()
-	chunkSize := (len(p) + chunks - 1) / chunks
+	chunkSize := len(p) / chunks
 	msgID := uint8(g.msgID.Add(1))
-	var pad [geckoMaxPadding]byte
-	for i := 0; i < chunks; i++ {
+	for i := range chunks {
 		start := i * chunkSize
-		end := start + chunkSize
-		if end > len(p) {
-			end = len(p)
+		end := len(p)
+		if i < chunks-1 {
+			end = start + chunkSize
 		}
 		chunk := p[start:end]
-		padLen := randomPadLen()
-		if padLen > 0 {
-			_, _ = rand.Read(pad[:padLen])
-		}
-		h := frameHeader{
-			isFragment:  true,
+		padLen := g.randomPadLen(len(chunk))
+		buf := make([]byte, geckoHeaderSize+int(padLen)+len(chunk))
+		n, err := encodeFrame(frameHeader{
 			padLen:      padLen,
 			msgID:       msgID,
 			chunkIdx:    uint8(i),
 			totalChunks: uint8(chunks),
-		}
-		buf := make([]byte, geckoHeaderFrag+int(padLen)+len(chunk))
-		n, err := encodeFrame(h, pad[:], chunk, buf)
+		}, chunk, buf)
 		if err != nil {
 			return 0, err
 		}
@@ -124,23 +138,38 @@ func (g *geckoPacketConn) writeFragmented(p []byte, addr net.Addr) (int, error) 
 	return len(p), nil
 }
 
-func randomPadLen() uint8 {
-	var b [1]byte
-	_, _ = rand.Read(b[:])
-	return b[0] & geckoMaskPadLen
+// randomPadLen picks padding so the final UDP datagram (Salamander salt +
+// header + padding + chunk) falls within [minPkt, maxPkt]. If the chunk alone
+// already exceeds maxPkt, no padding is added.
+func (g *geckoPacketConn) randomPadLen(chunkLen int) uint16 {
+	base := smSaltLen + geckoHeaderSize + chunkLen
+	lo := max(g.minPkt, base)
+	if lo > g.maxPkt {
+		return 0
+	}
+	return uint16(lo - base + randIntn(g.maxPkt-lo+1))
 }
 
 func randomFragmentChunks() int {
-	var b [1]byte
+	return geckoMinFragmentChunks + randIntn(geckoMaxFragmentChunks-geckoMinFragmentChunks+1)
+}
+
+// randIntn returns a uniform random int in [0, n).
+func randIntn(n int) int {
+	if n <= 1 {
+		return 0
+	}
+	var b [4]byte
 	_, _ = rand.Read(b[:])
-	span := geckoMaxFragmentChunks - geckoMinFragmentChunks + 1 // 9
-	return geckoMinFragmentChunks + int(b[0])%span
+	return int(binary.BigEndian.Uint32(b[:]) % uint32(n))
 }
 
 // --- Receive path ---
 
 func (g *geckoPacketConn) ReadFrom(p []byte) (int, net.Addr, error) {
-	buf := make([]byte, geckoBufferSize)
+	g.readMu.Lock()
+	defer g.readMu.Unlock()
+	buf := g.readBuf
 	for {
 		n, addr, err := g.inner.ReadFrom(buf)
 		if err != nil {
@@ -149,18 +178,14 @@ func (g *geckoPacketConn) ReadFrom(p []byte) (int, net.Addr, error) {
 		if n <= 0 {
 			continue
 		}
-		// Top bit of the Salamander-decrypted byte 0 distinguishes Gecko
-		// fragment frames from plain QUIC short-header packets. Any QUIC
-		// long-header packet must have arrived as a fragment (the sender
-		// always fragments long-header), so a top-bit-clear plaintext is
-		// either a real short-header packet or unrelated garbage; either
-		// way we just return it and let the upper layer (QUIC) decide.
+		// Top bit set → Gecko fragment frame; clear → short-header packet
+		// or garbage, passed through for QUIC to handle.
 		if buf[0]&0x80 == 0 {
 			return copy(p, buf[:n]), addr, nil
 		}
 		h, payload, decErr := decodeFrame(buf[:n])
-		if decErr != nil || !h.isFragment {
-			// Malformed fragment frame; drop silently.
+		if decErr != nil {
+			// Malformed frame; drop silently.
 			continue
 		}
 		out, ready := g.acceptChunk(addr, h, payload)
@@ -195,8 +220,7 @@ func (g *geckoPacketConn) acceptChunk(addr net.Addr, h frameHeader, payload []by
 		g.reassembly[key] = e
 		g.perSource[key.addr]++
 	} else if e.total != h.totalChunks {
-		// Inconsistent total chunks — the other end (or a flooder) sent
-		// something we can't reconcile. Drop this frame.
+		// Inconsistent chunk count; drop.
 		return nil, false
 	}
 	if int(h.chunkIdx) >= len(e.chunks) || e.chunks[h.chunkIdx] != nil {

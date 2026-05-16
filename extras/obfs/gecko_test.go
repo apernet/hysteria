@@ -181,6 +181,56 @@ func TestGeckoRoundTripLongHeader(t *testing.T) {
 	}
 }
 
+func TestGeckoRoundTripSmallLongHeader(t *testing.T) {
+	for _, size := range []int{1, 2, 5, 10, 15, 20, 25, 27, 30, 40, 64, 128} {
+		t.Run(fmt.Sprintf("size=%d", size), func(t *testing.T) {
+			aAddr, bAddr := makeAddrs()
+			a, b := newMemPipe(aAddr, bAddr)
+			defer a.Close()
+			defer b.Close()
+
+			ga := mustWrapGecko(t, a, "test")
+			gb := mustWrapGecko(t, b, "test")
+			defer ga.Close()
+			defer gb.Close()
+
+			payload := quicLong(size)
+			if _, err := ga.WriteTo(payload, bAddr); err != nil {
+				t.Fatalf("WriteTo: %v", err)
+			}
+
+			buf := make([]byte, 4096)
+			n, _, err := gb.ReadFrom(buf)
+			if err != nil {
+				t.Fatalf("ReadFrom: %v", err)
+			}
+			if !bytes.Equal(buf[:n], payload) {
+				t.Fatalf("payload mismatch: got %d bytes, want %d", n, size)
+			}
+		})
+	}
+}
+
+func TestGeckoWriteFragmentedNeverPanics(t *testing.T) {
+	aAddr, bAddr := makeAddrs()
+	a, b := newMemPipe(aAddr, bAddr)
+	defer a.Close()
+	defer b.Close()
+	stop := make(chan struct{})
+	defer close(stop)
+	drainInbox(b, stop)
+
+	g := mustWrapGecko(t, a, "test").(*geckoPacketConn)
+	defer g.Close()
+
+	for size := 1; size <= 64; size++ {
+		payload := quicLong(size)
+		if _, err := g.WriteTo(payload, bAddr); err != nil {
+			t.Fatalf("size=%d: WriteTo: %v", size, err)
+		}
+	}
+}
+
 func TestGeckoReassemblesOutOfOrder(t *testing.T) {
 	aAddr, bAddr := makeAddrs()
 	a, b := newMemPipe(aAddr, bAddr)
@@ -339,7 +389,7 @@ func TestGeckoEnforcesPerSourceCap(t *testing.T) {
 }
 
 func TestGeckoEvictsOldestOnGlobalCap(t *testing.T) {
-	g := newGeckoPacketConn(nil) // not actually used for I/O
+	g := newGeckoPacketConn(nil, geckoDefaultMinPacket, geckoDefaultMaxPacket) // not actually used for I/O
 	defer close(g.closeCh)
 
 	// Manually fill the reassembly map past the cap with entries from
@@ -458,6 +508,55 @@ func TestGeckoRequiresPassword(t *testing.T) {
 	}
 }
 
+func TestGeckoRejectsInvalidPacketSize(t *testing.T) {
+	cases := []GeckoOptions{
+		{Password: []byte("x"), MinPacketSize: 1000, MaxPacketSize: 500}, // min > max
+		{Password: []byte("x"), MinPacketSize: -1},                       // min <= 0
+		{Password: []byte("x"), MaxPacketSize: geckoBufferSize + 1},      // max too large
+	}
+	for i, opt := range cases {
+		if _, err := WrapPacketConnGecko(nil, opt); err == nil {
+			t.Fatalf("case %d: expected error", i)
+		}
+	}
+}
+
+// TestGeckoPaddingWithinBounds verifies every fragmented wire datagram is
+// padded into the configured [min, max] size band.
+func TestGeckoPaddingWithinBounds(t *testing.T) {
+	const minSize, maxSize = 400, 900
+	aAddr, bAddr := makeAddrs()
+	a, b := newMemPipe(aAddr, bAddr)
+	defer a.Close()
+	defer b.Close()
+
+	ga, err := WrapPacketConnGecko(a, GeckoOptions{
+		Password:      []byte("test"),
+		MinPacketSize: minSize,
+		MaxPacketSize: maxSize,
+	})
+	if err != nil {
+		t.Fatalf("WrapPacketConnGecko: %v", err)
+	}
+	defer ga.Close()
+
+	for _, size := range []int{1, 50, 200, 600, 1200} {
+		if _, err := ga.WriteTo(quicLong(size), bAddr); err != nil {
+			t.Fatalf("WriteTo size=%d: %v", size, err)
+		}
+	}
+	for {
+		select {
+		case pkt := <-b.inbox:
+			if len(pkt.data) < minSize || len(pkt.data) > maxSize {
+				t.Fatalf("datagram size %d outside [%d, %d]", len(pkt.data), minSize, maxSize)
+			}
+		default:
+			return
+		}
+	}
+}
+
 // Compile-time interface assertions.
 var (
 	_ net.PacketConn    = (*geckoPacketConn)(nil)
@@ -539,6 +638,81 @@ func BenchmarkGeckoWriteLongHeader(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := g.WriteTo(payload, bAddr); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// captureGeckoWire fragments payload through a sender Gecko conn and returns
+// the resulting wire datagrams, for use as fixed input to read benchmarks.
+func captureGeckoWire(b *testing.B, payload []byte) []memPacket {
+	b.Helper()
+	aAddr, bAddr := makeAddrs()
+	a, bEnd := newMemPipe(aAddr, bAddr)
+	defer a.Close()
+	defer bEnd.Close()
+
+	ga, err := WrapPacketConnGecko(a, GeckoOptions{Password: []byte("bench")})
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer ga.Close()
+	if _, err := ga.WriteTo(payload, bAddr); err != nil {
+		b.Fatal(err)
+	}
+
+	var wire []memPacket
+	for {
+		select {
+		case pkt := <-bEnd.inbox:
+			wire = append(wire, pkt)
+		default:
+			return wire
+		}
+	}
+}
+
+func BenchmarkGeckoReadShortHeader(b *testing.B) {
+	wire := captureGeckoWire(b, quicShort(400))
+
+	_, recv := newMemPipe(makeAddrs())
+	gb, err := WrapPacketConnGecko(recv, GeckoOptions{Password: []byte("bench")})
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer gb.Close()
+
+	buf := make([]byte, 4096)
+	b.SetBytes(400)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, pkt := range wire {
+			recv.inbox <- pkt
+		}
+		if _, _, err := gb.ReadFrom(buf); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkGeckoReadLongHeader(b *testing.B) {
+	wire := captureGeckoWire(b, quicLong(1200))
+
+	_, recv := newMemPipe(makeAddrs())
+	gb, err := WrapPacketConnGecko(recv, GeckoOptions{Password: []byte("bench")})
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer gb.Close()
+
+	buf := make([]byte, 4096)
+	b.SetBytes(1200)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, pkt := range wire {
+			recv.inbox <- pkt
+		}
+		if _, _, err := gb.ReadFrom(buf); err != nil {
 			b.Fatal(err)
 		}
 	}
