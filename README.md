@@ -11,7 +11,7 @@
 [7]: https://img.shields.io/github/discussions/apernet/hysteria?style=flat-square
 [8]: https://github.com/apernet/hysteria/discussions
 
-<h2 style="text-align: center;">Hysteria is a powerful, lightning fast and censorship resistant proxy.</h2>
+<h2 style="text-align: center;">Hysteria is a powerful, lightning-fast, and censorship-resistant proxy.</h2>
 
 ### [Get Started](https://v2.hysteria.network/)
 
