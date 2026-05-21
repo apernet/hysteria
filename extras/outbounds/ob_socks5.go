@@ -171,6 +171,10 @@ func (s *socks5Outbound) TCP(reqAddr *AddrEx) (net.Conn, error) {
 	return conn, nil
 }
 
+func (s *socks5Outbound) CheckUDP(reqAddr *AddrEx) error {
+	return nil
+}
+
 func (s *socks5Outbound) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	conn, err := s.dialAndNegotiate()
 	if err != nil {

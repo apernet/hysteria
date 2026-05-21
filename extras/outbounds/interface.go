@@ -24,6 +24,7 @@ import (
 type PluggableOutbound interface {
 	TCP(reqAddr *AddrEx) (net.Conn, error)
 	UDP(reqAddr *AddrEx) (UDPConn, error)
+	CheckUDP(reqAddr *AddrEx) error
 }
 
 type UDPConn interface {
@@ -107,6 +108,21 @@ func (a *PluggableOutboundAdapter) UDP(reqAddr string) (server.UDPConn, error) {
 		return nil, err
 	}
 	return &udpConnAdapter{conn}, nil
+}
+
+func (a *PluggableOutboundAdapter) CheckUDP(reqAddr string) error {
+	host, port, err := net.SplitHostPort(reqAddr)
+	if err != nil {
+		return err
+	}
+	portUint, err := parsePortUint16(port)
+	if err != nil {
+		return err
+	}
+	return a.PluggableOutbound.CheckUDP(&AddrEx{
+		Host: host,
+		Port: portUint,
+	})
 }
 
 type udpConnAdapter struct {

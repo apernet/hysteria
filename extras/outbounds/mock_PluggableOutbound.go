@@ -21,6 +21,52 @@ func (_m *mockPluggableOutbound) EXPECT() *mockPluggableOutbound_Expecter {
 	return &mockPluggableOutbound_Expecter{mock: &_m.Mock}
 }
 
+// CheckUDP provides a mock function with given fields: reqAddr
+func (_m *mockPluggableOutbound) CheckUDP(reqAddr *AddrEx) error {
+	ret := _m.Called(reqAddr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CheckUDP")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*AddrEx) error); ok {
+		r0 = rf(reqAddr)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// mockPluggableOutbound_CheckUDP_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CheckUDP'
+type mockPluggableOutbound_CheckUDP_Call struct {
+	*mock.Call
+}
+
+// CheckUDP is a helper method to define mock.On call
+//   - reqAddr *AddrEx
+func (_e *mockPluggableOutbound_Expecter) CheckUDP(reqAddr interface{}) *mockPluggableOutbound_CheckUDP_Call {
+	return &mockPluggableOutbound_CheckUDP_Call{Call: _e.mock.On("CheckUDP", reqAddr)}
+}
+
+func (_c *mockPluggableOutbound_CheckUDP_Call) Run(run func(reqAddr *AddrEx)) *mockPluggableOutbound_CheckUDP_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*AddrEx))
+	})
+	return _c
+}
+
+func (_c *mockPluggableOutbound_CheckUDP_Call) Return(_a0 error) *mockPluggableOutbound_CheckUDP_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockPluggableOutbound_CheckUDP_Call) RunAndReturn(run func(*AddrEx) error) *mockPluggableOutbound_CheckUDP_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TCP provides a mock function with given fields: reqAddr
 func (_m *mockPluggableOutbound) TCP(reqAddr *AddrEx) (net.Conn, error) {
 	ret := _m.Called(reqAddr)

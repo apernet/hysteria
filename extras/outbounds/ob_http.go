@@ -170,6 +170,10 @@ func (o *httpOutbound) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	return nil, errHTTPUDPNotSupported
 }
 
+func (o *httpOutbound) CheckUDP(reqAddr *AddrEx) error {
+	return errHTTPUDPNotSupported
+}
+
 // cachedConn is a net.Conn wrapper that first Read()s from a buffer,
 // and then from the underlying net.Conn when the buffer is drained.
 type cachedConn struct {

@@ -398,6 +398,10 @@ func (io *udpIOImpl) UDP(reqAddr string) (UDPConn, error) {
 	return io.Outbound.UDP(reqAddr)
 }
 
+func (io *udpIOImpl) CheckUDP(reqAddr string) error {
+	return io.Outbound.CheckUDP(reqAddr)
+}
+
 type udpEventLoggerImpl struct {
 	Conn        *quic.Conn
 	AuthID      string

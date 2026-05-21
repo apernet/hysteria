@@ -219,3 +219,8 @@ func (r *standardResolver) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	r.resolve(reqAddr)
 	return r.Next.UDP(reqAddr)
 }
+
+func (r *standardResolver) CheckUDP(reqAddr *AddrEx) error {
+	r.resolve(reqAddr)
+	return r.Next.CheckUDP(reqAddr)
+}
