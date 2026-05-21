@@ -180,8 +180,7 @@ func (s *socks5Outbound) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	atyp, dstAddr, dstPort := addrExToSOCKS5Addr(reqAddr)
-	req := socks5.NewRequest(socks5.CmdUDP, atyp, dstAddr, dstPort)
+	req := socks5.NewRequest(socks5.CmdUDP, socks5.ATYPIPv4, []byte{0, 0, 0, 0}, []byte{0, 0})
 	resp, err := s.request(conn, req)
 	if err != nil {
 		_ = conn.Close()
