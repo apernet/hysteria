@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	sniffDefaultTimeout = 4 * time.Second
+	sniffDefaultTimeout     = 4 * time.Second
 	sniffMaxHTTPHeaderBytes = 256 * 1024
 )
 
