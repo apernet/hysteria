@@ -3,6 +3,7 @@ package obfs
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"sync"
 	"time"
 
@@ -15,14 +16,14 @@ const (
 	smKeyLen    = blake2b.Size256
 )
 
-var _ Obfuscator = (*SalamanderObfuscator)(nil)
+var _ obfuscator = (*salamanderObfuscator)(nil)
 
 var ErrPSKTooShort = fmt.Errorf("PSK must be at least %d bytes", smPSKMinLen)
 
-// SalamanderObfuscator is an obfuscator that obfuscates each packet with
+// salamanderObfuscator is an obfuscator that obfuscates each packet with
 // the BLAKE2b-256 hash of a pre-shared key combined with a random salt.
 // Packet format: [8-byte salt][payload]
-type SalamanderObfuscator struct {
+type salamanderObfuscator struct {
 	PSK     []byte
 	RandSrc *rand.Rand
 
@@ -30,21 +31,32 @@ type SalamanderObfuscator struct {
 	keyInput []byte
 }
 
-func NewSalamanderObfuscator(psk []byte) (*SalamanderObfuscator, error) {
+func newSalamanderObfuscator(psk []byte) (*salamanderObfuscator, error) {
 	if len(psk) < smPSKMinLen {
 		return nil, ErrPSKTooShort
 	}
 	pskCopy := append([]byte(nil), psk...)
 	keyInput := make([]byte, len(pskCopy)+smSaltLen)
 	copy(keyInput, pskCopy)
-	return &SalamanderObfuscator{
+	return &salamanderObfuscator{
 		PSK:      pskCopy,
 		RandSrc:  rand.New(rand.NewSource(time.Now().UnixNano())),
 		keyInput: keyInput,
 	}, nil
 }
 
-func (o *SalamanderObfuscator) Obfuscate(in, out []byte) int {
+// WrapPacketConnSalamander wraps conn with Salamander obfuscation: each
+// outbound packet is XOR'd with BLAKE2b-256(PSK || random salt) and the
+// 8-byte salt is prepended on the wire.
+func WrapPacketConnSalamander(conn net.PacketConn, psk []byte) (net.PacketConn, error) {
+	ob, err := newSalamanderObfuscator(psk)
+	if err != nil {
+		return nil, err
+	}
+	return wrapPacketConn(conn, ob), nil
+}
+
+func (o *salamanderObfuscator) Obfuscate(in, out []byte) int {
 	outLen := len(in) + smSaltLen
 	if len(out) < outLen {
 		return 0
@@ -59,7 +71,7 @@ func (o *SalamanderObfuscator) Obfuscate(in, out []byte) int {
 	return outLen
 }
 
-func (o *SalamanderObfuscator) Deobfuscate(in, out []byte) int {
+func (o *salamanderObfuscator) Deobfuscate(in, out []byte) int {
 	outLen := len(in) - smSaltLen
 	if outLen <= 0 || len(out) < outLen {
 		return 0
@@ -73,7 +85,7 @@ func (o *SalamanderObfuscator) Deobfuscate(in, out []byte) int {
 	return outLen
 }
 
-func (o *SalamanderObfuscator) keyLocked(salt []byte) [smKeyLen]byte {
+func (o *salamanderObfuscator) keyLocked(salt []byte) [smKeyLen]byte {
 	copy(o.keyInput[len(o.PSK):], salt[:smSaltLen])
 	return blake2b.Sum256(o.keyInput)
 }

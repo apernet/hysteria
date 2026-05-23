@@ -113,9 +113,16 @@ type clientConfigObfsSalamander struct {
 	Password string `mapstructure:"password"`
 }
 
+type clientConfigObfsGecko struct {
+	Password      string `mapstructure:"password"`
+	MinPacketSize int    `mapstructure:"minPacketSize"`
+	MaxPacketSize int    `mapstructure:"maxPacketSize"`
+}
+
 type clientConfigObfs struct {
 	Type       string                     `mapstructure:"type"`
 	Salamander clientConfigObfsSalamander `mapstructure:"salamander"`
+	Gecko      clientConfigObfsGecko      `mapstructure:"gecko"`
 }
 
 type clientConfigTLS struct {
@@ -233,42 +240,46 @@ func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
 	return nil
 }
 
-// fillConnFactory must be called after fillServerAddr, as we have different logic
-// for ConnFactory depending on whether we have a port hopping address.
+// fillConnFactory must be called after fillServerAddr, since the right kind
+// of inner conn (plain vs port-hopping) depends on the resolved server addr.
 func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
 	so, err := c.socketOptions()
 	if err != nil {
 		return err
 	}
-	// Inner PacketConn
-	var newFunc func(addr net.Addr) (net.PacketConn, error)
 	hopInterval, err := c.Transport.UDP.hopIntervalConfig()
 	if err != nil {
 		return configError{Field: "transport.udp", Err: err}
 	}
+	var openInner func() (net.PacketConn, error)
 	switch strings.ToLower(c.Transport.Type) {
 	case "", "udp":
 		if hyConfig.ServerAddr.Network() == "udphop" {
 			hopAddr := hyConfig.ServerAddr.(*udphop.UDPHopAddr)
-			newFunc = func(addr net.Addr) (net.PacketConn, error) {
+			openInner = func() (net.PacketConn, error) {
 				return udphop.NewUDPHopPacketConn(hopAddr, hopInterval, so.ListenUDP)
 			}
 		} else {
-			newFunc = func(addr net.Addr) (net.PacketConn, error) {
+			openInner = func() (net.PacketConn, error) {
 				return so.ListenUDP()
 			}
 		}
 	default:
 		return configError{Field: "transport.type", Err: errors.New("unsupported transport type")}
 	}
-	// Obfuscation
-	ob, err := c.obfuscator()
-	if err != nil {
-		return err
-	}
-	hyConfig.ConnFactory = &adaptiveConnFactory{
-		NewFunc:    newFunc,
-		Obfuscator: ob,
+	hyConfig.ConnFactory = &singleUseConnFactory{
+		Open: func() (net.PacketConn, error) {
+			conn, err := openInner()
+			if err != nil {
+				return nil, err
+			}
+			wrapped, err := c.wrapObfs(conn)
+			if err != nil {
+				_ = conn.Close()
+				return nil, err
+			}
+			return wrapped, nil
+		},
 	}
 	return nil
 }
@@ -292,16 +303,26 @@ func (c *clientConfig) socketOptions() (*sockopts.SocketOptions, error) {
 	return so, nil
 }
 
-func (c *clientConfig) obfuscator() (obfs.Obfuscator, error) {
+func (c *clientConfig) wrapObfs(conn net.PacketConn) (net.PacketConn, error) {
 	switch strings.ToLower(c.Obfs.Type) {
 	case "", "plain":
-		return nil, nil
+		return conn, nil
 	case "salamander":
-		ob, err := obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
+		wrapped, err := obfs.WrapPacketConnSalamander(conn, []byte(c.Obfs.Salamander.Password))
 		if err != nil {
 			return nil, configError{Field: "obfs.salamander.password", Err: err}
 		}
-		return ob, nil
+		return wrapped, nil
+	case "gecko":
+		wrapped, err := obfs.WrapPacketConnGecko(conn, obfs.GeckoOptions{
+			Password:      []byte(c.Obfs.Gecko.Password),
+			MinPacketSize: c.Obfs.Gecko.MinPacketSize,
+			MaxPacketSize: c.Obfs.Gecko.MaxPacketSize,
+		})
+		if err != nil {
+			return nil, configError{Field: "obfs.gecko", Err: err}
+		}
+		return wrapped, nil
 	default:
 		return nil, configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
 	}
@@ -456,6 +477,9 @@ func (c *clientConfig) URI() string {
 	case "salamander":
 		q.Set("obfs", "salamander")
 		q.Set("obfs-password", c.Obfs.Salamander.Password)
+	case "gecko":
+		q.Set("obfs", "gecko")
+		q.Set("obfs-password", c.Obfs.Gecko.Password)
 	}
 	if c.TLS.SNI != "" {
 		q.Set("sni", c.TLS.SNI)
@@ -513,6 +537,8 @@ func (c *clientConfig) parseURI() bool {
 		switch strings.ToLower(obfsType) {
 		case "salamander":
 			c.Obfs.Salamander.Password = q.Get("obfs-password")
+		case "gecko":
+			c.Obfs.Gecko.Password = q.Get("obfs-password")
 		}
 	}
 	if sni := q.Get("sni"); sni != "" {
@@ -680,15 +706,13 @@ func (c *clientConfig) realmConfig(addr *realm.Addr) (*client.Config, error) {
 		zap.String("realm", addr.RealmID),
 		zap.String("peer", result.PeerAddr.String()))
 
-	var finalConn net.PacketConn = baseConn
-	ob, err := c.obfuscator()
+	finalConn, err := c.wrapObfs(baseConn)
 	if err != nil {
 		return nil, err
 	}
-	if ob != nil {
-		finalConn = obfs.WrapPacketConn(baseConn, ob)
+	hyConfig.ConnFactory = &singleUseConnFactory{
+		Open: func() (net.PacketConn, error) { return finalConn, nil },
 	}
-	hyConfig.ConnFactory = &singleUseConnFactory{Conn: finalConn}
 	success = true
 	return hyConfig, nil
 }
@@ -1135,25 +1159,14 @@ func normalizeCertHash(hash string) string {
 	return r
 }
 
-type adaptiveConnFactory struct {
-	NewFunc    func(addr net.Addr) (net.PacketConn, error)
-	Obfuscator obfs.Obfuscator // nil if no obfuscation
-}
-
-func (f *adaptiveConnFactory) New(addr net.Addr) (net.PacketConn, error) {
-	if f.Obfuscator == nil {
-		return f.NewFunc(addr)
-	} else {
-		conn, err := f.NewFunc(addr)
-		if err != nil {
-			return nil, err
-		}
-		return obfs.WrapPacketConn(conn, f.Obfuscator), nil
-	}
-}
-
+// singleUseConnFactory invokes Open exactly once to produce the underlying
+// conn. It defers any allocation to the moment core/client.connect() actually
+// asks for the conn, so config-validation failures inside NewClient (e.g.
+// verifyAndFill rejecting a value) don't leak a socket. For the realm path
+// the conn is already open by the time we reach the factory, so Open just
+// returns it; for the regular path Open opens the UDP socket fresh.
 type singleUseConnFactory struct {
-	Conn net.PacketConn
+	Open func() (net.PacketConn, error)
 
 	mu   sync.Mutex
 	used bool
@@ -1162,11 +1175,11 @@ type singleUseConnFactory struct {
 func (f *singleUseConnFactory) New(net.Addr) (net.PacketConn, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.used || f.Conn == nil {
-		return nil, errors.New("realm connection already used")
+	if f.used {
+		return nil, errors.New("connection factory already used")
 	}
 	f.used = true
-	return f.Conn, nil
+	return f.Open()
 }
 
 func addrPortStrings(addrs []netip.AddrPort) []string {

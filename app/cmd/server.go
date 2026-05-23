@@ -97,9 +97,16 @@ type serverConfigObfsSalamander struct {
 	Password string `mapstructure:"password"`
 }
 
+type serverConfigObfsGecko struct {
+	Password      string `mapstructure:"password"`
+	MinPacketSize int    `mapstructure:"minPacketSize"`
+	MaxPacketSize int    `mapstructure:"maxPacketSize"`
+}
+
 type serverConfigObfs struct {
 	Type       string                     `mapstructure:"type"`
 	Salamander serverConfigObfsSalamander `mapstructure:"salamander"`
+	Gecko      serverConfigObfsGecko      `mapstructure:"gecko"`
 }
 
 type serverConfigTLS struct {
@@ -312,30 +319,17 @@ func (c *serverConfig) fillConn(hyConfig *server.Config) error {
 			return configError{Field: "listen", Err: err}
 		}
 	}
-	switch strings.ToLower(c.Obfs.Type) {
-	case "", "plain":
-		hyConfig.Conn = packetConn
-		hyConfig.Cleanup = cleanup
-		return nil
-	case "salamander":
-		ob, err := obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
-		if err != nil {
-			_ = conn.Close()
-			if cleanup != nil {
-				_ = cleanup.Close()
-			}
-			return configError{Field: "obfs.salamander.password", Err: err}
-		}
-		hyConfig.Conn = obfs.WrapPacketConn(packetConn, ob)
-		hyConfig.Cleanup = cleanup
-		return nil
-	default:
+	wrapped, err := c.wrapObfs(packetConn)
+	if err != nil {
 		_ = conn.Close()
 		if cleanup != nil {
 			_ = cleanup.Close()
 		}
-		return configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
+		return err
 	}
+	hyConfig.Conn = wrapped
+	hyConfig.Cleanup = cleanup
+	return nil
 }
 
 func parseServerRealmAddr(listen string) (*realm.Addr, bool, error) {
@@ -371,8 +365,9 @@ func (c *serverConfig) fillRealmConn(hyConfig *server.Config, addr *realm.Addr) 
 		_ = conn.Close()
 		return configError{Field: "realm", Err: err}
 	}
-	packetConn, err := c.wrapServerPacketConn(punchConn, conn)
+	packetConn, err := c.wrapObfs(punchConn)
 	if err != nil {
+		_ = conn.Close()
 		return err
 	}
 
@@ -388,19 +383,27 @@ func (c *serverConfig) fillRealmConn(hyConfig *server.Config, addr *realm.Addr) 
 	return nil
 }
 
-func (c *serverConfig) wrapServerPacketConn(packetConn net.PacketConn, udpConn *net.UDPConn) (net.PacketConn, error) {
+func (c *serverConfig) wrapObfs(conn net.PacketConn) (net.PacketConn, error) {
 	switch strings.ToLower(c.Obfs.Type) {
 	case "", "plain":
-		return packetConn, nil
+		return conn, nil
 	case "salamander":
-		ob, err := obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
+		wrapped, err := obfs.WrapPacketConnSalamander(conn, []byte(c.Obfs.Salamander.Password))
 		if err != nil {
-			_ = udpConn.Close()
 			return nil, configError{Field: "obfs.salamander.password", Err: err}
 		}
-		return obfs.WrapPacketConn(packetConn, ob), nil
+		return wrapped, nil
+	case "gecko":
+		wrapped, err := obfs.WrapPacketConnGecko(conn, obfs.GeckoOptions{
+			Password:      []byte(c.Obfs.Gecko.Password),
+			MinPacketSize: c.Obfs.Gecko.MinPacketSize,
+			MaxPacketSize: c.Obfs.Gecko.MaxPacketSize,
+		})
+		if err != nil {
+			return nil, configError{Field: "obfs.gecko", Err: err}
+		}
+		return wrapped, nil
 	default:
-		_ = udpConn.Close()
 		return nil, configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
 	}
 }
