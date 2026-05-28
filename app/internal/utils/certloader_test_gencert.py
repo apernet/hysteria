@@ -11,7 +11,7 @@ def create_key():
     return ec.generate_private_key(ec.SECP256R1())
 
 
-def create_certificate(cert_type, subject, issuer, private_key, public_key, dns_san=None):
+def create_certificate(cert_type, subject, issuer, private_key, public_key, dns_san=None, issuer_ski=None):
     serial_number = x509.random_serial_number()
     not_valid_before = datetime.datetime.now(datetime.UTC)
     not_valid_after = not_valid_before + datetime.timedelta(days=365)
@@ -33,17 +33,49 @@ def create_certificate(cert_type, subject, issuer, private_key, public_key, dns_
     builder = builder.serial_number(serial_number)
     builder = builder.not_valid_before(not_valid_before)
     builder = builder.not_valid_after(not_valid_after)
+
+    # Add Subject Key Identifier (required by OpenSSL 3.x)
+    builder = builder.add_extension(
+        x509.SubjectKeyIdentifier.from_public_key(public_key),
+        critical=False
+    )
+
+    # Add Authority Key Identifier if issuer SKI is provided
+    if issuer_ski is not None:
+        builder = builder.add_extension(
+            x509.AuthorityKeyIdentifier.from_issuer_subject_key_identifier(issuer_ski),
+            critical=False
+        )
+
     if cert_type == 'root':
         builder = builder.add_extension(
             x509.BasicConstraints(ca=True, path_length=None), critical=True
+        )
+        builder = builder.add_extension(
+            x509.KeyUsage(key_cert_sign=True, crl_sign=True, digital_signature=True,
+                          content_commitment=False, key_encipherment=False, data_encipherment=False,
+                          key_agreement=False, encipher_only=False, decipher_only=False),
+            critical=True
         )
     elif cert_type == 'intermediate':
         builder = builder.add_extension(
             x509.BasicConstraints(ca=True, path_length=0), critical=True
         )
+        builder = builder.add_extension(
+            x509.KeyUsage(key_cert_sign=True, crl_sign=True, digital_signature=True,
+                          content_commitment=False, key_encipherment=False, data_encipherment=False,
+                          key_agreement=False, encipher_only=False, decipher_only=False),
+            critical=True
+        )
     elif cert_type == 'leaf':
         builder = builder.add_extension(
             x509.BasicConstraints(ca=False, path_length=None), critical=True
+        )
+        builder = builder.add_extension(
+            x509.KeyUsage(key_cert_sign=False, crl_sign=False, digital_signature=True,
+                          content_commitment=False, key_encipherment=True, data_encipherment=False,
+                          key_agreement=False, encipher_only=False, decipher_only=False),
+            critical=True
         )
     else:
         raise ValueError(f'Invalid cert_type: {cert_type}')
@@ -100,6 +132,8 @@ def main():
             issuer=ca_subject,
             private_key=ca_key,
             public_key=ca_public_key)
+        ca_ski = ca_cert.extensions.get_extension_for_class(
+            x509.SubjectKeyIdentifier).value
 
         intermediate_key = create_key()
         intermediate_public_key = intermediate_key.public_key()
@@ -109,7 +143,10 @@ def main():
             subject=intermediate_subject,
             issuer=ca_subject,
             private_key=ca_key,
-            public_key=intermediate_public_key)
+            public_key=intermediate_public_key,
+            issuer_ski=ca_ski)
+        intermediate_ski = intermediate_cert.extensions.get_extension_for_class(
+            x509.SubjectKeyIdentifier).value
 
         leaf_subject = {"C": "ZZ", "O": "Leaf Certificate", "CN": "Leaf Certificate"}
         cert = create_certificate(
@@ -118,7 +155,8 @@ def main():
             issuer=intermediate_subject,
             private_key=intermediate_key,
             public_key=public_key,
-            dns_san=args.dnssan)
+            dns_san=args.dnssan,
+            issuer_ski=intermediate_ski)
 
         with open(args.ca, 'wb') as f:
             f.write(ca_cert.public_bytes(Encoding.PEM))
