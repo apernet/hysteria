@@ -21,6 +21,32 @@
 
 ---
 
+## Web panel
+
+Server mode can expose an optional web panel for editing common settings or the
+raw config file. The panel writes changes back to the config file and requires a
+process restart before the running proxy uses the new values.
+
+```yaml
+webPanel:
+  enabled: true
+  listen: 127.0.0.1:8080
+  path: /secret-panel
+  password: change-me
+  cookie:
+    name: hy_panel
+    value: optional-static-cookie-secret
+    secure: false
+  ipWhitelist:
+    - 127.0.0.1
+    - ::1
+```
+
+At least one hiding or access-control method is required: `password`,
+`cookie.value`, `ipWhitelist`, or a non-default `path`.
+
+---
+
 <div class="feature-grid">
   <div>
     <h3>🛠️ Jack of all trades</h3>

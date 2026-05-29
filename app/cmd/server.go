@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -15,6 +16,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -37,6 +39,7 @@ import (
 
 	"github.com/apernet/hysteria/app/v2/internal/firewall"
 	"github.com/apernet/hysteria/app/v2/internal/utils"
+	"github.com/apernet/hysteria/app/v2/internal/webpanel"
 	"github.com/apernet/hysteria/core/v2/server"
 	"github.com/apernet/hysteria/extras/v2/auth"
 	"github.com/apernet/hysteria/extras/v2/correctnet"
@@ -83,6 +86,7 @@ type serverConfig struct {
 	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
 	TrafficStats          serverConfigTrafficStats    `mapstructure:"trafficStats"`
 	Masquerade            serverConfigMasquerade      `mapstructure:"masquerade"`
+	WebPanel              *serverConfigWebPanel       `mapstructure:"webPanel"`
 }
 
 type serverConfigRealm struct {
@@ -262,6 +266,21 @@ type serverConfigOutboundEntry struct {
 type serverConfigTrafficStats struct {
 	Listen string `mapstructure:"listen"`
 	Secret string `mapstructure:"secret"`
+}
+
+type serverConfigWebPanelCookie struct {
+	Name   string `mapstructure:"name"`
+	Value  string `mapstructure:"value"`
+	Secure bool   `mapstructure:"secure"`
+}
+
+type serverConfigWebPanel struct {
+	Enabled     bool                       `mapstructure:"enabled"`
+	Listen      string                     `mapstructure:"listen"`
+	Path        string                     `mapstructure:"path"`
+	Password    string                     `mapstructure:"password"`
+	Cookie      serverConfigWebPanelCookie `mapstructure:"cookie"`
+	IPWhitelist []string                   `mapstructure:"ipWhitelist"`
 }
 
 type serverConfigMasqueradeFile struct {
@@ -1552,6 +1571,10 @@ func runServer(v *viper.Viper) {
 	if err != nil {
 		logger.Fatal("failed to initialize server", zap.Error(err))
 	}
+	webPanelServer, err := startWebPanelServer(v.ConfigFileUsed(), config.WebPanel)
+	if err != nil {
+		logger.Fatal("failed to initialize web panel", zap.Error(err))
+	}
 	if config.Listen != "" {
 		logger.Info("server up and running", zap.String("listen", config.Listen))
 	} else {
@@ -1574,6 +1597,13 @@ func runServer(v *viper.Viper) {
 	select {
 	case <-signalChan:
 		logger.Info("received signal, shutting down gracefully")
+		if webPanelServer != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if err := webPanelServer.Shutdown(ctx); err != nil {
+				logger.Error("failed to shut down web panel cleanly", zap.Error(err))
+			}
+			cancel()
+		}
 		if err := s.Close(); err != nil {
 			logger.Error("failed to shut down server cleanly", zap.Error(err))
 		}
@@ -1584,6 +1614,105 @@ func runServer(v *viper.Viper) {
 		if err != nil {
 			logger.Fatal("failed to serve", zap.Error(err))
 		}
+	}
+}
+
+func startWebPanelServer(configPath string, c *serverConfigWebPanel) (*http.Server, error) {
+	if c == nil || (!c.Enabled && c.Listen == "") {
+		return nil, nil
+	}
+	if configPath == "" {
+		return nil, configError{Field: "webPanel", Err: errors.New("config file path is unavailable")}
+	}
+	listen := c.Listen
+	if listen == "" {
+		listen = "127.0.0.1:8080"
+	}
+	handler, err := webpanel.New(webpanel.Config{
+		ConfigPath: configPath,
+		Path:       c.Path,
+		Password:   c.Password,
+		Cookie: webpanel.CookieConfig{
+			Name:   c.Cookie.Name,
+			Value:  c.Cookie.Value,
+			Secure: c.Cookie.Secure,
+		},
+		IPWhitelist: c.IPWhitelist,
+		Validate:    validateServerConfigBytes(configPath),
+	})
+	if err != nil {
+		return nil, configError{Field: "webPanel", Err: err}
+	}
+	listener, err := correctnet.Listen("tcp", listen)
+	if err != nil {
+		return nil, configError{Field: "webPanel.listen", Err: err}
+	}
+	srv := &http.Server{Handler: handler}
+	go func() {
+		logger.Info("web panel up and running", zap.String("listen", listen), zap.String("path", handlerPath(c.Path)))
+		if err := srv.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatal("failed to serve web panel", zap.Error(err))
+		}
+	}()
+	return srv, nil
+}
+
+func handlerPath(p string) string {
+	if p == "" {
+		return "/panel"
+	}
+	if !strings.HasPrefix(p, "/") {
+		return "/" + p
+	}
+	return p
+}
+
+func validateServerConfigBytes(configPath string) func([]byte) error {
+	return func(data []byte) error {
+		v := viper.New()
+		v.SetConfigType(configTypeFromPath(configPath))
+		if err := v.ReadConfig(bytes.NewReader(data)); err != nil {
+			return err
+		}
+		var config serverConfig
+		if err := v.Unmarshal(&config); err != nil {
+			return err
+		}
+		return validateWebPanelConfig(configPath, config.WebPanel)
+	}
+}
+
+func validateWebPanelConfig(configPath string, c *serverConfigWebPanel) error {
+	if c == nil || (!c.Enabled && c.Listen == "") {
+		return nil
+	}
+	_, err := webpanel.New(webpanel.Config{
+		ConfigPath: configPath,
+		Path:       c.Path,
+		Password:   c.Password,
+		Cookie: webpanel.CookieConfig{
+			Name:   c.Cookie.Name,
+			Value:  c.Cookie.Value,
+			Secure: c.Cookie.Secure,
+		},
+		IPWhitelist: c.IPWhitelist,
+		Validate:    func([]byte) error { return nil },
+	})
+	if err != nil {
+		return configError{Field: "webPanel", Err: err}
+	}
+	return nil
+}
+
+func configTypeFromPath(configPath string) string {
+	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(configPath)), ".")
+	switch ext {
+	case "yml":
+		return "yaml"
+	case "":
+		return "yaml"
+	default:
+		return ext
 	}
 }
 
