@@ -88,7 +88,7 @@ func (o *httpOutbound) dial() (net.Conn, error) {
 		// Wrap the connection with TLS if the proxy is HTTPS.
 		conn = tls.Client(conn, &tls.Config{
 			InsecureSkipVerify: o.Insecure,
-			ServerName:         o.Addr,
+			ServerName:         o.ServerName,
 		})
 	}
 	return conn, nil
