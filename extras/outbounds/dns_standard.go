@@ -2,7 +2,9 @@ package outbounds
 
 import (
 	"crypto/tls"
+	"errors"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/miekg/dns"
@@ -11,7 +13,10 @@ import (
 const (
 	resolverDefaultTimeout     = 2 * time.Second
 	standardResolverRetryTimes = 2
+	maxCNAMEDepth              = 16
 )
+
+var errCNAMEChainTooLong = errors.New("CNAME chain too long")
 
 // standardResolver is a PluggableOutbound DNS resolver that resolves hostnames
 // using the user-provided DNS server.
@@ -109,6 +114,18 @@ func (r *standardResolver) skipCNAMEChain(answers []dns.RR) string {
 // lookup4 resolves a hostname to an IPv4 address.
 // If there's no IPv4 address, it returns (nil, nil), no error.
 func (r *standardResolver) lookup4(host string) (net.IP, error) {
+	return r.lookup4WithCNAMEDepth(host, 0, make(map[string]struct{}))
+}
+
+func (r *standardResolver) lookup4WithCNAMEDepth(host string, depth int, seen map[string]struct{}) (net.IP, error) {
+	if depth > maxCNAMEDepth {
+		return nil, errCNAMEChainTooLong
+	}
+	key := strings.ToLower(dns.Fqdn(host))
+	if _, ok := seen[key]; ok {
+		return nil, errCNAMEChainTooLong
+	}
+	seen[key] = struct{}{}
 	m := new(dns.Msg)
 	m.SetQuestion(dns.Fqdn(host), dns.TypeA)
 	m.RecursionDesired = true
@@ -129,7 +146,7 @@ func (r *standardResolver) lookup4(host string) (net.IP, error) {
 		}
 	}
 	if hasCNAME {
-		return r.lookup4(r.skipCNAMEChain(resp.Answer))
+		return r.lookup4WithCNAMEDepth(r.skipCNAMEChain(resp.Answer), depth+1, seen)
 	} else {
 		// Should not happen
 		return nil, nil
@@ -139,6 +156,18 @@ func (r *standardResolver) lookup4(host string) (net.IP, error) {
 // lookup6 resolves a hostname to an IPv6 address.
 // If there's no IPv6 address, it returns (nil, nil), no error.
 func (r *standardResolver) lookup6(host string) (net.IP, error) {
+	return r.lookup6WithCNAMEDepth(host, 0, make(map[string]struct{}))
+}
+
+func (r *standardResolver) lookup6WithCNAMEDepth(host string, depth int, seen map[string]struct{}) (net.IP, error) {
+	if depth > maxCNAMEDepth {
+		return nil, errCNAMEChainTooLong
+	}
+	key := strings.ToLower(dns.Fqdn(host))
+	if _, ok := seen[key]; ok {
+		return nil, errCNAMEChainTooLong
+	}
+	seen[key] = struct{}{}
 	m := new(dns.Msg)
 	m.SetQuestion(dns.Fqdn(host), dns.TypeAAAA)
 	m.RecursionDesired = true
@@ -159,7 +188,7 @@ func (r *standardResolver) lookup6(host string) (net.IP, error) {
 		}
 	}
 	if hasCNAME {
-		return r.lookup6(r.skipCNAMEChain(resp.Answer))
+		return r.lookup6WithCNAMEDepth(r.skipCNAMEChain(resp.Answer), depth+1, seen)
 	} else {
 		// Should not happen
 		return nil, nil
