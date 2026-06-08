@@ -78,6 +78,67 @@ func TestSetupUDPPortRedirectWithRunnerIPTablesFallback(t *testing.T) {
 	require.True(t, foundDelete)
 }
 
+func TestSetupUDPPortRedirectWithRunnerNFTablesIPv6Specific(t *testing.T) {
+	runner := &fakeRunner{paths: map[string]bool{"nft": true}}
+	addr := &net.UDPAddr{IP: net.ParseIP("2001:db8::1"), Port: 20000}
+	ports := eUtils.PortUnion{{20000, 20002}}
+
+	cleanup, err := setupUDPPortRedirectWithRunner(runner, addr, ports)
+	require.NoError(t, err)
+	require.NotNil(t, cleanup)
+
+	for _, cmd := range runner.cmds {
+		hasUDP := false
+		for _, arg := range cmd {
+			if arg == "udp" {
+				hasUDP = true
+				break
+			}
+		}
+		if !hasUDP {
+			continue
+		}
+		hasDnat := false
+		hasRedirect := false
+		for _, arg := range cmd {
+			if arg == "dnat" {
+				hasDnat = true
+			}
+			if arg == "redirect" {
+				hasRedirect = true
+			}
+		}
+		require.True(t, hasDnat, "IPv6 specific address rule should use dnat: %v", cmd)
+		require.False(t, hasRedirect, "IPv6 specific address rule must not use redirect: %v", cmd)
+		require.Contains(t, cmd, "[2001:db8::1]:20000")
+	}
+
+	require.NoError(t, cleanup.Close())
+}
+
+func TestSetupUDPPortRedirectWithRunnerNFTablesIPv6Unspecified(t *testing.T) {
+	runner := &fakeRunner{paths: map[string]bool{"nft": true}}
+	addr := &net.UDPAddr{IP: net.IPv6unspecified, Port: 20000}
+	ports := eUtils.PortUnion{{20000, 20002}}
+
+	cleanup, err := setupUDPPortRedirectWithRunner(runner, addr, ports)
+	require.NoError(t, err)
+	require.NotNil(t, cleanup)
+
+	for _, cmd := range runner.cmds {
+		hasDnat := false
+		for _, arg := range cmd {
+			if arg == "dnat" {
+				hasDnat = true
+				break
+			}
+		}
+		require.False(t, hasDnat, "IPv6 unspecified address rule must not use dnat: %v", cmd)
+	}
+
+	require.NoError(t, cleanup.Close())
+}
+
 func TestSetupUDPPortRedirectWithRunnerRollback(t *testing.T) {
 	runner := &fakeRunner{
 		paths: map[string]bool{"iptables": true},
