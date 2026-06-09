@@ -92,10 +92,11 @@ type clientConfig struct {
 }
 
 type clientConfigRealm struct {
-	STUNServers  []string      `mapstructure:"stunServers"`
-	STUNTimeout  time.Duration `mapstructure:"stunTimeout"`
-	PunchTimeout time.Duration `mapstructure:"punchTimeout"`
-	Insecure     bool          `mapstructure:"insecure"`
+	STUNServers  []string               `mapstructure:"stunServers"`
+	STUNTimeout  time.Duration          `mapstructure:"stunTimeout"`
+	PunchTimeout time.Duration          `mapstructure:"punchTimeout"`
+	Insecure     bool                   `mapstructure:"insecure"`
+	PortMapping  realmPortMappingConfig `mapstructure:"portMapping"`
 }
 
 type clientConfigTransportUDP struct {
@@ -638,6 +639,22 @@ func (c *clientConfig) realmConfig(addr *realm.Addr) (*client.Config, error) {
 	}()
 
 	ctx := context.Background()
+	// Gateway port mapping (UPnP/NAT-PMP) runs before STUN.
+	// With the pinhole in place, in a double-NAT setup,
+	// the address STUN observes corresponds to a path whose inner leg
+	// goes through the static mapping rather than a filtered dynamic one.
+	var mapper *realm.PortMapper
+	if c.Realm.PortMapping.Enabled {
+		localPort := baseConn.LocalAddr().(*net.UDPAddr).Port
+		mapper = newRealmPortMapper(ctx, addr.RealmID, localPort, c.Realm.PortMapping)
+		if mapper != nil {
+			defer func() {
+				if !success {
+					_ = mapper.Close()
+				}
+			}()
+		}
+	}
 	stunServers := c.realmSTUNServers(addr)
 	logger.Debug("realm client STUN discovery started",
 		zap.String("realm", addr.RealmID),
@@ -654,6 +671,9 @@ func (c *clientConfig) realmConfig(addr *realm.Addr) (*client.Config, error) {
 		zap.String("realm", addr.RealmID),
 		zap.Strings("addresses", addrPortStrings(localAddrs)),
 		zap.String("duration", formatLogDuration(time.Since(stunStart))))
+	if mapper != nil {
+		localAddrs = mergeMappedAddr(localAddrs, mapper.ExternalAddr())
+	}
 	meta, err := realm.NewPunchMetadata()
 	if err != nil {
 		return nil, configError{Field: "realm", Err: err}
@@ -709,6 +729,11 @@ func (c *clientConfig) realmConfig(addr *realm.Addr) (*client.Config, error) {
 	finalConn, err := c.wrapObfs(baseConn)
 	if err != nil {
 		return nil, err
+	}
+	if mapper != nil {
+		mapCtx, mapCancel := context.WithCancel(context.Background())
+		go realmPortMapLoop(mapCtx, addr.RealmID, mapper)
+		finalConn = &cleanupPacketConn{PacketConn: finalConn, cleanup: mapCancel}
 	}
 	hyConfig.ConnFactory = &singleUseConnFactory{
 		Open: func() (net.PacketConn, error) { return finalConn, nil },
