@@ -86,11 +86,12 @@ type serverConfig struct {
 }
 
 type serverConfigRealm struct {
-	STUNServers       []string      `mapstructure:"stunServers"`
-	STUNTimeout       time.Duration `mapstructure:"stunTimeout"`
-	PunchTimeout      time.Duration `mapstructure:"punchTimeout"`
-	HeartbeatInterval time.Duration `mapstructure:"heartbeatInterval"`
-	Insecure          bool          `mapstructure:"insecure"`
+	STUNServers       []string               `mapstructure:"stunServers"`
+	STUNTimeout       time.Duration          `mapstructure:"stunTimeout"`
+	PunchTimeout      time.Duration          `mapstructure:"punchTimeout"`
+	HeartbeatInterval time.Duration          `mapstructure:"heartbeatInterval"`
+	Insecure          bool                   `mapstructure:"insecure"`
+	PortMapping       realmPortMappingConfig `mapstructure:"portMapping"`
 }
 
 type serverConfigObfsSalamander struct {
@@ -446,14 +447,35 @@ func (c *serverConfig) startRealmServerRuntime(ctx context.Context, cancel conte
 		puncher:     puncher,
 		config:      c.Realm,
 	}
+	// Gateway port mapping (UPnP/NAT-PMP) runs before STUN.
+	// With the pinhole in place, in a double-NAT setup,
+	// the address STUN observes corresponds to a path whose inner leg
+	// goes through the static mapping rather than a filtered dynamic one.
+	if c.Realm.PortMapping.Enabled {
+		localPort := 0
+		if udpAddr, ok := punchConn.LocalAddr().(*net.UDPAddr); ok {
+			localPort = udpAddr.Port
+		}
+		rt.mapper = newRealmPortMapper(ctx, addr.RealmID, localPort, c.Realm.PortMapping)
+	}
+	cleanupMapper := func() {
+		if rt.mapper != nil {
+			_ = rt.mapper.Close()
+		}
+	}
 	if _, _, err := rt.refreshAddrsDirect(ctx); err != nil {
+		cleanupMapper()
 		return nil, configError{Field: "realm.stun", Err: err}
 	}
 	initialSession, err := rt.register(ctx)
 	if err != nil {
+		cleanupMapper()
 		return nil, configError{Field: "realm.register", Err: err}
 	}
 	rt.setSession(initialSession)
+	if rt.mapper != nil {
+		go realmPortMapLoop(ctx, addr.RealmID, rt.mapper)
+	}
 	go rt.run(ctx, initialSession)
 	return rt, nil
 }
@@ -487,6 +509,7 @@ type realmServerRuntime struct {
 	stunServers []string
 	puncher     *realm.ServerPuncher
 	config      serverConfigRealm
+	mapper      *realm.PortMapper // nil if port mapping is disabled or failed
 
 	mu      sync.Mutex
 	session realmSession
@@ -708,11 +731,20 @@ func (r *realmServerRuntime) connectAddrs(ctx context.Context) ([]netip.AddrPort
 
 func (r *realmServerRuntime) cachedAddrs() []netip.AddrPort {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	if r.addrs == nil || time.Since(r.addrsAt) >= realmConnectSTUNCacheTTL {
+		r.mu.Unlock()
 		return nil
 	}
-	return append([]netip.AddrPort(nil), r.addrs...)
+	addrs := append([]netip.AddrPort(nil), r.addrs...)
+	r.mu.Unlock()
+	return r.withMappedAddr(addrs)
+}
+
+func (r *realmServerRuntime) withMappedAddr(addrs []netip.AddrPort) []netip.AddrPort {
+	if r.mapper == nil {
+		return addrs
+	}
+	return mergeMappedAddr(addrs, r.mapper.ExternalAddr())
 }
 
 func (r *realmServerRuntime) respond(ctx context.Context, ev *realm.PunchEvent) {
@@ -828,13 +860,14 @@ func (r *realmServerRuntime) refreshAddrsWith(ctx context.Context, discover func
 		zap.Strings("addresses", addrPortStrings(current)),
 		zap.Bool("changed", changed),
 		zap.String("duration", formatLogDuration(time.Since(start))))
-	return current, changed, nil
+	return r.withMappedAddr(current), changed, nil
 }
 
 func (r *realmServerRuntime) currentAddrs() []netip.AddrPort {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	return append([]netip.AddrPort(nil), r.addrs...)
+	addrs := append([]netip.AddrPort(nil), r.addrs...)
+	r.mu.Unlock()
+	return r.withMappedAddr(addrs)
 }
 
 func sessionTTLDuration(ttl int) time.Duration {
