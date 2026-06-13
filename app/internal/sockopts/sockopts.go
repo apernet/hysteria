@@ -46,7 +46,12 @@ func (o *SocketOptions) ListenUDP() (net.PacketConn, error) {
 // ListenUDPAddr is like ListenUDP but binds to a specific local UDP address.
 // Pass nil to use an ephemeral port (same as ListenUDP).
 func (o *SocketOptions) ListenUDPAddr(addr *net.UDPAddr) (net.PacketConn, error) {
-	uconn, err := net.ListenUDP("udp", addr)
+	return o.ListenUDPAddrNetwork("udp", addr)
+}
+
+// ListenUDPAddrNetwork is like ListenUDPAddr but binds to a specific network type.
+func (o *SocketOptions) ListenUDPAddrNetwork(network string, addr *net.UDPAddr) (net.PacketConn, error) {
+	uconn, err := net.ListenUDP(network, addr)
 	if err != nil {
 		return nil, err
 	}

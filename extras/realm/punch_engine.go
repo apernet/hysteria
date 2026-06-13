@@ -28,6 +28,7 @@ var (
 type PunchConfig struct {
 	Timeout  time.Duration
 	Interval time.Duration
+	Family   AddrFamily
 }
 
 type PunchResult struct {
@@ -44,7 +45,7 @@ func Punch(ctx context.Context, conn net.PacketConn, localAddrs, peerAddrs []net
 	if _, _, err := decodePunchMetadata(meta); err != nil {
 		return PunchResult{}, err
 	}
-	candidates := candidatePunchAddrs(localAddrs, peerAddrs, localAddrFamily(conn.LocalAddr()))
+	candidates := candidatePunchAddrs(localAddrs, peerAddrs, effectiveFamily(config.Family, conn.LocalAddr()))
 	if len(candidates) == 0 {
 		return PunchResult{}, fmt.Errorf("%w: no compatible peer addresses", ErrInvalidPunchConfig)
 	}
@@ -126,8 +127,8 @@ func sendPunchPacket(conn net.PacketConn, addr netip.AddrPort, meta PunchMetadat
 	_, _ = conn.WriteTo(packet, udpAddrFromAddrPort(addr))
 }
 
-func candidatePunchAddrs(localAddrs, peerAddrs []netip.AddrPort, connFamily addrFamily) []netip.AddrPort {
-	allowedFamilies := punchFamilies(localAddrs, connFamily)
+func candidatePunchAddrs(localAddrs, peerAddrs []netip.AddrPort, family AddrFamily) []netip.AddrPort {
+	allowedFamilies := punchFamilies(localAddrs, family)
 	seen := make(map[netip.AddrPort]struct{})
 	var candidates []netip.AddrPort
 	for _, addr := range peerAddrs {
@@ -216,7 +217,15 @@ type punchFamilySet struct {
 	v6 bool
 }
 
-func punchFamilies(localAddrs []netip.AddrPort, connFamily addrFamily) punchFamilySet {
+func punchFamilies(localAddrs []netip.AddrPort, family AddrFamily) punchFamilySet {
+	switch family {
+	case AddrFamilyIPv4:
+		return punchFamilySet{v4: true}
+	case AddrFamilyIPv6:
+		return punchFamilySet{v6: true}
+	}
+	// Otherwise derive the families from the locally gathered addresses,
+	// falling back to both when none are known.
 	var families punchFamilySet
 	for _, addr := range localAddrs {
 		if !addr.IsValid() {
@@ -228,15 +237,7 @@ func punchFamilies(localAddrs []netip.AddrPort, connFamily addrFamily) punchFami
 			families.v6 = true
 		}
 	}
-	if families.v4 || families.v6 {
-		return families
-	}
-	switch connFamily {
-	case addrFamilyIPv4:
-		families.v4 = true
-	case addrFamilyIPv6:
-		families.v6 = true
-	default:
+	if !families.v4 && !families.v6 {
 		families.v4 = true
 		families.v6 = true
 	}
