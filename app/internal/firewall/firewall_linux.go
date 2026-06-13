@@ -148,7 +148,15 @@ func setupIPTablesRedirect(r commandRunner, listenAddr *net.UDPAddr, ports, redi
 			_ = ipt("-t", "nat", "-F", chainName)
 			_ = ipt("-t", "nat", "-X", chainName)
 		})
-		if err := ipt("-t", "nat", "-A", chainName, "-p", "udp", "-j", "REDIRECT", "--to-ports", fmt.Sprintf("%d", ports[0].Start)); err != nil {
+		var targetArgs []string
+		if bin == "ip6tables" && listenAddr.IP != nil && !listenAddr.IP.IsUnspecified() {
+			targetArgs = []string{"-t", "nat", "-A", chainName, "-p", "udp", "-j", "DNAT",
+				"--to-destination", fmt.Sprintf("[%s]:%d", listenAddr.IP.String(), ports[0].Start)}
+		} else {
+			targetArgs = []string{"-t", "nat", "-A", chainName, "-p", "udp", "-j", "REDIRECT",
+				"--to-ports", fmt.Sprintf("%d", ports[0].Start)}
+		}
+		if err := ipt(targetArgs...); err != nil {
 			_ = cleanup.Close()
 			return nil, err
 		}
