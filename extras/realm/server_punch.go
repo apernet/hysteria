@@ -46,7 +46,7 @@ func (p *ServerPuncher) Respond(ctx context.Context, attemptID string, localAddr
 	if _, _, err := decodePunchMetadata(meta); err != nil {
 		return PunchResult{}, err
 	}
-	candidates := candidatePunchAddrs(localAddrs, peerAddrs, localAddrFamily(p.conn.LocalAddr()))
+	candidates := candidatePunchAddrs(localAddrs, peerAddrs, effectiveFamily(config.Family, p.conn.LocalAddr()))
 	if len(candidates) == 0 {
 		return PunchResult{}, fmt.Errorf("%w: no compatible peer addresses", ErrInvalidPunchConfig)
 	}

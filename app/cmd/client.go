@@ -96,7 +96,21 @@ type clientConfigRealm struct {
 	STUNTimeout  time.Duration          `mapstructure:"stunTimeout"`
 	PunchTimeout time.Duration          `mapstructure:"punchTimeout"`
 	Insecure     bool                   `mapstructure:"insecure"`
+	IPMode       string                 `mapstructure:"ipMode"`
 	PortMapping  realmPortMappingConfig `mapstructure:"portMapping"`
+}
+
+func realmIPMode(mode string) (realm.AddrFamily, string, error) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "", "dual":
+		return realm.AddrFamilyAny, "udp", nil
+	case "v4":
+		return realm.AddrFamilyIPv4, "udp4", nil
+	case "v6":
+		return realm.AddrFamilyIPv6, "udp6", nil
+	default:
+		return realm.AddrFamilyAny, "", fmt.Errorf("invalid ipMode %q (expected v4, v6, or dual)", mode)
+	}
 }
 
 type clientConfigTransportUDP struct {
@@ -615,7 +629,10 @@ func (c *clientConfig) realmConfig(addr *realm.Addr) (*client.Config, error) {
 	if c.TLS.SNI == "" {
 		hyConfig.TLSConfig.ServerName = addr.Host
 	}
-
+	family, network, err := realmIPMode(c.Realm.IPMode)
+	if err != nil {
+		return nil, configError{Field: "realm.ipMode", Err: err}
+	}
 	so, err := c.socketOptions()
 	if err != nil {
 		return nil, err
@@ -624,7 +641,7 @@ func (c *clientConfig) realmConfig(addr *realm.Addr) (*client.Config, error) {
 	if addr.LocalPort != 0 {
 		listenAddr = &net.UDPAddr{Port: addr.LocalPort}
 	}
-	baseConn, err := so.ListenUDPAddr(listenAddr)
+	baseConn, err := so.ListenUDPAddrNetwork(network, listenAddr)
 	if err != nil {
 		return nil, configError{Field: "realm", Err: err}
 	}
@@ -663,6 +680,7 @@ func (c *clientConfig) realmConfig(addr *realm.Addr) (*client.Config, error) {
 	localAddrs, err := realm.Discover(ctx, baseConn, realm.STUNConfig{
 		Servers: stunServers,
 		Timeout: c.Realm.STUNTimeout,
+		Family:  family,
 	})
 	if err != nil {
 		return nil, configError{Field: "realm.stun", Err: err}
@@ -711,6 +729,7 @@ func (c *clientConfig) realmConfig(addr *realm.Addr) (*client.Config, error) {
 	punchStart := time.Now()
 	result, err := realm.Punch(ctx, baseConn, localAddrs, peerAddrs, connectResp.PunchMetadata, realm.PunchConfig{
 		Timeout: c.Realm.PunchTimeout,
+		Family:  family,
 	})
 	if err != nil {
 		return nil, configError{Field: "realm.punch", Err: err}
