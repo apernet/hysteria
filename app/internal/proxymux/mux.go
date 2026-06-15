@@ -75,12 +75,14 @@ func (l *muxListener) mainLoop() {
 
 	for {
 		var socksCloseChan, httpCloseChan chan struct{}
+		l.lock.Lock()
 		if l.httpListener != nil {
 			httpCloseChan = l.httpListener.closeChan
 		}
 		if l.socksListener != nil {
 			socksCloseChan = l.socksListener.closeChan
 		}
+		l.lock.Unlock()
 		select {
 		case <-l.closeChan:
 			return
