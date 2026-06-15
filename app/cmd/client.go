@@ -539,11 +539,13 @@ func (c *clientConfig) parseURI() bool {
 		return false
 	}
 	if u.User != nil {
-		auth, err := url.QueryUnescape(u.User.String())
-		if err != nil {
-			return false
+		username := u.User.Username()
+		password, hasPassword := u.User.Password()
+		if hasPassword {
+			c.Auth = username + ":" + password
+		} else {
+			c.Auth = username
 		}
-		c.Auth = auth
 	}
 	c.Server = u.Host
 	q := u.Query()
