@@ -39,6 +39,7 @@ type Config struct {
 	Authenticator         Authenticator
 	EventLogger           EventLogger
 	TrafficLogger         TrafficLogger
+	OutboundProvider      OutboundProvider
 	MasqHandler           http.Handler
 }
 
@@ -158,6 +159,16 @@ type Outbound interface {
 	TCP(reqAddr string) (net.Conn, error)
 	UDP(reqAddr string) (UDPConn, error)
 	CheckUDP(reqAddr string) error
+}
+
+// OutboundProvider selects an Outbound for an authenticated user, keyed by the
+// auth id returned by the Authenticator. It is consulted after a successful
+// authentication and again for every proxy request, so per-user routing can be
+// changed at runtime without restarting the server or dropping connections.
+// Returning nil means "use the default Config.Outbound" for that user.
+// The implementation must be thread-safe.
+type OutboundProvider interface {
+	Outbound(authID string) Outbound
 }
 
 // UDPConn is like net.PacketConn, but uses string for addresses.

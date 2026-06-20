@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/apernet/hysteria/core/v2/server"
+	"github.com/apernet/hysteria/extras/v2/outbounds"
 )
 
 const (
@@ -26,12 +27,20 @@ type TrafficStatsServer interface {
 }
 
 func NewTrafficStatsServer(secret string) TrafficStatsServer {
+	return NewTrafficStatsServerWithOutbounds(secret, nil)
+}
+
+// NewTrafficStatsServerWithOutbounds is like NewTrafficStatsServer but also wires
+// in a per-user outbound registry. When ob is non-nil, the server additionally
+// exposes the /outbound endpoints to manage per-user outbounds at runtime.
+func NewTrafficStatsServerWithOutbounds(secret string, ob *outbounds.PerUserOutbounds) TrafficStatsServer {
 	return &trafficStatsServerImpl{
 		StatsMap:  make(map[string]*trafficStatsEntry),
 		KickMap:   make(map[string]struct{}),
 		OnlineMap: make(map[string]int),
 		StreamMap: make(map[server.HyStream]*server.StreamStats),
 		Secret:    secret,
+		Outbounds: ob,
 	}
 }
 
@@ -42,6 +51,9 @@ type trafficStatsServerImpl struct {
 	StreamMap map[server.HyStream]*server.StreamStats
 	KickMap   map[string]struct{}
 	Secret    string
+
+	// Outbounds, if set, enables the /outbound management endpoints.
+	Outbounds *outbounds.PerUserOutbounds
 }
 
 type trafficStatsEntry struct {
@@ -124,7 +136,95 @@ func (s *trafficStatsServerImpl) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		s.getDumpStreams(w, r)
 		return
 	}
+	if s.Outbounds != nil && r.URL.Path == "/outbound" {
+		switch r.Method {
+		case http.MethodGet:
+			s.getOutbounds(w, r)
+			return
+		case http.MethodPost:
+			s.postOutbounds(w, r)
+			return
+		case http.MethodDelete:
+			s.deleteOutbounds(w, r)
+			return
+		}
+	}
 	http.NotFound(w, r)
+}
+
+// outboundConfig is the JSON shape used by the /outbound endpoints.
+// Type "socks5" requires Addr; type "direct" (or empty) removes the per-user
+// outbound, reverting the user to the server's default outbound.
+type outboundConfig struct {
+	Type     string `json:"type"`
+	Addr     string `json:"addr,omitempty"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
+// getOutbounds returns the current per-user outbound map. Passwords are never
+// included in the response.
+func (s *trafficStatsServerImpl) getOutbounds(w http.ResponseWriter, r *http.Request) {
+	specs := s.Outbounds.List()
+	out := make(map[string]outboundConfig, len(specs))
+	for id, spec := range specs {
+		out[id] = outboundConfig{Type: "socks5", Addr: spec.Addr, Username: spec.Username}
+	}
+	jb, err := json.Marshal(out)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write(jb)
+}
+
+// postOutbounds upserts per-user outbounds from a {authID: outboundConfig} map.
+// An entry with type "direct" or empty removes that user's per-user outbound.
+func (s *trafficStatsServerImpl) postOutbounds(w http.ResponseWriter, r *http.Request) {
+	var req map[string]outboundConfig
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	for id, cfg := range req {
+		if id == "" {
+			http.Error(w, "empty user id", http.StatusBadRequest)
+			return
+		}
+		switch strings.ToLower(cfg.Type) {
+		case "socks5":
+			if cfg.Addr == "" {
+				http.Error(w, "empty socks5 addr for user "+id, http.StatusBadRequest)
+				return
+			}
+			s.Outbounds.SetSOCKS5(id, outbounds.SOCKS5Spec{
+				Addr:     cfg.Addr,
+				Username: cfg.Username,
+				Password: cfg.Password,
+			})
+		case "", "direct":
+			s.Outbounds.Delete(id)
+		default:
+			http.Error(w, "unsupported outbound type for user "+id, http.StatusBadRequest)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// deleteOutbounds removes the per-user outbounds for the given user ids,
+// reverting them to the server's default outbound.
+func (s *trafficStatsServerImpl) deleteOutbounds(w http.ResponseWriter, r *http.Request) {
+	var ids []string
+	if err := json.NewDecoder(r.Body).Decode(&ids); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	for _, id := range ids {
+		s.Outbounds.Delete(id)
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *trafficStatsServerImpl) getTraffic(w http.ResponseWriter, r *http.Request) {

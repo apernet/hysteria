@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"math/rand"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -140,6 +141,53 @@ func newH3sHandler(config *Config, conn *quic.Conn) *h3sHandler {
 	}
 }
 
+// effectiveOutbound returns the outbound to use for the given authenticated
+// user. Without an OutboundProvider it is simply the default Config.Outbound.
+// With one, it returns a dynamicOutbound that re-resolves the per-user outbound
+// on every request, so runtime changes via the provider apply to new TCP
+// requests and to long-lived UDP sessions without dropping the connection.
+//
+// It only reads h.config (immutable after startup) and the passed-in authID, so
+// it adds no shared mutable state and is safe to call from request goroutines.
+func (h *h3sHandler) effectiveOutbound(authID string) Outbound {
+	if h.config.OutboundProvider == nil {
+		return h.config.Outbound
+	}
+	return &dynamicOutbound{
+		provider: h.config.OutboundProvider,
+		authID:   authID,
+		fallback: h.config.Outbound,
+	}
+}
+
+// dynamicOutbound is a per-connection Outbound that defers to an OutboundProvider,
+// resolving the user's current outbound on each call and falling back to the
+// default outbound when the provider has none for this user.
+type dynamicOutbound struct {
+	provider OutboundProvider
+	authID   string
+	fallback Outbound
+}
+
+func (d *dynamicOutbound) resolve() Outbound {
+	if ob := d.provider.Outbound(d.authID); ob != nil {
+		return ob
+	}
+	return d.fallback
+}
+
+func (d *dynamicOutbound) TCP(reqAddr string) (net.Conn, error) {
+	return d.resolve().TCP(reqAddr)
+}
+
+func (d *dynamicOutbound) UDP(reqAddr string) (UDPConn, error) {
+	return d.resolve().UDP(reqAddr)
+}
+
+func (d *dynamicOutbound) CheckUDP(reqAddr string) error {
+	return d.resolve().CheckUDP(reqAddr)
+}
+
 func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost && r.Host == protocol.URLHost && r.URL.Path == protocol.URLPath {
 		h.authMutex.Lock()
@@ -199,7 +247,7 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if !h.config.DisableUDP {
 				go func() {
 					sm := newUDPSessionManager(
-						&udpIOImpl{h.conn, id, h.config.TrafficLogger, h.config.RequestHook, h.config.Outbound},
+						&udpIOImpl{h.conn, id, h.config.TrafficLogger, h.config.RequestHook, h.effectiveOutbound(id)},
 						&udpEventLoggerImpl{h.conn, id, h.config.EventLogger},
 						h.config.UDPIdleTimeout,
 					)
@@ -287,7 +335,7 @@ func (h *h3sHandler) handleTCPRequest(stream *utils.QStream) {
 	}
 	// Dial target
 	streamStats.State.Store(StreamStateConnecting)
-	tConn, err := h.config.Outbound.TCP(reqAddr)
+	tConn, err := h.effectiveOutbound(h.authID).TCP(reqAddr)
 	if err != nil {
 		if !hooked {
 			_ = protocol.WriteTCPResponse(stream, false, err.Error())

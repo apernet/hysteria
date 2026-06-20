@@ -126,6 +126,13 @@ outbounds:
       url: https://eyy.lmao:4443/goofy
       insecure: true
 
+userOutbounds:
+  - user: vip
+    socks5:
+      addr: vip.proxy.example:1080
+      username: vipuser
+      password: vippass
+
 trafficStats:
   listen: :9999
   secret: its_me_mario

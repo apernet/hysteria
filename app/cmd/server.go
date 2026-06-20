@@ -81,6 +81,7 @@ type serverConfig struct {
 	Sniff                 serverConfigSniff           `mapstructure:"sniff"`
 	ACL                   serverConfigACL             `mapstructure:"acl"`
 	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
+	UserOutbounds         []serverConfigUserOutbound  `mapstructure:"userOutbounds"`
 	TrafficStats          serverConfigTrafficStats    `mapstructure:"trafficStats"`
 	Masquerade            serverConfigMasquerade      `mapstructure:"masquerade"`
 }
@@ -259,6 +260,15 @@ type serverConfigOutboundEntry struct {
 	Direct serverConfigOutboundDirect `mapstructure:"direct"`
 	SOCKS5 serverConfigOutboundSOCKS5 `mapstructure:"socks5"`
 	HTTP   serverConfigOutboundHTTP   `mapstructure:"http"`
+}
+
+// serverConfigUserOutbound binds an authenticated user (by auth id) to a
+// dedicated SOCKS5 outbound. These provide the initial (warm-start) per-user
+// outbound map; entries can also be managed at runtime via the trafficStats
+// /outbound HTTP API without restarting the server.
+type serverConfigUserOutbound struct {
+	User   string                     `mapstructure:"user"`
+	SOCKS5 serverConfigOutboundSOCKS5 `mapstructure:"socks5"`
 }
 
 type serverConfigTrafficStats struct {
@@ -1339,6 +1349,27 @@ func (c *serverConfig) fillOutboundConfig(hyConfig *server.Config) error {
 	}
 
 	hyConfig.Outbound = &outbounds.PluggableOutboundAdapter{PluggableOutbound: uOb}
+
+	// Per-user outbounds: enabled when there are static userOutbounds entries
+	// or when trafficStats is on (so the /outbound API can manage them at
+	// runtime). Users without a per-user outbound fall back to hyConfig.Outbound.
+	if len(c.UserOutbounds) > 0 || c.TrafficStats.Listen != "" {
+		puo := outbounds.NewPerUserOutbounds()
+		for _, entry := range c.UserOutbounds {
+			if entry.User == "" {
+				return configError{Field: "userOutbounds.user", Err: errors.New("empty user")}
+			}
+			if entry.SOCKS5.Addr == "" {
+				return configError{Field: "userOutbounds.socks5.addr", Err: errors.New("empty socks5 address")}
+			}
+			puo.SetSOCKS5(entry.User, outbounds.SOCKS5Spec{
+				Addr:     entry.SOCKS5.Addr,
+				Username: entry.SOCKS5.Username,
+				Password: entry.SOCKS5.Password,
+			})
+		}
+		hyConfig.OutboundProvider = puo
+	}
 	return nil
 }
 
@@ -1431,7 +1462,10 @@ func (c *serverConfig) fillEventLogger(hyConfig *server.Config) error {
 
 func (c *serverConfig) fillTrafficLogger(hyConfig *server.Config) error {
 	if c.TrafficStats.Listen != "" {
-		tss := trafficlogger.NewTrafficStatsServer(c.TrafficStats.Secret)
+		// If per-user outbounds are enabled, expose the /outbound management API
+		// on the same trafficStats server (shares listen address and secret).
+		puo, _ := hyConfig.OutboundProvider.(*outbounds.PerUserOutbounds)
+		tss := trafficlogger.NewTrafficStatsServerWithOutbounds(c.TrafficStats.Secret, puo)
 		hyConfig.TrafficLogger = tss
 		go runTrafficStatsServer(c.TrafficStats.Listen, tss)
 	}

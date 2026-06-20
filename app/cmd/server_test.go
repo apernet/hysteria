@@ -169,6 +169,16 @@ func TestServerConfig(t *testing.T) {
 				},
 			},
 		},
+		UserOutbounds: []serverConfigUserOutbound{
+			{
+				User: "vip",
+				SOCKS5: serverConfigOutboundSOCKS5{
+					Addr:     "vip.proxy.example:1080",
+					Username: "vipuser",
+					Password: "vippass",
+				},
+			},
+		},
 		TrafficStats: serverConfigTrafficStats{
 			Listen: ":9999",
 			Secret: "its_me_mario",
@@ -197,6 +207,43 @@ func TestServerConfig(t *testing.T) {
 			ForceHTTPS:  true,
 		},
 	})
+}
+
+func TestServerFillPerUserOutbound(t *testing.T) {
+	// userOutbounds populate the OutboundProvider; configured users get an
+	// outbound, others fall back (nil).
+	c := &serverConfig{
+		UserOutbounds: []serverConfigUserOutbound{
+			{User: "vip", SOCKS5: serverConfigOutboundSOCKS5{Addr: "1.2.3.4:1080"}},
+		},
+	}
+	hyConfig := &server.Config{}
+	assert.NoError(t, c.fillOutboundConfig(hyConfig))
+	assert.NotNil(t, hyConfig.OutboundProvider)
+	assert.NotNil(t, hyConfig.OutboundProvider.Outbound("vip"))
+	assert.Nil(t, hyConfig.OutboundProvider.Outbound("nobody"))
+
+	// trafficStats alone also enables the provider (for the runtime API), even
+	// with no static entries.
+	cStats := &serverConfig{TrafficStats: serverConfigTrafficStats{Listen: ":9999"}}
+	hyStats := &server.Config{}
+	assert.NoError(t, cStats.fillOutboundConfig(hyStats))
+	assert.NotNil(t, hyStats.OutboundProvider)
+
+	// Neither configured: no provider, so there is zero per-request overhead.
+	cNone := &serverConfig{}
+	hyNone := &server.Config{}
+	assert.NoError(t, cNone.fillOutboundConfig(hyNone))
+	assert.Nil(t, hyNone.OutboundProvider)
+
+	// Validation: empty user and missing socks5 addr are rejected.
+	cBadUser := &serverConfig{UserOutbounds: []serverConfigUserOutbound{
+		{SOCKS5: serverConfigOutboundSOCKS5{Addr: "1.2.3.4:1080"}},
+	}}
+	assert.Error(t, cBadUser.fillOutboundConfig(&server.Config{}))
+
+	cBadAddr := &serverConfig{UserOutbounds: []serverConfigUserOutbound{{User: "x"}}}
+	assert.Error(t, cBadAddr.fillOutboundConfig(&server.Config{}))
 }
 
 func TestServerFillCongestionConfig(t *testing.T) {
