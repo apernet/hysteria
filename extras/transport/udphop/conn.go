@@ -271,6 +271,7 @@ func (u *udpHopPacketConn) Close() error {
 	if u.closed {
 		return nil
 	}
+	u.closed = true
 	// Close prevConn and currentConn
 	// Close closeChan to unblock ReadFrom & hopLoop
 	// Set closed flag to true to prevent double close
@@ -279,7 +280,6 @@ func (u *udpHopPacketConn) Close() error {
 	}
 	err := u.currentConn.Close()
 	close(u.closeChan)
-	u.closed = true
 	u.Addrs = nil // For GC
 	return err
 }
