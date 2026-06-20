@@ -32,6 +32,7 @@ type udpHopPacketConn struct {
 	HopInterval   HopIntervalConfig
 	ListenUDPFunc ListenUDPFunc
 
+	wg          sync.WaitGroup
 	connMutex   sync.RWMutex
 	prevConn    net.PacketConn
 	currentConn net.PacketConn
@@ -99,6 +100,7 @@ func NewUDPHopPacketConn(addr *UDPHopAddr, hopInterval HopIntervalConfig, listen
 	if hConn.debug {
 		hConn.debugPrint("Initialized: local=%s target=%s interval=%s", curConn.LocalAddr(), addr, hopInterval)
 	}
+	hConn.wg.Add(1)
 	go hConn.recvLoop(curConn)
 	go hConn.hopLoop()
 	return hConn, nil
@@ -121,6 +123,8 @@ func (c HopIntervalConfig) normalized() (HopIntervalConfig, error) {
 }
 
 func (u *udpHopPacketConn) recvLoop(conn net.PacketConn) {
+	defer u.wg.Done()
+
 	for {
 		buf := u.bufPool.Get().([]byte)
 		n, addr, err := conn.ReadFrom(buf)
@@ -133,7 +137,7 @@ func (u *udpHopPacketConn) recvLoop(conn net.PacketConn) {
 				u.recvQueue <- &udpPacket{nil, 0, nil, netErr}
 				continue
 			}
-			break
+			return
 		}
 		select {
 		case u.recvQueue <- &udpPacket{buf, n, addr, nil}:
@@ -141,18 +145,6 @@ func (u *udpHopPacketConn) recvLoop(conn net.PacketConn) {
 		default:
 			// Queue is full, drop the packet
 			u.bufPool.Put(buf)
-		}
-	}
-	if u.closed {
-		for {
-			select {
-			case p := <-u.recvQueue:
-				if p.Buf != nil {
-					u.bufPool.Put(p.Buf)
-				}
-			default:
-				return
-			}
 		}
 	}
 }
@@ -224,6 +216,7 @@ func (u *udpHopPacketConn) hop(hopInterval time.Duration) {
 	if !u.writeDeadline.IsZero() {
 		_ = u.currentConn.SetWriteDeadline(u.writeDeadline)
 	}
+	u.wg.Add(1)
 	go u.recvLoop(newConn)
 	// Update addrIndex to a new random value
 	prevRemote := u.Addrs[u.addrIndex]
@@ -281,6 +274,18 @@ func (u *udpHopPacketConn) Close() error {
 	err := u.currentConn.Close()
 	close(u.closeChan)
 	u.Addrs = nil // For GC
+	u.wg.Wait()
+	for {
+		select {
+		case p := <-u.recvQueue:
+			if p.Buf != nil {
+				u.bufPool.Put(p.Buf)
+			}
+		default:
+			goto end
+		}
+	}
+end:
 	return err
 }
 
