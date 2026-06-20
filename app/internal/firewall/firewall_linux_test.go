@@ -78,6 +78,140 @@ func TestSetupUDPPortRedirectWithRunnerIPTablesFallback(t *testing.T) {
 	require.True(t, foundDelete)
 }
 
+func TestSetupUDPPortRedirectWithRunnerNFTablesIPv6Specific(t *testing.T) {
+	runner := &fakeRunner{paths: map[string]bool{"nft": true}}
+	addr := &net.UDPAddr{IP: net.ParseIP("2001:db8::1"), Port: 20000}
+	ports := eUtils.PortUnion{{20000, 20002}}
+
+	cleanup, err := setupUDPPortRedirectWithRunner(runner, addr, ports)
+	require.NoError(t, err)
+	require.NotNil(t, cleanup)
+
+	for _, cmd := range runner.cmds {
+		hasUDP := false
+		for _, arg := range cmd {
+			if arg == "udp" {
+				hasUDP = true
+				break
+			}
+		}
+		if !hasUDP {
+			continue
+		}
+		hasDnat := false
+		hasRedirect := false
+		for _, arg := range cmd {
+			if arg == "dnat" {
+				hasDnat = true
+			}
+			if arg == "redirect" {
+				hasRedirect = true
+			}
+		}
+		require.True(t, hasDnat, "IPv6 specific address rule should use dnat: %v", cmd)
+		require.False(t, hasRedirect, "IPv6 specific address rule must not use redirect: %v", cmd)
+		require.Contains(t, cmd, "[2001:db8::1]:20000")
+	}
+
+	require.NoError(t, cleanup.Close())
+}
+
+func TestSetupUDPPortRedirectWithRunnerNFTablesIPv6Unspecified(t *testing.T) {
+	runner := &fakeRunner{paths: map[string]bool{"nft": true}}
+	addr := &net.UDPAddr{IP: net.IPv6unspecified, Port: 20000}
+	ports := eUtils.PortUnion{{20000, 20002}}
+
+	cleanup, err := setupUDPPortRedirectWithRunner(runner, addr, ports)
+	require.NoError(t, err)
+	require.NotNil(t, cleanup)
+
+	for _, cmd := range runner.cmds {
+		hasDnat := false
+		for _, arg := range cmd {
+			if arg == "dnat" {
+				hasDnat = true
+				break
+			}
+		}
+		require.False(t, hasDnat, "IPv6 unspecified address rule must not use dnat: %v", cmd)
+	}
+
+	require.NoError(t, cleanup.Close())
+}
+
+func TestSetupUDPPortRedirectWithRunnerIPTablesIPv6Specific(t *testing.T) {
+	runner := &fakeRunner{paths: map[string]bool{"ip6tables": true}}
+	addr := &net.UDPAddr{IP: net.ParseIP("2001:db8::1"), Port: 20000}
+	ports := eUtils.PortUnion{{20000, 20002}}
+
+	cleanup, err := setupUDPPortRedirectWithRunner(runner, addr, ports)
+	require.NoError(t, err)
+	require.NotNil(t, cleanup)
+
+	foundTarget := false
+	for _, cmd := range runner.cmds {
+		hasDNAT := false
+		hasREDIRECT := false
+		for _, arg := range cmd {
+			if arg == "DNAT" {
+				hasDNAT = true
+			}
+			if arg == "REDIRECT" {
+				hasREDIRECT = true
+			}
+		}
+		require.False(t, hasREDIRECT, "IPv6 specific address rule must not use REDIRECT: %v", cmd)
+		if hasDNAT {
+			foundTarget = true
+			require.Contains(t, cmd, "[2001:db8::1]:20000")
+		}
+	}
+	require.True(t, foundTarget, "expected a DNAT rule for specific IPv6 bind")
+
+	require.NoError(t, cleanup.Close())
+}
+
+func TestSetupUDPPortRedirectWithRunnerIPTablesIPv6Unspecified(t *testing.T) {
+	runner := &fakeRunner{paths: map[string]bool{"iptables": true, "ip6tables": true}}
+	addr := &net.UDPAddr{IP: net.IPv6unspecified, Port: 20000}
+	ports := eUtils.PortUnion{{20000, 20002}}
+
+	cleanup, err := setupUDPPortRedirectWithRunner(runner, addr, ports)
+	require.NoError(t, err)
+	require.NotNil(t, cleanup)
+
+	for _, cmd := range runner.cmds {
+		for _, arg := range cmd {
+			require.NotEqual(t, "DNAT", arg, "unspecified address rule must not use DNAT: %v", cmd)
+		}
+	}
+
+	require.NoError(t, cleanup.Close())
+}
+
+func TestSetupUDPPortRedirectWithRunnerIPTablesIPv4Specific(t *testing.T) {
+	runner := &fakeRunner{paths: map[string]bool{"iptables": true}}
+	addr := &net.UDPAddr{IP: net.IPv4(1, 2, 3, 4), Port: 20000}
+	ports := eUtils.PortUnion{{20000, 20002}}
+
+	cleanup, err := setupUDPPortRedirectWithRunner(runner, addr, ports)
+	require.NoError(t, err)
+	require.NotNil(t, cleanup)
+
+	foundRedirect := false
+	for _, cmd := range runner.cmds {
+		for _, arg := range cmd {
+			require.NotEqual(t, "DNAT", arg, "IPv4 rule must keep REDIRECT, not DNAT: %v", cmd)
+			if arg == "REDIRECT" {
+				foundRedirect = true
+			}
+		}
+	}
+	require.True(t, foundRedirect, "expected REDIRECT rule for IPv4 bind")
+
+	require.NoError(t, cleanup.Close())
+}
+
 func TestSetupUDPPortRedirectWithRunnerRollback(t *testing.T) {
 	runner := &fakeRunner{
 		paths: map[string]bool{"iptables": true},

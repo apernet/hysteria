@@ -20,7 +20,7 @@ type dohResolver struct {
 
 func NewDoHResolver(addr string, timeout time.Duration, sni string, insecure bool, next PluggableOutbound) PluggableOutbound {
 	// User may provide just the IP address or full URL
-	if !strings.HasSuffix(addr, "https://") {
+	if !strings.HasPrefix(addr, "https://") {
 		addr = fmt.Sprintf("https://%s/dns-query", addr)
 	}
 	tr := http.DefaultTransport.(*http.Transport).Clone()
@@ -86,4 +86,9 @@ func (r *dohResolver) TCP(reqAddr *AddrEx) (net.Conn, error) {
 func (r *dohResolver) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	r.resolve(reqAddr)
 	return r.Next.UDP(reqAddr)
+}
+
+func (r *dohResolver) CheckUDP(reqAddr *AddrEx) error {
+	r.resolve(reqAddr)
+	return r.Next.CheckUDP(reqAddr)
 }

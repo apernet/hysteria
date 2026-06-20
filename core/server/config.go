@@ -154,9 +154,11 @@ type RequestHook interface {
 // Although UDP includes a reqAddr, the implementation does not necessarily have to use it
 // to make a "connected" UDP connection that does not accept packets from other addresses.
 // In fact, the default implementation simply uses net.ListenUDP for a "full-cone" behavior.
+// CheckUDP is used to check if a UDP packet to reqAddr is permitted (useful for e.g. ACL).
 type Outbound interface {
 	TCP(reqAddr string) (net.Conn, error)
 	UDP(reqAddr string) (UDPConn, error)
+	CheckUDP(reqAddr string) error
 }
 
 // UDPConn is like net.PacketConn, but uses string for addresses.
@@ -182,6 +184,10 @@ func (o *defaultOutbound) UDP(reqAddr string) (UDPConn, error) {
 		return nil, err
 	}
 	return &defaultUDPConn{conn}, nil
+}
+
+func (o *defaultOutbound) CheckUDP(reqAddr string) error {
+	return nil
 }
 
 type defaultUDPConn struct {

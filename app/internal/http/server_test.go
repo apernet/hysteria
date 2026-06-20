@@ -1,12 +1,14 @@
 package http
 
 import (
+	"bufio"
 	"errors"
 	"net"
 	"net/http"
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -56,4 +58,29 @@ func TestServer(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	assert.NoError(t, err)
 	assert.Equal(t, "OK", strings.TrimSpace(string(out)))
+}
+
+func TestServerBasicAuthUsesStandardBase64(t *testing.T) {
+	authCalled := false
+	s := &Server{
+		HyClient: &mockHyClient{},
+		AuthFunc: func(username, password string) bool {
+			authCalled = true
+			return username == string([]byte{0xff}) && password == ""
+		},
+	}
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	_ = clientConn.SetDeadline(time.Now().Add(time.Second))
+	go s.dispatch(serverConn)
+
+	// "/zo=" is standard Base64 for []byte{0xff, ':'}. It is valid Basic Auth,
+	// but it is not valid URL-safe Base64.
+	_, err := clientConn.Write([]byte("CONNECT 127.0.0.1:1 HTTP/1.1\r\nHost: 127.0.0.1:1\r\nProxy-Authorization: Basic /zo=\r\n\r\n"))
+	assert.NoError(t, err)
+	resp, err := http.ReadResponse(bufio.NewReader(clientConn), nil)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.True(t, authCalled)
+	assert.NotEqual(t, http.StatusProxyAuthRequired, resp.StatusCode)
 }

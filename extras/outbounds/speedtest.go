@@ -34,3 +34,7 @@ func (s *speedtestHandler) TCP(reqAddr *AddrEx) (net.Conn, error) {
 func (s *speedtestHandler) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	return s.Next.UDP(reqAddr)
 }
+
+func (s *speedtestHandler) CheckUDP(reqAddr *AddrEx) error {
+	return s.Next.CheckUDP(reqAddr)
+}

@@ -86,20 +86,29 @@ type serverConfig struct {
 }
 
 type serverConfigRealm struct {
-	STUNServers       []string      `mapstructure:"stunServers"`
-	STUNTimeout       time.Duration `mapstructure:"stunTimeout"`
-	PunchTimeout      time.Duration `mapstructure:"punchTimeout"`
-	HeartbeatInterval time.Duration `mapstructure:"heartbeatInterval"`
-	Insecure          bool          `mapstructure:"insecure"`
+	STUNServers       []string               `mapstructure:"stunServers"`
+	STUNTimeout       time.Duration          `mapstructure:"stunTimeout"`
+	PunchTimeout      time.Duration          `mapstructure:"punchTimeout"`
+	HeartbeatInterval time.Duration          `mapstructure:"heartbeatInterval"`
+	Insecure          bool                   `mapstructure:"insecure"`
+	IPMode            string                 `mapstructure:"ipMode"`
+	PortMapping       realmPortMappingConfig `mapstructure:"portMapping"`
 }
 
 type serverConfigObfsSalamander struct {
 	Password string `mapstructure:"password"`
 }
 
+type serverConfigObfsGecko struct {
+	Password      string `mapstructure:"password"`
+	MinPacketSize int    `mapstructure:"minPacketSize"`
+	MaxPacketSize int    `mapstructure:"maxPacketSize"`
+}
+
 type serverConfigObfs struct {
 	Type       string                     `mapstructure:"type"`
 	Salamander serverConfigObfsSalamander `mapstructure:"salamander"`
+	Gecko      serverConfigObfsGecko      `mapstructure:"gecko"`
 }
 
 type serverConfigTLS struct {
@@ -312,30 +321,17 @@ func (c *serverConfig) fillConn(hyConfig *server.Config) error {
 			return configError{Field: "listen", Err: err}
 		}
 	}
-	switch strings.ToLower(c.Obfs.Type) {
-	case "", "plain":
-		hyConfig.Conn = packetConn
-		hyConfig.Cleanup = cleanup
-		return nil
-	case "salamander":
-		ob, err := obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
-		if err != nil {
-			_ = conn.Close()
-			if cleanup != nil {
-				_ = cleanup.Close()
-			}
-			return configError{Field: "obfs.salamander.password", Err: err}
-		}
-		hyConfig.Conn = obfs.WrapPacketConn(packetConn, ob)
-		hyConfig.Cleanup = cleanup
-		return nil
-	default:
+	wrapped, err := c.wrapObfs(packetConn)
+	if err != nil {
 		_ = conn.Close()
 		if cleanup != nil {
 			_ = cleanup.Close()
 		}
-		return configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
+		return err
 	}
+	hyConfig.Conn = wrapped
+	hyConfig.Cleanup = cleanup
+	return nil
 }
 
 func parseServerRealmAddr(listen string) (*realm.Addr, bool, error) {
@@ -354,11 +350,15 @@ func (c *serverConfig) fillRealmConn(hyConfig *server.Config, addr *realm.Addr) 
 		zap.String("realm", addr.RealmID),
 		zap.String("realmServer", addr.HostPort),
 		zap.String("scheme", addr.RendezvousScheme))
+	family, network, err := realmIPMode(c.Realm.IPMode)
+	if err != nil {
+		return configError{Field: "realm.ipMode", Err: err}
+	}
 	listenAddr := &net.UDPAddr{}
 	if addr.LocalPort != 0 {
 		listenAddr.Port = addr.LocalPort
 	}
-	conn, err := correctnet.ListenUDP("udp", listenAddr)
+	conn, err := correctnet.ListenUDP(network, listenAddr)
 	if err != nil {
 		return configError{Field: "listen", Err: err}
 	}
@@ -371,13 +371,14 @@ func (c *serverConfig) fillRealmConn(hyConfig *server.Config, addr *realm.Addr) 
 		_ = conn.Close()
 		return configError{Field: "realm", Err: err}
 	}
-	packetConn, err := c.wrapServerPacketConn(punchConn, conn)
+	packetConn, err := c.wrapObfs(punchConn)
 	if err != nil {
+		_ = conn.Close()
 		return err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	runtime, err := c.startRealmServerRuntime(ctx, cancel, addr, punchConn)
+	runtime, err := c.startRealmServerRuntime(ctx, cancel, addr, punchConn, family)
 	if err != nil {
 		cancel()
 		_ = packetConn.Close()
@@ -388,19 +389,27 @@ func (c *serverConfig) fillRealmConn(hyConfig *server.Config, addr *realm.Addr) 
 	return nil
 }
 
-func (c *serverConfig) wrapServerPacketConn(packetConn net.PacketConn, udpConn *net.UDPConn) (net.PacketConn, error) {
+func (c *serverConfig) wrapObfs(conn net.PacketConn) (net.PacketConn, error) {
 	switch strings.ToLower(c.Obfs.Type) {
 	case "", "plain":
-		return packetConn, nil
+		return conn, nil
 	case "salamander":
-		ob, err := obfs.NewSalamanderObfuscator([]byte(c.Obfs.Salamander.Password))
+		wrapped, err := obfs.WrapPacketConnSalamander(conn, []byte(c.Obfs.Salamander.Password))
 		if err != nil {
-			_ = udpConn.Close()
 			return nil, configError{Field: "obfs.salamander.password", Err: err}
 		}
-		return obfs.WrapPacketConn(packetConn, ob), nil
+		return wrapped, nil
+	case "gecko":
+		wrapped, err := obfs.WrapPacketConnGecko(conn, obfs.GeckoOptions{
+			Password:      []byte(c.Obfs.Gecko.Password),
+			MinPacketSize: c.Obfs.Gecko.MinPacketSize,
+			MaxPacketSize: c.Obfs.Gecko.MaxPacketSize,
+		})
+		if err != nil {
+			return nil, configError{Field: "obfs.gecko", Err: err}
+		}
+		return wrapped, nil
 	default:
-		_ = udpConn.Close()
 		return nil, configError{Field: "obfs.type", Err: errors.New("unsupported obfuscation type")}
 	}
 }
@@ -424,7 +433,7 @@ func resolveServerListenAddr(listenAddr string) (*net.UDPAddr, eUtils.PortUnion,
 	return uAddr, portUnion, err
 }
 
-func (c *serverConfig) startRealmServerRuntime(ctx context.Context, cancel context.CancelFunc, addr *realm.Addr, punchConn *realm.PunchPacketConn) (*realmServerRuntime, error) {
+func (c *serverConfig) startRealmServerRuntime(ctx context.Context, cancel context.CancelFunc, addr *realm.Addr, punchConn *realm.PunchPacketConn, family realm.AddrFamily) (*realmServerRuntime, error) {
 	stunServers := c.realmSTUNServers(addr)
 	rClient, err := realm.NewClientFromAddr(addr, c.realmHTTPClient())
 	if err != nil {
@@ -442,15 +451,37 @@ func (c *serverConfig) startRealmServerRuntime(ctx context.Context, cancel conte
 		stunServers: stunServers,
 		puncher:     puncher,
 		config:      c.Realm,
+		family:      family,
+	}
+	// Gateway port mapping (UPnP/NAT-PMP) runs before STUN.
+	// With the pinhole in place, in a double-NAT setup,
+	// the address STUN observes corresponds to a path whose inner leg
+	// goes through the static mapping rather than a filtered dynamic one.
+	if c.Realm.PortMapping.Enabled {
+		localPort := 0
+		if udpAddr, ok := punchConn.LocalAddr().(*net.UDPAddr); ok {
+			localPort = udpAddr.Port
+		}
+		rt.mapper = newRealmPortMapper(ctx, addr.RealmID, localPort, c.Realm.PortMapping)
+	}
+	cleanupMapper := func() {
+		if rt.mapper != nil {
+			_ = rt.mapper.Close()
+		}
 	}
 	if _, _, err := rt.refreshAddrsDirect(ctx); err != nil {
+		cleanupMapper()
 		return nil, configError{Field: "realm.stun", Err: err}
 	}
 	initialSession, err := rt.register(ctx)
 	if err != nil {
+		cleanupMapper()
 		return nil, configError{Field: "realm.register", Err: err}
 	}
 	rt.setSession(initialSession)
+	if rt.mapper != nil {
+		go realmPortMapLoop(ctx, addr.RealmID, rt.mapper)
+	}
 	go rt.run(ctx, initialSession)
 	return rt, nil
 }
@@ -484,6 +515,8 @@ type realmServerRuntime struct {
 	stunServers []string
 	puncher     *realm.ServerPuncher
 	config      serverConfigRealm
+	family      realm.AddrFamily
+	mapper      *realm.PortMapper // nil if port mapping is disabled or failed
 
 	mu      sync.Mutex
 	session realmSession
@@ -705,11 +738,20 @@ func (r *realmServerRuntime) connectAddrs(ctx context.Context) ([]netip.AddrPort
 
 func (r *realmServerRuntime) cachedAddrs() []netip.AddrPort {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	if r.addrs == nil || time.Since(r.addrsAt) >= realmConnectSTUNCacheTTL {
+		r.mu.Unlock()
 		return nil
 	}
-	return append([]netip.AddrPort(nil), r.addrs...)
+	addrs := append([]netip.AddrPort(nil), r.addrs...)
+	r.mu.Unlock()
+	return r.withMappedAddr(addrs)
+}
+
+func (r *realmServerRuntime) withMappedAddr(addrs []netip.AddrPort) []netip.AddrPort {
+	if r.mapper == nil {
+		return addrs
+	}
+	return mergeMappedAddr(addrs, r.mapper.ExternalAddr())
 }
 
 func (r *realmServerRuntime) respond(ctx context.Context, ev *realm.PunchEvent) {
@@ -747,6 +789,7 @@ func (r *realmServerRuntime) respond(ctx context.Context, ev *realm.PunchEvent) 
 	start := time.Now()
 	result, err := r.puncher.Respond(ctx, ev.Nonce, freshAddrs, peerAddrs, ev.PunchMetadata, realm.PunchConfig{
 		Timeout: r.config.PunchTimeout,
+		Family:  r.family,
 	})
 	if err != nil {
 		logger.Warn("realm punch failed", zap.String("realm", r.realmID), zap.String("attempt", attempt), zap.Error(err))
@@ -808,6 +851,7 @@ func (r *realmServerRuntime) refreshAddrsWith(ctx context.Context, discover func
 	addrs, err := discover(ctx, realm.STUNConfig{
 		Servers: r.stunServers,
 		Timeout: r.config.STUNTimeout,
+		Family:  r.family,
 	})
 	if err != nil {
 		return nil, false, err
@@ -825,13 +869,14 @@ func (r *realmServerRuntime) refreshAddrsWith(ctx context.Context, discover func
 		zap.Strings("addresses", addrPortStrings(current)),
 		zap.Bool("changed", changed),
 		zap.String("duration", formatLogDuration(time.Since(start))))
-	return current, changed, nil
+	return r.withMappedAddr(current), changed, nil
 }
 
 func (r *realmServerRuntime) currentAddrs() []netip.AddrPort {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	return append([]netip.AddrPort(nil), r.addrs...)
+	addrs := append([]netip.AddrPort(nil), r.addrs...)
+	r.mu.Unlock()
+	return r.withMappedAddr(addrs)
 }
 
 func sessionTTLDuration(ttl int) time.Duration {

@@ -88,7 +88,7 @@ func (o *httpOutbound) dial() (net.Conn, error) {
 		// Wrap the connection with TLS if the proxy is HTTPS.
 		conn = tls.Client(conn, &tls.Config{
 			InsecureSkipVerify: o.Insecure,
-			ServerName:         o.Addr,
+			ServerName:         o.ServerName,
 		})
 	}
 	return conn, nil
@@ -168,6 +168,10 @@ func (o *httpOutbound) TCP(reqAddr *AddrEx) (net.Conn, error) {
 
 func (o *httpOutbound) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	return nil, errHTTPUDPNotSupported
+}
+
+func (o *httpOutbound) CheckUDP(reqAddr *AddrEx) error {
+	return errHTTPUDPNotSupported
 }
 
 // cachedConn is a net.Conn wrapper that first Read()s from a buffer,

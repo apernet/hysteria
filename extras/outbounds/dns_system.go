@@ -39,3 +39,8 @@ func (r *systemResolver) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	r.resolve(reqAddr)
 	return r.Next.UDP(reqAddr)
 }
+
+func (r *systemResolver) CheckUDP(reqAddr *AddrEx) error {
+	r.resolve(reqAddr)
+	return r.Next.CheckUDP(reqAddr)
+}

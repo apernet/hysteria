@@ -178,6 +178,20 @@ func TestClientConfigURI(t *testing.T) {
 			},
 		},
 		{
+			uri:   "hysteria2://pw@geckotown.com:8443/?obfs=gecko&obfs-password=hidden",
+			uriOK: true,
+			config: &clientConfig{
+				Server: "geckotown.com:8443",
+				Auth:   "pw",
+				Obfs: clientConfigObfs{
+					Type: "gecko",
+					Gecko: clientConfigObfsGecko{
+						Password: "hidden",
+					},
+				},
+			},
+		},
+		{
 			uri:    "invalid.bs",
 			uriOK:  false,
 			config: nil,
@@ -238,7 +252,7 @@ func TestSingleUseConnFactory(t *testing.T) {
 	assert.NoError(t, err)
 	defer conn.Close()
 
-	f := &singleUseConnFactory{Conn: conn}
+	f := &singleUseConnFactory{Open: func() (net.PacketConn, error) { return conn, nil }}
 	got, err := f.New(&net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 443})
 	assert.NoError(t, err)
 	assert.Equal(t, conn, got)

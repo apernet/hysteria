@@ -110,6 +110,11 @@ func (a *aclEngine) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	return ob.UDP(reqAddr)
 }
 
+func (a *aclEngine) CheckUDP(reqAddr *AddrEx) error {
+	ob := a.handle(reqAddr, acl.ProtocolUDP)
+	return ob.CheckUDP(reqAddr)
+}
+
 type aclRejectOutbound struct{}
 
 func (a *aclRejectOutbound) TCP(reqAddr *AddrEx) (net.Conn, error) {
@@ -118,4 +123,8 @@ func (a *aclRejectOutbound) TCP(reqAddr *AddrEx) (net.Conn, error) {
 
 func (a *aclRejectOutbound) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	return nil, errRejected
+}
+
+func (a *aclRejectOutbound) CheckUDP(reqAddr *AddrEx) error {
+	return errRejected
 }

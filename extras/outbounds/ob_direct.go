@@ -402,6 +402,10 @@ func (u *directOutboundUDPConn) Close() error {
 	return u.UDPConn.Close()
 }
 
+func (d *directOutbound) CheckUDP(reqAddr *AddrEx) error {
+	return nil
+}
+
 func (d *directOutbound) UDP(reqAddr *AddrEx) (UDPConn, error) {
 	if d.BindIP4 == nil && d.BindIP6 == nil {
 		// No bind address specified, use default dual stack implementation

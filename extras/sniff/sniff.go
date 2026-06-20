@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	sniffDefaultTimeout = 4 * time.Second
+	sniffDefaultTimeout     = 4 * time.Second
+	sniffMaxHTTPHeaderBytes = 256 * 1024
 )
 
 var _ server.RequestHook = (*Sniffer)(nil)
@@ -109,7 +110,7 @@ func (h *Sniffer) TCP(stream server.HyStream, reqAddr *string) ([]byte, error) {
 	if h.isHTTP(pre) {
 		// HTTP
 		tr := &teeReader{Stream: stream, Pre: pre}
-		req, _ := http.ReadRequest(bufio.NewReader(tr))
+		req, _ := http.ReadRequest(bufio.NewReader(io.LimitReader(tr, sniffMaxHTTPHeaderBytes)))
 		if req != nil && req.Host != "" {
 			// req.Host can be host:port, in which case we need to extract the host part
 			host, _, err := net.SplitHostPort(req.Host)

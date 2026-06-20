@@ -20,6 +20,52 @@ func (_m *mockUDPIO) EXPECT() *mockUDPIO_Expecter {
 	return &mockUDPIO_Expecter{mock: &_m.Mock}
 }
 
+// CheckUDP provides a mock function with given fields: reqAddr
+func (_m *mockUDPIO) CheckUDP(reqAddr string) error {
+	ret := _m.Called(reqAddr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CheckUDP")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(reqAddr)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// mockUDPIO_CheckUDP_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CheckUDP'
+type mockUDPIO_CheckUDP_Call struct {
+	*mock.Call
+}
+
+// CheckUDP is a helper method to define mock.On call
+//   - reqAddr string
+func (_e *mockUDPIO_Expecter) CheckUDP(reqAddr interface{}) *mockUDPIO_CheckUDP_Call {
+	return &mockUDPIO_CheckUDP_Call{Call: _e.mock.On("CheckUDP", reqAddr)}
+}
+
+func (_c *mockUDPIO_CheckUDP_Call) Run(run func(reqAddr string)) *mockUDPIO_CheckUDP_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *mockUDPIO_CheckUDP_Call) Return(_a0 error) *mockUDPIO_CheckUDP_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockUDPIO_CheckUDP_Call) RunAndReturn(run func(string) error) *mockUDPIO_CheckUDP_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Hook provides a mock function with given fields: data, reqAddr
 func (_m *mockUDPIO) Hook(data []byte, reqAddr *string) error {
 	ret := _m.Called(data, reqAddr)

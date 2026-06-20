@@ -29,6 +29,7 @@ type STUNConfig struct {
 	Servers  []string
 	Timeout  time.Duration
 	Resolver STUNResolver
+	Family   AddrFamily
 }
 
 // Discover queries the configured STUN servers using conn and returns the
@@ -55,7 +56,7 @@ func Discover(ctx context.Context, conn net.PacketConn, config STUNConfig) ([]ne
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	stunAddrs, err := resolveSTUNServers(ctx, resolver, config.Servers, localAddrFamily(conn.LocalAddr()))
+	stunAddrs, err := resolveSTUNServers(ctx, resolver, config.Servers, effectiveFamily(config.Family, conn.LocalAddr()))
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +115,7 @@ func DiscoverWithDemux(ctx context.Context, conn *PunchPacketConn, config STUNCo
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	stunAddrs, err := resolveSTUNServers(ctx, resolver, config.Servers, localAddrFamily(conn.LocalAddr()))
+	stunAddrs, err := resolveSTUNServers(ctx, resolver, config.Servers, effectiveFamily(config.Family, conn.LocalAddr()))
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +140,7 @@ func DiscoverWithDemux(ctx context.Context, conn *PunchPacketConn, config STUNCo
 	return finishSTUNResults(results, nil)
 }
 
-func resolveSTUNServers(ctx context.Context, resolver STUNResolver, servers []string, family addrFamily) ([]*net.UDPAddr, error) {
+func resolveSTUNServers(ctx context.Context, resolver STUNResolver, servers []string, family AddrFamily) ([]*net.UDPAddr, error) {
 	var out []*net.UDPAddr
 	seen := make(map[string]struct{})
 	for _, server := range servers {
@@ -278,31 +279,40 @@ func netIPPortToAddrPort(ip net.IP, port int) (netip.AddrPort, error) {
 	return netip.AddrPortFrom(netip.AddrFrom16(addr), uint16(port)), nil
 }
 
-type addrFamily uint8
+type AddrFamily uint8
 
 const (
-	addrFamilyAny addrFamily = iota
-	addrFamilyIPv4
-	addrFamilyIPv6
+	AddrFamilyAny AddrFamily = iota
+	AddrFamilyIPv4
+	AddrFamilyIPv6
 )
 
-func localAddrFamily(addr net.Addr) addrFamily {
-	udpAddr, ok := addr.(*net.UDPAddr)
-	if !ok || udpAddr.IP == nil || udpAddr.IP.IsUnspecified() {
-		return addrFamilyAny
+// effectiveFamily resolves the family to use: an explicit restriction takes
+// precedence, otherwise it is inferred from the socket's local address.
+func effectiveFamily(family AddrFamily, local net.Addr) AddrFamily {
+	if family != AddrFamilyAny {
+		return family
 	}
-	if udpAddr.IP.To4() != nil {
-		return addrFamilyIPv4
-	}
-	return addrFamilyIPv6
+	return localAddrFamily(local)
 }
 
-func (f addrFamily) allows(ip net.IP) bool {
+func localAddrFamily(addr net.Addr) AddrFamily {
+	udpAddr, ok := addr.(*net.UDPAddr)
+	if !ok || udpAddr.IP == nil || udpAddr.IP.IsUnspecified() {
+		return AddrFamilyAny
+	}
+	if udpAddr.IP.To4() != nil {
+		return AddrFamilyIPv4
+	}
+	return AddrFamilyIPv6
+}
+
+func (f AddrFamily) allows(ip net.IP) bool {
 	is4 := ip.To4() != nil
 	switch f {
-	case addrFamilyIPv4:
+	case AddrFamilyIPv4:
 		return is4
-	case addrFamilyIPv6:
+	case AddrFamilyIPv6:
 		return !is4
 	default:
 		return true

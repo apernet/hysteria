@@ -98,7 +98,7 @@ func TestResolveSTUNServersUsesAllResolvedAddresses(t *testing.T) {
 		},
 	}
 
-	addrs, err := resolveSTUNServers(context.Background(), resolver, []string{"stun.example.com:19302"}, addrFamilyAny)
+	addrs, err := resolveSTUNServers(context.Background(), resolver, []string{"stun.example.com:19302"}, AddrFamilyAny)
 	require.NoError(t, err)
 	require.Len(t, addrs, 2)
 	assert.ElementsMatch(t, []string{"192.0.2.1:19302", "[2001:db8::1]:19302"}, udpAddrStrings(addrs))
@@ -112,11 +112,11 @@ func TestResolveSTUNServersFiltersByLocalFamily(t *testing.T) {
 		},
 	}
 
-	addrs, err := resolveSTUNServers(context.Background(), resolver, []string{"stun.example.com"}, addrFamilyIPv4)
+	addrs, err := resolveSTUNServers(context.Background(), resolver, []string{"stun.example.com"}, AddrFamilyIPv4)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"192.0.2.1:3478"}, udpAddrStrings(addrs))
 
-	addrs, err = resolveSTUNServers(context.Background(), resolver, []string{"stun.example.com"}, addrFamilyIPv6)
+	addrs, err = resolveSTUNServers(context.Background(), resolver, []string{"stun.example.com"}, AddrFamilyIPv6)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"[2001:db8::1]:3478"}, udpAddrStrings(addrs))
 }
