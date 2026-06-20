@@ -1,0 +1,69 @@
+name: "Fork release (linux)"
+
+# Self-contained release workflow for this fork. It builds the Linux binaries
+# (with the per-user outbound feature) and attaches them to a GitHub Release.
+# It is intentionally separate from the upstream release.yml (which publishes to
+# Cloudflare R2 / the Hysteria API and needs secrets this fork does not have).
+#
+# Trigger by pushing a tag like `fork-v2026.6.20`, or run it manually from the
+# Actions tab.
+
+on:
+  push:
+    tags:
+      - "fork-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version label baked into the binary (e.g. fork-v2026.6.20)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build & release (linux amd64/arm64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Build
+        env:
+          HY_APP_PLATFORMS: "linux/amd64,linux/arm64"
+          # Use the tag name for a tag push, else the manual input, else a dev label.
+          HY_APP_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || (inputs.version != '' && inputs.version || 'fork-dev') }}
+        run: python hyperbole.py build -r
+
+      - name: Generate checksums
+        run: |
+          cd build
+          for f in *; do sha256sum "$f" >> hashes.txt; done
+          ls -l
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: hysteria-linux
+          path: build/
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: build/*
+          body: |
+            Fork build with per-user outbound routing (see docs/per-user-outbound.md).
+            Linux amd64/arm64. SHA256 sums in `hashes.txt`.
