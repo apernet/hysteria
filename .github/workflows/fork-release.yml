@@ -41,11 +41,20 @@ jobs:
           python-version: "3.11"
 
       - name: Build
-        env:
-          HY_APP_PLATFORMS: "linux/amd64,linux/arm64"
-          # Use the tag name for a tag push, else the manual input, else a dev label.
-          HY_APP_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || (inputs.version != '' && inputs.version || 'fork-dev') }}
-        run: python hyperbole.py build -r
+        run: |
+          # The cron auto-updater parses the binary version with \d+\.\d+\.\d+,
+          # so the version MUST start numeric. Map tag `fork-vX.Y.Z` -> `X.Y.Z-fork`.
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VER="${GITHUB_REF_NAME#fork-v}-fork"
+          elif [ -n "${{ inputs.version }}" ]; then
+            VER="${{ inputs.version }}"
+          else
+            VER="0.0.0-forkdev"
+          fi
+          echo "Building HY_APP_VERSION=$VER"
+          export HY_APP_VERSION="$VER"
+          export HY_APP_PLATFORMS="linux/amd64,linux/arm64"
+          python hyperbole.py build -r
 
       - name: Generate checksums
         run: |
