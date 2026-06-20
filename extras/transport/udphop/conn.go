@@ -133,7 +133,7 @@ func (u *udpHopPacketConn) recvLoop(conn net.PacketConn) {
 				u.recvQueue <- &udpPacket{nil, 0, nil, netErr}
 				continue
 			}
-			return
+			break
 		}
 		select {
 		case u.recvQueue <- &udpPacket{buf, n, addr, nil}:
@@ -141,6 +141,18 @@ func (u *udpHopPacketConn) recvLoop(conn net.PacketConn) {
 		default:
 			// Queue is full, drop the packet
 			u.bufPool.Put(buf)
+		}
+	}
+	if u.closed {
+		for {
+			select {
+			case p := <-u.recvQueue:
+				if p.Buf != nil {
+					u.bufPool.Put(p.Buf)
+				}
+			default:
+				return
+			}
 		}
 	}
 }
