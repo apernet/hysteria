@@ -100,14 +100,13 @@ type serverConfigECH struct {
 	Enable     bool   `mapstructure:"enable"`
 	Seed       string `mapstructure:"seed"`
 	PublicName string `mapstructure:"publicName"`
-	// Persist caches the key pair to disk on first start so it stays stable
-	// across restarts even if the seed (trafficStats.secret) later changes.
-	// Subsequent starts load the cached key and ignore the seed.
-	Persist     bool   `mapstructure:"persist"`
-	PersistFile string `mapstructure:"persistFile"`
+	// Persist caches the key pair to disk (echPersistFile) on first start so it
+	// stays stable across restarts even if the seed (trafficStats.secret) later
+	// changes. Subsequent starts load the cached key and ignore the seed.
+	Persist bool `mapstructure:"persist"`
 }
 
-const defaultECHPersistFile = "ech.json"
+const echPersistFile = "ech.json"
 
 type serverConfigRealm struct {
 	STUNServers       []string               `mapstructure:"stunServers"`
@@ -1493,19 +1492,15 @@ func (c *serverConfig) fillECHConfig(hyConfig *server.Config) error {
 	// When persistence is on and a cached key already exists, load it and
 	// ignore the seed entirely, so the key stays stable across restarts even
 	// if trafficStats.secret later changes.
-	persistFile := c.ECH.PersistFile
-	if c.ECH.Persist && persistFile == "" {
-		persistFile = defaultECHPersistFile
-	}
 	if c.ECH.Persist {
-		key, configList, _, err := utils.LoadECHKey(persistFile)
+		key, configList, _, err := utils.LoadECHKey(echPersistFile)
 		if err == nil {
 			hyConfig.TLSConfig.EncryptedClientHelloKeys = []tls.EncryptedClientHelloKey{key}
 			c.echConfigList = utils.EncodeECHConfigList(configList)
 			return nil
 		}
 		if !errors.Is(err, os.ErrNotExist) {
-			return configError{Field: "ech.persistFile", Err: err}
+			return configError{Field: "ech.persist", Err: err}
 		}
 		// Not found: fall through to generate, then save below.
 	}
@@ -1543,8 +1538,8 @@ func (c *serverConfig) fillECHConfig(hyConfig *server.Config) error {
 	}
 
 	if c.ECH.Persist {
-		if err := utils.SaveECHKey(persistFile, publicName, key, configList); err != nil {
-			return configError{Field: "ech.persistFile", Err: err}
+		if err := utils.SaveECHKey(echPersistFile, publicName, key, configList); err != nil {
+			return configError{Field: "ech.persist", Err: err}
 		}
 	}
 
