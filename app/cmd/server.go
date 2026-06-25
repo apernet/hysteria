@@ -100,7 +100,14 @@ type serverConfigECH struct {
 	Enable     bool   `mapstructure:"enable"`
 	Seed       string `mapstructure:"seed"`
 	PublicName string `mapstructure:"publicName"`
+	// Persist caches the key pair to disk on first start so it stays stable
+	// across restarts even if the seed (trafficStats.secret) later changes.
+	// Subsequent starts load the cached key and ignore the seed.
+	Persist     bool   `mapstructure:"persist"`
+	PersistFile string `mapstructure:"persistFile"`
 }
+
+const defaultECHPersistFile = "ech.json"
 
 type serverConfigRealm struct {
 	STUNServers       []string               `mapstructure:"stunServers"`
@@ -1483,14 +1490,26 @@ func (c *serverConfig) fillECHConfig(hyConfig *server.Config) error {
 	if !c.ECH.Enable {
 		return nil
 	}
-	// Seed: explicit, else fall back to the trafficStats secret.
-	seed := c.ECH.Seed
-	if seed == "" {
-		seed = c.TrafficStats.Secret
+	// When persistence is on and a cached key already exists, load it and
+	// ignore the seed entirely, so the key stays stable across restarts even
+	// if trafficStats.secret later changes.
+	persistFile := c.ECH.PersistFile
+	if c.ECH.Persist && persistFile == "" {
+		persistFile = defaultECHPersistFile
 	}
-	if seed == "" {
-		return configError{Field: "ech.seed", Err: errors.New("ECH requires a seed; set ech.seed or trafficStats.secret")}
+	if c.ECH.Persist {
+		key, configList, _, err := utils.LoadECHKey(persistFile)
+		if err == nil {
+			hyConfig.TLSConfig.EncryptedClientHelloKeys = []tls.EncryptedClientHelloKey{key}
+			c.echConfigList = utils.EncodeECHConfigList(configList)
+			return nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return configError{Field: "ech.persistFile", Err: err}
+		}
+		// Not found: fall through to generate, then save below.
 	}
+
 	// Public name (outer SNI): explicit, else the first ACME domain.
 	publicName := c.ECH.PublicName
 	if publicName == "" && c.ACME != nil && len(c.ACME.Domains) > 0 {
@@ -1499,10 +1518,36 @@ func (c *serverConfig) fillECHConfig(hyConfig *server.Config) error {
 	if publicName == "" {
 		return configError{Field: "ech.publicName", Err: errors.New("cannot determine ECH public name; set ech.publicName or acme.domains")}
 	}
-	key, configList, err := utils.DeriveECHKeyConfig([]byte(seed), publicName)
+
+	// Seed: explicit, else fall back to the trafficStats secret. When
+	// persisting and no seed is available, generate a random key instead.
+	seed := c.ECH.Seed
+	if seed == "" {
+		seed = c.TrafficStats.Secret
+	}
+	var (
+		key        tls.EncryptedClientHelloKey
+		configList []byte
+		err        error
+	)
+	switch {
+	case seed != "":
+		key, configList, err = utils.DeriveECHKeyConfig([]byte(seed), publicName)
+	case c.ECH.Persist:
+		key, configList, err = utils.GenerateECHKeyConfig(publicName)
+	default:
+		return configError{Field: "ech.seed", Err: errors.New("ECH requires a seed; set ech.seed or trafficStats.secret")}
+	}
 	if err != nil {
 		return configError{Field: "ech", Err: err}
 	}
+
+	if c.ECH.Persist {
+		if err := utils.SaveECHKey(persistFile, publicName, key, configList); err != nil {
+			return configError{Field: "ech.persistFile", Err: err}
+		}
+	}
+
 	hyConfig.TLSConfig.EncryptedClientHelloKeys = []tls.EncryptedClientHelloKey{key}
 	c.echConfigList = utils.EncodeECHConfigList(configList)
 	return nil

@@ -10,6 +10,8 @@ import (
 	"encoding/pem"
 	"math/big"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -93,6 +95,66 @@ func TestECHHandshake(t *testing.T) {
 
 	assert.True(t, clientConn.ConnectionState().ECHAccepted, "client: ECH should be accepted")
 	assert.True(t, serverConn.ConnectionState().ECHAccepted, "server: ECH should be accepted")
+}
+
+func TestGenerateECHKeyConfig(t *testing.T) {
+	key1, list1, err := GenerateECHKeyConfig("public.example.com")
+	require.NoError(t, err)
+	key2, _, err := GenerateECHKeyConfig("public.example.com")
+	require.NoError(t, err)
+	// Random generation: two keys must differ.
+	assert.NotEqual(t, key1.PrivateKey, key2.PrivateKey)
+	// And the generated config must produce an accepted ECH handshake.
+	assertECHAccepted(t, key1, list1, "secret.internal", "public.example.com")
+}
+
+func TestSaveLoadECHKey(t *testing.T) {
+	const publicName = "public.example.com"
+	key, configList, err := DeriveECHKeyConfig([]byte("seed"), publicName)
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "ech.json")
+	require.NoError(t, SaveECHKey(path, publicName, key, configList))
+
+	gotKey, gotList, gotName, err := LoadECHKey(path)
+	require.NoError(t, err)
+	assert.Equal(t, key.PrivateKey, gotKey.PrivateKey)
+	assert.Equal(t, key.Config, gotKey.Config)
+	assert.True(t, gotKey.SendAsRetry)
+	assert.Equal(t, configList, gotList)
+	assert.Equal(t, publicName, gotName)
+	// The loaded key still yields an accepted handshake.
+	assertECHAccepted(t, gotKey, gotList, "secret.internal", publicName)
+
+	// Missing file reports os.ErrNotExist so callers can detect first run.
+	_, _, _, err = LoadECHKey(filepath.Join(t.TempDir(), "nope.json"))
+	assert.ErrorIs(t, err, os.ErrNotExist)
+}
+
+// assertECHAccepted runs a TLS 1.3 handshake with ECH and asserts acceptance.
+func assertECHAccepted(t *testing.T, key tls.EncryptedClientHelloKey, configList []byte, innerName, publicName string) {
+	t.Helper()
+	cert := selfSignedCert(t, innerName, publicName)
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+	serverConn := tls.Server(c1, &tls.Config{
+		Certificates:             []tls.Certificate{cert},
+		MinVersion:               tls.VersionTLS13,
+		EncryptedClientHelloKeys: []tls.EncryptedClientHelloKey{key},
+	})
+	clientConn := tls.Client(c2, &tls.Config{
+		ServerName:                     innerName,
+		InsecureSkipVerify:             true,
+		MinVersion:                     tls.VersionTLS13,
+		EncryptedClientHelloConfigList: configList,
+	})
+	errCh := make(chan error, 1)
+	go func() { errCh <- serverConn.Handshake() }()
+	require.NoError(t, clientConn.Handshake())
+	require.NoError(t, <-errCh)
+	assert.True(t, clientConn.ConnectionState().ECHAccepted)
+	assert.True(t, serverConn.ConnectionState().ECHAccepted)
 }
 
 func selfSignedCert(t *testing.T, names ...string) tls.Certificate {

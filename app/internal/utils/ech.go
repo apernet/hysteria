@@ -3,10 +3,13 @@ package utils
 import (
 	"crypto/ecdh"
 	"crypto/hkdf"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 )
 
@@ -65,15 +68,42 @@ func DeriveECHKeyConfig(seed []byte, publicName string) (key tls.EncryptedClient
 		return key, nil, err
 	}
 
-	echConfig := buildECHConfig(idBytes[0], priv.PublicKey().Bytes(), publicName)
-	configList = buildECHConfigList(echConfig)
+	key, configList = keyConfigFromPrivate(priv, idBytes[0], publicName)
+	return key, configList, nil
+}
 
-	key = tls.EncryptedClientHelloKey{
+// GenerateECHKeyConfig generates a random ECH key pair and builds the matching
+// ECHConfig. Unlike DeriveECHKeyConfig, the result is non-deterministic; it is
+// meant to be persisted (see SaveECHKey) so it stays stable across restarts
+// independently of any seed.
+func GenerateECHKeyConfig(publicName string) (key tls.EncryptedClientHelloKey, configList []byte, err error) {
+	if publicName == "" {
+		return key, nil, errors.New("empty ECH public name")
+	}
+	if len(publicName) > 255 {
+		return key, nil, errors.New("ECH public name too long (max 255 bytes)")
+	}
+	priv, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		return key, nil, err
+	}
+	var idByte [1]byte
+	if _, err := rand.Read(idByte[:]); err != nil {
+		return key, nil, err
+	}
+	key, configList = keyConfigFromPrivate(priv, idByte[0], publicName)
+	return key, configList, nil
+}
+
+// keyConfigFromPrivate builds the server-side key and the client-side
+// ECHConfigList from an existing X25519 private key.
+func keyConfigFromPrivate(priv *ecdh.PrivateKey, configID byte, publicName string) (tls.EncryptedClientHelloKey, []byte) {
+	echConfig := buildECHConfig(configID, priv.PublicKey().Bytes(), publicName)
+	return tls.EncryptedClientHelloKey{
 		Config:      echConfig,
 		PrivateKey:  priv.Bytes(),
 		SendAsRetry: true,
-	}
-	return key, configList, nil
+	}, buildECHConfigList(echConfig)
 }
 
 // buildECHConfig marshals a single ECHConfig (version 0xfe0d).
@@ -148,4 +178,64 @@ func DecodeECHConfigList(s string) ([]byte, error) {
 		}
 	}
 	return b, nil
+}
+
+// echKeyFile is the on-disk representation of a persisted ECH key pair.
+type echKeyFile struct {
+	PublicName string `json:"publicName"`
+	PrivateKey string `json:"privateKey"` // base64 X25519 private key
+	Config     string `json:"config"`     // base64 single ECHConfig
+	ConfigList string `json:"configList"` // base64 ECHConfigList
+}
+
+// SaveECHKey writes the key pair to path as JSON (0600). It is written
+// atomically via a temp file + rename so a crash mid-write can't corrupt it.
+func SaveECHKey(path, publicName string, key tls.EncryptedClientHelloKey, configList []byte) error {
+	f := echKeyFile{
+		PublicName: publicName,
+		PrivateKey: base64.StdEncoding.EncodeToString(key.PrivateKey),
+		Config:     base64.StdEncoding.EncodeToString(key.Config),
+		ConfigList: base64.StdEncoding.EncodeToString(configList),
+	}
+	data, err := json.MarshalIndent(&f, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// LoadECHKey loads a key pair previously written by SaveECHKey. The returned
+// error wraps os.ErrNotExist when the file is absent, so callers can detect a
+// first run with errors.Is(err, os.ErrNotExist).
+func LoadECHKey(path string) (key tls.EncryptedClientHelloKey, configList []byte, publicName string, err error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return key, nil, "", err
+	}
+	var f echKeyFile
+	if err := json.Unmarshal(data, &f); err != nil {
+		return key, nil, "", err
+	}
+	priv, err := base64.StdEncoding.DecodeString(f.PrivateKey)
+	if err != nil {
+		return key, nil, "", err
+	}
+	config, err := base64.StdEncoding.DecodeString(f.Config)
+	if err != nil {
+		return key, nil, "", err
+	}
+	configList, err = base64.StdEncoding.DecodeString(f.ConfigList)
+	if err != nil {
+		return key, nil, "", err
+	}
+	key = tls.EncryptedClientHelloKey{
+		Config:      config,
+		PrivateKey:  priv,
+		SendAsRetry: true,
+	}
+	return key, configList, f.PublicName, nil
 }
