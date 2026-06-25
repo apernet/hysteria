@@ -107,6 +107,9 @@ type TLSConfig struct {
 	VerifyPeerCertificate func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
 	RootCAs               *x509.CertPool
 	GetClientCertificate  func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
+	// EncryptedClientHelloConfigList is a marshalled ECHConfigList. When set,
+	// the client uses Encrypted Client Hello to hide the real SNI.
+	EncryptedClientHelloConfigList []byte
 }
 
 // QUICConfig contains the QUIC configuration fields that we want to expose to the user.

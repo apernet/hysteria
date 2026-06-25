@@ -24,6 +24,11 @@ const (
 type TrafficStatsServer interface {
 	server.TrafficLogger
 	http.Handler
+
+	// SetECHConfigList sets the base64-encoded ECHConfigList served by the
+	// /ech endpoint (used to distribute the server's ECH public config to
+	// clients). An empty value disables the endpoint.
+	SetECHConfigList(b64 string)
 }
 
 func NewTrafficStatsServer(secret string) TrafficStatsServer {
@@ -54,6 +59,15 @@ type trafficStatsServerImpl struct {
 
 	// Outbounds, if set, enables the /outbound management endpoints.
 	Outbounds *outbounds.PerUserOutbounds
+
+	// echConfigList is the base64-encoded ECHConfigList served by /ech.
+	echConfigList string
+}
+
+func (s *trafficStatsServerImpl) SetECHConfigList(b64 string) {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+	s.echConfigList = b64
 }
 
 type trafficStatsEntry struct {
@@ -134,6 +148,10 @@ func (s *trafficStatsServerImpl) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	}
 	if r.Method == http.MethodGet && r.URL.Path == "/dump/streams" {
 		s.getDumpStreams(w, r)
+		return
+	}
+	if r.Method == http.MethodGet && r.URL.Path == "/ech" {
+		s.getECH(w, r)
 		return
 	}
 	if s.Outbounds != nil && r.URL.Path == "/outbound" {
@@ -225,6 +243,27 @@ func (s *trafficStatsServerImpl) deleteOutbounds(w http.ResponseWriter, r *http.
 		s.Outbounds.Delete(id)
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+// getECH returns the server's base64-encoded ECHConfigList, which clients put
+// in their tls.ech.config field. Returns 404 when ECH is not enabled.
+func (s *trafficStatsServerImpl) getECH(w http.ResponseWriter, r *http.Request) {
+	s.Mutex.RLock()
+	b64 := s.echConfigList
+	s.Mutex.RUnlock()
+	if b64 == "" {
+		http.NotFound(w, r)
+		return
+	}
+	jb, err := json.Marshal(struct {
+		Config string `json:"config"`
+	}{b64})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write(jb)
 }
 
 func (s *trafficStatsServerImpl) getTraffic(w http.ResponseWriter, r *http.Request) {

@@ -84,6 +84,22 @@ type serverConfig struct {
 	UserOutbounds         []serverConfigUserOutbound  `mapstructure:"userOutbounds"`
 	TrafficStats          serverConfigTrafficStats    `mapstructure:"trafficStats"`
 	Masquerade            serverConfigMasquerade      `mapstructure:"masquerade"`
+	ECH                   serverConfigECH             `mapstructure:"ech"`
+
+	// echConfigList holds the base64-encoded ECHConfigList derived in
+	// fillECHConfig, so fillTrafficLogger can expose it via the /ech endpoint.
+	echConfigList string
+}
+
+// serverConfigECH configures Encrypted Client Hello. The key pair is derived
+// deterministically from Seed, so nothing needs to be persisted: the same seed
+// always produces the same keys. Seed defaults to trafficStats.secret and
+// PublicName defaults to the first ACME domain (or TLS SNI), keeping config
+// minimal.
+type serverConfigECH struct {
+	Enable     bool   `mapstructure:"enable"`
+	Seed       string `mapstructure:"seed"`
+	PublicName string `mapstructure:"publicName"`
 }
 
 type serverConfigRealm struct {
@@ -1460,12 +1476,45 @@ func (c *serverConfig) fillEventLogger(hyConfig *server.Config) error {
 	return nil
 }
 
+// fillECHConfig derives the server's ECH key pair from a seed and installs it.
+// Must run after fillTLSConfig (to know the public name) and before
+// fillTrafficLogger (so the derived config can be served via /ech).
+func (c *serverConfig) fillECHConfig(hyConfig *server.Config) error {
+	if !c.ECH.Enable {
+		return nil
+	}
+	// Seed: explicit, else fall back to the trafficStats secret.
+	seed := c.ECH.Seed
+	if seed == "" {
+		seed = c.TrafficStats.Secret
+	}
+	if seed == "" {
+		return configError{Field: "ech.seed", Err: errors.New("ECH requires a seed; set ech.seed or trafficStats.secret")}
+	}
+	// Public name (outer SNI): explicit, else the first ACME domain.
+	publicName := c.ECH.PublicName
+	if publicName == "" && c.ACME != nil && len(c.ACME.Domains) > 0 {
+		publicName = c.ACME.Domains[0]
+	}
+	if publicName == "" {
+		return configError{Field: "ech.publicName", Err: errors.New("cannot determine ECH public name; set ech.publicName or acme.domains")}
+	}
+	key, configList, err := utils.DeriveECHKeyConfig([]byte(seed), publicName)
+	if err != nil {
+		return configError{Field: "ech", Err: err}
+	}
+	hyConfig.TLSConfig.EncryptedClientHelloKeys = []tls.EncryptedClientHelloKey{key}
+	c.echConfigList = utils.EncodeECHConfigList(configList)
+	return nil
+}
+
 func (c *serverConfig) fillTrafficLogger(hyConfig *server.Config) error {
 	if c.TrafficStats.Listen != "" {
 		// If per-user outbounds are enabled, expose the /outbound management API
 		// on the same trafficStats server (shares listen address and secret).
 		puo, _ := hyConfig.OutboundProvider.(*outbounds.PerUserOutbounds)
 		tss := trafficlogger.NewTrafficStatsServerWithOutbounds(c.TrafficStats.Secret, puo)
+		tss.SetECHConfigList(c.echConfigList)
 		hyConfig.TrafficLogger = tss
 		go runTrafficStatsServer(c.TrafficStats.Listen, tss)
 	}
@@ -1584,6 +1633,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 	fillers := []func(*server.Config) error{
 		c.fillConn,
 		c.fillTLSConfig,
+		c.fillECHConfig,
 		c.fillQUICConfig,
 		c.fillRequestHook,
 		c.fillOutboundConfig,

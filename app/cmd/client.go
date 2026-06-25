@@ -141,12 +141,21 @@ type clientConfigObfs struct {
 }
 
 type clientConfigTLS struct {
-	SNI               string `mapstructure:"sni"`
-	Insecure          bool   `mapstructure:"insecure"`
-	PinSHA256         string `mapstructure:"pinSHA256"`
-	CA                string `mapstructure:"ca"`
-	ClientCertificate string `mapstructure:"clientCertificate"`
-	ClientKey         string `mapstructure:"clientKey"`
+	SNI               string          `mapstructure:"sni"`
+	Insecure          bool            `mapstructure:"insecure"`
+	PinSHA256         string          `mapstructure:"pinSHA256"`
+	CA                string          `mapstructure:"ca"`
+	ClientCertificate string          `mapstructure:"clientCertificate"`
+	ClientKey         string          `mapstructure:"clientKey"`
+	ECH               clientConfigECH `mapstructure:"ech"`
+}
+
+// clientConfigECH enables Encrypted Client Hello. Config is a base64-encoded
+// ECHConfigList (as returned by the server's /ech endpoint); ConfigFile is a
+// path to a file containing the same. Config takes precedence.
+type clientConfigECH struct {
+	Config     string `mapstructure:"config"`
+	ConfigFile string `mapstructure:"configFile"`
 }
 
 type clientConfigQUIC struct {
@@ -420,6 +429,22 @@ func (c *clientConfig) fillTLSConfig(hyConfig *client.Config) error {
 			// For simplicity, always respond with the configured client certs, regardless of server requests.
 			return certLoader.GetCertificate(nil)
 		}
+	}
+	// Encrypted Client Hello
+	echStr := c.TLS.ECH.Config
+	if echStr == "" && c.TLS.ECH.ConfigFile != "" {
+		b, err := os.ReadFile(c.TLS.ECH.ConfigFile)
+		if err != nil {
+			return configError{Field: "tls.ech.configFile", Err: err}
+		}
+		echStr = string(b)
+	}
+	if echStr != "" {
+		configList, err := utils.DecodeECHConfigList(echStr)
+		if err != nil {
+			return configError{Field: "tls.ech", Err: err}
+		}
+		hyConfig.TLSConfig.EncryptedClientHelloConfigList = configList
 	}
 	return nil
 }
