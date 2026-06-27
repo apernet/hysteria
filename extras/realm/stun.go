@@ -53,13 +53,14 @@ func Discover(ctx context.Context, conn net.PacketConn, config STUNConfig) ([]ne
 		resolver = net.DefaultResolver
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
 	stunAddrs, err := resolveSTUNServers(ctx, resolver, config.Servers, effectiveFamily(config.Family, conn.LocalAddr()))
 	if err != nil {
 		return nil, err
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	transactions, err := sendSTUNRequests(conn, stunAddrs)
 	if err != nil {
 		return nil, err
