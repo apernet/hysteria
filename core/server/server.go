@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	crand "crypto/rand"
 	"crypto/tls"
 	"errors"
 	"math/rand"
@@ -61,7 +62,15 @@ func NewServer(config *Config) (Server, error) {
 		AssumePeerMaxDatagramFrameSize: protocol.MaxDatagramFrameSize,
 		DisablePathManager:             true,
 	}
-	tr := &quic.Transport{Conn: config.Conn}
+	srk := config.StatelessResetKey
+	if srk == nil {
+		var k quic.StatelessResetKey
+		if _, err := crand.Read(k[:]); err != nil {
+			return nil, err
+		}
+		srk = &k
+	}
+	tr := &quic.Transport{Conn: config.Conn, StatelessResetKey: srk}
 	listener, err := tr.Listen(tlsConfig, quicConfig)
 	if err != nil {
 		err = errors.Join(err, tr.Close(), config.Conn.Close())
