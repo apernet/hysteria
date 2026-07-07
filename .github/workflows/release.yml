@@ -21,10 +21,10 @@ jobs:
         id: get_version
         run: echo "version=$(git describe --tags --always --match 'app/v*' | sed -n 's|app/\([^/-]*\)\(-.*\)\{0,1\}|\1|p')" >> $GITHUB_OUTPUT
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.11"
+          enable-cache: true
 
       - name: Download build
         uses: actions/download-artifact@v8
@@ -50,5 +50,4 @@ jobs:
       - name: Publish to API
         run: |
           export HY_API_POST_KEY=${{ secrets.HY2_API_POST_KEY }}
-          pip install requests
-          python hyperbole.py publish
+          uv run python hyperbole.py publish

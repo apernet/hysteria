@@ -26,6 +26,8 @@ DESC = "Hyperbole is the official build script for Hysteria."
 
 BUILD_DIR = "build"
 
+GO_WORK_FILE = "go.work"
+
 CORE_SRC_DIR = "./core"
 EXTRAS_SRC_DIR = "./extras"
 APP_SRC_DIR = "./app"
@@ -90,6 +92,34 @@ def check_command(args):
         return False
 
 
+def parse_go_version(str):
+    match = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", str)
+    if not match:
+        return None
+    major, minor, patch = match.groups()
+    return (int(major), int(minor), int(patch) if patch else 0)
+
+
+def get_required_go_version():
+    try:
+        with open(GO_WORK_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("go "):
+                    return parse_go_version(line[3:].strip())
+    except Exception:
+        pass
+    return None
+
+
+def get_go_version():
+    try:
+        output = subprocess.check_output(["go", "env", "GOVERSION"]).decode().strip()
+        return parse_go_version(output)
+    except Exception:
+        return None
+
+
 def check_build_env():
     if not check_command(["git", "--version"]):
         print("Git is not installed. Please install Git and try again.")
@@ -100,6 +130,18 @@ def check_build_env():
     if not check_command(["go", "version"]):
         print("Go is not installed. Please install Go and try again.")
         return False
+    required = get_required_go_version()
+    if required:
+        installed = get_go_version()
+        if installed and installed < required:
+            print(
+                "Go %s or newer is required (found %s). Please update Go and try again."
+                % (
+                    ".".join(map(str, required)),
+                    ".".join(map(str, installed)),
+                )
+            )
+            return False
     return True
 
 

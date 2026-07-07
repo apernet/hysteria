@@ -1,0 +1,19 @@
+[project]
+name = "hysteria-dev-tools"
+version = "0"
+description = "Build script (hyperbole) and Python test helpers for Hysteria"
+requires-python = ">=3.11"
+dependencies = [
+    # hyperbole.py (publish) and app/internal/http test client
+    "requests>=2.32",
+    # extras/auth HTTP auth test server
+    "flask>=3.1",
+    # app SOCKS5 test client
+    "pysocks>=1.7",
+    # app certloader test cert generation / TLS client
+    "cryptography>=46",
+]
+
+# The scripts and tests are run in place, not installed as a package.
+[tool.uv]
+package = false

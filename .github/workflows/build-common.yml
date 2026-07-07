@@ -21,10 +21,10 @@ jobs:
         with:
           go-version: "1.26"
 
-      - name: Setup Python # This is for the build script
-        uses: actions/setup-python@v6
+      - name: Setup uv # This is for the build script
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.11"
+          enable-cache: true
 
       - uses: nttld/setup-ndk@v1
         id: setup-ndk
@@ -37,7 +37,7 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           export HY_APP_PLATFORMS=$(sed 's/\r$//' platforms.txt | awk '!/^#/ && !/^$/' | paste -sd ",")
-          python hyperbole.py build -r
+          uv run python hyperbole.py build -r
 
       - name: Generate hashes
         run: |
