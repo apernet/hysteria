@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -53,8 +54,11 @@ func TestServer(t *testing.T) {
 
 	// Run the Python test script
 	cmd := exec.Command("python", "server_test.py")
-	// Suppress HTTPS warning text from Python
-	cmd.Env = append(cmd.Env, "PYTHONWARNINGS=ignore:Unverified HTTPS request")
+	// Suppress HTTPS warning text from Python.
+	// Extend the inherited environment (os.Environ()) rather than replacing
+	// it — a non-nil cmd.Env replaces the whole environment, which would
+	// strip PATH/VIRTUAL_ENV and break the uv-managed Python interpreter.
+	cmd.Env = append(os.Environ(), "PYTHONWARNINGS=ignore:Unverified HTTPS request")
 	out, err := cmd.CombinedOutput()
 	assert.NoError(t, err)
 	assert.Equal(t, "OK", strings.TrimSpace(string(out)))

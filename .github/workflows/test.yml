@@ -28,7 +28,11 @@ jobs:
           enable-cache: true
 
       - name: Install Python dependencies
+        # Precompile bytecode (as pip did by default) so the Python test
+        # helpers start fast enough for the Go tests' server-startup wait.
         run: uv sync
+        env:
+          UV_COMPILE_BYTECODE: "1"
 
       - name: Activate Python environment
         # The Go tests spawn the Python helpers via bare `python`, so put the
