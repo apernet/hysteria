@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,6 +70,7 @@ type serverConfig struct {
 	Obfs                  serverConfigObfs            `mapstructure:"obfs"`
 	TLS                   *serverConfigTLS            `mapstructure:"tls"`
 	ACME                  *serverConfigACME           `mapstructure:"acme"`
+	ECH                   *serverConfigECH            `mapstructure:"ech"`
 	QUIC                  serverConfigQUIC            `mapstructure:"quic"`
 	Congestion            serverConfigCongestion      `mapstructure:"congestion"`
 	Bandwidth             serverConfigBandwidth       `mapstructure:"bandwidth"`
@@ -116,6 +118,10 @@ type serverConfigTLS struct {
 	Key      string `mapstructure:"key"`
 	SNIGuard string `mapstructure:"sniGuard"` // "disable", "dns-san", "strict"
 	ClientCA string `mapstructure:"clientCA"`
+}
+
+type serverConfigECH struct {
+	KeyPath string `mapstructure:"keyPath"`
 }
 
 type serverConfigACME struct {
@@ -1095,6 +1101,18 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 		}
 		hyConfig.TLSConfig.GetCertificate = cmCfg.GetCertificate
 	}
+	if c.ECH != nil {
+		if c.ECH.KeyPath == "" {
+			return configError{Field: "ech.keyPath", Err: errors.New("empty ECH key path")}
+		}
+		keys, configList, err := utils.LoadECHKeys(c.ECH.KeyPath)
+		if err != nil {
+			return configError{Field: "ech.keyPath", Err: err}
+		}
+		hyConfig.TLSConfig.ECHKeys = keys
+		logger.Info("ECH enabled, set the following config list on clients (tls.ech)",
+			zap.String("configList", base64.StdEncoding.EncodeToString(configList)))
+	}
 	return nil
 }
 
@@ -1534,8 +1552,9 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 			HTTPSPort: extractPortFromAddr(c.Masquerade.ListenHTTPS),
 			Handler:   &masqHandlerLogWrapper{H: handler, QUIC: false},
 			TLSConfig: &tls.Config{
-				Certificates:   hyConfig.TLSConfig.Certificates,
-				GetCertificate: hyConfig.TLSConfig.GetCertificate,
+				Certificates:             hyConfig.TLSConfig.Certificates,
+				GetCertificate:           hyConfig.TLSConfig.GetCertificate,
+				EncryptedClientHelloKeys: hyConfig.TLSConfig.ECHKeys,
 			},
 			ForceHTTPS: c.Masquerade.ForceHTTPS,
 		}
