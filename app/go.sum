@@ -68,13 +68,13 @@ github.com/libdns/cloudflare v0.1.1 h1:FVPfWwP8zZCqj268LZjmkDleXlHPlFU9KC4OJ3yn0
 github.com/libdns/cloudflare v0.1.1/go.mod h1:9VK91idpOjg6v7/WbjkEW49bSCxj00ALesIFDhJ8PBU=
 github.com/libdns/duckdns v0.2.0 h1:vd3pE09G2qTx1Zh1o3LmrivWSByD3Z5FbL7csX5vDgE=
 github.com/libdns/duckdns v0.2.0/go.mod h1:jCQ/7+qvhLK39+28qXvKEYGBBvmHBCmIwNqdJTCUmVs=
-github.com/libdns/gandi v1.0.3 h1:FIvipWOg/O4zi75fPRmtcolRKqI6MgrbpFy2p5KYdUk=
-github.com/libdns/gandi v1.0.3/go.mod h1:G6dw58Xnji2xX+lb+uZxGbtmfxKllm1CGHE2bOPG3WA=
+github.com/libdns/gandi v1.1.0 h1:gBBbx23xejvOpbUX7HRqCYsROYag5+OUMGhQXzAkol4=
+github.com/libdns/gandi v1.1.0/go.mod h1:HAbs4cfjYUX28d25Iyn9rq4oNLoVLpJ6YSkRFLbo9IE=
 github.com/libdns/godaddy v1.0.3 h1:PX1FOYDQ1HGQzz8mVOmtwm3aa6Sv5MwCkNzivUUTA44=
 github.com/libdns/godaddy v1.0.3/go.mod h1:vuKWUXnvblDvcaiRwutOoLl7DuB21x8tI06owsF/JTM=
 github.com/libdns/libdns v0.2.0/go.mod h1:yQCXzk1lEZmmCPa857bnk4TsOiqYasqpyOEeSObbb40=
-github.com/libdns/libdns v0.2.2 h1:O6ws7bAfRPaBsgAYt8MDe2HcNBGC29hkZ9MX2eUSX3s=
-github.com/libdns/libdns v0.2.2/go.mod h1:4Bj9+5CQiNMVGf87wjX4CY3HQJypUHRuLvlsfsZqLWQ=
+github.com/libdns/libdns v1.1.0 h1:9ze/tWvt7Df6sbhOJRB8jT33GHEHpEQXdtkE3hPthbU=
+github.com/libdns/libdns v1.1.0/go.mod h1:4Bj9+5CQiNMVGf87wjX4CY3HQJypUHRuLvlsfsZqLWQ=
 github.com/libdns/namedotcom v0.3.3 h1:R10C7+IqQGVeC4opHHMiFNBxdNBg1bi65ZwqLESl+jE=
 github.com/libdns/namedotcom v0.3.3/go.mod h1:GbYzsAF2yRUpI0WgIK5fs5UX+kDVUPaYCFLpTnKQm0s=
 github.com/libdns/vultr v1.0.0 h1:W8B4+k2bm9ro3bZLSZV9hMOQI+uO6Svu+GmD+Olz7ZI=
