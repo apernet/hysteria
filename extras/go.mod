@@ -12,7 +12,7 @@ require (
 	github.com/libp2p/go-nat v1.0.1-0.20250821073202-01afc089f138
 	github.com/miekg/dns v1.1.59
 	github.com/pion/stun/v3 v3.1.2
-	github.com/refraction-networking/utls v1.6.6
+	github.com/refraction-networking/utls v1.8.2
 	github.com/stretchr/testify v1.11.1
 	github.com/txthinking/socks5 v0.0.0-20230325130024-4230056ae301
 	golang.org/x/crypto v0.54.0
@@ -22,7 +22,6 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
-	github.com/cloudflare/circl v1.3.9 // indirect
 	github.com/database64128/netx-go v0.0.0-20240905055117-62795b8b054a // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
