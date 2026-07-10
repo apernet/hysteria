@@ -1301,7 +1301,7 @@ func connectLog(info *client.HandshakeInfo, count int) {
 		zap.String("addr", info.ServerAddr.String()),
 		zap.Bool("udpEnabled", info.UDPEnabled),
 		zap.Uint64("tx", info.Tx),
-		zap.Bool("echAccepted", info.ECHAccepted),
+		zap.Bool("ech", info.ECHAccepted),
 		zap.Int("count", count))
 }
 
