@@ -56,5 +56,3 @@
 ---
 
 **If you find Hysteria useful, consider giving it a ⭐️!**
-
-[![Star History Chart](https://api.star-history.com/svg?repos=apernet/hysteria&type=Date)](https://star-history.com/#apernet/hysteria&Date)
