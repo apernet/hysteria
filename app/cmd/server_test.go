@@ -36,6 +36,9 @@ func TestServerConfig(t *testing.T) {
 			SNIGuard: "strict",
 			ClientCA: "some_ca.crt",
 		},
+		ECH: &serverConfigECH{
+			KeyPath: "some_ech.pem",
+		},
 		ACME: &serverConfigACME{
 			Domains: []string{
 				"sub1.example.com",

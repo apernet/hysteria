@@ -42,6 +42,7 @@ func TestClientConfig(t *testing.T) {
 			CA:                "custom_ca.crt",
 			ClientCertificate: "client.crt",
 			ClientKey:         "client.key",
+			ECH:               "AEv+DQBHAAAgACB3rc0Q",
 		},
 		QUIC: clientConfigQUIC{
 			InitStreamReceiveWindow:     1145141,
@@ -159,7 +160,7 @@ func TestClientConfigURI(t *testing.T) {
 			},
 		},
 		{
-			uri:   "hysteria2://noauth.com/?insecure=1&obfs=salamander&obfs-password=66ccff&pinSHA256=deadbeef&sni=crap.cc",
+			uri:   "hysteria2://noauth.com/?ech=AAj%2BDQAEAAAAAA%3D%3D&insecure=1&obfs=salamander&obfs-password=66ccff&pinSHA256=deadbeef&sni=crap.cc",
 			uriOK: true,
 			config: &clientConfig{
 				Server: "noauth.com",
@@ -174,6 +175,7 @@ func TestClientConfigURI(t *testing.T) {
 					SNI:       "crap.cc",
 					Insecure:  true,
 					PinSHA256: "deadbeef",
+					ECH:       "AAj+DQAEAAAAAA==",
 				},
 			},
 		},

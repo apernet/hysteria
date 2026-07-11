@@ -118,6 +118,8 @@ type TLSConfig struct {
 	Certificates   []tls.Certificate
 	GetCertificate func(info *tls.ClientHelloInfo) (*tls.Certificate, error)
 	ClientCAs      *x509.CertPool
+	ECHKeys        []tls.EncryptedClientHelloKey
+	GetECHKeys     func(info *tls.ClientHelloInfo) ([]tls.EncryptedClientHelloKey, error)
 }
 
 // QUICConfig contains the QUIC configuration fields that we want to expose to the user.

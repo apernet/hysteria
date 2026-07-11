@@ -19,6 +19,7 @@ tls:
   ca: custom_ca.crt
   clientCertificate: client.crt
   clientKey: client.key
+  ech: AEv+DQBHAAAgACB3rc0Q
 
 quic:
   initStreamReceiveWindow: 1145141

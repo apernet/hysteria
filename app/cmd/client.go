@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -147,6 +148,7 @@ type clientConfigTLS struct {
 	CA                string `mapstructure:"ca"`
 	ClientCertificate string `mapstructure:"clientCertificate"`
 	ClientKey         string `mapstructure:"clientKey"`
+	ECH               string `mapstructure:"ech"`
 }
 
 type clientConfigQUIC struct {
@@ -421,6 +423,13 @@ func (c *clientConfig) fillTLSConfig(hyConfig *client.Config) error {
 			return certLoader.GetCertificate(nil)
 		}
 	}
+	if c.TLS.ECH != "" {
+		configList, err := utils.ParseECHConfigList(c.TLS.ECH)
+		if err != nil {
+			return configError{Field: "tls.ech", Err: err}
+		}
+		hyConfig.TLSConfig.ECHConfigList = configList
+	}
 	return nil
 }
 
@@ -505,6 +514,13 @@ func (c *clientConfig) URI() string {
 	if c.TLS.PinSHA256 != "" {
 		q.Set("pinSHA256", normalizeCertHash(c.TLS.PinSHA256))
 	}
+	if c.TLS.ECH != "" {
+		// Resolve to the raw config list so the URI is self-contained
+		// (the source may be a file path, which is not portable).
+		if configList, err := utils.ParseECHConfigList(c.TLS.ECH); err == nil {
+			q.Set("ech", base64.StdEncoding.EncodeToString(configList))
+		}
+	}
 	var user *url.Userinfo
 	if c.Auth != "" {
 		// We need to handle the special case of user:pass pairs
@@ -566,6 +582,9 @@ func (c *clientConfig) parseURI() bool {
 	}
 	if pinSHA256 := q.Get("pinSHA256"); pinSHA256 != "" {
 		c.TLS.PinSHA256 = pinSHA256
+	}
+	if ech := q.Get("ech"); ech != "" {
+		c.TLS.ECH = ech
 	}
 	return true
 }
@@ -1282,6 +1301,7 @@ func connectLog(info *client.HandshakeInfo, count int) {
 		zap.String("addr", info.ServerAddr.String()),
 		zap.Bool("udpEnabled", info.UDPEnabled),
 		zap.Uint64("tx", info.Tx),
+		zap.Bool("ech", info.ECHAccepted),
 		zap.Int("count", count))
 }
 

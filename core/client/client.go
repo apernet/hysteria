@@ -36,9 +36,10 @@ type HyUDPConn interface {
 }
 
 type HandshakeInfo struct {
-	UDPEnabled bool
-	Tx         uint64 // 0 if using BBR
-	ServerAddr net.Addr
+	UDPEnabled  bool
+	Tx          uint64 // 0 if using BBR
+	ServerAddr  net.Addr
+	ECHAccepted bool
 }
 
 func NewClient(config *Config) (Client, *HandshakeInfo, error) {
@@ -72,11 +73,12 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 	}
 	// Convert config to TLS config & QUIC config
 	tlsConfig := &tls.Config{
-		ServerName:            c.config.TLSConfig.ServerName,
-		InsecureSkipVerify:    c.config.TLSConfig.InsecureSkipVerify,
-		VerifyPeerCertificate: c.config.TLSConfig.VerifyPeerCertificate,
-		RootCAs:               c.config.TLSConfig.RootCAs,
-		GetClientCertificate:  c.config.TLSConfig.GetClientCertificate,
+		ServerName:                     c.config.TLSConfig.ServerName,
+		InsecureSkipVerify:             c.config.TLSConfig.InsecureSkipVerify,
+		VerifyPeerCertificate:          c.config.TLSConfig.VerifyPeerCertificate,
+		RootCAs:                        c.config.TLSConfig.RootCAs,
+		GetClientCertificate:           c.config.TLSConfig.GetClientCertificate,
+		EncryptedClientHelloConfigList: c.config.TLSConfig.ECHConfigList,
 	}
 	quicConfig := &quic.Config{
 		InitialStreamReceiveWindow:     c.config.QUICConfig.InitialStreamReceiveWindow,
@@ -165,9 +167,10 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 		c.udpSM = newUDPSessionManager(&udpIOImpl{Conn: conn})
 	}
 	return &HandshakeInfo{
-		UDPEnabled: authResp.UDPEnabled,
-		Tx:         actualTx,
-		ServerAddr: c.config.ServerAddr,
+		UDPEnabled:  authResp.UDPEnabled,
+		Tx:          actualTx,
+		ServerAddr:  c.config.ServerAddr,
+		ECHAccepted: conn.ConnectionState().TLS.ECHAccepted,
 	}, nil
 }
 
