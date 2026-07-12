@@ -214,8 +214,9 @@ func (c *defaultUDPConn) WriteTo(b []byte, addr string) (int, error) {
 
 // BandwidthConfig describes the maximum bandwidth that the server can use, in bytes per second.
 type BandwidthConfig struct {
-	MaxTx uint64
-	MaxRx uint64
+	MaxTx                   uint64
+	MaxRx                   uint64
+	DisableLossCompensation bool
 }
 
 // Authenticator is an interface that provides authentication logic.

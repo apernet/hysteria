@@ -53,6 +53,7 @@ congestion:
 bandwidth:
   up: 500 mbps
   down: 100 mbps
+  disableLossCompensation: true
 
 ignoreClientBandwidth: true
 

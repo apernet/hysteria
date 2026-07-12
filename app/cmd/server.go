@@ -170,8 +170,9 @@ type serverConfigQUIC struct {
 }
 
 type serverConfigBandwidth struct {
-	Up   string `mapstructure:"up"`
-	Down string `mapstructure:"down"`
+	Up                      string `mapstructure:"up"`
+	Down                    string `mapstructure:"down"`
+	DisableLossCompensation bool   `mapstructure:"disableLossCompensation"`
 }
 
 type serverConfigCongestion struct {
@@ -1374,6 +1375,7 @@ func (c *serverConfig) fillBandwidthConfig(hyConfig *server.Config) error {
 			return configError{Field: "bandwidth.down", Err: err}
 		}
 	}
+	hyConfig.BandwidthConfig.DisableLossCompensation = c.Bandwidth.DisableLossCompensation
 	return nil
 }
 

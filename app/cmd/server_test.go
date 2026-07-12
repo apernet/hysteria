@@ -81,8 +81,9 @@ func TestServerConfig(t *testing.T) {
 			BBRProfile: "aggressive",
 		},
 		Bandwidth: serverConfigBandwidth{
-			Up:   "500 mbps",
-			Down: "100 mbps",
+			Up:                      "500 mbps",
+			Down:                    "100 mbps",
+			DisableLossCompensation: true,
 		},
 		IgnoreClientBandwidth: true,
 		SpeedTest:             true,

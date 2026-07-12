@@ -169,8 +169,9 @@ type clientConfigQUICSockopts struct {
 }
 
 type clientConfigBandwidth struct {
-	Up   string `mapstructure:"up"`
-	Down string `mapstructure:"down"`
+	Up                      string `mapstructure:"up"`
+	Down                    string `mapstructure:"down"`
+	DisableLossCompensation bool   `mapstructure:"disableLossCompensation"`
 }
 
 type clientConfigCongestion struct {
@@ -461,6 +462,7 @@ func (c *clientConfig) fillBandwidthConfig(hyConfig *client.Config) error {
 			return configError{Field: "bandwidth.down", Err: err}
 		}
 	}
+	hyConfig.BandwidthConfig.DisableLossCompensation = c.Bandwidth.DisableLossCompensation
 	return nil
 }
 
