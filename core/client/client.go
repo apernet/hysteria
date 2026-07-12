@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	coreErrs "github.com/apernet/hysteria/core/v2/errors"
@@ -21,6 +23,11 @@ import (
 const (
 	closeErrCodeOK            = 0x100 // HTTP3 ErrCodeNoError
 	closeErrCodeProtocolError = 0x101 // HTTP3 ErrCodeGeneralProtocolError
+
+	// happyEyeballsFallbackDelay is the default delay used by Go's
+	// net.Dialer when DualStack is enabled. We replicate it here for
+	// the TCP probe used to select the best address family.
+	happyEyeballsFallbackDelay = 300 * time.Millisecond
 )
 
 type Client interface {
@@ -67,7 +74,55 @@ type clientImpl struct {
 }
 
 func (c *clientImpl) connect() (*HandshakeInfo, error) {
-	pktConn, err := c.config.ConnFactory.New(c.config.ServerAddr)
+	serverAddr := c.config.ServerAddr
+	if serverAddr == nil {
+		// ServerHost mode: use Go's native Happy Eyeballs to race
+		// IPv4 vs IPv6 via a TCP probe, then use the winning IP for QUIC.
+		addr, err := c.resolveWithHappyEyeballs()
+		if err != nil {
+			return nil, coreErrs.ConnectError{Err: err}
+		}
+		serverAddr = addr
+	}
+	return c.connectTo(serverAddr)
+}
+
+// resolveWithHappyEyeballs uses Go's native Happy Eyeballs implementation
+// (net.Dialer with DualStack: true) to race IPv4 and IPv6 TCP connections
+// to the server hostname. The first successful connection's remote IP is
+// then used for the actual QUIC/UDP connection.
+//
+// This leverages the standard library's well-tested dual-stack racing logic
+// instead of implementing it manually.
+func (c *clientImpl) resolveWithHappyEyeballs() (*net.UDPAddr, error) {
+	hostPort := net.JoinHostPort(c.config.ServerHost, strconv.Itoa(int(c.config.ServerPort)))
+	dialer := &net.Dialer{
+		Timeout:       30 * time.Second,
+		KeepAlive:     30 * time.Second,
+		DualStack:     true, // Enable Happy Eyeballs
+		FallbackDelay: happyEyeballsFallbackDelay,
+	}
+	// Dial a TCP connection to the host:port. With DualStack enabled,
+	// Go will concurrently attempt IPv4 and IPv6, returning whichever
+	// connects first.
+	tcpConn, err := dialer.Dial("tcp", hostPort)
+	if err != nil {
+		return nil, fmt.Errorf("happy eyeballs TCP probe failed: %w", err)
+	}
+	defer tcpConn.Close()
+	// Extract the server IP from the established connection
+	remoteAddr := tcpConn.RemoteAddr()
+	tcpAddr, ok := remoteAddr.(*net.TCPAddr)
+	if !ok {
+		return nil, fmt.Errorf("unexpected remote address type: %T", remoteAddr)
+	}
+	return &net.UDPAddr{IP: tcpAddr.IP, Port: int(c.config.ServerPort)}, nil
+}
+
+// connectTo performs the full dial + QUIC handshake + auth flow
+// against the given server address.
+func (c *clientImpl) connectTo(serverAddr net.Addr) (*HandshakeInfo, error) {
+	pktConn, err := c.config.ConnFactory.New(serverAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +155,7 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 		TLSClientConfig: tlsConfig,
 		QUICConfig:      quicConfig,
 		Dial: func(ctx context.Context, _ string, tlsCfg *tls.Config, cfg *quic.Config) (*quic.Conn, error) {
-			qc, err := tr.DialEarly(ctx, c.config.ServerAddr, tlsCfg, cfg)
+			qc, err := tr.DialEarly(ctx, serverAddr, tlsCfg, cfg)
 			if err != nil {
 				return nil, err
 			}
@@ -169,7 +224,7 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 	return &HandshakeInfo{
 		UDPEnabled:  authResp.UDPEnabled,
 		Tx:          actualTx,
-		ServerAddr:  c.config.ServerAddr,
+		ServerAddr:  serverAddr,
 		ECHAccepted: conn.ConnectionState().TLS.ECHAccepted,
 	}, nil
 }

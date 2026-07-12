@@ -237,18 +237,30 @@ func (c *clientConfig) fillServerAddr(hyConfig *client.Config) error {
 	if c.Server == "" {
 		return configError{Field: "server", Err: errors.New("server address is empty")}
 	}
-	var addr net.Addr
-	var err error
 	host, port, hostPort := parseServerAddrString(c.Server)
-	if !isPortHoppingPort(port) {
-		addr, err = net.ResolveUDPAddr("udp", hostPort)
+	if isPortHoppingPort(port) {
+		// Port hopping: resolve immediately (udphop path)
+		addr, err := udphop.ResolveUDPHopAddr(hostPort)
+		if err != nil {
+			return configError{Field: "server", Err: err}
+		}
+		hyConfig.ServerAddr = addr
+	} else if net.ParseIP(host) != nil {
+		// IP literal: resolve immediately
+		addr, err := net.ResolveUDPAddr("udp", hostPort)
+		if err != nil {
+			return configError{Field: "server", Err: err}
+		}
+		hyConfig.ServerAddr = addr
 	} else {
-		addr, err = udphop.ResolveUDPHopAddr(hostPort)
+		// Hostname: defer resolution for native Happy Eyeballs
+		p, err := strconv.Atoi(port)
+		if err != nil {
+			return configError{Field: "server", Err: fmt.Errorf("invalid port: %s", port)}
+		}
+		hyConfig.ServerHost = host
+		hyConfig.ServerPort = uint16(p)
 	}
-	if err != nil {
-		return configError{Field: "server", Err: err}
-	}
-	hyConfig.ServerAddr = addr
 	// Special handling for SNI
 	if c.TLS.SNI == "" {
 		// Use server hostname as SNI
@@ -271,7 +283,7 @@ func (c *clientConfig) fillConnFactory(hyConfig *client.Config) error {
 	var openInner func() (net.PacketConn, error)
 	switch strings.ToLower(c.Transport.Type) {
 	case "", "udp":
-		if hyConfig.ServerAddr.Network() == "udphop" {
+		if hyConfig.ServerAddr != nil && hyConfig.ServerAddr.Network() == "udphop" {
 			hopAddr := hyConfig.ServerAddr.(*udphop.UDPHopAddr)
 			openInner = func() (net.PacketConn, error) {
 				return udphop.NewUDPHopPacketConn(hopAddr, hopInterval, so.ListenUDP)
