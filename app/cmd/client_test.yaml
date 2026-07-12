@@ -41,6 +41,7 @@ congestion:
 bandwidth:
   up: 200 mbps
   down: 1 gbps
+  disableLossCompensation: true
 
 fastOpen: true
 

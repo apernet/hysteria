@@ -152,7 +152,7 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 			actualTx = c.config.BandwidthConfig.MaxTx
 		}
 		if actualTx > 0 {
-			congestion.UseBrutal(conn, actualTx)
+			congestion.UseBrutal(conn, actualTx, c.config.BandwidthConfig.DisableLossCompensation)
 		} else {
 			// We don't know our own bandwidth either, use the configured congestion controller.
 			congestion.UseConfigured(conn, c.config.CongestionConfig.Type, c.config.CongestionConfig.BBRProfile)
