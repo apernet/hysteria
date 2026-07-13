@@ -10,7 +10,7 @@ require (
 	github.com/database64128/tfo-go/v2 v2.2.2
 	github.com/hashicorp/golang-lru/v2 v2.0.5
 	github.com/libp2p/go-nat v1.0.1-0.20250821073202-01afc089f138
-	github.com/miekg/dns v1.1.59
+	github.com/miekg/dns v1.1.72
 	github.com/pion/stun/v3 v3.1.2
 	github.com/refraction-networking/utls v1.8.2
 	github.com/stretchr/testify v1.11.1
