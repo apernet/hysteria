@@ -8,7 +8,7 @@ require (
 	github.com/apernet/hysteria/core/v2 v2.0.0-00010101000000-000000000000
 	github.com/apernet/quic-go v0.60.1-0.20260618182935-599b15a1fa26
 	github.com/database64128/tfo-go/v2 v2.2.2
-	github.com/hashicorp/golang-lru/v2 v2.0.5
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/libp2p/go-nat v1.0.1-0.20250821073202-01afc089f138
 	github.com/miekg/dns v1.1.59
 	github.com/pion/stun/v3 v3.1.2
