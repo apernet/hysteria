@@ -200,6 +200,18 @@ func TestServerConfig(t *testing.T) {
 			ListenHTTPS: ":443",
 			ForceHTTPS:  true,
 		},
+		WebPanel: &serverConfigWebPanel{
+			Enabled:  true,
+			Listen:   "127.0.0.1:18090",
+			Path:     "/secret-panel",
+			Password: "panel_password",
+			Cookie: serverConfigWebPanelCookie{
+				Name:   "hy_panel",
+				Value:  "cookie_secret",
+				Secure: true,
+			},
+			IPWhitelist: []string{"127.0.0.1", "10.0.0.0/8"},
+		},
 	})
 }
 

@@ -152,3 +152,16 @@ masquerade:
   listenHTTP: :80
   listenHTTPS: :443
   forceHTTPS: true
+
+webPanel:
+  enabled: true
+  listen: 127.0.0.1:18090
+  path: /secret-panel
+  password: panel_password
+  cookie:
+    name: hy_panel
+    value: cookie_secret
+    secure: true
+  ipWhitelist:
+    - 127.0.0.1
+    - 10.0.0.0/8
