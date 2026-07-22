@@ -38,7 +38,7 @@ HY2_API_BASE_URL="https://api.hy2.io/v1"
 # curl command line flags.
 # To using a proxy, please specify ALL_PROXY in the environ variable, such like:
 # export ALL_PROXY=socks5h://192.0.2.1:1080
-CURL_FLAGS=(-L -f -q --retry 5 --retry-delay 10 --retry-max-time 60)
+CURL_FLAGS=(-q -L -f --retry 5 --retry-delay 10 --retry-max-time 60)
 
 
 ###
@@ -1027,10 +1027,10 @@ perform_install_hysteria_home_legacy() {
 }
 
 perform_install() {
-  local _is_frash_install
+  local _is_fresh_install
   local _is_upgrade_from_hysteria1
   if ! is_hysteria_installed; then
-    _is_frash_install=1
+    _is_fresh_install=1
   elif is_hysteria1_version "$(get_installed_version)"; then
     _is_upgrade_from_hysteria1=1
   fi
@@ -1067,7 +1067,7 @@ perform_install() {
     echo
     echo "$(tgreen)Installed version is up-to-date, there is nothing to do.$(treset)"
     echo
-  elif [[ -n "$_is_frash_install" ]]; then
+  elif [[ -n "$_is_fresh_install" ]]; then
     echo
     echo -e "$(tbold)Congratulation! Hysteria 2 has been successfully installed on your server.$(treset)"
     echo
