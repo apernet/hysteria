@@ -13,7 +13,7 @@ require (
 	github.com/libdns/cloudflare v0.1.1
 	github.com/libdns/duckdns v0.2.0
 	github.com/libdns/gandi v1.0.3
-	github.com/libdns/godaddy v1.0.3
+	github.com/libdns/godaddy v1.1.0
 	github.com/libdns/namedotcom v0.3.3
 	github.com/libdns/vultr v1.0.0
 	github.com/mdp/qrterminal/v3 v3.1.1
@@ -49,7 +49,7 @@ require (
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.1 // indirect
 	github.com/koron/go-ssdp v0.0.4 // indirect
-	github.com/libdns/libdns v0.2.2 // indirect
+	github.com/libdns/libdns v1.1.0 // indirect
 	github.com/libp2p/go-nat v1.0.1-0.20250821073202-01afc089f138 // indirect
 	github.com/libp2p/go-netroute v0.2.1 // indirect
 	github.com/miekg/dns v1.1.72 // indirect
