@@ -28,6 +28,7 @@ type Config struct {
 	TLSConfig             TLSConfig
 	QUICConfig            QUICConfig
 	Conn                  net.PacketConn
+	StatelessResetKey     *quic.StatelessResetKey
 	Cleanup               io.Closer
 	RequestHook           RequestHook
 	Outbound              Outbound
