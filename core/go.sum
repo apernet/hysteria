@@ -1,5 +1,5 @@
-github.com/apernet/quic-go v0.60.1-0.20260618182935-599b15a1fa26 h1:LTC+O+b5tux3RUzqqepNOkdMMI264O+mG09Y5j9Cf7Y=
-github.com/apernet/quic-go v0.60.1-0.20260618182935-599b15a1fa26/go.mod h1:B5eVtZG4ZkCvDZQNaOAAEZEtdBC7DIj56Q9EIb0mGAQ=
+github.com/apernet/quic-go v0.61.1-0.20260728022005-eb994cc4b0cd h1:JJKQbfM2XS8CfkE4W3xw3AMuvQspPPD9xYfZke7KiR0=
+github.com/apernet/quic-go v0.61.1-0.20260728022005-eb994cc4b0cd/go.mod h1:/PoBwPtK6ccrWP1TChJyVW1ovyXdfNuZS10jomXWUMI=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
