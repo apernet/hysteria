@@ -92,8 +92,15 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 		MaxDatagramFrameSize:           protocol.MaxDatagramFrameSize,
 		OmitMaxDatagramFrameSize:       true,
 		DisablePathManager:             true,
+		ChromeParrot:                   !c.config.QUICConfig.DisableChromeParrot,
 	}
 	tr := &quic.Transport{Conn: pktConn}
+	if !c.config.QUICConfig.DisableChromeParrot {
+		// Chrome uses a zero-length source connection ID. This has to be set on the
+		// Transport, since it fixes the length at which incoming packets' connection
+		// IDs are parsed; leaving it default yields 4-byte IDs, visible on the wire.
+		tr.ConnectionIDGenerator = quic.ZeroLengthConnectionIDGenerator{}
+	}
 	// Prepare RoundTripper
 	var conn *quic.Conn
 	rt := &http3.Transport{
