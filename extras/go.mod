@@ -6,7 +6,7 @@ toolchain go1.25.1
 
 require (
 	github.com/apernet/hysteria/core/v2 v2.0.0-00010101000000-000000000000
-	github.com/apernet/quic-go v0.61.1-0.20260728022005-eb994cc4b0cd
+	github.com/apernet/quic-go v0.61.1-0.20260731071710-f616fb776495
 	github.com/database64128/tfo-go/v2 v2.2.2
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/libp2p/go-nat v1.0.1-0.20250821073202-01afc089f138
