@@ -159,6 +159,7 @@ type clientConfigQUIC struct {
 	MaxIdleTimeout              time.Duration            `mapstructure:"maxIdleTimeout"`
 	KeepAlivePeriod             time.Duration            `mapstructure:"keepAlivePeriod"`
 	DisablePathMTUDiscovery     bool                     `mapstructure:"disablePathMTUDiscovery"`
+	DisableChromeParrot         bool                     `mapstructure:"disableChromeParrot"`
 	Sockopts                    clientConfigQUICSockopts `mapstructure:"sockopts"`
 }
 
@@ -443,6 +444,7 @@ func (c *clientConfig) fillQUICConfig(hyConfig *client.Config) error {
 		MaxIdleTimeout:                 c.QUIC.MaxIdleTimeout,
 		KeepAlivePeriod:                c.QUIC.KeepAlivePeriod,
 		DisablePathMTUDiscovery:        c.QUIC.DisablePathMTUDiscovery,
+		DisableChromeParrot:            c.QUIC.DisableChromeParrot,
 	}
 	return nil
 }
