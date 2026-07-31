@@ -20,19 +20,39 @@ func TestClientConfig(t *testing.T) {
 	var config clientConfig
 	err = viper.Unmarshal(&config)
 	assert.NoError(t, err)
+	assertAllFieldsSet(t, config, "client")
 	assert.Equal(t, config, clientConfig{
 		Server: "example.com",
 		Auth:   "weak_ahh_password",
+		Realm: clientConfigRealm{
+			STUNServers:  []string{"stun1.example.com:3478", "stun2.example.com:3478"},
+			STUNTimeout:  6 * time.Second,
+			PunchTimeout: 12 * time.Second,
+			Insecure:     true,
+			IPMode:       "v4",
+			PortMapping: realmPortMappingConfig{
+				Enabled:  true,
+				Timeout:  3 * time.Second,
+				Lifetime: 2 * time.Hour,
+			},
+		},
 		Transport: clientConfigTransport{
 			Type: "udp",
 			UDP: clientConfigTransportUDP{
-				HopInterval: 30 * time.Second,
+				HopInterval:    30 * time.Second,
+				MinHopInterval: 10 * time.Second,
+				MaxHopInterval: 50 * time.Second,
 			},
 		},
 		Obfs: clientConfigObfs{
 			Type: "salamander",
 			Salamander: clientConfigObfsSalamander{
 				Password: "cry_me_a_r1ver",
+			},
+			Gecko: clientConfigObfsGecko{
+				Password:      "g3ck0_in_the_wall",
+				MinPacketSize: 100,
+				MaxPacketSize: 1200,
 			},
 		},
 		TLS: clientConfigTLS{

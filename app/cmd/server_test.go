@@ -22,12 +22,31 @@ func TestServerConfig(t *testing.T) {
 	var config serverConfig
 	err = viper.Unmarshal(&config)
 	assert.NoError(t, err)
+	assertAllFieldsSet(t, config, "server")
 	assert.Equal(t, config, serverConfig{
 		Listen: ":8443",
+		Realm: serverConfigRealm{
+			STUNServers:       []string{"stun1.example.com:3478", "stun2.example.com:3478"},
+			STUNTimeout:       6 * time.Second,
+			PunchTimeout:      12 * time.Second,
+			HeartbeatInterval: 25 * time.Second,
+			Insecure:          true,
+			IPMode:            "v6",
+			PortMapping: realmPortMappingConfig{
+				Enabled:  true,
+				Timeout:  3 * time.Second,
+				Lifetime: 2 * time.Hour,
+			},
+		},
 		Obfs: serverConfigObfs{
 			Type: "salamander",
 			Salamander: serverConfigObfsSalamander{
 				Password: "cry_me_a_r1ver",
+			},
+			Gecko: serverConfigObfsGecko{
+				Password:      "g3ck0_in_the_wall",
+				MinPacketSize: 100,
+				MaxPacketSize: 1200,
 			},
 		},
 		TLS: &serverConfigTLS{

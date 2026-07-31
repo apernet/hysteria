@@ -1,9 +1,27 @@
 listen: :8443
 
+realm:
+  stunServers:
+    - stun1.example.com:3478
+    - stun2.example.com:3478
+  stunTimeout: 6s
+  punchTimeout: 12s
+  heartbeatInterval: 25s
+  insecure: true
+  ipMode: v6
+  portMapping:
+    enabled: true
+    timeout: 3s
+    lifetime: 2h
+
 obfs:
   type: salamander
   salamander:
     password: cry_me_a_r1ver
+  gecko:
+    password: g3ck0_in_the_wall
+    minPacketSize: 100
+    maxPacketSize: 1200
 
 tls:
   cert: some.crt

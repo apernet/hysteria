@@ -2,15 +2,34 @@ server: example.com
 
 auth: weak_ahh_password
 
+realm:
+  stunServers:
+    - stun1.example.com:3478
+    - stun2.example.com:3478
+  stunTimeout: 6s
+  punchTimeout: 12s
+  insecure: true
+  ipMode: v4
+  portMapping:
+    enabled: true
+    timeout: 3s
+    lifetime: 2h
+
 transport:
   type: udp
   udp:
     hopInterval: 30s
+    minHopInterval: 10s
+    maxHopInterval: 50s
 
 obfs:
   type: salamander
   salamander:
     password: cry_me_a_r1ver
+  gecko:
+    password: g3ck0_in_the_wall
+    minPacketSize: 100
+    maxPacketSize: 1200
 
 tls:
   sni: another.example.com
