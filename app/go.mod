@@ -30,7 +30,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
-	github.com/apernet/quic-go v0.61.1-0.20260801004043-77a5d8509422 // indirect
+	github.com/apernet/quic-go v0.61.1-0.20260801011216-0ad2f221c8d7 // indirect
 	github.com/caddyserver/zerossl v0.1.5 // indirect
 	github.com/database64128/netx-go v0.0.0-20240905055117-62795b8b054a // indirect
 	github.com/database64128/tfo-go/v2 v2.2.2 // indirect

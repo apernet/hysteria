@@ -6,6 +6,8 @@ github.com/apernet/quic-go v0.61.1-0.20260731071710-f616fb776495 h1:4J+KKe3V2P9A
 github.com/apernet/quic-go v0.61.1-0.20260731071710-f616fb776495/go.mod h1:x7qxEvX6MCVtDuBKHj3E+88+BtrbEMuAL5qGUKItjW8=
 github.com/apernet/quic-go v0.61.1-0.20260801004043-77a5d8509422 h1:wadOi5uenP4hK1BRKnQ6uHCZc1yMQxHzVmPj9g5xMI4=
 github.com/apernet/quic-go v0.61.1-0.20260801004043-77a5d8509422/go.mod h1:x7qxEvX6MCVtDuBKHj3E+88+BtrbEMuAL5qGUKItjW8=
+github.com/apernet/quic-go v0.61.1-0.20260801011216-0ad2f221c8d7 h1:5UR61A9dSed0FP58OoUr+1g27/7wSqkwzAS/1SirHNs=
+github.com/apernet/quic-go v0.61.1-0.20260801011216-0ad2f221c8d7/go.mod h1:x7qxEvX6MCVtDuBKHj3E+88+BtrbEMuAL5qGUKItjW8=
 github.com/database64128/netx-go v0.0.0-20240905055117-62795b8b054a h1:t4SDi0pmNkryzKdM4QF3o5vqSP4GRjeZD/6j3nyxNP0=
 github.com/database64128/netx-go v0.0.0-20240905055117-62795b8b054a/go.mod h1:7K2NQKbabB5mBl41vF6YayYl5g7YpDwc4dQ5iMpP3Lg=
 github.com/database64128/tfo-go/v2 v2.2.2 h1:BxynF4qGF5ct3DpPLEG62uyJZ3LQhqaf0Ken+kyy7PM=
