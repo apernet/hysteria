@@ -4,6 +4,8 @@ github.com/apernet/quic-go v0.61.1-0.20260728022005-eb994cc4b0cd h1:JJKQbfM2XS8C
 github.com/apernet/quic-go v0.61.1-0.20260728022005-eb994cc4b0cd/go.mod h1:/PoBwPtK6ccrWP1TChJyVW1ovyXdfNuZS10jomXWUMI=
 github.com/apernet/quic-go v0.61.1-0.20260731071710-f616fb776495 h1:4J+KKe3V2P9A9jTYmrhVEViTPrLJGim+QvVaSFGBnv4=
 github.com/apernet/quic-go v0.61.1-0.20260731071710-f616fb776495/go.mod h1:x7qxEvX6MCVtDuBKHj3E+88+BtrbEMuAL5qGUKItjW8=
+github.com/apernet/quic-go v0.61.1-0.20260801004043-77a5d8509422 h1:wadOi5uenP4hK1BRKnQ6uHCZc1yMQxHzVmPj9g5xMI4=
+github.com/apernet/quic-go v0.61.1-0.20260801004043-77a5d8509422/go.mod h1:x7qxEvX6MCVtDuBKHj3E+88+BtrbEMuAL5qGUKItjW8=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
