@@ -28,9 +28,8 @@ import (
 	"github.com/libdns/duckdns"
 	"github.com/libdns/gandi"
 	"github.com/libdns/godaddy"
-	"github.com/libdns/namedotcom"
-	"github.com/libdns/vultr"
-	"github.com/mholt/acmez/acme"
+	"github.com/libdns/vultr/v2"
+	"github.com/mholt/acmez/v3/acme"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -1031,48 +1030,40 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 			if c.ACME.DNS.Config == nil {
 				return configError{Field: "acme.dns.config", Err: errors.New("empty DNS provider config")}
 			}
+			var dnsProvider certmagic.DNSProvider
 			switch strings.ToLower(c.ACME.DNS.Name) {
 			case "cloudflare":
-				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
-					DNSProvider: &cloudflare.Provider{
-						APIToken: c.ACME.DNS.Config["cloudflare_api_token"],
-					},
+				dnsProvider = &cloudflare.Provider{
+					APIToken: c.ACME.DNS.Config["cloudflare_api_token"],
 				}
 			case "duckdns":
-				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
-					DNSProvider: &duckdns.Provider{
-						APIToken:       c.ACME.DNS.Config["duckdns_api_token"],
-						OverrideDomain: c.ACME.DNS.Config["duckdns_override_domain"],
-					},
+				dnsProvider = &duckdns.Provider{
+					APIToken:       c.ACME.DNS.Config["duckdns_api_token"],
+					OverrideDomain: c.ACME.DNS.Config["duckdns_override_domain"],
 				}
 			case "gandi":
-				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
-					DNSProvider: &gandi.Provider{
-						BearerToken: c.ACME.DNS.Config["gandi_api_token"],
-					},
+				dnsProvider = &gandi.Provider{
+					BearerToken: c.ACME.DNS.Config["gandi_api_token"],
 				}
 			case "godaddy":
-				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
-					DNSProvider: &godaddy.Provider{
-						APIToken: c.ACME.DNS.Config["godaddy_api_token"],
-					},
-				}
-			case "namedotcom":
-				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
-					DNSProvider: &namedotcom.Provider{
-						Token:  c.ACME.DNS.Config["namedotcom_token"],
-						User:   c.ACME.DNS.Config["namedotcom_user"],
-						Server: c.ACME.DNS.Config["namedotcom_server"],
-					},
+				dnsProvider = &godaddy.Provider{
+					APIToken: c.ACME.DNS.Config["godaddy_api_token"],
 				}
 			case "vultr":
-				cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
-					DNSProvider: &vultr.Provider{
-						APIToken: c.ACME.DNS.Config["vultr_api_token"],
-					},
+				dnsProvider = &vultr.Provider{
+					APIToken: c.ACME.DNS.Config["vultr_api_token"],
 				}
+			case "namedotcom":
+				// Dropped: upstream never released a libdns v1 compatible version,
+				// which the current certmagic requires.
+				return configError{Field: "acme.dns.name", Err: errors.New("namedotcom is no longer supported")}
 			default:
 				return configError{Field: "acme.dns.name", Err: errors.New("unsupported DNS provider")}
+			}
+			cmIssuer.DNS01Solver = &certmagic.DNS01Solver{
+				DNSManager: certmagic.DNSManager{
+					DNSProvider: dnsProvider,
+				},
 			}
 		case "":
 			// Legacy compatibility mode
