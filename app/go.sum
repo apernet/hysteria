@@ -10,6 +10,8 @@ github.com/apernet/quic-go v0.61.1-0.20260801004043-77a5d8509422 h1:wadOi5uenP4h
 github.com/apernet/quic-go v0.61.1-0.20260801004043-77a5d8509422/go.mod h1:x7qxEvX6MCVtDuBKHj3E+88+BtrbEMuAL5qGUKItjW8=
 github.com/apernet/quic-go v0.61.1-0.20260801011216-0ad2f221c8d7 h1:5UR61A9dSed0FP58OoUr+1g27/7wSqkwzAS/1SirHNs=
 github.com/apernet/quic-go v0.61.1-0.20260801011216-0ad2f221c8d7/go.mod h1:x7qxEvX6MCVtDuBKHj3E+88+BtrbEMuAL5qGUKItjW8=
+github.com/apernet/quic-go v0.61.1-0.20260803204750-bc12a60f32da h1:4lAk9X1bg0LzJYX2GO8SIJgKvJGWy2jYHW5EjOW2sUc=
+github.com/apernet/quic-go v0.61.1-0.20260803204750-bc12a60f32da/go.mod h1:x7qxEvX6MCVtDuBKHj3E+88+BtrbEMuAL5qGUKItjW8=
 github.com/apernet/sing-tun v0.2.6-0.20250920121535-299f04629986 h1:w62V0oOO2Do0vXeZkx7mgZ2YFuUaRcO6rNZewI3xzuE=
 github.com/apernet/sing-tun v0.2.6-0.20250920121535-299f04629986/go.mod h1:S5IydyLSN/QAfvY+r2GoomPJ6hidtXWm/Ad18sJVssk=
 github.com/caddyserver/certmagic v0.25.4 h1:8eIXh0HC3MsGnNo8One+BCxMGTbe5zb/oz+2KsxBFQg=
