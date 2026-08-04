@@ -11,7 +11,7 @@ dependencies = [
     # app SOCKS5 test client
     "pysocks>=1.7",
     # app certloader test cert generation / TLS client
-    "cryptography>=46",
+    "cryptography>=50.0.0",
 ]
 
 # The scripts and tests are run in place, not installed as a package.
