@@ -119,6 +119,7 @@ type QUICConfig struct {
 	MaxIdleTimeout                 time.Duration
 	KeepAlivePeriod                time.Duration
 	DisablePathMTUDiscovery        bool // The server may still override this to true on unsupported platforms.
+	DisableGSO                     bool
 	DisableChromeParrot            bool // Chrome QUIC fingerprint parroting is on by default.
 }
 

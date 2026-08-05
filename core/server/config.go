@@ -131,6 +131,7 @@ type QUICConfig struct {
 	MaxIdleTimeout                 time.Duration
 	MaxIncomingStreams             int64
 	DisablePathMTUDiscovery        bool // The server may still override this to true on unsupported platforms.
+	DisableGSO                     bool
 }
 
 type CongestionConfig struct {

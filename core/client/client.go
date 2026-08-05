@@ -94,7 +94,7 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 		DisablePathManager:             true,
 		ChromeParrot:                   !c.config.QUICConfig.DisableChromeParrot,
 	}
-	tr := &quic.Transport{Conn: pktConn}
+	tr := &quic.Transport{Conn: pktConn, DisableGSO: c.config.QUICConfig.DisableGSO}
 	if !c.config.QUICConfig.DisableChromeParrot {
 		// Chrome uses a zero-length source connection ID. This has to be set on the
 		// Transport, since it fixes the length at which incoming packets' connection

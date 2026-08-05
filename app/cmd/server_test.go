@@ -95,6 +95,13 @@ func TestServerConfig(t *testing.T) {
 			MaxIncomingStreams:          256,
 			DisablePathMTUDiscovery:     true,
 		},
+		Mimic: mimicConfig{
+			Enabled:   true,
+			Interface: "eth0",
+			XDPMode:   "skb",
+			Path:      "/usr/bin/mimic",
+			ExtraArgs: []string{"--padding", "random"},
+		},
 		Congestion: serverConfigCongestion{
 			Type:       "reno",
 			BBRProfile: "aggressive",
