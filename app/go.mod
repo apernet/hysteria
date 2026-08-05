@@ -15,7 +15,7 @@ require (
 	github.com/libdns/gandi v1.1.0
 	github.com/libdns/godaddy v1.1.0
 	github.com/libdns/vultr/v2 v2.0.4
-	github.com/mdp/qrterminal/v3 v3.1.1
+	github.com/mdp/qrterminal/v3 v3.2.1
 	github.com/mholt/acmez/v3 v3.1.6
 	github.com/sagernet/sing v0.3.2
 	github.com/spf13/cobra v1.10.2
@@ -55,10 +55,10 @@ require (
 	github.com/miekg/dns v1.1.72 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
-	github.com/pion/dtls/v3 v3.1.2 // indirect
+	github.com/pion/dtls/v3 v3.1.4 // indirect
 	github.com/pion/logging v0.2.4 // indirect
-	github.com/pion/stun/v3 v3.1.2 // indirect
-	github.com/pion/transport/v4 v4.0.1 // indirect
+	github.com/pion/stun/v3 v3.1.5 // indirect
+	github.com/pion/transport/v4 v4.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
@@ -83,6 +83,7 @@ require (
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
+	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
