@@ -56,3 +56,11 @@
 ---
 
 **If you find Hysteria useful, consider giving it a ⭐️!**
+
+<a href="https://www.star-history.com/?repos=apernet%2Fhysteria&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=apernet/hysteria&type=date&theme=dark&legend=top-left&sealed_token=K7X7A4ntaPiRwqCXrW5ZLxZa8rNoQzDOr49Gv4mvXHJDHSerFPUWDcmyyBK_qe3bkV7UAoR_QSn-tFuLB48e3Bvb-eZrUFNk7M8uanHqCOXK2sR0WyHVkw" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=apernet/hysteria&type=date&legend=top-left&sealed_token=K7X7A4ntaPiRwqCXrW5ZLxZa8rNoQzDOr49Gv4mvXHJDHSerFPUWDcmyyBK_qe3bkV7UAoR_QSn-tFuLB48e3Bvb-eZrUFNk7M8uanHqCOXK2sR0WyHVkw" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=apernet/hysteria&type=date&legend=top-left&sealed_token=K7X7A4ntaPiRwqCXrW5ZLxZa8rNoQzDOr49Gv4mvXHJDHSerFPUWDcmyyBK_qe3bkV7UAoR_QSn-tFuLB48e3Bvb-eZrUFNk7M8uanHqCOXK2sR0WyHVkw" />
+ </picture>
+</a>
