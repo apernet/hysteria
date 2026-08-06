@@ -63,7 +63,7 @@ func NewServer(config *Config) (Server, error) {
 		AssumePeerMaxDatagramFrameSize: protocol.MaxDatagramFrameSize,
 		DisablePathManager:             true,
 	}
-	tr := &quic.Transport{Conn: config.Conn}
+	tr := &quic.Transport{Conn: config.Conn, DisableGSO: config.QUICConfig.DisableGSO}
 	listener, err := tr.Listen(tlsConfig, quicConfig)
 	if err != nil {
 		err = errors.Join(err, tr.Close(), config.Conn.Close())

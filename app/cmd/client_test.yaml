@@ -54,6 +54,15 @@ quic:
     fwmark: 1234
     fdControlUnixSocket: test.sock
 
+mimic:
+  enabled: true
+  interface: eth0
+  xdpMode: skb
+  path: /usr/bin/mimic
+  extraArgs:
+    - --padding
+    - random
+
 congestion:
   type: bbr
   bbrProfile: aggressive

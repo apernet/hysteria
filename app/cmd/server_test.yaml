@@ -64,6 +64,15 @@ quic:
   maxIncomingStreams: 256
   disablePathMTUDiscovery: true
 
+mimic:
+  enabled: true
+  interface: eth0
+  xdpMode: skb
+  path: /usr/bin/mimic
+  extraArgs:
+    - --padding
+    - random
+
 congestion:
   type: reno
   bbrProfile: aggressive

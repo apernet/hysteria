@@ -45,6 +45,9 @@ func runPing(v *viper.Viper, addr string) {
 		logger.Fatal("failed to load client config", zap.Error(err))
 	}
 
+	mimicInst := config.startMimic()
+	defer mimicInst.Close()
+
 	c, info, err := client.NewClient(hyConfig)
 	if err != nil {
 		logger.Fatal("failed to initialize client", zap.Error(err))

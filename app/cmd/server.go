@@ -23,6 +23,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/apernet/hysteria/app/v2/internal/mimic"
+
 	"github.com/caddyserver/certmagic"
 	"github.com/libdns/cloudflare"
 	"github.com/libdns/duckdns"
@@ -71,6 +73,7 @@ type serverConfig struct {
 	ACME                  *serverConfigACME           `mapstructure:"acme"`
 	ECH                   *serverConfigECH            `mapstructure:"ech"`
 	QUIC                  serverConfigQUIC            `mapstructure:"quic"`
+	Mimic                 mimicConfig                 `mapstructure:"mimic"`
 	Congestion            serverConfigCongestion      `mapstructure:"congestion"`
 	Bandwidth             serverConfigBandwidth       `mapstructure:"bandwidth"`
 	IgnoreClientBandwidth bool                        `mapstructure:"ignoreClientBandwidth"`
@@ -1159,6 +1162,8 @@ func (c *serverConfig) fillQUICConfig(hyConfig *server.Config) error {
 		MaxIdleTimeout:                 c.QUIC.MaxIdleTimeout,
 		MaxIncomingStreams:             c.QUIC.MaxIncomingStreams,
 		DisablePathMTUDiscovery:        c.QUIC.DisablePathMTUDiscovery,
+		// See the client side: Mimic and GSO are mutually exclusive.
+		DisableGSO: c.Mimic.Enabled,
 	}
 	return nil
 }
@@ -1602,6 +1607,22 @@ func runServer(v *viper.Viper) {
 		logger.Fatal("failed to load server config", zap.Error(err))
 	}
 
+	mimicInst, err := mimic.Start(
+		mimic.Config{
+			Enabled:   config.Mimic.Enabled,
+			Interface: config.Mimic.Interface,
+			XDPMode:   config.Mimic.XDPMode,
+			Path:      config.Mimic.Path,
+			ExtraArgs: config.Mimic.ExtraArgs,
+		},
+		mimic.RoleServer, listenUDPAddr(config.Listen), logger,
+		func(err error) { logger.Fatal("mimic stopped", zap.Error(err)) },
+	)
+	if err != nil {
+		logger.Fatal("failed to start mimic", zap.Error(err))
+	}
+	defer mimicInst.Close()
+
 	s, err := server.NewServer(hyConfig)
 	if err != nil {
 		logger.Fatal("failed to initialize server", zap.Error(err))
@@ -1737,4 +1758,17 @@ func extractPortFromAddr(addr string) int {
 		return 0
 	}
 	return port
+}
+
+// listenUDPAddr resolves the listen string for Mimic's filter. A wildcard host
+// stays wildcard: Mimic accepts one for a local filter.
+func listenUDPAddr(listen string) *net.UDPAddr {
+	if listen == "" {
+		listen = defaultListenAddr
+	}
+	addr, err := net.ResolveUDPAddr("udp", listen)
+	if err != nil {
+		return &net.UDPAddr{}
+	}
+	return addr
 }

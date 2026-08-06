@@ -79,6 +79,13 @@ func TestClientConfig(t *testing.T) {
 				FdControlUnixSocket: stringRef("test.sock"),
 			},
 		},
+		Mimic: mimicConfig{
+			Enabled:   true,
+			Interface: "eth0",
+			XDPMode:   "skb",
+			Path:      "/usr/bin/mimic",
+			ExtraArgs: []string{"--padding", "random"},
+		},
 		Congestion: clientConfigCongestion{
 			Type:       "bbr",
 			BBRProfile: "aggressive",
