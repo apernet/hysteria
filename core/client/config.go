@@ -21,6 +21,8 @@ const (
 type Config struct {
 	ConnFactory      ConnFactory
 	ServerAddr       net.Addr
+	ServerHost       string // Hostname for dual-stack racing (used when ServerAddr is nil)
+	ServerPort       uint16 // Port corresponding to ServerHost
 	Auth             string
 	TLSConfig        TLSConfig
 	QUICConfig       QUICConfig
@@ -40,7 +42,7 @@ func (c *Config) verifyAndFill() error {
 	if c.ConnFactory == nil {
 		c.ConnFactory = &udpConnFactory{}
 	}
-	if c.ServerAddr == nil {
+	if c.ServerAddr == nil && c.ServerHost == "" {
 		return errors.ConfigError{Field: "ServerAddr", Reason: "must be set"}
 	}
 	if c.QUICConfig.InitialStreamReceiveWindow == 0 {
