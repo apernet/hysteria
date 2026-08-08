@@ -4,7 +4,8 @@
 // Mimic disguises UDP as TCP by rewriting packets in the kernel, transparently
 // to the socket. We derive its filter from the address Hysteria already knows,
 // so users don't have to configure it separately. Installing it is still up to
-// them: its eBPF programs need its kernel module loaded.
+// them; whether its optional kernel module is loaded is Mimic's business, and
+// it says so itself when it needs it.
 package mimic
 
 type Config struct {

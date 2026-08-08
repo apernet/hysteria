@@ -22,7 +22,6 @@ import (
 
 const (
 	runtimeDir     = "/run/mimic"
-	modulePath     = "/sys/module/mimic"
 	readyTimeout   = 10 * time.Second
 	readyPollEvery = 100 * time.Millisecond
 )
@@ -48,9 +47,6 @@ func Start(cfg Config, role Role, addr *net.UDPAddr, logger *zap.Logger, onExit 
 	}
 	bin, err := resolveBinary(cfg.Path)
 	if err != nil {
-		return nil, err
-	}
-	if err := checkModule(); err != nil {
 		return nil, err
 	}
 	iface, err := resolveInterface(cfg.Interface, role, addr)
@@ -170,14 +166,6 @@ func resolveBinary(path string) (string, error) {
 		return "", errors.New("mimic not found in PATH; install it from https://github.com/hack3ric/mimic")
 	}
 	return bin, nil
-}
-
-func checkModule() error {
-	if _, err := os.Stat(modulePath); err != nil {
-		return errors.New("mimic kernel module is not loaded; run 'modprobe mimic' " +
-			"(the module is built by the mimic-dkms package and needs kernel headers installed)")
-	}
-	return nil
 }
 
 // runningOn reports whether a Mimic already owns the interface. Mimic only
