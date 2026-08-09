@@ -30,6 +30,9 @@ import (
 	"github.com/libdns/duckdns"
 	"github.com/libdns/gandi"
 	"github.com/libdns/godaddy"
+	"github.com/libdns/namecheap"
+	"github.com/libdns/njalla"
+	"github.com/libdns/porkbun"
 	"github.com/libdns/vultr/v2"
 	"github.com/mholt/acmez/v3/acme"
 	"github.com/spf13/cobra"
@@ -1051,6 +1054,22 @@ func (c *serverConfig) fillTLSConfig(hyConfig *server.Config) error {
 			case "godaddy":
 				dnsProvider = &godaddy.Provider{
 					APIToken: c.ACME.DNS.Config["godaddy_api_token"],
+				}
+			case "namecheap":
+				dnsProvider = &namecheap.Provider{
+					APIKey:      c.ACME.DNS.Config["namecheap_api_key"],
+					User:        c.ACME.DNS.Config["namecheap_api_user"],
+					APIEndpoint: c.ACME.DNS.Config["namecheap_api_endpoint"],
+					ClientIP:    c.ACME.DNS.Config["namecheap_client_ip"],
+				}
+			case "njalla":
+				dnsProvider = &njalla.Provider{
+					APIToken: c.ACME.DNS.Config["njalla_api_token"],
+				}
+			case "porkbun":
+				dnsProvider = &porkbun.Provider{
+					APIKey:       c.ACME.DNS.Config["porkbun_api_key"],
+					APISecretKey: c.ACME.DNS.Config["porkbun_api_secret_key"],
 				}
 			case "vultr":
 				dnsProvider = &vultr.Provider{

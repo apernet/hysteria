@@ -14,6 +14,9 @@ require (
 	github.com/libdns/duckdns v0.3.0
 	github.com/libdns/gandi v1.1.0
 	github.com/libdns/godaddy v1.1.0
+	github.com/libdns/namecheap v1.0.0
+	github.com/libdns/njalla v0.0.0-20250815081032-a55a87a8f20f
+	github.com/libdns/porkbun v1.1.0
 	github.com/libdns/vultr/v2 v2.0.4
 	github.com/mdp/qrterminal/v3 v3.2.1
 	github.com/mholt/acmez/v3 v3.1.6
