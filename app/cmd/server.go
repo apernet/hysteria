@@ -55,7 +55,10 @@ import (
 )
 
 const (
-	defaultListenAddr = ":443"
+	defaultListenAddr                  = ":443"
+	masqueradeProxyBufferSize          = 32 * 1024
+	masqueradeProxyMaxIdleConnections  = 100
+	masqueradeProxyMaxIdleConnsPerHost = 32
 )
 
 var serverCmd = &cobra.Command{
@@ -287,6 +290,31 @@ type serverConfigMasqueradeProxy struct {
 	RewriteHost bool   `mapstructure:"rewriteHost"`
 	XForwarded  bool   `mapstructure:"xForwarded"`
 	Insecure    bool   `mapstructure:"insecure"`
+}
+
+type masqueradeProxyBufferPool struct {
+	pool sync.Pool
+}
+
+func newMasqueradeProxyBufferPool() *masqueradeProxyBufferPool {
+	return &masqueradeProxyBufferPool{
+		pool: sync.Pool{
+			New: func() any {
+				return make([]byte, masqueradeProxyBufferSize)
+			},
+		},
+	}
+}
+
+func (p *masqueradeProxyBufferPool) Get() []byte {
+	return p.pool.Get().([]byte)
+}
+
+func (p *masqueradeProxyBufferPool) Put(buf []byte) {
+	if cap(buf) < masqueradeProxyBufferSize {
+		return
+	}
+	p.pool.Put(buf[:masqueradeProxyBufferSize])
 }
 
 type serverConfigMasqueradeString struct {
@@ -1473,6 +1501,99 @@ func (c *serverConfig) fillTrafficLogger(hyConfig *server.Config) error {
 	return nil
 }
 
+func newMasqueradeProxyHandler(config serverConfigMasqueradeProxy) (http.Handler, error) {
+	if config.URL == "" {
+		return nil, errors.New("empty proxy url")
+	}
+	target, transport, err := newMasqueradeProxyTarget(config.URL, config.Insecure)
+	if err != nil {
+		return nil, err
+	}
+	return &httputil.ReverseProxy{
+		Rewrite: func(r *httputil.ProxyRequest) {
+			r.SetURL(target)
+			// SetURL rewrites the Host header,
+			// but we don't want that if rewriteHost is false
+			if !config.RewriteHost {
+				r.Out.Host = r.In.Host
+			}
+			if config.XForwarded {
+				r.SetXForwarded()
+			}
+		},
+		Transport:  transport,
+		BufferPool: newMasqueradeProxyBufferPool(),
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			logger.Error("HTTP reverse proxy error", zap.Error(err))
+			w.WriteHeader(http.StatusBadGateway)
+		},
+	}, nil
+}
+
+func newMasqueradeProxyTarget(rawURL string, insecure bool) (*url.URL, http.RoundTripper, error) {
+	target, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, nil, err
+	}
+	switch target.Scheme {
+	case "http", "https":
+		transport := http.DefaultTransport
+		if insecure {
+			tr := http.DefaultTransport.(*http.Transport).Clone()
+			if tr.TLSClientConfig == nil {
+				tr.TLSClientConfig = &tls.Config{}
+			} else {
+				tr.TLSClientConfig = tr.TLSClientConfig.Clone()
+			}
+			tr.TLSClientConfig.InsecureSkipVerify = true
+			transport = tr
+		}
+		return target, transport, nil
+	case "unix":
+		return newUnixMasqueradeProxyTarget(target)
+	case "":
+		if strings.HasPrefix(target.Path, "/") {
+			return newUnixMasqueradeProxyTarget(target)
+		}
+		fallthrough
+	default:
+		return nil, nil, fmt.Errorf("unsupported protocol scheme \"%s\"", target.Scheme)
+	}
+}
+
+func newUnixMasqueradeProxyTarget(parsedURL *url.URL) (*url.URL, http.RoundTripper, error) {
+	if parsedURL.Opaque != "" {
+		return nil, nil, errors.New("invalid unix socket URL: path must be absolute")
+	}
+	if parsedURL.User != nil {
+		return nil, nil, errors.New("invalid unix socket URL: userinfo is not supported")
+	}
+	if parsedURL.Host != "" {
+		return nil, nil, errors.New("invalid unix socket URL: host must be empty")
+	}
+	if parsedURL.RawQuery != "" || parsedURL.ForceQuery || parsedURL.Fragment != "" {
+		return nil, nil, errors.New("invalid unix socket URL: query and fragment are not supported")
+	}
+	if parsedURL.Path == "" {
+		return nil, nil, errors.New("empty unix socket path")
+	}
+	if !strings.HasPrefix(parsedURL.Path, "/") {
+		return nil, nil, errors.New("invalid unix socket URL: path must be absolute")
+	}
+
+	socketPath := parsedURL.Path
+	dialer := &net.Dialer{Timeout: 30 * time.Second}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	transport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
+		return dialer.DialContext(ctx, "unix", socketPath)
+	}
+	transport.MaxIdleConns = masqueradeProxyMaxIdleConnections
+	transport.MaxIdleConnsPerHost = masqueradeProxyMaxIdleConnsPerHost
+
+	return &url.URL{Scheme: "http", Host: "localhost"}, transport, nil
+}
+
 // fillMasqHandler must be called after fillConn, as we may need to extract the QUIC
 // port number from Conn for MasqTCPServer.
 func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
@@ -1486,52 +1607,10 @@ func (c *serverConfig) fillMasqHandler(hyConfig *server.Config) error {
 		}
 		handler = http.FileServer(http.Dir(c.Masquerade.File.Dir))
 	case "proxy":
-		if c.Masquerade.Proxy.URL == "" {
-			return configError{Field: "masquerade.proxy.url", Err: errors.New("empty proxy url")}
-		}
-		u, err := url.Parse(c.Masquerade.Proxy.URL)
+		var err error
+		handler, err = newMasqueradeProxyHandler(c.Masquerade.Proxy)
 		if err != nil {
 			return configError{Field: "masquerade.proxy.url", Err: err}
-		}
-		if u.Scheme != "http" && u.Scheme != "https" {
-			return configError{Field: "masquerade.proxy.url", Err: fmt.Errorf("unsupported protocol scheme \"%s\"", u.Scheme)}
-		}
-		transport := http.DefaultTransport
-		if c.Masquerade.Proxy.Insecure {
-			transport = &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-				// use default configs from http.DefaultTransport
-				Proxy: http.ProxyFromEnvironment,
-				DialContext: (&net.Dialer{
-					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).DialContext,
-				ForceAttemptHTTP2:     true,
-				MaxIdleConns:          100,
-				IdleConnTimeout:       90 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ExpectContinueTimeout: 1 * time.Second,
-			}
-		}
-		handler = &httputil.ReverseProxy{
-			Rewrite: func(r *httputil.ProxyRequest) {
-				r.SetURL(u)
-				// SetURL rewrites the Host header,
-				// but we don't want that if rewriteHost is false
-				if !c.Masquerade.Proxy.RewriteHost {
-					r.Out.Host = r.In.Host
-				}
-				if c.Masquerade.Proxy.XForwarded {
-					r.SetXForwarded()
-				}
-			},
-			Transport: transport,
-			ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-				logger.Error("HTTP reverse proxy error", zap.Error(err))
-				w.WriteHeader(http.StatusBadGateway)
-			},
 		}
 	case "string":
 		if c.Masquerade.String.Content == "" {
