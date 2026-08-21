@@ -36,24 +36,27 @@ type Instance struct {
 	exited  chan struct{}
 }
 
-// Start launches Mimic for addr and waits for it to attach. addr is the peer's
-// address for RoleClient and our listen address for RoleServer.
-//
+// Start launches Mimic for addrs and waits for it to attach. addrs holds every
+// address the peer resolved to for RoleClient, and our listen address for
+// RoleServer.
 // onExit is called if Mimic stops on its own, which is fatal: the peer expects
 // TCP-shaped packets, so the connection is already dead by then.
-func Start(cfg Config, role Role, addr *net.UDPAddr, logger *zap.Logger, onExit func(error)) (*Instance, error) {
+func Start(cfg Config, role Role, addrs []*net.UDPAddr, logger *zap.Logger, onExit func(error)) (*Instance, error) {
 	if !cfg.Enabled {
 		return nil, nil
+	}
+	if len(addrs) == 0 {
+		return nil, errors.New("mimic needs at least one address to filter")
 	}
 	bin, err := resolveBinary(cfg.Path)
 	if err != nil {
 		return nil, err
 	}
-	iface, err := resolveInterface(cfg.Interface, role, addr)
+	iface, err := resolveInterface(cfg.Interface, role, addrs[0])
 	if err != nil {
 		return nil, err
 	}
-	filters := filtersFor(role, addr)
+	filters := filtersFor(role, addrs)
 	// Mimic attaches to the interface, so one instance serves every client on
 	// this machine reaching the same server.
 	// Reuse it only if its filters cover our address.
@@ -219,10 +222,13 @@ func filtersCover(bin, iface string, filters []string) (bool, error) {
 	return true, nil
 }
 
-// filterAddr strips the settings a filter may carry, leaving origin=ip:port.
+// filterAddr strips everything a filter line may carry beyond origin=ip:port:
+// the settings after a comma, and the "(resolved from <host>)" note that
+// "mimic show" appends when the filter came from a name rather than a literal.
 func filterAddr(filter string) string {
 	addr, _, _ := strings.Cut(filter, ",")
-	return strings.TrimSpace(addr)
+	addr, _, _ = strings.Cut(strings.TrimSpace(addr), " ")
+	return addr
 }
 
 func filterAddrs(filters []string) []string {
@@ -290,27 +296,47 @@ func waitReady(iface string, ourPID int, exited <-chan struct{}) error {
 
 // filtersFor builds Mimic's whitelist entries: the client matches on the peer,
 // the server on itself. A server listener with no IP or an IPv6 wildcard
-// accepts both address families, so Mimic needs one local filter for each.
-func filtersFor(role Role, addr *net.UDPAddr) []string {
-	if role == RoleServer && (addr.IP == nil || (addr.IP.IsUnspecified() && addr.IP.To4() == nil)) {
+// accepts both address families, so Mimic needs one local filter for each. A
+// client gets one filter per address the peer resolved to.
+func filtersFor(role Role, addrs []*net.UDPAddr) []string {
+	if role == RoleClient {
+		filters := make([]string, 0, len(addrs))
+		seen := make(map[string]bool, len(addrs))
+		for _, addr := range addrs {
+			f := fmt.Sprintf("remote=%s:%d", filterHost(addr.IP), addr.Port)
+			if seen[f] {
+				continue
+			}
+			seen[f] = true
+			filters = append(filters, f)
+		}
+		return filters
+	}
+	addr := addrs[0]
+	if addr.IP == nil || (addr.IP.IsUnspecified() && addr.IP.To4() == nil) {
 		return []string{
 			fmt.Sprintf("local=0.0.0.0:%d,handshake=0:3", addr.Port),
 			fmt.Sprintf("local=[::]:%d,handshake=0:3", addr.Port),
 		}
 	}
-	host := addr.IP.String()
-	if addr.IP == nil || addr.IP.IsUnspecified() {
-		host = "0.0.0.0"
+	// handshake is interval:retry; interval zero makes this side passive,
+	// so it answers connections but never opens one.
+	return []string{fmt.Sprintf("local=%s:%d,handshake=0:3", filterHost(addr.IP), addr.Port)}
+}
+
+// filterHost renders an IP the way Mimic's filter syntax expects, bracketing
+// IPv6 so the port stays unambiguous.
+func filterHost(ip net.IP) string {
+	if ip == nil || ip.IsUnspecified() {
+		if ip != nil && ip.To4() == nil {
+			return "[::]"
+		}
+		return "0.0.0.0"
 	}
-	if addr.IP != nil && addr.IP.To4() == nil {
-		host = "[" + host + "]"
+	if ip.To4() == nil {
+		return "[" + ip.String() + "]"
 	}
-	if role == RoleServer {
-		// handshake is interval:retry; interval zero makes this side passive,
-		// so it answers connections but never opens one.
-		return []string{fmt.Sprintf("local=%s:%d,handshake=0:3", host, addr.Port)}
-	}
-	return []string{fmt.Sprintf("remote=%s:%d", host, addr.Port)}
+	return ip.String()
 }
 
 // resolveInterface finds the interface carrying traffic for addr, falling back

@@ -1499,7 +1499,7 @@ func (c *clientConfig) startMimic() *mimic.Instance {
 	if !c.Mimic.Enabled {
 		return nil
 	}
-	addr, err := c.mimicServerAddr()
+	addrs, err := c.mimicServerAddrs()
 	if err != nil {
 		logger.Fatal("failed to resolve server address for mimic", zap.Error(err))
 	}
@@ -1511,7 +1511,7 @@ func (c *clientConfig) startMimic() *mimic.Instance {
 			Path:      c.Mimic.Path,
 			ExtraArgs: c.Mimic.ExtraArgs,
 		},
-		mimic.RoleClient, addr, logger,
+		mimic.RoleClient, addrs, logger,
 		func(err error) { logger.Fatal("mimic stopped", zap.Error(err)) },
 	)
 	if err != nil {
@@ -1520,9 +1520,29 @@ func (c *clientConfig) startMimic() *mimic.Instance {
 	return inst
 }
 
-// mimicServerAddr resolves the server address for Mimic's filter. Mimic needs a
-// literal ip:port, so this resolves the name the same way the client will.
-func (c *clientConfig) mimicServerAddr() (*net.UDPAddr, error) {
-	_, _, hostPort := parseServerAddrString(c.Server)
-	return net.ResolveUDPAddr("udp", hostPort)
+// mimicServerAddrs resolves the server address for Mimic's filters. Mimic needs
+// literal ip:port, and a name can resolve to several addresses across both
+// families, so every one of them gets a filter: the client re-resolves on each
+// reconnect and may pick a different one than it did at startup.
+func (c *clientConfig) mimicServerAddrs() ([]*net.UDPAddr, error) {
+	host, portStr, hostPort := parseServerAddrString(c.Server)
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid server port %q: %w", portStr, err)
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return []*net.UDPAddr{{IP: ip, Port: port}}, nil
+	}
+	ips, err := net.DefaultResolver.LookupIP(context.Background(), "ip", host)
+	if err != nil {
+		return nil, err
+	}
+	if len(ips) == 0 {
+		return nil, fmt.Errorf("no addresses for %s", hostPort)
+	}
+	addrs := make([]*net.UDPAddr, 0, len(ips))
+	for _, ip := range ips {
+		addrs = append(addrs, &net.UDPAddr{IP: ip, Port: port})
+	}
+	return addrs, nil
 }
