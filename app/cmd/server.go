@@ -1634,7 +1634,7 @@ func runServer(v *viper.Viper) {
 			Path:      config.Mimic.Path,
 			ExtraArgs: config.Mimic.ExtraArgs,
 		},
-		mimic.RoleServer, listenUDPAddr(config.Listen), logger,
+		mimic.RoleServer, []*net.UDPAddr{listenUDPAddr(config.Listen)}, logger,
 		func(err error) { logger.Fatal("mimic stopped", zap.Error(err)) },
 	)
 	if err != nil {

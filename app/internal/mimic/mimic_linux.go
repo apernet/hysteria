@@ -36,47 +36,47 @@ type Instance struct {
 	exited  chan struct{}
 }
 
-// Start launches Mimic for addr and waits for it to attach. addr is the peer's
-// address for RoleClient and our listen address for RoleServer.
-//
+// Start launches Mimic for addrs and waits for it to attach. addrs holds every
+// address the peer resolved to for RoleClient, and our listen address for
+// RoleServer.
 // onExit is called if Mimic stops on its own, which is fatal: the peer expects
 // TCP-shaped packets, so the connection is already dead by then.
-func Start(cfg Config, role Role, addr *net.UDPAddr, logger *zap.Logger, onExit func(error)) (*Instance, error) {
+func Start(cfg Config, role Role, addrs []*net.UDPAddr, logger *zap.Logger, onExit func(error)) (*Instance, error) {
 	if !cfg.Enabled {
 		return nil, nil
+	}
+	if len(addrs) == 0 {
+		return nil, errors.New("mimic needs at least one address to filter")
 	}
 	bin, err := resolveBinary(cfg.Path)
 	if err != nil {
 		return nil, err
 	}
-	iface, err := resolveInterface(cfg.Interface, role, addr)
+	iface, err := resolveInterface(cfg.Interface, role, addrs[0])
 	if err != nil {
 		return nil, err
 	}
-	filter := filterFor(role, addr)
+	filters := filtersFor(role, addrs)
 	// Mimic attaches to the interface, so one instance serves every client on
 	// this machine reaching the same server.
 	// Reuse it only if its filters cover our address.
 	if pid, ok := runningOn(iface); ok {
-		covered, err := filtersCover(bin, iface, filter)
+		covered, err := filtersCover(bin, iface, filters)
 		if err != nil {
 			return nil, fmt.Errorf("mimic is already running on %s (pid %d) "+
 				"and its filters could not be read: %w", iface, pid, err)
 		}
 		if !covered {
 			return nil, fmt.Errorf("mimic is already running on %s (pid %d) but does "+
-				"not filter %s; stop it, or add that filter to it", iface, pid, filterAddr(filter))
+				"not cover the required filter set (%s); stop it, or update its filters",
+				iface, pid, strings.Join(filterAddrs(filters), ", "))
 		}
 		logger.Info("using the mimic already running on this interface",
 			zap.String("interface", iface), zap.Int("pid", pid))
 		return nil, nil
 	}
 
-	args := []string{"run", iface, "-f", filter}
-	if cfg.XDPMode != "" {
-		args = append(args, "--xdp-mode", cfg.XDPMode)
-	}
-	args = append(args, cfg.ExtraArgs...)
+	args := runArgs(iface, filters, cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, bin, args...)
@@ -109,8 +109,19 @@ func Start(cfg Config, role Role, addr *net.UDPAddr, logger *zap.Logger, onExit 
 	}
 	logger.Info("mimic started",
 		zap.String("interface", iface),
-		zap.String("filter", filter))
+		zap.Strings("filters", filters))
 	return i, nil
+}
+
+func runArgs(iface string, filters []string, cfg Config) []string {
+	args := []string{"run", iface}
+	for _, filter := range filters {
+		args = append(args, "-f", filter)
+	}
+	if cfg.XDPMode != "" {
+		args = append(args, "--xdp-mode", cfg.XDPMode)
+	}
+	return append(args, cfg.ExtraArgs...)
 }
 
 // Close stops Mimic and waits for it to detach.
@@ -191,25 +202,41 @@ func runningOn(iface string) (int, bool) {
 
 // filtersCover reports whether the running Mimic already matches our address.
 // "mimic show" prints one "Filter: origin=ip:port" line per whitelist entry.
-func filtersCover(bin, iface, filter string) (bool, error) {
+func filtersCover(bin, iface string, filters []string) (bool, error) {
 	out, err := exec.Command(bin, "show", iface).Output()
 	if err != nil {
 		return false, err
 	}
-	want := filterAddr(filter)
+	covered := make(map[string]bool)
 	for _, line := range strings.Split(stripANSI(string(out)), "\n") {
 		_, v, ok := strings.Cut(line, "Filter:")
-		if ok && filterAddr(strings.TrimSpace(v)) == want {
-			return true, nil
+		if ok {
+			covered[filterAddr(strings.TrimSpace(v))] = true
 		}
 	}
-	return false, nil
+	for _, want := range filterAddrs(filters) {
+		if !covered[want] {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
-// filterAddr strips the settings a filter may carry, leaving origin=ip:port.
+// filterAddr strips everything a filter line may carry beyond origin=ip:port:
+// the settings after a comma, and the "(resolved from <host>)" note that
+// "mimic show" appends when the filter came from a name rather than a literal.
 func filterAddr(filter string) string {
 	addr, _, _ := strings.Cut(filter, ",")
-	return strings.TrimSpace(addr)
+	addr, _, _ = strings.Cut(strings.TrimSpace(addr), " ")
+	return addr
+}
+
+func filterAddrs(filters []string) []string {
+	addrs := make([]string, len(filters))
+	for i, filter := range filters {
+		addrs[i] = filterAddr(filter)
+	}
+	return addrs
 }
 
 // lockPID reads the PID from a Mimic lock file, a flat key=value list.
@@ -267,22 +294,49 @@ func waitReady(iface string, ourPID int, exited <-chan struct{}) error {
 	return fmt.Errorf("mimic did not become ready within %s", readyTimeout)
 }
 
-// filterFor builds Mimic's whitelist entry: the client matches on the peer, the
-// server on itself.
-func filterFor(role Role, addr *net.UDPAddr) string {
-	host := addr.IP.String()
-	if addr.IP == nil || addr.IP.IsUnspecified() {
-		host = "0.0.0.0"
+// filtersFor builds Mimic's whitelist entries: the client matches on the peer,
+// the server on itself. A server listener with no IP or an IPv6 wildcard
+// accepts both address families, so Mimic needs one local filter for each. A
+// client gets one filter per address the peer resolved to.
+func filtersFor(role Role, addrs []*net.UDPAddr) []string {
+	if role == RoleClient {
+		filters := make([]string, 0, len(addrs))
+		seen := make(map[string]bool, len(addrs))
+		for _, addr := range addrs {
+			f := fmt.Sprintf("remote=%s:%d", filterHost(addr.IP), addr.Port)
+			if seen[f] {
+				continue
+			}
+			seen[f] = true
+			filters = append(filters, f)
+		}
+		return filters
 	}
-	if addr.IP != nil && addr.IP.To4() == nil {
-		host = "[" + host + "]"
+	addr := addrs[0]
+	if addr.IP == nil || (addr.IP.IsUnspecified() && addr.IP.To4() == nil) {
+		return []string{
+			fmt.Sprintf("local=0.0.0.0:%d,handshake=0:3", addr.Port),
+			fmt.Sprintf("local=[::]:%d,handshake=0:3", addr.Port),
+		}
 	}
-	if role == RoleServer {
-		// handshake is interval:retry; interval zero makes this side passive,
-		// so it answers connections but never opens one.
-		return fmt.Sprintf("local=%s:%d,handshake=0:3", host, addr.Port)
+	// handshake is interval:retry; interval zero makes this side passive,
+	// so it answers connections but never opens one.
+	return []string{fmt.Sprintf("local=%s:%d,handshake=0:3", filterHost(addr.IP), addr.Port)}
+}
+
+// filterHost renders an IP the way Mimic's filter syntax expects, bracketing
+// IPv6 so the port stays unambiguous.
+func filterHost(ip net.IP) string {
+	if ip == nil || ip.IsUnspecified() {
+		if ip != nil && ip.To4() == nil {
+			return "[::]"
+		}
+		return "0.0.0.0"
 	}
-	return fmt.Sprintf("remote=%s:%d", host, addr.Port)
+	if ip.To4() == nil {
+		return "[" + ip.String() + "]"
+	}
+	return ip.String()
 }
 
 // resolveInterface finds the interface carrying traffic for addr, falling back
