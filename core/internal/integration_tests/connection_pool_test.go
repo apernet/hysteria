@@ -16,16 +16,18 @@ import (
 )
 
 func TestConnectionPoolTCPUDP(t *testing.T) {
-	for _, size := range []int{1, 2, 3} {
+	for _, size := range []int{1, 2, 3, client.MaxConnectionPoolSize} {
 		for _, lazy := range []bool{false, true} {
-			t.Run(strconv.Itoa(size)+"/lazy="+strconv.FormatBool(lazy), func(t *testing.T) {
-				testConnectionPoolTCPUDP(t, size, lazy)
-			})
+			for _, disableParrot := range []bool{false, true} {
+				t.Run(strconv.Itoa(size)+"/lazy="+strconv.FormatBool(lazy)+"/disableParrot="+strconv.FormatBool(disableParrot), func(t *testing.T) {
+					testConnectionPoolTCPUDP(t, size, lazy, disableParrot)
+				})
+			}
 		}
 	}
 }
 
-func testConnectionPoolTCPUDP(t *testing.T, size int, lazy bool) {
+func testConnectionPoolTCPUDP(t *testing.T, size int, lazy, disableParrot bool) {
 	u, err := net.ListenPacket("udp", "127.0.0.1:0")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = u.Close() })
@@ -43,7 +45,7 @@ func testConnectionPoolTCPUDP(t *testing.T, size int, lazy bool) {
 			ServerAddr:      u.LocalAddr(),
 			Auth:            "pool-test",
 			TLSConfig:       client.TLSConfig{InsecureSkipVerify: true},
-			QUICConfig:      client.QUICConfig{DisableChromeParrot: true},
+			QUICConfig:      client.QUICConfig{DisableChromeParrot: disableParrot},
 			BandwidthConfig: client.BandwidthConfig{MaxRx: 450000000 / 8, MaxTx: 300000000 / 8},
 		}, nil
 	}, func(member client.Client, info *client.HandshakeInfo, count int) {
