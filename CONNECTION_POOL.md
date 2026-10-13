@@ -1,6 +1,13 @@
 # Experimental opt-in connection pool
 
-This proposal adds `client.NewReconnectableClientPool(configFunc, connectedFunc, lazy, size)` to the Go core API. Existing constructors and the standard CLI configuration are unchanged. The CLI configuration/API shape and the congestion-control policy still need maintainer agreement in [#1431](https://github.com/HyNetworks/hysteria/issues/1431).
+This proposal adds `client.NewReconnectableClientPool(configFunc, connectedFunc, lazy, size)` and an opt-in client-mode YAML setting. Existing constructors and defaults remain unchanged. API/configuration shape and congestion-control policy need maintainer agreement in [#1431](https://github.com/HyNetworks/hysteria/issues/1431).
+
+```yaml
+quic:
+  connectionPoolSize: 2
+```
+
+Supported values are 1..8; omitted or 0 means one connection. Use 2 or 3 to opt in. The setting applies to `hysteria client`, including its SOCKS5, HTTP, forwarding, TPROXY and TUN modes. Realm mode rejects sizes greater than 1. The built-in single-stream `speedtest` command is unchanged, and share URIs do not encode this local setting. More connections consume additional resources and do not bond an individual stream.
 
 - Size 1 delegates to the existing reconnectable client. Sizes 2 through 8 create independent reconnectable QUIC connections; the upper bound is a resource guard, not a recommendation.
 - New TCP streams and Hysteria UDP sessions are assigned round-robin. Existing streams/sessions remain on their selected connection. A failed open is returned to the caller; there is no transparent replay, migration, packet striping or single-stream speedup.
