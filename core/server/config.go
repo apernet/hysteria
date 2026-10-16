@@ -36,6 +36,7 @@ type Config struct {
 	BandwidthConfig       BandwidthConfig
 	IgnoreClientBandwidth bool
 	DisableUDP            bool
+	EnableL3              bool
 	UDPIdleTimeout        time.Duration
 	Authenticator         Authenticator
 	EventLogger           EventLogger

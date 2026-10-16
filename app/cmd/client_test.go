@@ -152,6 +152,12 @@ func TestClientConfig(t *testing.T) {
 				IPv6Exclude: []string{"2001:db8::1/128"},
 			},
 		},
+		L3TUN: &l3TunConfig{
+			Name:    "hytun0",
+			MTU:     1600,
+			Address: "10.200.0.2/30",
+			Peer:    "10.200.0.1",
+		},
 	})
 }
 

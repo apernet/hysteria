@@ -227,6 +227,12 @@ func TestServerConfig(t *testing.T) {
 			ListenHTTPS: ":443",
 			ForceHTTPS:  true,
 		},
+		L3TUN: &l3TunConfig{
+			Name:    "hytun0",
+			MTU:     1600,
+			Address: "10.200.0.1/30",
+			Peer:    "10.200.0.2",
+		},
 	})
 }
 

@@ -26,7 +26,14 @@ const (
 type Client interface {
 	TCP(addr string) (net.Conn, error)
 	UDP() (HyUDPConn, error)
+	L3() (HyL3Conn, error)
 	Close() error
+}
+
+// HyL3Conn carries whole IP packets across the QUIC connection.
+type HyL3Conn interface {
+	Send(ipPkt []byte) error
+	Receive() ([]byte, error)
 }
 
 type HyUDPConn interface {
@@ -37,6 +44,7 @@ type HyUDPConn interface {
 
 type HandshakeInfo struct {
 	UDPEnabled  bool
+	L3          bool
 	Tx          uint64 // 0 if using BBR
 	ServerAddr  net.Addr
 	ECHAccepted bool
@@ -64,6 +72,7 @@ type clientImpl struct {
 	conn    *quic.Conn
 
 	udpSM *udpSessionManager
+	l3    *l3Endpoint
 }
 
 func (c *clientImpl) connect() (*HandshakeInfo, error) {
@@ -128,6 +137,7 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 	protocol.AuthRequestToHeader(req.Header, protocol.AuthRequest{
 		Auth: c.config.Auth,
 		Rx:   c.config.BandwidthConfig.MaxRx,
+		L3:   c.config.RequestL3,
 	})
 	resp, err := rt.RoundTrip(req)
 	if err != nil {
@@ -170,15 +180,56 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 	c.pktConn = pktConn
 	c.tr = tr
 	c.conn = conn
-	if authResp.UDPEnabled {
-		c.udpSM = newUDPSessionManager(&udpIOImpl{Conn: conn})
+	if authResp.UDPEnabled || authResp.L3 {
+		// One ReceiveDatagram loop. UDP sessions are fed from it; L3 uses the same read.
+		if authResp.UDPEnabled {
+			c.udpSM = newFedUDPSessionManager(&udpIOImpl{Conn: conn})
+		}
+		if authResp.L3 {
+			c.l3 = newL3Endpoint(conn)
+		}
+		go c.datagramLoop()
 	}
 	return &HandshakeInfo{
 		UDPEnabled:  authResp.UDPEnabled,
+		L3:          authResp.L3,
 		Tx:          actualTx,
 		ServerAddr:  c.config.ServerAddr,
 		ECHAccepted: conn.ConnectionState().TLS.ECHAccepted,
 	}, nil
+}
+
+func (c *clientImpl) datagramLoop() {
+	defer func() {
+		if c.udpSM != nil {
+			c.udpSM.Stop()
+		}
+		if c.l3 != nil {
+			c.l3.close()
+		}
+	}()
+	for {
+		raw, err := c.conn.ReceiveDatagram(context.Background())
+		if err != nil {
+			return
+		}
+		if frag, ok := protocol.ParseL3Fragment(raw); ok {
+			if c.l3 != nil {
+				if pkt := c.l3.asm.Feed(frag.PacketID, frag.FragID, frag.FragCount, frag.Data); pkt != nil {
+					c.l3.push(pkt)
+				}
+			}
+			continue
+		}
+		if c.udpSM == nil {
+			continue
+		}
+		msg, err := protocol.ParseUDPMessage(raw)
+		if err != nil {
+			continue
+		}
+		c.udpSM.feed(msg)
+	}
 }
 
 // openStream wraps the stream with QStream, which handles Close() properly
@@ -235,6 +286,13 @@ func (c *clientImpl) UDP() (HyUDPConn, error) {
 		return nil, coreErrs.DialError{Message: "UDP not enabled"}
 	}
 	return c.udpSM.NewUDP()
+}
+
+func (c *clientImpl) L3() (HyL3Conn, error) {
+	if c.l3 == nil {
+		return nil, coreErrs.DialError{Message: "L3 not enabled"}
+	}
+	return c.l3, nil
 }
 
 func (c *clientImpl) Close() error {

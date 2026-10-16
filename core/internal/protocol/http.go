@@ -13,6 +13,7 @@ const (
 	ResponseHeaderUDPEnabled = "Hysteria-UDP"
 	CommonHeaderCCRX         = "Hysteria-CC-RX"
 	CommonHeaderPadding      = "Hysteria-Padding"
+	HeaderL3                 = "Hysteria-L3"
 
 	StatusAuthOK = 233
 )
@@ -21,6 +22,7 @@ const (
 type AuthRequest struct {
 	Auth string
 	Rx   uint64 // 0 = unknown, client asks server to use bandwidth detection
+	L3   bool   // client wants the L3 tunnel
 }
 
 // AuthResponse is what server sends to client when authentication is passed.
@@ -28,25 +30,30 @@ type AuthResponse struct {
 	UDPEnabled bool
 	Rx         uint64 // 0 = unlimited
 	RxAuto     bool   // true = server asks client to use bandwidth detection
+	L3         bool   // server granted the L3 tunnel
 }
 
 func AuthRequestFromHeader(h http.Header) AuthRequest {
 	rx, _ := strconv.ParseUint(h.Get(CommonHeaderCCRX), 10, 64)
+	l3, _ := strconv.ParseBool(h.Get(HeaderL3))
 	return AuthRequest{
 		Auth: h.Get(RequestHeaderAuth),
 		Rx:   rx,
+		L3:   l3,
 	}
 }
 
 func AuthRequestToHeader(h http.Header, req AuthRequest) {
 	h.Set(RequestHeaderAuth, req.Auth)
 	h.Set(CommonHeaderCCRX, strconv.FormatUint(req.Rx, 10))
+	h.Set(HeaderL3, strconv.FormatBool(req.L3))
 	h.Set(CommonHeaderPadding, authRequestPadding.String())
 }
 
 func AuthResponseFromHeader(h http.Header) AuthResponse {
 	resp := AuthResponse{}
 	resp.UDPEnabled, _ = strconv.ParseBool(h.Get(ResponseHeaderUDPEnabled))
+	resp.L3, _ = strconv.ParseBool(h.Get(HeaderL3))
 	rxStr := h.Get(CommonHeaderCCRX)
 	if rxStr == "auto" {
 		// Special case for server requesting client to use bandwidth detection
@@ -59,6 +66,7 @@ func AuthResponseFromHeader(h http.Header) AuthResponse {
 
 func AuthResponseToHeader(h http.Header, resp AuthResponse) {
 	h.Set(ResponseHeaderUDPEnabled, strconv.FormatBool(resp.UDPEnabled))
+	h.Set(HeaderL3, strconv.FormatBool(resp.L3))
 	if resp.RxAuto {
 		h.Set(CommonHeaderCCRX, "auto")
 	} else {

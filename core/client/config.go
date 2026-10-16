@@ -27,6 +27,7 @@ type Config struct {
 	CongestionConfig CongestionConfig
 	BandwidthConfig  BandwidthConfig
 	FastOpen         bool
+	RequestL3        bool
 
 	filled bool // whether the fields have been verified and filled
 }

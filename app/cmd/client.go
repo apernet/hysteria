@@ -92,6 +92,7 @@ type clientConfig struct {
 	UDPTProxy     *udpTProxyConfig       `mapstructure:"udpTProxy"`
 	TCPRedirect   *tcpRedirectConfig     `mapstructure:"tcpRedirect"`
 	TUN           *tunConfig             `mapstructure:"tun"`
+	L3TUN         *l3TunConfig           `mapstructure:"l3tun"`
 }
 
 type mimicConfig struct {
@@ -226,6 +227,13 @@ type udpTProxyConfig struct {
 
 type tcpRedirectConfig struct {
 	Listen string `mapstructure:"listen"`
+}
+
+type l3TunConfig struct {
+	Name    string `mapstructure:"name"`
+	MTU     uint32 `mapstructure:"mtu"`
+	Address string `mapstructure:"address"`
+	Peer    string `mapstructure:"peer"`
 }
 
 type tunConfig struct {
@@ -514,6 +522,11 @@ func (c *clientConfig) fillFastOpen(hyConfig *client.Config) error {
 	return nil
 }
 
+func (c *clientConfig) fillRequestL3(hyConfig *client.Config) error {
+	hyConfig.RequestL3 = c.L3TUN != nil
+	return nil
+}
+
 // URI generates a URI for sharing the config with others.
 // Note that only the bare minimum of information required to
 // connect to the server is included in the URI, specifically:
@@ -637,6 +650,7 @@ func (c *clientConfig) Config() (*client.Config, error) {
 		c.fillCongestionConfig,
 		c.fillBandwidthConfig,
 		c.fillFastOpen,
+		c.fillRequestL3,
 	}
 	for _, f := range fillers {
 		if err := f(hyConfig); err != nil {
@@ -670,6 +684,7 @@ func (c *clientConfig) realmConfig(addr *realm.Addr) (*client.Config, error) {
 		c.fillCongestionConfig,
 		c.fillBandwidthConfig,
 		c.fillFastOpen,
+		c.fillRequestL3,
 	}
 	for _, f := range fillers {
 		if err := f(hyConfig); err != nil {
@@ -927,6 +942,23 @@ func runClient(v *viper.Viper) {
 			return tunServer.Serve()
 		})
 	}
+	var l3Dev *tun.Raw
+	if config.L3TUN != nil {
+		l3Dev, err = newL3Device(*config.L3TUN)
+		if err != nil {
+			_ = c.Close()
+			logger.Fatal("failed to load client config", zap.Error(err))
+		}
+		defer l3Dev.Close()
+		runner.Add("L3 TUN", func() error {
+			logger.Info("L3 TUN listening", zap.String("interface", config.L3TUN.Name))
+			l3, err := c.L3()
+			if err != nil {
+				return err
+			}
+			return l3Dev.Serve(l3)
+		})
+	}
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
@@ -947,6 +979,9 @@ func runClient(v *viper.Viper) {
 			// Close these here as Fatal will exit the program without running defer
 			if tunServer != nil {
 				_ = tunServer.Close()
+			}
+			if l3Dev != nil {
+				_ = l3Dev.Close()
 			}
 			_ = c.Close()
 			if r.Err != nil {
@@ -1159,6 +1194,32 @@ func clientTCPRedirect(config tcpRedirectConfig, c client.Client) error {
 	}
 	logger.Info("TCP redirect listening", zap.String("addr", config.Listen))
 	return p.ListenAndServe(laddr)
+}
+
+func newL3Device(config l3TunConfig) (*tun.Raw, error) {
+	if config.Name == "" {
+		return nil, configError{Field: "l3tun.name", Err: errors.New("name is empty")}
+	}
+	if config.Address == "" {
+		return nil, configError{Field: "l3tun.address", Err: errors.New("address is empty")}
+	}
+	prefix, err := netip.ParsePrefix(config.Address)
+	if err != nil {
+		return nil, configError{Field: "l3tun.address", Err: err}
+	}
+	if config.Peer == "" {
+		return nil, configError{Field: "l3tun.peer", Err: errors.New("peer is empty")}
+	}
+	peer, err := netip.ParseAddr(config.Peer)
+	if err != nil {
+		return nil, configError{Field: "l3tun.peer", Err: err}
+	}
+	dev, err := tun.NewRaw(config.Name, config.MTU, prefix, peer)
+	if err != nil {
+		return nil, configError{Field: "l3tun", Err: err}
+	}
+	dev.Logger = logger
+	return dev, nil
 }
 
 func newTUNServer(config tunConfig, c client.Client) (*tun.Server, error) {

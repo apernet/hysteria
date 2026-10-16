@@ -41,6 +41,7 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"github.com/apernet/hysteria/app/v2/internal/firewall"
+	"github.com/apernet/hysteria/app/v2/internal/tun"
 	"github.com/apernet/hysteria/app/v2/internal/utils"
 	"github.com/apernet/hysteria/core/v2/server"
 	"github.com/apernet/hysteria/extras/v2/auth"
@@ -93,6 +94,7 @@ type serverConfig struct {
 	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
 	TrafficStats          serverConfigTrafficStats    `mapstructure:"trafficStats"`
 	Masquerade            serverConfigMasquerade      `mapstructure:"masquerade"`
+	L3TUN                 *l3TunConfig                `mapstructure:"l3tun"`
 }
 
 type serverConfigRealm struct {
@@ -1450,6 +1452,11 @@ func (c *serverConfig) fillDisableUDP(hyConfig *server.Config) error {
 	return nil
 }
 
+func (c *serverConfig) fillL3(hyConfig *server.Config) error {
+	hyConfig.EnableL3 = c.L3TUN != nil
+	return nil
+}
+
 func (c *serverConfig) fillUDPIdleTimeout(hyConfig *server.Config) error {
 	hyConfig.UDPIdleTimeout = c.UDPIdleTimeout
 	return nil
@@ -1679,6 +1686,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 		c.fillEventLogger,
 		c.fillTrafficLogger,
 		c.fillMasqHandler,
+		c.fillL3,
 	}
 	for _, f := range fillers {
 		if err := f(hyConfig); err != nil {
@@ -1727,6 +1735,24 @@ func runServer(v *viper.Viper) {
 	if err != nil {
 		logger.Fatal("failed to initialize server", zap.Error(err))
 	}
+	var l3Dev *tun.Raw
+	if config.L3TUN != nil {
+		l3Dev, err = newL3Device(*config.L3TUN)
+		if err != nil {
+			logger.Fatal("failed to load server config", zap.Error(err))
+		}
+		l3Conn, err := s.L3()
+		if err != nil {
+			logger.Fatal("failed to enable L3 tunnel", zap.Error(err))
+		}
+		defer l3Dev.Close()
+		go func() {
+			logger.Info("L3 TUN listening", zap.String("interface", config.L3TUN.Name))
+			if err := l3Dev.Serve(l3Conn); err != nil {
+				logger.Error("L3 TUN stopped", zap.Error(err))
+			}
+		}()
+	}
 	if config.Listen != "" {
 		logger.Info("server up and running", zap.String("listen", config.Listen))
 	} else {
@@ -1757,6 +1783,9 @@ func runServer(v *viper.Viper) {
 		}
 	case err := <-serveErrChan:
 		if err != nil {
+			if l3Dev != nil {
+				_ = l3Dev.Close()
+			}
 			logger.Fatal("failed to serve", zap.Error(err))
 		}
 	}
