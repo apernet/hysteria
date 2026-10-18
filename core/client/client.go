@@ -45,6 +45,7 @@ type HyUDPConn interface {
 type HandshakeInfo struct {
 	UDPEnabled  bool
 	L3          bool
+	L3Mode      string
 	Tx          uint64 // 0 if using BBR
 	ServerAddr  net.Addr
 	ECHAccepted bool
@@ -72,7 +73,13 @@ type clientImpl struct {
 	conn    *quic.Conn
 
 	udpSM *udpSessionManager
-	l3    *l3Endpoint
+	l3    l3Session
+}
+
+// l3Session is the datagram or stream endpoint behind L3().
+type l3Session interface {
+	HyL3Conn
+	close()
 }
 
 func (c *clientImpl) connect() (*HandshakeInfo, error) {
@@ -134,11 +141,16 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 		},
 		Header: make(http.Header),
 	}
-	protocol.AuthRequestToHeader(req.Header, protocol.AuthRequest{
+	authReq := protocol.AuthRequest{
 		Auth: c.config.Auth,
 		Rx:   c.config.BandwidthConfig.MaxRx,
 		L3:   c.config.RequestL3,
-	})
+	}
+	if c.config.RequestL3 && c.config.L3Mode == protocol.L3ModeStream {
+		authReq.L3Mode = protocol.L3ModeStream
+		authReq.L3Lanes = protocol.NormalizeL3Lanes(c.config.L3Lanes)
+	}
+	protocol.AuthRequestToHeader(req.Header, authReq)
 	resp, err := rt.RoundTrip(req)
 	if err != nil {
 		if conn != nil {
@@ -186,13 +198,37 @@ func (c *clientImpl) connect() (*HandshakeInfo, error) {
 			c.udpSM = newFedUDPSessionManager(&udpIOImpl{Conn: conn})
 		}
 		if authResp.L3 {
-			c.l3 = newL3Endpoint(conn)
+			if c.config.L3Mode == protocol.L3ModeStream && authResp.L3Mode == protocol.L3ModeStream {
+				lanes := authResp.L3Lanes
+				if lanes <= 0 {
+					lanes = c.config.L3Lanes
+				}
+				ep, err := openL3Streams(conn, lanes)
+				if err != nil {
+					_ = conn.CloseWithError(closeErrCodeProtocolError, "")
+					_ = tr.Close()
+					_ = pktConn.Close()
+					return nil, err
+				}
+				c.l3 = ep
+			} else {
+				c.l3 = newL3Endpoint(conn)
+			}
 		}
 		go c.datagramLoop()
+	}
+	mode := ""
+	if c.l3 != nil {
+		if _, stream := c.l3.(*l3StreamEndpoint); stream {
+			mode = protocol.L3ModeStream
+		} else {
+			mode = protocol.L3ModeDatagram
+		}
 	}
 	return &HandshakeInfo{
 		UDPEnabled:  authResp.UDPEnabled,
 		L3:          authResp.L3,
+		L3Mode:      mode,
 		Tx:          actualTx,
 		ServerAddr:  c.config.ServerAddr,
 		ECHAccepted: conn.ConnectionState().TLS.ECHAccepted,
@@ -214,9 +250,9 @@ func (c *clientImpl) datagramLoop() {
 			return
 		}
 		if frag, ok := protocol.ParseL3Fragment(raw); ok {
-			if c.l3 != nil {
-				if pkt := c.l3.asm.Feed(frag.PacketID, frag.FragID, frag.FragCount, frag.Data); pkt != nil {
-					c.l3.push(pkt)
+			if ep, ok := c.l3.(*l3Endpoint); ok {
+				if pkt := ep.asm.Feed(frag.PacketID, frag.FragID, frag.FragCount, frag.Data); pkt != nil {
+					ep.push(pkt)
 				}
 			}
 			continue

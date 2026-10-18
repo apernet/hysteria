@@ -234,6 +234,8 @@ type l3TunConfig struct {
 	MTU     uint32 `mapstructure:"mtu"`
 	Address string `mapstructure:"address"`
 	Peer    string `mapstructure:"peer"`
+	Mode    string `mapstructure:"mode"`
+	Lanes   int    `mapstructure:"lanes"`
 }
 
 type tunConfig struct {
@@ -524,6 +526,10 @@ func (c *clientConfig) fillFastOpen(hyConfig *client.Config) error {
 
 func (c *clientConfig) fillRequestL3(hyConfig *client.Config) error {
 	hyConfig.RequestL3 = c.L3TUN != nil
+	if c.L3TUN != nil {
+		hyConfig.L3Mode = c.L3TUN.Mode
+		hyConfig.L3Lanes = c.L3TUN.Lanes
+	}
 	return nil
 }
 
@@ -1406,6 +1412,8 @@ func connectLog(info *client.HandshakeInfo, count int) {
 	logger.Info("connected to server",
 		zap.String("addr", info.ServerAddr.String()),
 		zap.Bool("udpEnabled", info.UDPEnabled),
+		zap.Bool("l3", info.L3),
+		zap.String("l3Mode", info.L3Mode),
 		zap.Uint64("tx", info.Tx),
 		zap.Bool("ech", info.ECHAccepted),
 		zap.Int("count", count))

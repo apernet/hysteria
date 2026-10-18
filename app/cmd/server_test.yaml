@@ -186,3 +186,5 @@ l3tun:
   mtu: 1600
   address: 10.200.0.1/30
   peer: 10.200.0.2
+  mode: stream
+  lanes: 8

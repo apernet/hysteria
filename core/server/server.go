@@ -5,6 +5,7 @@ import (
 	crand "crypto/rand"
 	"crypto/tls"
 	"errors"
+	"io"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -223,10 +224,26 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			// Auth OK, send response
 			grantL3 := authReq.L3 && h.l3 != nil
+			l3Mode := ""
+			l3Lanes := 0
+			if grantL3 {
+				l3Mode = protocol.L3ModeDatagram
+				if h.config.L3Mode == protocol.L3ModeStream && authReq.L3Mode == protocol.L3ModeStream {
+					l3Mode = protocol.L3ModeStream
+					l3Lanes = protocol.NormalizeL3Lanes(authReq.L3Lanes)
+				}
+			}
 			var peer *l3Peer
 			if grantL3 {
 				peer = h.l3.adopt(h.conn, id, h.config.TrafficLogger)
 				grantL3 = peer != nil
+			}
+			if grantL3 && l3Mode == protocol.L3ModeStream {
+				peer.down = newDownLink()
+			}
+			if !grantL3 {
+				l3Mode = ""
+				l3Lanes = 0
 			}
 			h.l3Peer = peer
 			h.l3Active = grantL3
@@ -235,6 +252,8 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Rx:         h.config.BandwidthConfig.MaxRx,
 				RxAuto:     h.config.IgnoreClientBandwidth,
 				L3:         grantL3,
+				L3Mode:     l3Mode,
+				L3Lanes:    l3Lanes,
 			})
 			w.WriteHeader(protocol.StatusAuthOK)
 			// Call event logger
@@ -315,6 +334,30 @@ func (h *h3sHandler) ProxyStreamHijacker(ft http3.FrameType, stream *quic.Stream
 	}
 
 	switch ft {
+	case protocol.FrameTypeL3Stream:
+		if _, err := quicvarint.Read(quicvarint.NewReader(stream)); err != nil {
+			return false, err
+		}
+		var hdr [2]byte
+		if _, err := io.ReadFull(stream, hdr[:]); err != nil {
+			return false, err
+		}
+		if h.l3Peer == nil {
+			stream.CancelRead(0)
+			stream.CancelWrite(0)
+			return true, nil
+		}
+		if hdr[0] == protocol.L3StreamDownlink {
+			if h.l3Peer.down == nil {
+				stream.CancelRead(0)
+				stream.CancelWrite(0)
+				return true, nil
+			}
+			h.l3Peer.down.add(int(hdr[1]), stream)
+			return true, nil
+		}
+		go h.readL3Uplink(stream)
+		return true, nil
 	case protocol.FrameTypeTCPRequest:
 		// StreamDispatcher only peeks the frame type. Consume it so ReadTCPRequest
 		// starts at address length, matching pre-upgrade StreamHijacker behavior.
@@ -327,6 +370,19 @@ func (h *h3sHandler) ProxyStreamHijacker(ft http3.FrameType, stream *quic.Stream
 		return true, nil
 	default:
 		return false, nil
+	}
+}
+
+func (h *h3sHandler) readL3Uplink(stream *quic.Stream) {
+	for {
+		pkt, err := protocol.ReadL3Frame(stream)
+		if err != nil {
+			stream.CancelRead(0)
+			return
+		}
+		if h.l3Peer != nil {
+			h.l3Peer.deliverUplink(pkt)
+		}
 	}
 }
 

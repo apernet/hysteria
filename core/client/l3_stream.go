@@ -1,0 +1,207 @@
+package client
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/apernet/quic-go"
+
+	coreErrs "github.com/apernet/hysteria/core/v2/errors"
+	"github.com/apernet/hysteria/core/v2/internal/l3stream"
+	"github.com/apernet/hysteria/core/v2/internal/protocol"
+)
+
+const pipeQueue = 1024
+
+// l3StreamEndpoint carries each inner flow on its own reliable QUIC stream.
+// The lane is the VXLAN source port, which Linux derives from the inner flow.
+// A lost packet is retransmitted by QUIC before the next packet of that flow
+// is delivered. Other flows keep moving.
+type l3StreamEndpoint struct {
+	conn *quic.Conn
+	recv chan []byte
+	up   []chan []byte
+	done chan struct{}
+	once sync.Once
+
+	debug    bool
+	upSent   atomic.Uint64
+	downSent atomic.Uint64
+	upErr    atomic.Uint64
+	downErr  atomic.Uint64
+}
+
+func openL3Streams(conn *quic.Conn, _ int) (*l3StreamEndpoint, error) {
+	ep := &l3StreamEndpoint{
+		conn:  conn,
+		recv:  make(chan []byte, pipeQueue),
+		up:    make([]chan []byte, protocol.L3PipeLanes),
+		done:  make(chan struct{}),
+		debug: os.Getenv("HYSTERIA_L3_DEBUG") == "1",
+	}
+	for i := range ep.up {
+		ep.up[i] = make(chan []byte, pipeQueue)
+		go ep.uplinkLane(i)
+		go ep.downlinkLane(i)
+	}
+	if ep.debug {
+		go ep.debugLoop()
+	}
+	return ep, nil
+}
+
+func (e *l3StreamEndpoint) Send(ipPkt []byte) error {
+	select {
+	case <-e.done:
+		return coreErrs.ClosedError{}
+	default:
+	}
+	if len(ipPkt) == 0 || len(ipPkt) > protocol.L3MaxPacketSize {
+		return nil
+	}
+	pkt := append([]byte(nil), ipPkt...)
+	lane := l3stream.Lane(pkt, protocol.L3PipeLanes)
+	select {
+	case <-e.done:
+		return coreErrs.ClosedError{}
+	case e.up[lane] <- pkt:
+		return nil
+	}
+}
+
+func (e *l3StreamEndpoint) Receive() ([]byte, error) {
+	select {
+	case <-e.done:
+		return nil, coreErrs.ClosedError{}
+	case pkt := <-e.recv:
+		return pkt, nil
+	}
+}
+
+func (e *l3StreamEndpoint) debugLoop() {
+	tick := time.NewTicker(2 * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-e.done:
+			return
+		case <-tick.C:
+			fmt.Fprintf(os.Stderr, "l3dbg client up=%d down=%d upErr=%d downErr=%d\n",
+				e.upSent.Load(), e.downSent.Load(), e.upErr.Load(), e.downErr.Load())
+		}
+	}
+}
+
+func (e *l3StreamEndpoint) close() {
+	e.once.Do(func() { close(e.done) })
+}
+
+func (e *l3StreamEndpoint) uplinkLane(i int) {
+	var pending []byte
+	for {
+		stream, stop := e.openLane(protocol.L3StreamUplink, uint8(i))
+		if stop {
+			return
+		}
+		if stream == nil {
+			continue
+		}
+		var closed bool
+		pending, closed = e.writeLane(stream, e.up[i], pending)
+		stream.CancelWrite(0)
+		stream.CancelRead(0)
+		if closed {
+			return
+		}
+		e.upErr.Add(1)
+	}
+}
+
+func (e *l3StreamEndpoint) writeLane(stream *quic.Stream, q chan []byte, pending []byte) ([]byte, bool) {
+	for {
+		if pending == nil {
+			select {
+			case <-e.done:
+				return nil, true
+			case pending = <-q:
+			}
+		}
+		if err := protocol.WriteL3Frame(stream, pending); err != nil {
+			return pending, false
+		}
+		e.upSent.Add(1)
+		pending = nil
+	}
+}
+
+func (e *l3StreamEndpoint) downlinkLane(i int) {
+	for {
+		select {
+		case <-e.done:
+			return
+		default:
+		}
+		if !e.readLane(uint8(i)) {
+			return
+		}
+		e.downErr.Add(1)
+	}
+}
+
+func (e *l3StreamEndpoint) readLane(lane uint8) bool {
+	stream, stop := e.openLane(protocol.L3StreamDownlink, lane)
+	if stop {
+		return false
+	}
+	if stream == nil {
+		return true
+	}
+	defer func() {
+		stream.CancelRead(0)
+		stream.CancelWrite(0)
+	}()
+	for {
+		pkt, err := protocol.ReadL3Frame(stream)
+		if err != nil {
+			return true
+		}
+		select {
+		case <-e.done:
+			return false
+		case e.recv <- pkt:
+			e.downSent.Add(1)
+		}
+	}
+}
+
+func (e *l3StreamEndpoint) openLane(dir, lane uint8) (*quic.Stream, bool) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		select {
+		case <-e.done:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	stream, err := e.conn.OpenStreamSync(ctx)
+	if err != nil {
+		e.close()
+		return nil, true
+	}
+	if err := protocol.WriteL3StreamHello(stream, dir, lane); err != nil {
+		stream.CancelWrite(0)
+		stream.CancelRead(0)
+		select {
+		case <-e.done:
+			return nil, true
+		case <-time.After(20 * time.Millisecond):
+			return nil, false
+		}
+	}
+	return stream, false
+}

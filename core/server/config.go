@@ -12,6 +12,7 @@ import (
 	"github.com/apernet/hysteria/core/v2/errors"
 	"github.com/apernet/hysteria/core/v2/internal/congestion"
 	"github.com/apernet/hysteria/core/v2/internal/pmtud"
+	"github.com/apernet/hysteria/core/v2/internal/protocol"
 	"github.com/apernet/hysteria/core/v2/internal/utils"
 	"github.com/apernet/quic-go"
 )
@@ -37,6 +38,8 @@ type Config struct {
 	IgnoreClientBandwidth bool
 	DisableUDP            bool
 	EnableL3              bool
+	L3Mode                string
+	L3Lanes               int
 	UDPIdleTimeout        time.Duration
 	Authenticator         Authenticator
 	EventLogger           EventLogger
@@ -111,6 +114,15 @@ func (c *Config) fill() error {
 	}
 	if c.Authenticator == nil {
 		return errors.ConfigError{Field: "Authenticator", Reason: "must be set"}
+	}
+	if c.EnableL3 {
+		c.L3Mode, err = protocol.NormalizeL3Mode(c.L3Mode)
+		if err != nil {
+			return errors.ConfigError{Field: "L3Mode", Reason: "must be datagram or stream"}
+		}
+		if c.L3Mode == protocol.L3ModeStream {
+			c.L3Lanes = protocol.NormalizeL3Lanes(c.L3Lanes)
+		}
 	}
 	return nil
 }

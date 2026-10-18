@@ -232,6 +232,8 @@ func TestServerConfig(t *testing.T) {
 			MTU:     1600,
 			Address: "10.200.0.1/30",
 			Peer:    "10.200.0.2",
+			Mode:    "stream",
+			Lanes:   8,
 		},
 	})
 }
