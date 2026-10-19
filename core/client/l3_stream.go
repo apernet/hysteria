@@ -11,6 +11,7 @@ import (
 	"github.com/apernet/quic-go"
 
 	coreErrs "github.com/apernet/hysteria/core/v2/errors"
+	"github.com/apernet/hysteria/core/v2/internal/l3frag"
 	"github.com/apernet/hysteria/core/v2/internal/l3stream"
 	"github.com/apernet/hysteria/core/v2/internal/protocol"
 )
@@ -23,6 +24,7 @@ const pipeQueue = 1024
 // is delivered. Other flows keep moving.
 type l3StreamEndpoint struct {
 	conn *quic.Conn
+	asm  l3frag.Assembler
 	recv chan []byte
 	up   []chan []byte
 	done chan struct{}
@@ -31,6 +33,7 @@ type l3StreamEndpoint struct {
 	debug    bool
 	upSent   atomic.Uint64
 	downSent atomic.Uint64
+	ackIn    atomic.Uint64
 	upErr    atomic.Uint64
 	downErr  atomic.Uint64
 }
@@ -90,9 +93,23 @@ func (e *l3StreamEndpoint) debugLoop() {
 		case <-e.done:
 			return
 		case <-tick.C:
-			fmt.Fprintf(os.Stderr, "l3dbg client up=%d down=%d upErr=%d downErr=%d\n",
-				e.upSent.Load(), e.downSent.Load(), e.upErr.Load(), e.downErr.Load())
+			fmt.Fprintf(os.Stderr, "l3dbg client up=%d down=%d ack=%d upErr=%d downErr=%d\n",
+				e.upSent.Load(), e.downSent.Load(), e.ackIn.Load(), e.upErr.Load(), e.downErr.Load())
 		}
+	}
+}
+
+// feedDatagram reassembles an unreliable pure ACK and delivers it on the
+// same path as stream packets. A duplicate or older ACK is left for TCP.
+func (e *l3StreamEndpoint) feedDatagram(frag protocol.L3Fragment) {
+	pkt := e.asm.Feed(frag.PacketID, frag.FragID, frag.FragCount, frag.Data)
+	if pkt == nil {
+		return
+	}
+	select {
+	case <-e.done:
+	case e.recv <- pkt:
+		e.ackIn.Add(1)
 	}
 }
 

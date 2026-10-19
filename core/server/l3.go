@@ -158,10 +158,27 @@ type l3Peer struct {
 
 func (p *l3Peer) send(ip []byte) error {
 	if p.down != nil {
+		// Upload ACKs travel the lossy downlink. A reliable stream would hold
+		// every later ACK behind one retransmission. A pure ACK is cumulative,
+		// so losing it is harmless and it goes out as a datagram instead.
+		if l3stream.PureACK(ip) {
+			if err := l3.Send(p.conn.SendDatagram, &p.next, ip); err != nil {
+				return nil
+			}
+			if ackDup() {
+				_ = l3.Send(p.conn.SendDatagram, &p.next, ip)
+			}
+			p.down.acks.Add(1)
+			return nil
+		}
 		p.down.send(ip)
 		return nil
 	}
 	return l3.Send(p.conn.SendDatagram, &p.next, ip)
+}
+
+func ackDup() bool {
+	return os.Getenv("HYSTERIA_L3_ACK_DUP") == "1"
 }
 
 func (p *l3Peer) deliverUplink(pkt []byte) {
@@ -186,6 +203,7 @@ type downLink struct {
 	once  sync.Once
 	debug bool
 	sent  atomic.Uint64
+	acks  atomic.Uint64
 	errs  atomic.Uint64
 }
 
@@ -213,7 +231,7 @@ func (d *downLink) debugLoop() {
 		case <-d.done:
 			return
 		case <-tick.C:
-			fmt.Fprintf(os.Stderr, "l3dbg server sent=%d errs=%d\n", d.sent.Load(), d.errs.Load())
+			fmt.Fprintf(os.Stderr, "l3dbg server sent=%d acks=%d errs=%d\n", d.sent.Load(), d.acks.Load(), d.errs.Load())
 		}
 	}
 }

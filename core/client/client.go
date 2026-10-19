@@ -250,10 +250,13 @@ func (c *clientImpl) datagramLoop() {
 			return
 		}
 		if frag, ok := protocol.ParseL3Fragment(raw); ok {
-			if ep, ok := c.l3.(*l3Endpoint); ok {
+			switch ep := c.l3.(type) {
+			case *l3Endpoint:
 				if pkt := ep.asm.Feed(frag.PacketID, frag.FragID, frag.FragCount, frag.Data); pkt != nil {
 					ep.push(pkt)
 				}
+			case *l3StreamEndpoint:
+				ep.feedDatagram(frag)
 			}
 			continue
 		}
