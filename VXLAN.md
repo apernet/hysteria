@@ -1,120 +1,43 @@
 # 用 Hysteria 承载 VXLAN
 
-两端各开一张 MTU 1600 的原始 TUN，VXLAN 跑在这两张网卡之间。QUIC 仍走原来的物理网络，物理网卡保持 1500。代理用的 `tun` 不参与这条链路。
+VXLAN 网卡有两种放法，配置里用 `l3tun.type` 切换。省略 `type` 时是本机网卡。
 
-这条链路一次只服务一个客户端。IP 包最大 1600 字节。内层 MTU 1500 时，外层大约 1550 字节，落在 1600 以内，内核不会再分片。
+| 模式 | `type` | VXLAN 网卡在哪 | Hysteria 本机 |
+| --- | --- | --- | --- |
+| 本机网卡 | `tun` | 和 Hysteria 同一台，建在 `hytun0` 上 | 创建 MTU 1600 的 TUN，需要 root |
+| 远程网卡 | `relay` | 另一台机器。中继只在局域网上收发 UDP | 不建 TUN，不需要 root |
 
-## 拓扑
+两种模式走同一条 L3 通道，`address` / `peer` / `mode` 的含义相同。一条链路一次只服务一个请求了 L3 的客户端。IP 包最大 1600 字节。代理用的 `tun` 不参与这条链路。
 
-```
-客户端 vx0 10.201.0.2/24
-        |
-客户端 hytun0 10.200.0.2/30  MTU 1600
-        |
-        QUIC datagram
-        |
-服务端 hytun0 10.200.0.1/30  MTU 1600
-        |
-服务端 vx0 10.201.0.1/24
-```
+两端都要写 `l3tun`。客户端写了，认证请求里才带 `Hysteria-L3`。服务端写了，才会同意。缺任意一侧，这条通道不会通。旧版 Hysteria 不认识这种包，会直接丢掉。
 
-VXLAN 的 `local` / `remote` 使用两端 `hytun0` 的地址。`/30` 自带直连路由，不需要打开 IP 转发，也不需要把默认路由指进隧道。服务器的公网地址在 `/30` 之外，QUIC 不会绕回隧道。
-
-## 两端都要启用
-
-`l3tun` 写在客户端，客户端才会在认证请求里带上 `Hysteria-L3`。服务端同样写了 `l3tun`，才会在认证响应里同意。缺任意一侧，这张网卡不会通。
-
-旧版 Hysteria 不认识这种 datagram，会直接丢掉。两端都要跑带这个功能的程序。
-
-创建 TUN 和 VXLAN 需要 root，或者 `CAP_NET_ADMIN`。
-
-## 配置
-
-其余监听、认证、TLS、带宽配置保持原样。下面只列出隧道段。
-
-客户端：
+`mode` 省略是 `datagram`：一颗 IP 包放进一条 QUIC datagram，路径装不下就切成均匀的几片，缺一片整包作废。`mode: stream` 把每个内层流放进自己的可靠 QUIC stream。外层 UDP 源端口决定落在 32 条里的哪一条，同一条流不拆开，其它流不被它挡住。丢了的包由 QUIC 重传。配置里的 `lanes` 会放进认证头，流池大小固定是 32，不跟着这个数字变。
 
 ```yaml
 l3tun:
-  name: hytun0
-  mtu: 1600
-  address: 10.200.0.2/30
-  peer: 10.200.0.1
+  mode: stream
+  lanes: 8
 ```
 
-服务端：
+## 本机网卡
 
-```yaml
-l3tun:
-  name: hytun0
-  mtu: 1600
-  address: 10.200.0.1/30
-  peer: 10.200.0.2
+两端各开一张 `hytun0`。VXLAN 的 `local` / `remote` 用这两张网卡的地址。`/30` 自带直连路由。服务器的公网地址在这个网段之外，QUIC 不会绕回隧道。4789 留在隧道里面，公网防火墙不用放行。
+
+```text
+客户端 vx0
+    |
+客户端 hytun0  10.200.0.2/30  MTU 1600
+    |
+    QUIC
+    |
+服务端 hytun0  10.200.0.1/30  MTU 1600
+    |
+服务端 vx0
 ```
 
-| 字段 | 含义 |
-| --- | --- |
-| `name` | 本机 TUN 名称，不能和已有网卡重名 |
-| `mtu` | 省略时为 1600，不能大于 1600 |
-| `address` | 本端地址，写成前缀 |
-| `peer` | 对端地址，必须和 `address` 同一 IP 版本 |
+内层 MTU 1500 时，外层大约 1550 字节（IP 20 + UDP 8 + VXLAN 8 + 以太网 14），落在 1600 以内，内核不会再为这颗包分片。
 
-程序会创建网卡并配置 `address`。不要再手动给 `hytun0` 加同一个地址。
-
-## 建立 VXLAN
-
-Hysteria 起来、`hytun0` 出现之后再加 VXLAN。`4789` 是 VXLAN 自己的 UDP 端口，包在隧道里面，公网防火墙不用放行它。
-
-客户端：
-
-```bash
-ip link add vx0 type vxlan id 100 local 10.200.0.2 remote 10.200.0.1 dstport 4789
-ip link set vx0 mtu 1500
-ip addr add 10.201.0.2/24 dev vx0
-ip link set vx0 up
-```
-
-服务端：
-
-```bash
-ip link add vx0 type vxlan id 100 local 10.200.0.1 remote 10.200.0.2 dstport 4789
-ip link set vx0 mtu 1500
-ip addr add 10.201.0.1/24 dev vx0
-ip link set vx0 up
-```
-
-`10.201.0.0/24` 是 VXLAN 内层网络，按实际网段替换。内层 MTU 保持 1500。
-
-## 验证
-
-在客户端确认一颗不允许分片的大包能通过内层：
-
-```bash
-ping -M do -s 1472 -c 3 10.201.0.1
-```
-
-1472 字节的 ICMP 载荷加上内层 IP 和以太网头，外层大约 1550 字节。通了，说明 1600 的隧道装得下。
-
-并发吞吐：
-
-```bash
-# 服务端
-iperf3 -s -B 10.201.0.1
-
-# 客户端
-iperf3 -c 10.201.0.1 -P 4
-iperf3 -c 10.201.0.1 -u -b 0 -P 4
-```
-
-重启服务端后，客户端的 L3 连接会自己重连，`hytun0` 保持不动。VXLAN 会随着内层流量恢复。
-
-## 传送方式
-
-`l3tun.mode` 缺省是 `datagram`。一颗 IP 包先整包放进一条 QUIC datagram。路径装不下时，按当时的载荷上限切成均匀的几片。1600 字节在常见的 1200 上限下是两片，每片约 800 字节。
-
-多颗包的分片可以交错到达，按 32 位包序号重组。任一碎片丢失，整颗包作废，不重传。内层 TCP 自己重传。重组等待超过 200 毫秒也会丢弃。
-
-`mode: stream` 把每个内层流放在自己的可靠 QUIC stream 上。Linux 用内层流的哈希填 VXLAN 的 UDP 源端口，两端按这个端口选 32 条里的同一条。丢了的包由 QUIC 重传，同一条流上下一颗包要等它，其它流照常走。不再附加纠删包，也不把洞交给内层 TCP。旧对端不认识这个模式时，退回 `datagram`。`lanes` 仍可写在配置里，当前实现不使用它。
+### 客户端
 
 ```yaml
 l3tun:
@@ -123,9 +46,330 @@ l3tun:
   address: 10.200.0.2/30
   peer: 10.200.0.1
   mode: stream
-  lanes: 8
 ```
 
-服务端只保留最近一次认证、并且请求了 L3 的连接。没有对端时，从本机 TUN 读到的包直接丢弃。写入本机 TUN 之前，会核对 IP 源地址等于配置的 `peer`。
+`hytun0` 出现之后再加 VXLAN。`nolearning` 配上单个 `remote`，内层流量都发给这一台对端。
 
-流量计入现有的 `TrafficLogger`，方向和 UDP 代理一致。
+```bash
+ip link add vx0 type vxlan id 500 dev hytun0 local 10.200.0.2 remote 10.200.0.1 dstport 4789 nolearning df unset
+ip link set vx0 mtu 1500
+ip addr replace 10.201.0.2/24 dev vx0
+ip link set vx0 up
+```
+
+### 服务端
+
+```yaml
+l3tun:
+  name: hytun0
+  mtu: 1600
+  address: 10.200.0.1/30
+  peer: 10.200.0.2
+  mode: stream
+```
+
+```bash
+ip link add vx0 type vxlan id 500 dev hytun0 local 10.200.0.1 remote 10.200.0.2 dstport 4789 nolearning df unset
+ip link set vx0 up
+ip link set vx0 mtu 1500
+ip addr replace 10.201.0.1/24 dev vx0
+```
+
+程序自己创建 `hytun0` 并配置 `address`。不要再手动加同一个地址。`name` 不能和已有网卡重名。`mtu` 省略时是 1600，不能大于 1600。`peer` 必须和 `address` 同一 IP 版本。
+
+同一对 `hytun0` 上可以再建 VNI 不同的网卡，内核按 VNI 分开，Hysteria 配置不用改：
+
+```bash
+ip link add vx1 type vxlan id 600 dev hytun0 local 10.200.0.2 remote 10.200.0.1 dstport 4789 nolearning df unset
+```
+
+重启服务端后，客户端的 L3 连接会自己重连，`hytun0` 保持不动。VXLAN 跟着内层流量恢复。先等 `hytun0`，再执行上面的 `ip link`。单元可以用 `After=hysteria` 的 oneshot。
+
+### 本机同时当网关
+
+局域网的下一跳可以是这台 Hysteria 客户端，而不是在路由器上再建一张 VXLAN。客户端把从 `eth0` 进来的内网包转发进 `vx0`，服务端在出口网卡上做 MASQUERADE。
+
+客户端先把 QUIC 和网关钉在物理网卡上，再把默认路由放进隧道。顺序反了，QUIC 会绕进 `vx0`。
+
+```bash
+ip route replace 203.0.113.10/32 via 192.168.7.1 dev eth0
+ip rule add to 192.168.7.1/32 lookup main priority 10
+ip rule add to 203.0.113.10/32 lookup main priority 11
+
+sysctl -w net.ipv4.ip_forward=1
+sysctl -w net.ipv4.conf.all.rp_filter=2
+sysctl -w net.ipv4.conf.eth0.rp_filter=2
+sysctl -w net.ipv4.conf.vx0.rp_filter=2
+sysctl -w net.ipv4.conf.hytun0.rp_filter=2
+
+ip route replace default via 10.201.0.1 dev vx0 metric 5
+iptables -A FORWARD -i eth0 -o vx0 -j ACCEPT
+iptables -A FORWARD -i vx0 -o eth0 -j ACCEPT
+iptables -t mangle -A FORWARD -i vx0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+iptables -t mangle -A FORWARD -o vx0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+```
+
+`203.0.113.10` 换成服务器的公网地址。DHCP 带来的默认路由留着，metric 设得比 5 大，隧道Down 了才用它。客户端不对隧道做 NAT，服务端因此能看见真实的内网地址。
+
+服务端：
+
+```bash
+ip route replace 192.168.7.0/24 via 10.201.0.2 dev vx0
+iptables -t nat -A POSTROUTING -s 192.168.7.0/24 -o ens4 -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 10.201.0.0/24 -o ens4 -j MASQUERADE
+```
+
+路由器上给要走这条路的源地址单独一张表，默认网关写成这台客户端。去局域网的规则排在它前面，避免同网段也绕进隧道。客户端发往服务器的 QUIC 在路由器上只查 main，排在其它策略路由前面。
+
+## 远程网卡
+
+Hysteria 不创建 `hytun0`。它在 `relay.listen` 上收 UDP，把 VXLAN 载荷补成一颗外层 IPv4/UDP，再交给原来的 L3 通道。对端收到的包和从 `hytun0` 读出来的是同一种。隧道里的 UDP 目的端口固定是 4789。`name` 和 `mtu` 不使用。`address` 可以写前缀，也可以只写地址，必须和对端成对。
+
+`listen` 写成这块网卡自己的地址，不要写 `0.0.0.0`。发回 VTEP 时，源地址就是它。监听端口可以不用 4789，这样本机还能留着一张内核 VXLAN。改端口时，VTEP 的 `dstport` 和 `vtep` 的端口一起改。
+
+每个 VNI 对应一个 VTEP。表里没有的 VNI，两个方向都丢。从局域网进来的包，源地址必须等于该 VNI 的 `vtep`，或者落在 `allow` 里。回去的包总是发到配置的那个 `vtep`，不写端口时用 4789。一个 VNI 只写一个回程地址。换了发送 VXLAN 的机器，就要改 `vtep` 并重载配置，否则回程还是送到旧地址。
+
+外层 UDP 源端口不沿用 VTEP 原来的端口。有的 VTEP 所有流都用同一个端口，会挤进同一条 QUIC stream。中继按内层以太网帧里的 IP 流重新取源端口。
+
+```text
+本地 VTEP
+    |  UDP，目的是客户端 listen
+客户端中继   外层头 10.200.0.2 -> 10.200.0.1:4789
+    |
+    QUIC
+    |
+服务端中继   按 VNI 交给各自的远端 VTEP
+    |
+远端 VTEP 1 、远端 VTEP 2
+```
+
+### 客户端
+
+```yaml
+l3tun:
+  type: relay
+  mode: stream
+  address: 10.200.0.2/30
+  peer: 10.200.0.1
+  relay:
+    listen: 192.168.7.62:4789
+    vnis:
+      - vni: 501
+        vtep: 192.168.7.64
+      - vni: 502
+        vtep: 192.168.7.64
+```
+
+两个 VNI 可以共用一个 VTEP，也可以写成不同的 `vtep`。`allow` 用来放地址不固定的 VTEP，例如：
+
+```yaml
+      - vni: 501
+        vtep: 192.168.7.64
+        allow: [192.168.7.0/24]
+```
+
+客户端自己的 QUIC 仍要钉在物理网卡上，写法和本机网卡那一节相同。中继进程不持有默认路由，钉的是这台 Hysteria 主机，不是旁边那台 VTEP。
+
+### 服务端
+
+`address` / `peer` 对调。`listen` 用云主机上 Hysteria 能收到包的地址。每个远端 VTEP 一个 VNI。
+
+```yaml
+l3tun:
+  type: relay
+  mode: stream
+  address: 10.200.0.1/30
+  peer: 10.200.0.2
+  relay:
+    listen: 10.0.0.2:4789
+    vnis:
+      - vni: 501
+        vtep: 198.51.100.10:4789
+      - vni: 502
+        vtep: 198.51.100.20:4789
+```
+
+服务端只做 L3 时，`acl` 用 `reject(all)`，这个端口不再做 TCP/UDP 代理。云厂商的防火墙要放行 UDP 4789，因为这段 VXLAN 是明文，在 QUIC 外面。
+
+### 本地 VTEP
+
+这台机器只跑内核 VXLAN，不跑 Hysteria。`remote` 指向客户端中继的 `listen`。`local` 必须等于客户端配置里的 `vtep`。`dstport` 和 `listen` 的端口一致。
+
+Linux 上多张 VXLAN 可以共用 UDP 4789，按 VNI 分开。`nolearning` 加上单个 `remote` 之后，单播也发给这一个中继。
+
+```bash
+ip link add vxlan501 type vxlan id 501 dev eth0 local 192.168.7.64 remote 192.168.7.62 dstport 4789 nolearning df unset
+ip link add vxlan502 type vxlan id 502 dev eth0 local 192.168.7.64 remote 192.168.7.62 dstport 4789 nolearning df unset
+ip link set vxlan501 mtu 1410
+ip link set vxlan502 mtu 1410
+ip addr replace 10.88.15.2/24 dev vxlan501
+ip addr replace 10.88.16.2/24 dev vxlan502
+ip link set vxlan501 up
+ip link set vxlan502 up
+
+sysctl -w net.ipv4.ip_forward=1
+sysctl -w net.ipv4.conf.all.rp_filter=2
+sysctl -w net.ipv4.conf.eth0.rp_filter=2
+sysctl -w net.ipv4.conf.vxlan501.rp_filter=2
+sysctl -w net.ipv4.conf.vxlan502.rp_filter=2
+
+ip route replace default via 10.88.15.1 dev vxlan501 metric 5
+iptables -A FORWARD -i eth0 -o vxlan501 -j ACCEPT
+iptables -A FORWARD -i vxlan501 -o eth0 -j ACCEPT
+iptables -A FORWARD -i eth0 -o vxlan502 -j ACCEPT
+iptables -A FORWARD -i vxlan502 -o eth0 -j ACCEPT
+iptables -t mangle -A FORWARD -o vxlan501 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+iptables -t mangle -A FORWARD -i vxlan501 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+iptables -t mangle -A FORWARD -o vxlan502 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+iptables -t mangle -A FORWARD -i vxlan502 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+```
+
+`192.168.7.62` 在 `eth0` 的直连网段里，所以发往中继的 UDP 不会跟默认路由进隧道。默认路由选其中一个 VNI 当上网出口，另一个 VNI 只靠自己的直连网段到达。DHCP 的默认路由保留，metric 大于 5。
+
+路由器把使用者的源地址查到一张新表，默认网关写成这台 VTEP。去 `192.168.7.0/24` 的规则放在更前面。VTEP 的下一跳在 VXLAN 上，不在进来的那块网卡上，所以它不会让源主机改走直连。
+
+### 远端 VTEP
+
+远端也是内核 VXLAN，`remote` 写成它实际要发 UDP 的地址。服务端在云上、出口做了 NAT 时，这个地址是 Hysteria 服务器的公网地址，不是网卡上的内网地址。中继里的 `vtep` 则写成服务器看见的源地址，也就是远端的公网地址。`local` 用远端自己的内网地址。再写一条主机路由，把发往 Hysteria 服务器的包留在物理网卡上。
+
+```bash
+ip route replace 203.0.113.10/32 via 10.0.0.1 dev ens4
+ip link add vx0 type vxlan id 501 dev ens4 local 10.0.0.2 remote 203.0.113.10 dstport 4789 nolearning df unset
+ip link set vx0 mtu 1410
+ip addr replace 10.88.15.1/24 dev vx0
+ip link set vx0 up
+
+sysctl -w net.ipv4.ip_forward=1
+sysctl -w net.ipv4.conf.all.rp_filter=2
+sysctl -w net.ipv4.conf.ens4.rp_filter=2
+sysctl -w net.ipv4.conf.vx0.rp_filter=2
+
+ip route replace 192.168.7.0/24 via 10.88.15.2 dev vx0
+iptables -I INPUT -p udp --dport 4789 -j ACCEPT
+iptables -A FORWARD -i vx0 -j ACCEPT
+iptables -A FORWARD -o vx0 -j ACCEPT
+iptables -t nat -A POSTROUTING -s 10.88.15.0/24 -o ens4 -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 192.168.7.0/24 -o ens4 -j MASQUERADE
+iptables -t mangle -A FORWARD -i vx0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+iptables -t mangle -A FORWARD -o vx0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+```
+
+第二个远端换 VNI、网段和 `local`。两边的内层地址要能对上：本地 `10.88.15.2` 的下一跳是远端 `10.88.15.1`，远端回 `192.168.7.0/24` 时下一跳是 `10.88.15.2`。
+
+这些 `ip` 和 `iptables` 放进开机的 oneshot。只在 shell 里跑一次，重启后 VXLAN 和 NAT 都会消失。
+
+### 远程网卡的 MTU
+
+封装是 50 字节。内层 1500 会变成大约 1550，本机网卡模式下这颗包在 `hytun0` 的 1600 里面。远程网卡多了一跳明文 UDP：服务端中继把包发给远端 VTEP。那块网卡如果是 1460，1550 会被丢掉或再分片。把这一对 VTEP 的 MTU 设成路径 MTU 减 50。1460 的网卡用 1410。
+
+确认时用不允许分片的 ping。1410 字节的 IP 包，ICMP 载荷是 1382：
+
+```bash
+ping -M do -s 1382 -c 3 10.88.15.1
+ping -M do -s 1472 -c 3 10.88.15.1
+```
+
+1382 通、1472 不通，说明 MTU 卡在 1410，而不是隧道本身只有这么大。
+
+局域网是 1500、VTEP 又把 DF 关掉时，大约 1550 字节的 VXLAN 会在到达中继之前被分成 IP 分片，内核会先拼回去。中继往回送时，Linux 上把 `IP_MTU_DISCOVER` 设成不禁止分片。VTEP 和中继之间能开到 1600 以上，就不必依赖分片。
+
+### RouterOS 当 VTEP
+
+`remote-ip` 只决定泛洪发给谁，单播靠学习，所以不要把 `learning` 关掉。`local-address` 必须等于中继配置里的 `vtep`。`port` 同时用于监听和发送。同一 VRF 里多张 VXLAN 可以共用 4789。
+
+```routeros
+/interface vxlan
+add name=vxlan501 vni=501 port=4789 local-address=192.168.7.1 dont-fragment=disabled mtu=1410
+/interface vxlan vteps
+add interface=vxlan501 remote-ip=192.168.7.62
+```
+
+`dont-fragment=disabled` 会让支持硬件卸载的设备改走慢路径。实测同一帧会从路由器出去两次，相隔约 1 微秒，两个 VNI 都这样。中继只是原样转发，iperf 的 UDP 丢包比例会被重复包算乱。单个 `remote` 的这一跳用上面的 Linux VTEP：`nolearning` 每个内层包只发一份。
+
+## 客户端和服务器的四种配法
+
+`address` 和 `peer` 始终成对。下面只列隧道段，监听、认证、TLS、带宽保持原有写法。
+
+| 客户端 | 服务端 | VXLAN 放在 |
+| --- | --- | --- |
+| `tun` | `tun` | 两端都在 Hysteria 本机的 `hytun0` 上 |
+| `relay` | `tun` | 客户端交给局域网 VTEP，服务端在 `hytun0` 上终结 |
+| `tun` | `relay` | 客户端在 `hytun0` 上发出，服务端交给自己的 VTEP |
+| `relay` | `relay` | 两端各自交给自己的 VTEP。一条 QUIC 上可以有多个 VNI |
+
+客户端中继、服务端本机网卡：
+
+```yaml
+# 客户端
+l3tun:
+  type: relay
+  mode: stream
+  address: 10.200.0.2/30
+  peer: 10.200.0.1
+  relay:
+    listen: 192.168.7.62:4789
+    vnis:
+      - vni: 500
+        vtep: 192.168.7.64
+
+# 服务端
+l3tun:
+  name: hytun0
+  mtu: 1600
+  address: 10.200.0.1/30
+  peer: 10.200.0.2
+  mode: stream
+```
+
+服务端的 `vx0` 仍建在 `hytun0` 上，`local 10.200.0.1 remote 10.200.0.2`。它看见的外层包就是中继补出来的那一颗。
+
+客户端本机网卡、服务端中继：把上面两段对调。客户端的 `vx0` 建在 `hytun0` 上。服务端按 VNI 把包发给 `vtep`。
+
+字段：
+
+| 字段 | 本机网卡 | 远程网卡 |
+| --- | --- | --- |
+| `name` | TUN 名称 | 不使用 |
+| `mtu` | 省略为 1600，上限 1600 | 不使用 |
+| `address` | 本端前缀，程序配置到网卡上 | 写进外层 IP 头，前缀或单个地址 |
+| `peer` | 对端地址 | 外层 IP 的目的地址，和对端 `address` 成对 |
+| `mode` | `datagram` 或 `stream` | 相同 |
+| `relay.listen` | 无 | 本机网卡地址加端口 |
+| `relay.vnis[].vni` | 无。VNI 由内核 VXLAN 区分 | 1 到 16777215，不能重复 |
+| `relay.vnis[].vtep` | 无 | 这个 VNI 的回程 `主机:端口`，端口可省略 |
+| `relay.vnis[].allow` | 无 | 除 `vtep` 之外还接受的源前缀 |
+
+写入本机 TUN 之前，会核对 IP 源地址等于 `peer`。中继下行同样核对：外层源是 `peer`，目的是本端 `address`，UDP 目的端口 4789，并且 VNI 在表里。服务端只保留最近一个请求了 L3 的连接。没有对端时，从本机读到的包直接丢弃。流量计入现有的 `TrafficLogger`，方向和 UDP 代理一致。
+
+## 验证
+
+本机网卡，在客户端：
+
+```bash
+ping -M do -s 1472 -c 3 10.201.0.1
+```
+
+1472 字节载荷加上内层 IP 头是 1500。通了，说明 1600 的隧道装得下整颗 VXLAN。
+
+远程网卡，在本地 VTEP 上分别打两个内层地址，再从走策略路由的那台主机看出口：
+
+```bash
+ping -c 3 10.88.15.1
+ping -c 3 10.88.16.1
+ping -M do -s 1382 -c 3 10.88.15.1
+curl -4 https://ifconfig.me
+```
+
+吞吐：
+
+```bash
+# 远端 VTEP
+iperf3 -s -B 10.88.15.1 -p 5201
+
+# 本地 VTEP 或策略路由后面的主机
+iperf3 -c 10.88.15.1 -t 10
+iperf3 -c 10.88.15.1 -u -b 40M -t 10
+iperf3 -c 10.88.15.1 -u -b 40M -t 10 -R
+```
+
+帧被复制时，UDP 的接收报文数会多于发送数，iperf 的丢包百分比不能当丢包。看发送端自己的丢失计数，以及接收速率有没有高于发送速率。TCP 的接收速率和重传次数仍然可用。

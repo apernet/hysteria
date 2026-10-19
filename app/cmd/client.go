@@ -37,6 +37,7 @@ import (
 	"github.com/apernet/hysteria/app/v2/internal/tun"
 	"github.com/apernet/hysteria/app/v2/internal/url"
 	"github.com/apernet/hysteria/app/v2/internal/utils"
+	"github.com/apernet/hysteria/app/v2/internal/vxrelay"
 	"github.com/apernet/hysteria/core/v2/client"
 	"github.com/apernet/hysteria/extras/v2/correctnet"
 	"github.com/apernet/hysteria/extras/v2/obfs"
@@ -230,13 +231,46 @@ type tcpRedirectConfig struct {
 }
 
 type l3TunConfig struct {
-	Name    string `mapstructure:"name"`
-	MTU     uint32 `mapstructure:"mtu"`
-	Address string `mapstructure:"address"`
-	Peer    string `mapstructure:"peer"`
-	Mode    string `mapstructure:"mode"`
-	Lanes   int    `mapstructure:"lanes"`
+	Name    string        `mapstructure:"name"`
+	MTU     uint32        `mapstructure:"mtu"`
+	Address string        `mapstructure:"address"`
+	Peer    string        `mapstructure:"peer"`
+	Mode    string        `mapstructure:"mode"`
+	Lanes   int           `mapstructure:"lanes"`
+	Type    string        `mapstructure:"type"`
+	Relay   l3RelayConfig `mapstructure:"relay"`
 }
+
+type l3RelayConfig struct {
+	Listen string       `mapstructure:"listen"`
+	VNIs   []l3RelayVNI `mapstructure:"vnis"`
+}
+
+type l3RelayVNI struct {
+	VNI   uint32   `mapstructure:"vni"`
+	VTEP  string   `mapstructure:"vtep"`
+	Allow []string `mapstructure:"allow"`
+}
+
+// l3PacketConn is the tunnel side shared by a local TUN and a LAN relay.
+type l3PacketConn interface {
+	Send(ipPkt []byte) error
+	Receive() ([]byte, error)
+}
+
+// l3Device copies IP packets for one L3 tunnel. type selects the device.
+type l3Device interface {
+	Serve(conn l3PacketConn) error
+	Close() error
+}
+
+type tunL3 struct{ *tun.Raw }
+
+func (d tunL3) Serve(conn l3PacketConn) error { return d.Raw.Serve(conn) }
+
+type relayL3 struct{ *vxrelay.Relay }
+
+func (d relayL3) Serve(conn l3PacketConn) error { return d.Relay.Serve(conn) }
 
 type tunConfig struct {
 	Name    string        `mapstructure:"name"`
@@ -948,7 +982,7 @@ func runClient(v *viper.Viper) {
 			return tunServer.Serve()
 		})
 	}
-	var l3Dev *tun.Raw
+	var l3Dev l3Device
 	if config.L3TUN != nil {
 		l3Dev, err = newL3Device(*config.L3TUN)
 		if err != nil {
@@ -956,8 +990,9 @@ func runClient(v *viper.Viper) {
 			logger.Fatal("failed to load client config", zap.Error(err))
 		}
 		defer l3Dev.Close()
-		runner.Add("L3 TUN", func() error {
-			logger.Info("L3 TUN listening", zap.String("interface", config.L3TUN.Name))
+		mode, field := l3ListenLog(*config.L3TUN)
+		runner.Add(mode, func() error {
+			logger.Info(mode+" listening", field)
 			l3, err := c.L3()
 			if err != nil {
 				return err
@@ -1202,7 +1237,29 @@ func clientTCPRedirect(config tcpRedirectConfig, c client.Client) error {
 	return p.ListenAndServe(laddr)
 }
 
-func newL3Device(config l3TunConfig) (*tun.Raw, error) {
+func l3ListenLog(config l3TunConfig) (string, zap.Field) {
+	if strings.EqualFold(strings.TrimSpace(config.Type), "relay") {
+		return "L3 relay", zap.String("listen", config.Relay.Listen)
+	}
+	return "L3 TUN", zap.String("interface", config.Name)
+}
+
+func newL3Device(config l3TunConfig) (l3Device, error) {
+	switch strings.ToLower(strings.TrimSpace(config.Type)) {
+	case "", "tun":
+		dev, err := newL3TUN(config)
+		if err != nil {
+			return nil, err
+		}
+		return tunL3{dev}, nil
+	case "relay":
+		return newL3Relay(config)
+	default:
+		return nil, configError{Field: "l3tun.type", Err: fmt.Errorf("unsupported type %q", config.Type)}
+	}
+}
+
+func newL3TUN(config l3TunConfig) (*tun.Raw, error) {
 	if config.Name == "" {
 		return nil, configError{Field: "l3tun.name", Err: errors.New("name is empty")}
 	}
@@ -1226,6 +1283,98 @@ func newL3Device(config l3TunConfig) (*tun.Raw, error) {
 	}
 	dev.Logger = logger
 	return dev, nil
+}
+
+func newL3Relay(config l3TunConfig) (l3Device, error) {
+	local, err := parseL3Addr(config.Address)
+	if err != nil {
+		return nil, configError{Field: "l3tun.address", Err: err}
+	}
+	if config.Peer == "" {
+		return nil, configError{Field: "l3tun.peer", Err: errors.New("peer is empty")}
+	}
+	peer, err := netip.ParseAddr(config.Peer)
+	if err != nil {
+		return nil, configError{Field: "l3tun.peer", Err: err}
+	}
+	peer = peer.Unmap()
+	if local.Is4() != peer.Is4() {
+		return nil, configError{Field: "l3tun", Err: errors.New("address and peer are different IP versions")}
+	}
+	if config.Relay.Listen == "" {
+		return nil, configError{Field: "l3tun.relay.listen", Err: errors.New("listen is empty")}
+	}
+	if len(config.Relay.VNIs) == 0 {
+		return nil, configError{Field: "l3tun.relay.vnis", Err: errors.New("at least one vni is required")}
+	}
+	seen := make(map[uint32]struct{}, len(config.Relay.VNIs))
+	vnis := make([]vxrelay.VNI, 0, len(config.Relay.VNIs))
+	for i, item := range config.Relay.VNIs {
+		field := fmt.Sprintf("l3tun.relay.vnis[%d]", i)
+		if item.VNI == 0 || item.VNI > 0xffffff {
+			return nil, configError{Field: field + ".vni", Err: fmt.Errorf("vni %d is outside 1-16777215", item.VNI)}
+		}
+		if _, dup := seen[item.VNI]; dup {
+			return nil, configError{Field: field + ".vni", Err: fmt.Errorf("duplicate vni %d", item.VNI)}
+		}
+		seen[item.VNI] = struct{}{}
+		vtep, err := parseVTEP(item.VTEP)
+		if err != nil {
+			return nil, configError{Field: field + ".vtep", Err: err}
+		}
+		allow := make([]netip.Prefix, 0, len(item.Allow))
+		for j, raw := range item.Allow {
+			prefix, err := netip.ParsePrefix(raw)
+			if err != nil {
+				return nil, configError{Field: fmt.Sprintf("%s.allow[%d]", field, j), Err: err}
+			}
+			allow = append(allow, prefix)
+		}
+		vnis = append(vnis, vxrelay.VNI{ID: item.VNI, VTEP: vtep, Allow: allow})
+	}
+	relay, err := vxrelay.New(vxrelay.Config{
+		Listen:  config.Relay.Listen,
+		Address: local,
+		Peer:    peer,
+		VNIs:    vnis,
+	})
+	if err != nil {
+		return nil, configError{Field: "l3tun.relay", Err: err}
+	}
+	relay.Logger = logger
+	return relayL3{relay}, nil
+}
+
+func parseL3Addr(value string) (netip.Addr, error) {
+	if value == "" {
+		return netip.Addr{}, errors.New("address is empty")
+	}
+	if prefix, err := netip.ParsePrefix(value); err == nil {
+		return prefix.Addr().Unmap(), nil
+	}
+	addr, err := netip.ParseAddr(value)
+	if err != nil {
+		return netip.Addr{}, err
+	}
+	return addr.Unmap(), nil
+}
+
+func parseVTEP(value string) (netip.AddrPort, error) {
+	if value == "" {
+		return netip.AddrPort{}, errors.New("vtep is empty")
+	}
+	if ap, err := netip.ParseAddrPort(value); err == nil {
+		port := ap.Port()
+		if port == 0 {
+			port = 4789
+		}
+		return netip.AddrPortFrom(ap.Addr().Unmap(), port), nil
+	}
+	addr, err := netip.ParseAddr(value)
+	if err != nil {
+		return netip.AddrPort{}, err
+	}
+	return netip.AddrPortFrom(addr.Unmap(), 4789), nil
 }
 
 func newTUNServer(config tunConfig, c client.Client) (*tun.Server, error) {

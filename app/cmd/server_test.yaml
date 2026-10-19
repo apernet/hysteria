@@ -188,3 +188,10 @@ l3tun:
   peer: 10.200.0.2
   mode: stream
   lanes: 8
+  type: tun
+  relay:
+    listen: 127.0.0.1:4789
+    vnis:
+      - vni: 500
+        vtep: 192.168.7.1:4789
+        allow: [ 192.168.7.0/24 ]

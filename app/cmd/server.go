@@ -41,7 +41,6 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"github.com/apernet/hysteria/app/v2/internal/firewall"
-	"github.com/apernet/hysteria/app/v2/internal/tun"
 	"github.com/apernet/hysteria/app/v2/internal/utils"
 	"github.com/apernet/hysteria/core/v2/server"
 	"github.com/apernet/hysteria/extras/v2/auth"
@@ -1739,7 +1738,7 @@ func runServer(v *viper.Viper) {
 	if err != nil {
 		logger.Fatal("failed to initialize server", zap.Error(err))
 	}
-	var l3Dev *tun.Raw
+	var l3Dev l3Device
 	if config.L3TUN != nil {
 		l3Dev, err = newL3Device(*config.L3TUN)
 		if err != nil {
@@ -1751,9 +1750,10 @@ func runServer(v *viper.Viper) {
 		}
 		defer l3Dev.Close()
 		go func() {
-			logger.Info("L3 TUN listening", zap.String("interface", config.L3TUN.Name))
+			mode, field := l3ListenLog(*config.L3TUN)
+			logger.Info(mode+" listening", field)
 			if err := l3Dev.Serve(l3Conn); err != nil {
-				logger.Error("L3 TUN stopped", zap.Error(err))
+				logger.Error(mode+" stopped", zap.Error(err))
 			}
 		}()
 	}

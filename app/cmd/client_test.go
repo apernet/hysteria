@@ -159,6 +159,15 @@ func TestClientConfig(t *testing.T) {
 			Peer:    "10.200.0.1",
 			Mode:    "stream",
 			Lanes:   8,
+			Type:    "tun",
+			Relay: l3RelayConfig{
+				Listen: "127.0.0.1:4789",
+				VNIs: []l3RelayVNI{{
+					VNI:   500,
+					VTEP:  "192.168.7.1:4789",
+					Allow: []string{"192.168.7.0/24"},
+				}},
+			},
 		},
 	})
 }
