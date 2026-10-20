@@ -268,9 +268,70 @@ type tunL3 struct{ *tun.Raw }
 
 func (d tunL3) Serve(conn l3PacketConn) error { return d.Raw.Serve(conn) }
 
-type relayL3 struct{ *vxrelay.Relay }
+// l3Reloader replaces the VNI table of a running relay without touching the tunnel.
+type l3Reloader interface {
+	Reload(l3TunConfig) (vxrelay.TableDiff, error)
+}
 
-func (d relayL3) Serve(conn l3PacketConn) error { return d.Relay.Serve(conn) }
+type relayL3 struct {
+	*vxrelay.Relay
+	cfg l3TunConfig
+}
+
+func (d *relayL3) Serve(conn l3PacketConn) error { return d.Relay.Serve(conn) }
+
+// Reload applies a new VNI table. type, address, peer, mode, lanes, and
+// relay.listen stay as they were at startup; a change is logged and ignored.
+func (d *relayL3) Reload(next l3TunConfig) (vxrelay.TableDiff, error) {
+	d.warnImmutable(next)
+	vnis, err := parseRelayVNIs(next.Relay)
+	if err != nil {
+		return vxrelay.TableDiff{}, err
+	}
+	return d.SetVNIs(vnis)
+}
+
+func (d *relayL3) warnImmutable(next l3TunConfig) {
+	var changed []string
+	if normalizeL3Type(next.Type) != normalizeL3Type(d.cfg.Type) {
+		changed = append(changed, "type")
+	}
+	if next.Address != d.cfg.Address {
+		changed = append(changed, "address")
+	}
+	if next.Peer != d.cfg.Peer {
+		changed = append(changed, "peer")
+	}
+	if normalizeL3Mode(next.Mode) != normalizeL3Mode(d.cfg.Mode) {
+		changed = append(changed, "mode")
+	}
+	if next.Lanes != d.cfg.Lanes {
+		changed = append(changed, "lanes")
+	}
+	if next.Relay.Listen != d.cfg.Relay.Listen {
+		changed = append(changed, "relay.listen")
+	}
+	if len(changed) == 0 {
+		return
+	}
+	l3Logger().Warn("L3 reload ignored fields that need a restart", zap.Strings("fields", changed))
+}
+
+func normalizeL3Type(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return "tun"
+	}
+	return value
+}
+
+func normalizeL3Mode(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return "datagram"
+	}
+	return value
+}
 
 type tunConfig struct {
 	Name    string        `mapstructure:"name"`
@@ -1005,6 +1066,15 @@ func runClient(v *viper.Viper) {
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signalChan)
 
+	hupChan := make(chan os.Signal, 1)
+	signal.Notify(hupChan, syscall.SIGHUP)
+	defer signal.Stop(hupChan)
+	go func() {
+		for range hupChan {
+			reloadL3(v, l3Dev, decodeL3Tun(v))
+		}
+	}()
+
 	runnerChan := make(chan clientModeRunnerResult, 1)
 	go func() {
 		runnerChan <- runner.Run()
@@ -1304,12 +1374,30 @@ func newL3Relay(config l3TunConfig) (l3Device, error) {
 	if config.Relay.Listen == "" {
 		return nil, configError{Field: "l3tun.relay.listen", Err: errors.New("listen is empty")}
 	}
-	if len(config.Relay.VNIs) == 0 {
+	vnis, err := parseRelayVNIs(config.Relay)
+	if err != nil {
+		return nil, err
+	}
+	relay, err := vxrelay.New(vxrelay.Config{
+		Listen:  config.Relay.Listen,
+		Address: local,
+		Peer:    peer,
+		VNIs:    vnis,
+	})
+	if err != nil {
+		return nil, configError{Field: "l3tun.relay", Err: err}
+	}
+	relay.Logger = logger
+	return &relayL3{Relay: relay, cfg: config}, nil
+}
+
+func parseRelayVNIs(cfg l3RelayConfig) ([]vxrelay.VNI, error) {
+	if len(cfg.VNIs) == 0 {
 		return nil, configError{Field: "l3tun.relay.vnis", Err: errors.New("at least one vni is required")}
 	}
-	seen := make(map[uint32]struct{}, len(config.Relay.VNIs))
-	vnis := make([]vxrelay.VNI, 0, len(config.Relay.VNIs))
-	for i, item := range config.Relay.VNIs {
+	seen := make(map[uint32]struct{}, len(cfg.VNIs))
+	vnis := make([]vxrelay.VNI, 0, len(cfg.VNIs))
+	for i, item := range cfg.VNIs {
 		field := fmt.Sprintf("l3tun.relay.vnis[%d]", i)
 		if item.VNI == 0 || item.VNI > 0xffffff {
 			return nil, configError{Field: field + ".vni", Err: fmt.Errorf("vni %d is outside 1-16777215", item.VNI)}
@@ -1332,17 +1420,64 @@ func newL3Relay(config l3TunConfig) (l3Device, error) {
 		}
 		vnis = append(vnis, vxrelay.VNI{ID: item.VNI, VTEP: vtep, Allow: allow})
 	}
-	relay, err := vxrelay.New(vxrelay.Config{
-		Listen:  config.Relay.Listen,
-		Address: local,
-		Peer:    peer,
-		VNIs:    vnis,
-	})
-	if err != nil {
-		return nil, configError{Field: "l3tun.relay", Err: err}
+	return vnis, nil
+}
+
+// reloadL3 re-reads the config file and replaces only the relay VNI table.
+// A bad file or a bad table leaves the running table in place.
+func reloadL3(v *viper.Viper, dev l3Device, decode func() (*l3TunConfig, error)) {
+	if dev == nil {
+		l3Logger().Warn("L3 reload skipped", zap.String("reason", "no L3 tunnel"))
+		return
 	}
-	relay.Logger = logger
-	return relayL3{relay}, nil
+	reloader, ok := dev.(l3Reloader)
+	if !ok {
+		l3Logger().Warn("L3 reload skipped", zap.String("reason", "this L3 type has no VNI table"))
+		return
+	}
+	if err := v.ReadInConfig(); err != nil {
+		l3Logger().Error("failed to reload L3 config", zap.Error(err))
+		return
+	}
+	cfg, err := decode()
+	if err != nil {
+		l3Logger().Error("failed to reload L3 config", zap.Error(err))
+		return
+	}
+	if cfg == nil {
+		l3Logger().Error("failed to reload L3 config", zap.Error(errors.New("l3tun is missing")))
+		return
+	}
+	diff, err := reloader.Reload(*cfg)
+	if err != nil {
+		l3Logger().Error("failed to reload L3 VNI table", zap.Error(err))
+		return
+	}
+	l3Logger().Info("reloaded L3 VNI table",
+		zap.Int("vnis", len(cfg.Relay.VNIs)),
+		zap.Uint32s("added", diff.Added),
+		zap.Uint32s("removed", diff.Removed),
+		zap.Uint32s("changed", diff.Changed),
+	)
+}
+
+func decodeL3Tun(v *viper.Viper) func() (*l3TunConfig, error) {
+	return func() (*l3TunConfig, error) {
+		var file struct {
+			L3TUN *l3TunConfig `mapstructure:"l3tun"`
+		}
+		if err := v.Unmarshal(&file); err != nil {
+			return nil, err
+		}
+		return file.L3TUN, nil
+	}
+}
+
+func l3Logger() *zap.Logger {
+	if logger != nil {
+		return logger
+	}
+	return zap.NewNop()
 }
 
 func parseL3Addr(value string) (netip.Addr, error) {

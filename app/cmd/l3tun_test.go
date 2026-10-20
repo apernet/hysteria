@@ -5,6 +5,57 @@ import (
 	"testing"
 )
 
+func TestRelayL3Reload(t *testing.T) {
+	base := l3TunConfig{
+		Type:    "relay",
+		Mode:    "stream",
+		Lanes:   8,
+		Address: "10.200.0.2/30",
+		Peer:    "10.200.0.1",
+		Relay: l3RelayConfig{
+			Listen: "127.0.0.1:0",
+			VNIs:   []l3RelayVNI{{VNI: 501, VTEP: "192.168.7.64"}},
+		},
+	}
+	dev, err := newL3Device(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = dev.Close() })
+	reloader, ok := dev.(l3Reloader)
+	if !ok {
+		t.Fatal("relay does not reload")
+	}
+
+	next := base
+	next.Relay.Listen = "127.0.0.1:1"
+	next.Mode = "datagram"
+	next.Relay.VNIs = []l3RelayVNI{{VNI: 502, VTEP: "192.168.7.65:4790"}}
+	diff, err := reloader.Reload(next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(diff.Added) != 1 || diff.Added[0] != 502 || len(diff.Removed) != 1 || diff.Removed[0] != 501 {
+		t.Fatalf("diff = %+v", diff)
+	}
+
+	next.Relay.VNIs = []l3RelayVNI{
+		{VNI: 502, VTEP: "192.168.7.65"},
+		{VNI: 502, VTEP: "192.168.7.66"},
+	}
+	if _, err := reloader.Reload(next); err == nil {
+		t.Fatal("duplicate vni was accepted")
+	}
+	next.Relay.VNIs = []l3RelayVNI{{VNI: 502, VTEP: "192.168.7.65:4790"}}
+	diff, err = reloader.Reload(next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(diff.Added)+len(diff.Removed)+len(diff.Changed) != 0 {
+		t.Fatalf("rejected reload changed the table: %+v", diff)
+	}
+}
+
 func TestNewL3Relay(t *testing.T) {
 	tunDev, err := newL3Device(l3TunConfig{
 		Name:    "hytun0",

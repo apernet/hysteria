@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"sync"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 )
@@ -38,7 +40,7 @@ type Relay struct {
 
 	local netip.Addr
 	peer  netip.Addr
-	table map[uint32]vniEntry
+	table atomic.Pointer[map[uint32]vniEntry]
 
 	mu     sync.Mutex
 	conn   *net.UDPConn
@@ -64,11 +66,59 @@ func New(cfg Config) (*Relay, error) {
 	if cfg.Listen == "" {
 		return nil, errors.New("listen is empty")
 	}
-	if len(cfg.VNIs) == 0 {
+	table, err := buildTable(cfg.VNIs)
+	if err != nil {
+		return nil, err
+	}
+
+	addr, err := net.ResolveUDPAddr("udp", cfg.Listen)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return nil, err
+	}
+	if err := allowFragmentation(conn); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("allow fragmentation: %w", err)
+	}
+	r := &Relay{
+		local: local,
+		peer:  peer,
+		conn:  conn,
+		done:  make(chan struct{}),
+	}
+	r.table.Store(&table)
+	return r, nil
+}
+
+// TableDiff is how a new VNI table differs from the one it replaced.
+type TableDiff struct {
+	Added   []uint32
+	Removed []uint32
+	Changed []uint32
+}
+
+// SetVNIs replaces the VNI table. Packets already being forwarded finish
+// against the previous table. An invalid table leaves the current one in place.
+func (r *Relay) SetVNIs(vnis []VNI) (TableDiff, error) {
+	next, err := buildTable(vnis)
+	if err != nil {
+		return TableDiff{}, err
+	}
+	prev := *r.table.Load()
+	diff := diffTable(prev, next)
+	r.table.Store(&next)
+	return diff, nil
+}
+
+func buildTable(vnis []VNI) (map[uint32]vniEntry, error) {
+	if len(vnis) == 0 {
 		return nil, errors.New("at least one vni is required")
 	}
-	table := make(map[uint32]vniEntry, len(cfg.VNIs))
-	for _, v := range cfg.VNIs {
+	table := make(map[uint32]vniEntry, len(vnis))
+	for _, v := range vnis {
 		if v.ID == 0 || v.ID > 0xffffff {
 			return nil, fmt.Errorf("vni %d is outside 1-16777215", v.ID)
 		}
@@ -86,26 +136,30 @@ func New(cfg Config) (*Relay, error) {
 		copy(allow, v.Allow)
 		table[v.ID] = vniEntry{vtep: vtep, allow: allow}
 	}
+	return table, nil
+}
 
-	addr, err := net.ResolveUDPAddr("udp", cfg.Listen)
-	if err != nil {
-		return nil, err
+func diffTable(prev, next map[uint32]vniEntry) TableDiff {
+	var diff TableDiff
+	for id, entry := range next {
+		old, ok := prev[id]
+		if !ok {
+			diff.Added = append(diff.Added, id)
+			continue
+		}
+		if old.vtep != entry.vtep || !slices.Equal(old.allow, entry.allow) {
+			diff.Changed = append(diff.Changed, id)
+		}
 	}
-	conn, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		return nil, err
+	for id := range prev {
+		if _, ok := next[id]; !ok {
+			diff.Removed = append(diff.Removed, id)
+		}
 	}
-	if err := allowFragmentation(conn); err != nil {
-		_ = conn.Close()
-		return nil, fmt.Errorf("allow fragmentation: %w", err)
-	}
-	return &Relay{
-		local: local,
-		peer:  peer,
-		table: table,
-		conn:  conn,
-		done:  make(chan struct{}),
-	}, nil
+	slices.Sort(diff.Added)
+	slices.Sort(diff.Removed)
+	slices.Sort(diff.Changed)
+	return diff
 }
 
 // LocalAddr is the bound LAN address. VTEPs send to it.
@@ -175,7 +229,7 @@ func (r *Relay) readLoop(udp *net.UDPConn, conn L3Conn) error {
 		if !ok {
 			continue
 		}
-		entry, ok := r.table[vni]
+		entry, ok := (*r.table.Load())[vni]
 		if !ok || !entry.allows(addr.Addr().Unmap()) {
 			continue
 		}
@@ -205,7 +259,7 @@ func (r *Relay) writeLoop(udp *net.UDPConn, conn L3Conn) error {
 		if !ok {
 			continue
 		}
-		entry, ok := r.table[vni]
+		entry, ok := (*r.table.Load())[vni]
 		if !ok {
 			continue
 		}

@@ -1771,6 +1771,15 @@ func runServer(v *viper.Viper) {
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signalChan)
 
+	hupChan := make(chan os.Signal, 1)
+	signal.Notify(hupChan, syscall.SIGHUP)
+	defer signal.Stop(hupChan)
+	go func() {
+		for range hupChan {
+			reloadL3(v, l3Dev, decodeL3Tun(v))
+		}
+	}()
+
 	serveErrChan := make(chan error, 1)
 	go func() {
 		serveErrChan <- s.Serve()

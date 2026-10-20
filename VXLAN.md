@@ -127,7 +127,7 @@ Hysteria 不创建 `hytun0`。它在 `relay.listen` 上收 UDP，把 VXLAN 载�
 
 `listen` 写成这块网卡自己的地址，不要写 `0.0.0.0`。发回 VTEP 时，源地址就是它。监听端口可以不用 4789，这样本机还能留着一张内核 VXLAN。改端口时，VTEP 的 `dstport` 和 `vtep` 的端口一起改。
 
-每个 VNI 对应一个 VTEP。表里没有的 VNI，两个方向都丢。从局域网进来的包，源地址必须等于该 VNI 的 `vtep`，或者落在 `allow` 里。回去的包总是发到配置的那个 `vtep`，不写端口时用 4789。一个 VNI 只写一个回程地址。换了发送 VXLAN 的机器，就要改 `vtep` 并重载配置，否则回程还是送到旧地址。
+每个 VNI 对应一个 VTEP。表里没有的 VNI，两个方向都丢。从局域网进来的包，源地址必须等于该 VNI 的 `vtep`，或者落在 `allow` 里。回去的包总是发到配置的那个 `vtep`，不写端口时用 4789。一个 VNI 只写一个回程地址。换了发送 VXLAN 的机器，就要改两端的 `vtep`，然后按下面的热重载换表，不用重启。只改一边时，另一边仍按旧表转发。
 
 外层 UDP 源端口不沿用 VTEP 原来的端口。有的 VTEP 所有流都用同一个端口，会挤进同一条 QUIC stream。中继按内层以太网帧里的 IP 流重新取源端口。
 
@@ -190,6 +190,26 @@ l3tun:
 ```
 
 服务端只做 L3 时，`acl` 用 `reject(all)`，这个端口不再做 TCP/UDP 代理。这段 VXLAN 在 QUIC 外面。走公网时，云厂商的防火墙要放行 UDP 4789。服务端和远端在同一个云内网时，只放行对端的内网地址，不要对公网放行。
+
+### 热重载 VNI
+
+`l3tun.relay.vnis` 可以在进程运行时换掉。QUIC 连接、L3 通道和 `relay.listen` 上的 UDP socket 都不动。表换掉之后，下一个包按新表转发；正在处理的那一颗包仍用旧表。
+
+两端的 `hysteria-thv.service` 加上这一行，然后执行 `systemctl daemon-reload`：
+
+```ini
+ExecReload=/bin/kill -HUP $MAINPID
+```
+
+增加、删除、修改一个 VNI，或者只改某个 VNI 的 `vtep` / `allow`：
+
+1. 两端的配置都改好 `vnis`。只改一边时，另一边仍按旧表转发，这条 VNI 不通。
+2. 两端各执行 `systemctl reload hysteria-thv`。先后顺序不限。
+3. 增加 VNI 时，两边 reload 完成后再在 VTEP 上执行 `ip link add`。删除时先拆掉 VTEP 上的网卡，再 reload。这样不会出现 VTEP 已经在发、中继表里还没有这条 VNI 的窗口。
+
+配置读不出来，或者新表不合法（VNI 重复、超出 1 到 16777215、一条都没有），旧表继续用，日志里有错误。
+
+`type`、`address`、`peer`、`mode`、`lanes`、`relay.listen` 不会热生效。这些字段变了仍要重启两端的 `hysteria-thv`。重载时如果发现它们变了，只记一条警告，进程里继续用启动时的值。
 
 ### 本地 VTEP
 
