@@ -93,6 +93,7 @@ type serverConfig struct {
 	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
 	TrafficStats          serverConfigTrafficStats    `mapstructure:"trafficStats"`
 	Masquerade            serverConfigMasquerade      `mapstructure:"masquerade"`
+	L3TUN                 *l3TunConfig                `mapstructure:"l3tun"`
 }
 
 type serverConfigRealm struct {
@@ -1450,6 +1451,15 @@ func (c *serverConfig) fillDisableUDP(hyConfig *server.Config) error {
 	return nil
 }
 
+func (c *serverConfig) fillL3(hyConfig *server.Config) error {
+	hyConfig.EnableL3 = c.L3TUN != nil
+	if c.L3TUN != nil {
+		hyConfig.L3Mode = c.L3TUN.Mode
+		hyConfig.L3Lanes = c.L3TUN.Lanes
+	}
+	return nil
+}
+
 func (c *serverConfig) fillUDPIdleTimeout(hyConfig *server.Config) error {
 	hyConfig.UDPIdleTimeout = c.UDPIdleTimeout
 	return nil
@@ -1679,6 +1689,7 @@ func (c *serverConfig) Config() (*server.Config, error) {
 		c.fillEventLogger,
 		c.fillTrafficLogger,
 		c.fillMasqHandler,
+		c.fillL3,
 	}
 	for _, f := range fillers {
 		if err := f(hyConfig); err != nil {
@@ -1727,6 +1738,25 @@ func runServer(v *viper.Viper) {
 	if err != nil {
 		logger.Fatal("failed to initialize server", zap.Error(err))
 	}
+	var l3Dev l3Device
+	if config.L3TUN != nil {
+		l3Dev, err = newL3Device(*config.L3TUN)
+		if err != nil {
+			logger.Fatal("failed to load server config", zap.Error(err))
+		}
+		l3Conn, err := s.L3()
+		if err != nil {
+			logger.Fatal("failed to enable L3 tunnel", zap.Error(err))
+		}
+		defer l3Dev.Close()
+		go func() {
+			mode, field := l3ListenLog(*config.L3TUN)
+			logger.Info(mode+" listening", field)
+			if err := l3Dev.Serve(l3Conn); err != nil {
+				logger.Error(mode+" stopped", zap.Error(err))
+			}
+		}()
+	}
 	if config.Listen != "" {
 		logger.Info("server up and running", zap.String("listen", config.Listen))
 	} else {
@@ -1740,6 +1770,15 @@ func runServer(v *viper.Viper) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signalChan)
+
+	hupChan := make(chan os.Signal, 1)
+	signal.Notify(hupChan, syscall.SIGHUP)
+	defer signal.Stop(hupChan)
+	go func() {
+		for range hupChan {
+			reloadL3(v, l3Dev, decodeL3Tun(v))
+		}
+	}()
 
 	serveErrChan := make(chan error, 1)
 	go func() {
@@ -1757,6 +1796,9 @@ func runServer(v *viper.Viper) {
 		}
 	case err := <-serveErrChan:
 		if err != nil {
+			if l3Dev != nil {
+				_ = l3Dev.Close()
+			}
 			logger.Fatal("failed to serve", zap.Error(err))
 		}
 	}
